@@ -3,12 +3,14 @@
 # 说明：nginx 对外 8080（云端 80 已被建税盾系统占用，故避开）；mysql/redis 仅内部网络，不暴露到公网。
 # 出片微服务仍在本地 Windows，经 frp 暴露到云服务器 127.0.0.1:8500，
 # app 容器通过 host.docker.internal:8500 经 host-gateway 访问。
+# restart: always —— 云服务器/ Docker 重启后容器自动拉起，避免 502。
 
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    restart: always
     volumes:
       - .:/var/www
     # 让容器能访问云服务器宿主机的 frp 穿透端口（本地出片微服务）
@@ -19,6 +21,7 @@ services:
 
   nginx:
     image: nginx:alpine
+    restart: always
     ports:
       - "8080:80"
     volumes:
@@ -31,6 +34,7 @@ services:
 
   mysql:
     image: mysql:8.0
+    restart: always
     environment:
       MYSQL_DATABASE: hgt_commercial
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpass_change_me}
@@ -49,6 +53,7 @@ services:
 
   redis:
     image: redis:alpine
+    restart: always
     networks:
       - hgt
 
