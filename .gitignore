@@ -1,0 +1,61 @@
+/.phpunit.cache
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+
+# ===== 密钥/敏感文件：绝不入库 =====
+model_keys.env
+**/model_keys.env
+*.env.local
+
+# ===== 本地验证脚本（含 Windows 绝对路径，仅本机用）=====
+_*.py
+
+# ===== Python 缓存 =====
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# ===== Laravel 运行期生成物 =====
+/storage/logs/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/framework/testing/*
+/storage/app/*
+/bootstrap/cache/*
+/public/storage
+!/public/storage/.gitkeep
+
+# ===== 大型模型权重 / 媒体产物（本地运行时下载，不入库）=====
+*.bin
+*.safetensors
+*.onnx
+*.pt
+*.pth
+*.gguf
+**/models/*.bin
+**/models/*.safetensors
+**/models/*.onnx
+**/models/*.pt
+**/models/*.pth
+**/models/*.gguf
+.env
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+/auth.json
+/.fleet
+/.idea
+/.nova
+/.vscode
+/.zed

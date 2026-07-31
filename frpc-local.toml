@@ -1,0 +1,16 @@
+# 本地 Windows 出片微服务 → 云服务器 hgtcs 内网穿透配置
+# 运行（本机，需 frpc 0.50+）：  frpc.exe -c frpc-local.toml
+# 作用：把本机 127.0.0.1:8500（Python 出片微服务）经 frp 暴露到云服务器，
+#       使云端 Laravel 能通过 http://124.222.33.233:8500 调用出片。
+# 注意：serverPort / remotePort 必须与 hgtcs 上 frps 的实际配置对齐（见下「需确认」）。
+
+serverAddr = "124.222.33.233"
+serverPort = 7000            # 需确认：hgtcs 上 frps 的 bind_port（默认 7000）
+auth.token = "hgt2026studio#K8mPq"
+
+[[proxies]]
+name = "hgt-pipeline"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 8500
+remotePort = 8500            # 云端对外开放端口；hgtcs 防火墙须放行，且 frps 允许该 remote_port

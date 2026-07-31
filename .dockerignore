@@ -1,0 +1,9 @@
+# 构建上下文瘦身：Dockerfile 不 COPY 代码（运行期靠 volume 挂载宿主目录），
+# 这些大目录只会增加发送给 docker daemon 的上下文体积，必须排除。
+node_modules
+vendor
+public/build
+python-pipeline/jobs
+.git
+storage/*.key
+bootstrap/cache/*.php
