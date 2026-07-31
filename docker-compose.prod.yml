@@ -1,6 +1,6 @@
 # 生产部署（云服务器 hgtcs）— 混合云路线 A
 # 用法：docker compose -f docker-compose.prod.yml up -d
-# 说明：nginx 对外 80；mysql/redis 仅内部网络，不暴露到公网。
+# 说明：nginx 对外 8080（云端 80 已被建税盾系统占用，故避开）；mysql/redis 仅内部网络，不暴露到公网。
 # 出片微服务仍在本地 Windows，经 frp 暴露到云服务器 127.0.0.1:8500，
 # app 容器通过 host.docker.internal:8500 经 host-gateway 访问。
 
@@ -20,7 +20,7 @@ services:
   nginx:
     image: nginx:alpine
     ports:
-      - "80:80"
+      - "8080:80"
     volumes:
       - .:/var/www
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
