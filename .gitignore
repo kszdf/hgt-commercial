@@ -59,3 +59,10 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# ===== 8500 渲染产物（运行时生成，不入库）=====
+python-pipeline/jobs/
+
+# ===== frpc 二进制与日志（部署期依赖，非源码）=====
+bin/frpc.exe
+bin/frpc.out.log

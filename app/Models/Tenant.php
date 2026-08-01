@@ -30,6 +30,26 @@ class Tenant extends Model
         return $this->hasMany(VideoJob::class);
     }
 
+    public function modelAssets(): HasMany
+    {
+        return $this->hasMany(ModelAsset::class);
+    }
+
+    public function qcReports(): HasMany
+    {
+        return $this->hasMany(QcReport::class);
+    }
+
+    public function metrics(): HasMany
+    {
+        return $this->hasMany(MetricDaily::class);
+    }
+
+    public function platformAccounts(): HasMany
+    {
+        return $this->hasMany(PlatformAccount::class);
+    }
+
     /** quota_monthly = 0 表示不限量（企业版）。 */
     public function isUnlimited(): bool
     {

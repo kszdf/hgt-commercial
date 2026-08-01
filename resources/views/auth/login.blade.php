@@ -1,48 +1,52 @@
 <x-app-layout>
 <div class="flex min-h-screen items-center justify-center p-6">
-    <div class="luxury-glass magnetic w-full max-w-md rounded-3xl p-8 shadow-2xl">
-        <div class="mb-7 flex items-start justify-between">
+    <div class="luxury-glass w-full max-w-md p-8">
+        <!-- 品牌区 -->
+        <div class="mb-7 flex items-center gap-2.5">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 text-lg font-bold text-white shadow-sm">追</div>
             <div>
-                <h1 class="text-3xl font-semibold tracking-tight text-gradient">慧根堂</h1>
-                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">商用短视频智能工作台</p>
+                <h1 class="text-xl font-bold text-slate-800">追梦</h1>
+                <p class="text-xs text-slate-400">商用短视频智能工作台</p>
             </div>
-            <button onclick="toggleTheme()" title="切换明暗"
-                class="rounded-full border border-white/15 bg-white/5 p-2.5 text-slate-500 transition hover:text-brand-500 dark:text-slate-300">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
-                </svg>
-            </button>
+            <div class="ml-auto">
+                <button onclick="toggleTheme()" title="切换明暗"
+                    class="rounded-lg border border-slate-200 bg-white p-2 text-slate-400 transition hover:border-brand-300 hover:text-brand-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    </svg>
+                </button>
+            </div>
         </div>
 
         @if ($errors->any())
-            <div class="mb-4 rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
                 {{ $errors->first() }}
             </div>
         @endif
 
-        <form class="space-y-5" method="POST" action="/login">
+        <form class="space-y-4" method="POST" action="/login">
             @csrf
             <flux:input label="账号 / 邮箱" name="email" type="email" placeholder="you@company.com" required value="{{ old('email') }}" />
             <flux:input label="密码" name="password" type="password" placeholder="••••••••" required />
 
             <div class="flex items-center justify-between text-sm">
-                <label class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                <label class="flex items-center gap-2 text-slate-500">
                     <flux:checkbox name="remember" /> 记住我
                 </label>
-                <a href="#" class="text-brand-500 hover:underline">忘记密码？</a>
+                <a href="#" class="text-brand-500 hover:underline text-sm">忘记密码？</a>
             </div>
 
-            <flux:button variant="primary" type="submit" class="w-full !bg-brand-600 hover:!bg-brand-500">登录工作台</flux:button>
+            <flux:button variant="primary" type="submit" class="w-full !bg-brand-500 hover:!bg-brand-600 !shadow-sm mt-2">登录工作台</flux:button>
         </form>
 
-        <p class="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
+        <p class="mt-5 text-center text-sm text-slate-400">
             还没有账号？
             <a href="/register" class="font-medium text-brand-500 hover:underline">注册你的租户</a>
         </p>
     </div>
 
-    <p class="absolute bottom-6 text-xs text-slate-400 dark:text-slate-600">
-        © 2026 慧根堂 · 财税短视频智能生产平台
+    <p class="absolute bottom-5 text-xs text-slate-300">
+        © 2026 追梦 · 财税短视频智能生产平台
     </p>
 </div>
 </x-app-layout>

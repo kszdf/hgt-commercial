@@ -43,10 +43,34 @@ class VideoController extends Controller
             'dialogue' => ['required', 'string'],
             'title' => ['nullable', 'string', 'max:20'],
             'subtitle' => ['nullable', 'string', 'max:40'],
+            // 分声线感情/快慢（可选；不传则用脚本默认值）
+            'male_rate' => ['sometimes', 'numeric', 'between:0.5,2.0'],
+            'female_rate' => ['sometimes', 'numeric', 'between:0.5,2.0'],
+            'male_pitch' => ['sometimes', 'numeric', 'between:0.5,2.0'],
+            'female_pitch' => ['sometimes', 'numeric', 'between:0.5,2.0'],
+            'male_vol' => ['sometimes', 'integer', 'between:0,100'],
+            'female_vol' => ['sometimes', 'integer', 'between:0,100'],
+            'natural' => ['sometimes', 'boolean'],
+            'model' => ['sometimes', 'string', 'max:120'],
+            'cover_id' => ['sometimes', 'integer', 'exists:cover_assets,id'],
         ]);
 
         $mode = $data['mode'] ?? 'scroll';
         $title = $data['title'] ?? null;
+
+        // 解析自传模特：前端传 "User:{asset_id}" → 查库取 HEYGEM 容器路径后透传
+        $modelInput = $request->input('model');
+        if ($mode === 'avatar' && $modelInput && str_starts_with($modelInput, 'User:')) {
+            $assetId = substr($modelInput, 5);
+            $asset = \App\Models\ModelAsset::where('id', $assetId)
+                ->where('tenant_id', $tenant->id)
+                ->where('status', 'ready')
+                ->first();
+            if ($asset) {
+                $modelInput = $asset->containerPath();
+                $asset->increment('use_count');
+            }
+        }
 
         // —— 记录用量（先落库，用于配额计量）——
         $job = VideoJob::create([
@@ -58,6 +82,17 @@ class VideoController extends Controller
             'status' => 'queued',
         ]);
 
+        // 解析封面素材（仅限本租户），落库后回填
+        if ($request->filled('cover_id')) {
+            $cover = \App\Models\CoverAsset::where('id', $request->input('cover_id'))
+                ->where('tenant_id', $tenant->id)
+                ->first();
+            if ($cover) {
+                $job->update(['cover_asset_id' => $cover->id]);
+                $cover->increment('use_count');
+            }
+        }
+
         // 真实 TTS（默认）；dry_tts 仅用于内部测试
         $payload = [
             'mode' => $mode,
@@ -67,7 +102,16 @@ class VideoController extends Controller
             'dry_tts' => (bool) $request->input('dry_tts', false),
             'male_voice' => $tenant->default_male_voice,
             'female_voice' => $tenant->default_female_voice,
+            'natural' => (bool) $request->input('natural', false),
+            'model' => $request->input('model'),   // 仅数字人模式使用；字幕卡模式为 null，微服务自动跳过
         ];
+
+        // 分声线感情/快慢：仅当页面传了才透传（不传则脚本用默认值）
+        foreach (['male_rate', 'female_rate', 'male_pitch', 'female_pitch', 'male_vol', 'female_vol'] as $k) {
+            if ($request->has($k)) {
+                $payload[$k] = $request->input($k);
+            }
+        }
 
         $resp = Http::timeout(15)->post($this->pipelineUrl() . '/generate', $payload);
 
@@ -99,6 +143,10 @@ class VideoController extends Controller
         if ($job && isset($json['status'])) {
             if (in_array($json['status'], ['done', 'failed'], true) && $job->status === 'queued') {
                 $job->update(['status' => $json['status']]);
+                // 渲染完成即进入「待人工审核」初始态（draft）
+                if ($json['status'] === 'done' && is_null($job->publish_status)) {
+                    $job->update(['publish_status' => 'draft']);
+                }
             }
         }
         return response()->json($json);
@@ -113,6 +161,10 @@ class VideoController extends Controller
         $job = VideoJob::where('job_id', $jobId)->first();
         if ($job && $job->status === 'queued') {
             $job->update(['status' => 'done']);
+            // 渲染完成即进入「待人工审核」初始态（draft）
+            if (is_null($job->publish_status)) {
+                $job->update(['publish_status' => 'draft']);
+            }
         }
         return response($resp->body(), 200, [
             'Content-Type' => 'video/mp4',

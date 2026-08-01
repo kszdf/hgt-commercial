@@ -1,25 +1,41 @@
 @echo off
-REM ============================================================
-REM 慧根堂 — 本机出片微服务穿透启动器（混合云路线 A）
-REM 作用：把本机 Windows 的 Python 出片微服务(8500) 经 frp 穿透到
-REM       云服务器 hgtcs 的 8500 端口，Laravel 云端即可调用本地渲染。
-REM 用法：双击本文件即可（首次会自动下载 frpc 客户端）。
-REM ============================================================
-setlocal
+chcp 65001 >nul 2>&1
+setlocal enabledelayedexpansion
 cd /d "%~dp0"
 set FRPC=bin\frpc.exe
-set FRPC_URL=https://ghproxy.com/https://github.com/fatedier/frp/releases/download/v0.61.0/frpc_0.61.0_windows_amd64.zip
+set FRPC_VER=0.61.0
 
 if not exist "%FRPC%" (
-  echo [1/2] 首次运行，下载 frpc 客户端...
+  echo [1/2] Downloading frpc v%FRPC_VER%...
   if not exist bin mkdir bin
-  powershell -Command "Invoke-WebRequest -Uri '%FRPC_URL%' -OutFile bin\frpc.zip"
-  powershell -Command "Expand-Archive -Force bin\frpc.zip bin\frpc_tmp"
-  copy "bin\frpc_tmp\frpc_0.61.0_windows_amd64\frpc.exe" "%FRPC%" >nul
-  rmdir /s /q bin\frpc_tmp
-  del /q bin\frpc.zip
+  set "OK=0"
+  for %%U in (
+    "https://github.moeyy.xyz/https://github.com/fatedier/frp/releases/download/v%FRPC_VER%/frp_%FRPC_VER%_windows_amd64.zip"
+    "https://mirror.ghproxy.com/https://github.com/fatedier/frp/releases/download/v%FRPC_VER%/frp_%FRPC_VER%_windows_amd64.zip"
+    "https://ghproxy.net/https://github.com/fatedier/frp/releases/download/v%FRPC_VER%/frp_%FRPC_VER%_windows_amd64.zip"
+  ) do (
+    if "!OK!"=="0" (
+      echo   Trying: %%U
+      powershell -Command "Invoke-WebRequest -Uri '%%~U' -OutFile bin\frpc.zip" 2>nul
+      if exist bin\frpc.zip (
+        powershell -Command "Expand-Archive -Force bin\frpc.zip bin\frpc_tmp" 2>nul
+        if exist "bin\frpc_tmp\frp_%FRPC_VER%_windows_amd64\frpc.exe" (
+          copy "bin\frpc_tmp\frp_%FRPC_VER%_windows_amd64\frpc.exe" "%FRPC%" >nul
+          set "OK=1"
+        )
+        rmdir /s /q bin\frpc_tmp 2>nul
+      )
+      if exist bin\frpc.zip del /q bin\frpc.zip 2>nul
+    )
+  )
+  if "!OK!"=="0" (
+    echo [ERROR] frpc download failed. Manually download frp_%FRPC_VER%_windows_amd64.zip and extract frpc.exe to bin\
+    pause
+    exit /b 1
+  )
 )
 
-echo [2/2] 启动 frpc 穿透（配置文件 frpc-local.toml）...
+echo [2/2] Starting frpc tunnel (config: frpc-local.toml)...
+echo       Press Ctrl+C to stop. Closing this window will disconnect cloud-to-local rendering.
 "%FRPC%" -c frpc-local.toml
 pause
