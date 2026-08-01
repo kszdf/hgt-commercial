@@ -100,8 +100,8 @@ def ai_topic(industry, keywords, count):
         return [{"title": "解析失败", "angle": content[:200]}]
 
 
-def ai_rewrite(text, mode):
-    """智能二创：三模式改写 + 违禁词标红/清洗。返回 {ok,rewritten,hits,cleaned}。"""
+def ai_rewrite(text, mode, focus=None):
+    """智能二创：三模式改写 + 违禁词标红/清洗。返回含元数据的完整结果。"""
     cfg = get_text_config()
     if mode == "single":
         role = "单人口播（男声=张老师，实战派税务顾问），口语化、去AI播音腔、像真人在讲"
@@ -110,9 +110,15 @@ def ai_rewrite(text, mode):
     else:
         role = ("双声对话：女声=江老师(抛疑问/场景)，男声=张老师(耐心解答)；"
                 "女称呼男用「张老师」不用「张哥」；语气词自然克制；结尾女声留咨询钩子")
+
+    focus_hint = ""
+    if focus and isinstance(focus, str) and focus.strip():
+        focus_hint = f"\n【用户指定的重点方向】：{focus.strip()} — 请在改写中特别强化这个方向的内容比重与表达力度。\n"
+
     prompt = (
         f"你是资深财税短视频脚本编辑。请把下面的稿子改写为「{role}」的自然口语稿，"
-        "彻底去除AI机械感与书面腔，但保持财税专业准确性、不编造数据、不改原意。\n"
+        "彻底去除AI机械感与书面腔，但保持财税专业准确性、不编造数据、不改原意。"
+        f"{focus_hint}"
         "要求：保留原意与关键结论；长短句结合、自然停顿；不堆砌语气词；可加少量自然承接。\n"
         "只输出改写后的稿子本身，不要解释、不要标题、不要代码块。\n\n"
         "原稿：\n" + text
@@ -123,7 +129,27 @@ def ai_rewrite(text, mode):
         rewritten = rewritten.split("```")[1]
     hits = forbidden_words.scan(rewritten)
     cleaned = forbidden_words.clean_script(rewritten)
-    return {"ok": True, "rewritten": rewritten, "hits": hits, "cleaned": cleaned}
+
+    # 元数据：字数 + 预估时长（中文约 4.5 字/秒，含自然停顿）
+    orig_chars = len(text.replace(" ", "").replace("\n", ""))
+    clean_chars = len(cleaned.replace(" ", "").replace("\n", ""))
+    est_sec = max(1, round(clean_chars / 4.5))
+
+    return {
+        "ok": True,
+        "rewritten": rewritten,
+        "hits": hits,
+        "cleaned": cleaned,
+        "meta": {
+            "orig_chars": orig_chars,
+            "clean_chars": clean_chars,
+            "char_delta": clean_chars - orig_chars,
+            "duration_est_sec": est_sec,
+            "duration_fmt": f"{est_sec // 60}分{est_sec % 60}秒" if est_sec >= 60 else f"约{est_sec}秒",
+            "hit_count": len(hits),
+            "high_risk_count": len([h for h in hits if h.get("level") == "high"]),
+        },
+    }
 
 
 def ai_qc(text, platform=None):
@@ -463,7 +489,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if not text:
             return self._send(400, {"error": "text required"})
         try:
-            return self._send(200, ai_rewrite(text, data.get("mode", "dual")))
+            return self._send(200, ai_rewrite(text, data.get("mode", "dual"), data.get("focus")))
         except Exception as e:  # noqa: BLE001
             return self._send(200, {"ok": False, "error": str(e)})
 

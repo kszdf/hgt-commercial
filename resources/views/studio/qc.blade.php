@@ -65,6 +65,23 @@
 </div>
 
 <script>
+// 从二创页「跑质检」跳转过来时，自动填入清洗稿
+(function () {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('from') === 'rewrite') {
+        const text = sessionStorage.getItem('hgt_qc_text') || '';
+        if (text) {
+            const ta = document.getElementById('text');
+            if (ta) { ta.value = text; }
+            sessionStorage.removeItem('hgt_qc_text');
+            const hint = document.createElement('div');
+            hint.className = 'mb-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-700';
+            hint.innerHTML = '✅ 已从「智能二创」带入清洗稿，可直接点击「开始质检」。 <a href="/studio/rewrite" class="font-medium underline hover:text-brand-900">← 返回二创</a>';
+            document.querySelector('header').after(hint);
+        }
+    }
+})();
+
 document.getElementById('qcForm').addEventListener('submit', async function (e) {
     e.preventDefault();
     const btn = document.getElementById('genBtn');

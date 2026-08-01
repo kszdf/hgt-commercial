@@ -22,7 +22,12 @@ class StudioController extends Controller
 
     public function topic()
     {
-        return view('studio.topic');
+        $tenant = request()->user()->tenant;
+        return view('studio.topic', [
+            'tenantName'   => $tenant->name,
+            'tenantSlug'   => $tenant->slug,
+            'industryHint' => $tenant->settings['industry'] ?? '建筑工程',
+        ]);
     }
 
     public function rewrite()
@@ -60,8 +65,9 @@ class StudioController extends Controller
     public function rewriteGenerate(Request $request)
     {
         $data = $request->validate([
-            'text' => ['required', 'string'],
-            'mode' => ['sometimes', 'in:single,dual,script'],
+            'text'  => ['required', 'string'],
+            'mode'  => ['sometimes', 'in:single,dual,script'],
+            'focus' => ['nullable', 'string', 'max:100'],
         ]);
 
         $resp = Http::timeout(120)->post($this->pipelineUrl() . '/rewrite', $data);

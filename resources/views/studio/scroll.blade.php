@@ -143,6 +143,26 @@
 <script>
 let currentMode = 'scroll';
 
+// 从二创页「带稿去出片」跳转过来时，自动填入清洗稿
+(function () {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('from') === 'rewrite') {
+        const cleaned = sessionStorage.getItem('hgt_rewrite_cleaned') || '';
+        const mode = sessionStorage.getItem('hgt_rewrite_mode') || '';
+        if (cleaned) {
+            const ta = document.getElementById('dialogue');
+            if (ta) { ta.value = cleaned; }
+            sessionStorage.removeItem('hgt_rewrite_cleaned');
+            sessionStorage.removeItem('hgt_rewrite_mode');
+            // 顶部提示
+            const hint = document.createElement('div');
+            hint.className = 'mb-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-700';
+            hint.innerHTML = '✅ 已从「智能二创」带入清洗稿，可直接点击「生成视频」开始出片。 <a href="/studio/rewrite" class="font-medium underline hover:text-brand-900">← 返回二创</a>';
+            document.querySelector('header').after(hint);
+        }
+    }
+})();
+
 // 拉取当前租户已通过质检的自传模特，填入 avatar 下拉「我的模特」分组
 (async function loadUserModels() {
     try {

@@ -63,6 +63,12 @@ yarn-error.log
 # ===== 8500 渲染产物（运行时生成，不入库）=====
 python-pipeline/jobs/
 
+# ===== 本地验证脚本与日志（含绝对路径，仅本机调试用）=====
+python-pipeline/verify_*.py
+python-pipeline/server_8500.log
+python-pipeline/_out_avatar.mp4
+python-pipeline/__pycache__/
+
 # ===== frpc 二进制与日志（部署期依赖，非源码）=====
 bin/frpc.exe
 bin/frpc.out.log
