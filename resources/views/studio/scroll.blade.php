@@ -112,12 +112,15 @@
                     </div>
                     <label class="mt-3 flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs text-brand-700 cursor-pointer hover:bg-brand-100 transition">
                         <input type="checkbox" id="natural" class="accent-brand-500 rounded">
-                        🗣 专家自然口吻（女声发问 / 男声耐心解答，加「嗯·对的·哦·是的呢·好的」自然衔接，结尾女声留咨询钩子）
+                        🗣 专家自然口吻（女声专业发问 / 男声权威解答，自然对话节奏与停顿，结尾留咨询钩子；已去除口语哼嗯与填充词）
                     </label>
                     <button type="button" onclick="resetVoice()" class="mt-2.5 text-xs text-brand-500 hover:text-brand-700 hover:underline">恢复默认（男声略快自然 / 女声略亮亲和）</button>
                 </details>
 
                 <p id="quotaHint" class="text-xs text-slate-400"></p>
+                <p class="flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                    <span>⏱</span><span>真实配音约需 <b>5–10 分钟</b>（逐句克隆音 + 字幕卡合成）。提交后本页自动刷新状态，您也可先去其他页面，回来会自动续接进度。</span>
+                </p>
                 <button type="submit" id="genBtn"
                     class="w-full rounded-lg bg-brand-500 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed">
                     生成视频
@@ -265,6 +268,11 @@ document.getElementById('genForm').addEventListener('submit', async function (e)
             document.getElementById('quotaHint').textContent =
                 '本月用量 ' + data.usage + ' / ' + (data.quota === 0 ? '不限' : data.quota);
         }
+        // 持久化当前任务，用户离开页面后回来可自动续接进度
+        sessionStorage.setItem('hgt_active_job', data.job_id);
+        result.innerHTML = '<div class="text-center text-slate-400"><div class="mb-2 text-3xl">🎬</div>'
+            + '<div class="font-medium text-slate-600">出片任务已提交，正在真实配音合成…</div>'
+            + '<div class="mt-1 text-xs">您可先去其他页面，回来会自动续接进度</div></div>';
         pollStatus(data.job_id);
     } catch (err) {
         btn.disabled = false; btn.textContent = '生成视频';
@@ -277,29 +285,56 @@ async function pollStatus(jobId) {
     const badge = document.getElementById('statusBadge');
     const btn = document.getElementById('genBtn');
     const result = document.getElementById('result');
-    for (let i = 0; i < 180; i++) {
+    for (let i = 0; i < 300; i++) {  // 最多 10 分钟轮询（真实配音约 5–10 分钟）
         await new Promise(r => setTimeout(r, 2000));
         try {
             const resp = await fetch('/studio/scroll/status/' + jobId);
             const data = await resp.json();
             if (data.status === 'done') {
+                sessionStorage.removeItem('hgt_active_job');
                 badge.textContent = '完成'; badge.className = 'rounded-full bg-green-100 px-3 py-1 text-xs text-green-700';
-                result.innerHTML = '<video src="/studio/scroll/download/' + jobId + '" controls class="max-h-[60vh] w-full rounded-lg"></video>';
+                result.innerHTML =
+                    '<div class="w-full">' +
+                    '  <div class="mb-2 flex items-center gap-2 text-sm font-medium text-green-700">✅ 出片完成（真实配音短视频）</div>' +
+                    '  <video src="/studio/scroll/download/' + jobId + '" controls class="max-h-[55vh] w-full rounded-lg bg-black"></video>' +
+                    '  <div class="mt-3 flex flex-wrap gap-2">' +
+                    '    <a href="/studio/scroll/download/' + jobId + '" download class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">⬇ 下载视频</a>' +
+                    '    <a href="/studio/publish" class="rounded-lg border border-brand-300 bg-white px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50">🚀 去发布</a>' +
+                    '    <a href="/studio/scroll" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 hover:bg-slate-50">↻ 再出一条</a>' +
+                    '  </div>' +
+                    '</div>';
                 btn.disabled = false; btn.textContent = '生成视频';
                 return;
             } else if (data.status === 'failed') {
+                sessionStorage.removeItem('hgt_active_job');
                 badge.textContent = '失败'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
                 const eb = document.getElementById('errorBox');
                 eb.textContent = '出片失败：' + (data.error || '未知错误'); eb.classList.remove('hidden');
                 btn.disabled = false; btn.textContent = '生成视频';
                 return;
             } else {
-                badge.textContent = '出片中 ' + (i * 2) + 's'; badge.className = 'rounded-full bg-brand-100 px-3 py-1 text-xs text-brand-600';
+                badge.textContent = '出片中'; badge.className = 'rounded-full bg-brand-100 px-3 py-1 text-xs text-brand-600';
+                const sec = i * 2;
+                result.innerHTML = '<div class="text-center text-slate-400">' +
+                    '<div class="mb-2 text-3xl">🎬</div>' +
+                    '<div class="font-medium text-slate-600">真实配音合成中…</div>' +
+                    '<div class="mt-1 text-xs">已等待 ' + sec + ' 秒 · 预计 5–10 分钟</div>' +
+                    '<div class="mt-1 text-xs text-brand-500">可先去其他页面，回来会自动续接</div></div>';
             }
-        } catch (e) { /* keep polling */ }
+        } catch (e) { /* 网络抖动，继续轮询 */ }
     }
     badge.textContent = '超时'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
     btn.disabled = false; btn.textContent = '生成视频';
 }
+
+// 续接未完成的出片任务（用户离开页面后回来自动恢复轮询）
+(function resumeJob() {
+    const jobId = sessionStorage.getItem('hgt_active_job');
+    if (jobId) {
+        const btn = document.getElementById('genBtn');
+        btn.disabled = true; btn.textContent = '出片中…';
+        pollStatus(jobId);
+    }
+})();
 </script>
 </x-app-layout>

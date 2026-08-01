@@ -72,3 +72,6 @@ python-pipeline/__pycache__/
 # ===== frpc 二进制与日志（部署期依赖，非源码）=====
 bin/frpc.exe
 bin/frpc.out.log
+
+# ===== 男声风格对比样本音频（用户试听用，非源码，体积大）=====
+_samples/

@@ -1,0 +1,18 @@
+# 慧根堂商用平台 · frp 客户端配置（本机 Windows → 云服务器）
+# 作用：把本机 8500 出片微服务经 frp 穿透到云服务器 127.0.0.1:8500，
+#       供云端 Web 层（Laravel 容器）调用。8500 永不暴露公网，仅内网穿透。
+# 用法：frpc.exe -c deploy/frpc.toml   （本机以管理员或登录启动运行）
+#
+# 注意：serverPort 需与本机 frps 的 bindPort 一致；token 与云服务器 frps 完全一致。
+#       云服务器 frps 已在 124.222.33.233 起好（token: hgt2026studio#K8mPq）。
+
+serverAddr = "124.222.33.233"
+serverPort = 7000
+auth.token = "hgt2026studio#K8mPq"
+
+[[proxies]]
+name = "hgt-commercial-8500"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 8500
+remotePort = 8500
