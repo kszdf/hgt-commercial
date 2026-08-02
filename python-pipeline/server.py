@@ -43,7 +43,7 @@ from urllib.parse import urlparse
 GPT_SOVITS = r"D:/heygem_data/gpt_sovits"
 # 复用 gpt_sovits 侧已验证的 DeepSeek 写稿封装与违禁词库（key 不进 Laravel，仅本机 model_keys.env）
 sys.path.insert(0, GPT_SOVITS)
-from model_providers import get_text_config, deepseek_chat  # noqa: E402
+from model_providers import get_text_config, deepseek_chat, ensure_env  # noqa: E402
 import forbidden_words  # noqa: E402
 PY310 = r"D:/heygem/py310/Scripts/python.exe"
 FFMPEG = r"D:/ffmpeg/ffmpeg-8.1.2-full_build/bin/ffmpeg.exe"
@@ -60,6 +60,8 @@ os.makedirs(JOBS_DIR, exist_ok=True)
 # 默认音色（与 gpt_sovits 定稿一致）；租户可在请求里覆盖
 DEFAULT_MALE = "cosyvoice-v3-plus-zhangc2-28a7c3541e1c45518a03046c11baeb1d"
 DEFAULT_FEMALE = "cosyvoice-v3-plus-jiangnv3-991b204c1d564ac7a60f0cb9a8fd78bd"
+# 声音克隆目标模型（与 clone_cjps_v2.py 一致）
+MODEL_CLONE = "cosyvoice-v3-plus"
 
 # 数字人模特注册表：前端/请求可传「友好名或裸文件名」，统一解析为 HEYGEM 容器内完整路径。
 # 必须用 *_silent.mp4（静音音轨），否则 HEYGEM 会对原声做嘴型对齐导致原声污染。
@@ -545,7 +547,87 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_process_asset(data)
         if p.path == "/delete-asset":
             return self._handle_delete_asset(data)
+        if p.path == "/clone_voice":
+            return self._handle_clone_voice(data)
         return self._send(404, {"error": "not found"})
+
+    # ---- 声音克隆（租户上传参考音频 → CosyVoice 克隆 → voice_id）----
+    def _handle_clone_voice(self, data):
+        """租户上传参考音频克隆专属音色。
+        入参 JSON: {"audio_b64": "<base64>", "name": "xxx", "gender": "male|female"}
+        返回: {"voice_id", "model", "name", "gender"}
+        """
+        import base64
+        import tempfile
+        import uuid
+
+        audio_b64 = data.get("audio_b64") or ""
+        name = (data.get("name") or "未命名声音").strip() or "未命名声音"
+        gender = data.get("gender") or "male"
+        if gender not in ("male", "female"):
+            gender = "male"
+        if not audio_b64:
+            return self._send(400, {"error": "audio_b64 required"})
+
+        try:
+            ensure_env()  # 灌入 model_keys.env 的 DASHSCOPE_API_KEY
+            from dashscope import Files
+            from dashscope.audio.tts_v2 import VoiceEnrollmentService
+        except Exception as e:
+            return self._send(500, {"error": "dashscope 不可用: " + str(e)})
+
+        try:
+            raw = base64.b64decode(audio_b64)
+        except Exception:
+            return self._send(400, {"error": "audio_b64 解码失败"})
+        if len(raw) < 5000:
+            return self._send(400, {"error": "音频过小，请上传至少数秒的有效音频"})
+
+        tmp = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+                tf.write(raw)
+                tmp = tf.name
+            # 1) 上传参考音频
+            rsp = Files.upload(tmp, purpose="voice-clone")
+            fid = rsp.output["uploaded_files"][0]["file_id"]
+            # 2) 取可访问 url
+            lst = Files.list()
+            url = None
+            for f in lst.output["files"]:
+                if f["file_id"] == fid:
+                    url = f["url"]
+                    break
+            if not url:
+                return self._send(500, {"error": "无法获取上传音频的 url"})
+            # 3) 克隆（prefix ≤10 字符且需唯一）
+            svc = VoiceEnrollmentService()
+            vid = None
+            last_err = ""
+            for _ in range(3):
+                prefix = "vc" + uuid.uuid4().hex[:8]
+                try:
+                    vid = svc.create_voice(MODEL_CLONE, prefix, url, language_hints=["zh"])
+                    if vid:
+                        break
+                except Exception as e:
+                    last_err = str(e)
+            if not vid:
+                return self._send(500, {"error": "克隆失败: " + last_err})
+            return self._send(200, {
+                "voice_id": vid,
+                "model": MODEL_CLONE,
+                "name": name,
+                "gender": gender,
+            })
+        except Exception as e:
+            return self._send(500, {"error": "克隆异常: " + str(e)})
+        finally:
+            if tmp and os.path.exists(tmp):
+                try:
+                    os.remove(tmp)
+                except Exception:
+                    pass
 
     # ---- 出片（异步 job）----
     def _handle_generate(self, data):

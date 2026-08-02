@@ -5,6 +5,7 @@ use App\Http\Controllers\VideoController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\StudioController;
 use App\Http\Controllers\ModelAssetController;
+use App\Http\Controllers\VoiceCloneController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\PublishController;
 use App\Http\Controllers\MetricController;
@@ -61,6 +62,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/covers', [CoverAssetController::class, 'store']);
     Route::delete('/studio/covers/{coverAsset}', [CoverAssetController::class, 'destroy'])->name('studio.covers.destroy');
     Route::post('/studio/covers/{coverAsset}/reupload', [CoverAssetController::class, 'reupload'])->name('studio.covers.reupload');
+
+    // 声音克隆（租户上传音频 → CosyVoice 克隆 → 声音库）
+    Route::get('/studio/voices', [VoiceCloneController::class, 'index'])->name('studio.voices');
+    Route::post('/studio/voices', [VoiceCloneController::class, 'store']);
+    Route::post('/studio/voices/{voice}/default', [VoiceCloneController::class, 'setDefault'])->name('studio.voices.default');
+    Route::delete('/studio/voices/{voice}', [VoiceCloneController::class, 'destroy'])->name('studio.voices.destroy');
 
     // 人工审核（出片完成 → 审核队列 → 通过/驳回）
     Route::get('/studio/review', [ReviewController::class, 'index'])->name('studio.review');

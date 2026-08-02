@@ -85,6 +85,35 @@
                     </p>
                 </div>
 
+                <!-- 声音选择（从本租户克隆的声音库自由选择） -->
+                <div class="rounded-lg border border-slate-200 bg-slate-50/80 p-3.5">
+                    <label class="mb-1.5 block text-sm font-medium text-slate-600">配音声线（从你的声音库选择）</label>
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                            <select id="maleVoice" name="male_voice"
+                                class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                                <option value="">默认男声</option>
+                                @foreach($maleVoices as $mv)
+                                    <option value="{{ $mv->voice_id }}" @if($mv->is_default) selected @endif>{{ $mv->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <select id="femaleVoice" name="female_voice"
+                                class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                                <option value="">默认女声</option>
+                                @foreach($femaleVoices as $fv)
+                                    <option value="{{ $fv->voice_id }}" @if($fv->is_default) selected @endif>{{ $fv->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <p class="mt-1.5 flex items-center justify-between text-xs text-slate-400">
+                        <span>女：行用女声、男：行用男声；单人旁白用所选对应声线。</span>
+                        <a href="/studio/voices" class="text-brand-600 hover:underline">去克隆新声音 →</a>
+                    </p>
+                </div>
+
                 <!-- 配音感情/快慢调节（分声线） -->
                 <details class="rounded-lg border border-slate-200 bg-slate-50/80 p-3.5">
                     <summary class="cursor-pointer text-sm font-medium text-slate-600 select-none">🎚 配音感情 / 快慢调节（高级）</summary>
@@ -383,6 +412,8 @@ document.getElementById('genForm').addEventListener('submit', async function (e)
                 male_vol: parseInt(document.getElementById('male_vol').value, 10),
                 female_vol: parseInt(document.getElementById('female_vol').value, 10),
                 natural: document.getElementById('natural').checked,
+                male_voice: document.getElementById('maleVoice').value || null,
+                female_voice: document.getElementById('femaleVoice').value || null,
                 model: currentMode === 'avatar' ? (document.getElementById('model').value || null) : null,
                 scene: currentMode === 'avatar' ? (document.getElementById('scene')?.value || null) : null,
                 cover_id: document.getElementById('coverId').value ? parseInt(document.getElementById('coverId').value, 10) : null,

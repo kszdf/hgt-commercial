@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\VideoJob;
+use App\Models\TenantVoice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -20,7 +21,16 @@ class VideoController extends Controller
 
     public function showScroll()
     {
-        return view('studio.scroll');
+        $tenant = request()->user()->tenant;
+        $maleVoices = TenantVoice::where('tenant_id', $tenant->id)
+            ->where('gender', 'male')->where('status', 'ready')
+            ->orderByDesc('is_default')->orderByDesc('created_at')
+            ->get(['id', 'name', 'voice_id', 'is_default']);
+        $femaleVoices = TenantVoice::where('tenant_id', $tenant->id)
+            ->where('gender', 'female')->where('status', 'ready')
+            ->orderByDesc('is_default')->orderByDesc('created_at')
+            ->get(['id', 'name', 'voice_id', 'is_default']);
+        return view('studio.scroll', compact('maleVoices', 'femaleVoices'));
     }
 
     public function generate(Request $request)
@@ -54,6 +64,8 @@ class VideoController extends Controller
             'model' => ['sometimes', 'string', 'max:120'],
             'scene' => ['sometimes', 'string', 'max:40', 'in:office_a,office_b'],
             'cover_id' => ['sometimes', 'integer', 'exists:cover_assets,id'],
+            'male_voice' => ['sometimes', 'string', 'max:120'],
+            'female_voice' => ['sometimes', 'string', 'max:120'],
         ]);
 
         // —— 单次时长上限（后端硬约束，前端拦不住的才是真闸）——
@@ -127,8 +139,8 @@ class VideoController extends Controller
             'title' => $title,
             'subtitle' => $data['subtitle'] ?? null,
             'dry_tts' => (bool) $request->input('dry_tts', false),
-            'male_voice' => $tenant->default_male_voice,
-            'female_voice' => $tenant->default_female_voice,
+            'male_voice' => $request->input('male_voice') ?: $tenant->default_male_voice,
+            'female_voice' => $request->input('female_voice') ?: $tenant->default_female_voice,
             'natural' => (bool) $request->input('natural', false),
             'model' => $request->input('model'),   // 仅数字人模式使用；字幕卡模式为 null，微服务自动跳过
             'scene' => $request->input('scene'),   // 数字人出镜场景（office_a / office_b）

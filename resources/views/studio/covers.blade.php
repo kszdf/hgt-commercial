@@ -3,7 +3,10 @@
     <header class="mb-5">
         <h2 class="text-xl font-semibold text-slate-800">封面素材库</h2>
         <p class="mt-0.5 text-sm text-slate-400">上传视频封面图（jpg/png/webp，≤10MB）。发布到视频号 / 抖音 / 小红书 时可指定封面。系统自动记录尺寸与大小，租户隔离。</p>
-        <p class="mt-2"><a href="/studio/models" class="text-sm text-brand-600 hover:underline">管理我的模特 →</a></p>
+        <p class="mt-2 flex flex-wrap gap-3">
+            <a href="/studio/voices" class="text-sm text-brand-600 hover:underline">声音库 →</a>
+            <a href="/studio/models" class="text-sm text-brand-600 hover:underline">管理我的模特 →</a>
+        </p>
     </header>
 
     @if(session('success'))
