@@ -361,6 +361,10 @@ def run_job(job_id, payload):
                 model if model.startswith("/code/data/") else DEFAULT_AVATAR_MODEL,
             )
             args += ["--model", model]
+        # 场景选择（办公桌前正面/侧面等预录场景）
+        scene = payload.get("scene")
+        if scene:
+            args += ["--scene", scene]
     else:  # scroll
         args = [PY310, SCRIPT_SCROLL, "--dialogue", dlg_path, "--out", out_path]
         if payload.get("title"):

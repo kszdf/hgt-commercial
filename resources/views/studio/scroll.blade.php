@@ -22,7 +22,10 @@
         <section class="luxury-glass p-5">
             <form id="genForm" class="space-y-4">
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-slate-600">对话稿（每行 <span class="font-mono text-brand-600">女：</span> / <span class="font-mono text-brand-600">男：</span> 开头）</label>
+                    <label class="mb-1 flex items-center justify-between">
+                        <span class="text-sm font-medium text-slate-600" id="dialogueLabel">对话稿（每行 <span class="font-mono text-brand-600">女：</span> / <span class="font-mono text-brand-600">男：</span> 开头）</span>
+                        <span id="formatHint" class="text-[11px] font-normal"></span>
+                    </label>
                     <textarea id="dialogue" name="dialogue" rows="11" required
                         class="w-full rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100"
                         placeholder="女：老板们注意了，暂估成本这个坑千万别踩。&#10;男：那要是年底还没票，税务局怎么看？&#10;女：轻则纳税调整，重则认定虚列成本。&#10;男：那正确做法是什么？&#10;女：能票的走票，不能票的走合同和流水，别硬估。">女：老板们注意了，暂估成本这个坑千万别踩。
@@ -30,6 +33,17 @@
 女：轻则纳税调整，重则认定虚列成本。
 男：那正确做法是什么？
 女：能票的走票，不能票的走合同和流水，别硬估。</textarea>
+                    <p id="formatWarning" class="mt-1 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700"></p>
+                </div>
+
+                <!-- 数字人场景选择（仅avatar模式显示） -->
+                <div id="sceneSelectWrap" class="hidden rounded-lg border border-slate-200 bg-slate-50/80 p-3.5">
+                    <label class="mb-1.5 block text-sm font-medium text-slate-600">出镜场景</label>
+                    <select id="scene" name="scene" class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                        <option value="office_a">办公桌前·正面（推荐）</option>
+                        <option value="office_b">办公桌前·侧面</option>
+                    </select>
+                    <p class="mt-1.5 text-xs text-slate-400">数字人将合成到所选场景视频中。滚动字幕卡模式无需选择。</p>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
@@ -146,7 +160,7 @@
 <script>
 let currentMode = 'scroll';
 
-// 从二创页「带稿去出片」跳转过来时，自动填入清洗稿
+// 从二创页「带稿去出片」跳转过来时，自动填入清洗稿并推荐模式
 (function () {
     const params = new URLSearchParams(window.location.search);
     if (params.get('from') === 'rewrite') {
@@ -157,11 +171,41 @@ let currentMode = 'scroll';
             if (ta) { ta.value = cleaned; }
             sessionStorage.removeItem('hgt_rewrite_cleaned');
             sessionStorage.removeItem('hgt_rewrite_mode');
+
+            // 自动检测文本格式并推荐出片模式
+            const lines = cleaned.split('\n').filter(l => l.trim());
+            const dialogueLines = lines.filter(l => /^(女|男)[：:]/.test(l.trim()));
+            const isDialogue = lines.length > 0 && dialogueLines.length >= Math.min(3, lines.length * 0.6);
+
+            let recommendedMode = 'scroll';
+            let reason = '';
+            if (mode === 'dual' && isDialogue) {
+                recommendedMode = 'avatar';
+                reason = '检测到对话格式 + 双声改写模式，推荐「数字人出镜」';
+            } else if (mode === 'dual' && !isDialogue) {
+                recommendedMode = 'scroll';
+                reason = '双声改写但文本非标准对话格式，推荐「滚动字幕卡」（或切换数字人后手动调整格式）';
+            } else if (mode === 'single' || mode === 'script') {
+                recommendedMode = 'scroll';
+                reason = '单声/专业口播稿模式，适合「滚动字幕卡」出片';
+            }
+
+            // 应用推荐模式
+            setMode(recommendedMode);
+
             // 顶部提示
             const hint = document.createElement('div');
             hint.className = 'mb-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-700';
-            hint.innerHTML = '✅ 已从「智能二创」带入清洗稿，可直接点击「生成视频」开始出片。 <a href="/studio/rewrite" class="font-medium underline hover:text-brand-900">← 返回二创</a>';
+            hint.innerHTML = '<div class="flex items-center justify-between"><span>已从「智能二创」带入清洗稿。' +
+                (reason ? '<br><span class="text-xs text-brand-600 mt-1 inline-block">' + reason + '</span>' : '') +
+                '</span></div>' +
+                '<a href="/studio/rewrite" class="font-medium underline hover:text-brand-900 text-xs">← 返回二创</a>';
             document.querySelector('header').after(hint);
+
+            // 如果是avatar模式但文本不完全符合对话格式，触发一次校验
+            if (recommendedMode === 'avatar') {
+                checkDialogueFormat(cleaned, document.getElementById('formatWarning'));
+            }
         }
     }
 })();
@@ -212,9 +256,58 @@ function setMode(m) {
     const off = 'rounded-lg px-4 py-2 text-sm font-medium transition border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700';
     s.className = m === 'scroll' ? on : off;
     a.className = m === 'avatar' ? on : off;
+
+    // 模特/场景区域切换
     document.getElementById('modelHint').classList.toggle('hidden', m !== 'scroll');
     document.getElementById('modelSelectWrap').classList.toggle('hidden', m !== 'avatar');
+    document.getElementById('sceneSelectWrap').classList.toggle('hidden', m !== 'avatar');
+
+    // 文本格式提示与校验
+    const label = document.getElementById('dialogueLabel');
+    const hint = document.getElementById('formatHint');
+    const warning = document.getElementById('formatWarning');
+    const ta = document.getElementById('dialogue');
+
+    if (m === 'avatar') {
+        // 数字人出镜：要求对话格式
+        label.innerHTML = '对话稿（<b class="text-red-600">必须</b>每行 <span class="font-mono text-brand-600">女：</span> / <span class="font-mono text-brand-600">男：</span> 开头）';
+        hint.innerHTML = '<span class="text-amber-600">数字人模式需要对话格式</span>';
+        hint.className = 'text-[11px] font-normal text-amber-600';
+        // 检测当前文本是否符合对话格式
+        checkDialogueFormat(ta.value, warning);
+    } else {
+        // 滚动字幕卡：接受任意格式
+        label.innerHTML = '文稿内容（<span class="text-slate-400">支持对话 / 独白 / 改写稿，自动适配</span>）';
+        hint.innerHTML = '<span class="text-emerald-600">任意格式均可</span>';
+        hint.className = 'text-[11px] font-normal text-emerald-600';
+        warning.classList.add('hidden');
+    }
 }
+
+// 检测文本是否为合法的对话格式（女：/男：开头）
+function checkDialogueFormat(text, warnEl) {
+    if (!warnEl) return;
+    const lines = text.split('\n').filter(l => l.trim());
+    const dialogueLines = lines.filter(l => /^(女|男)[：:]/.test(l.trim()));
+    if (lines.length > 0 && dialogueLines.length < lines.length) {
+        // 有非对话格式的行
+        const nonDialogue = lines.length - dialogueLines.length;
+        warnEl.textContent = '警告：' + nonDialogue + ' 行文本不符合「女：/男：」对话格式。数字人出镜需要严格的对话格式才能正确分声线配音和嘴型对齐。建议切换到「滚动字幕卡」模式，或修改文本格式。';
+        warnEl.classList.remove('hidden');
+        return false;
+    } else if (lines.length > 0 && dialogueLines.length === lines.length) {
+        warnEl.classList.add('hidden');
+        return true;
+    }
+    return true; // 空文本不报错
+}
+
+// 文本输入时实时检测格式（仅 avatar 模式）
+document.getElementById('dialogue')?.addEventListener('input', function () {
+    if (currentMode === 'avatar') {
+        checkDialogueFormat(this.value, document.getElementById('formatWarning'));
+    }
+});
 
 function resetVoice() {
     const defs = {male_rate:0.98, female_rate:0.98, male_pitch:0.95, female_pitch:1.02, male_vol:53, female_vol:49};
@@ -257,12 +350,29 @@ document.getElementById('genForm').addEventListener('submit', async function (e)
                 female_vol: parseInt(document.getElementById('female_vol').value, 10),
                 natural: document.getElementById('natural').checked,
                 model: currentMode === 'avatar' ? (document.getElementById('model').value || null) : null,
+                scene: currentMode === 'avatar' ? (document.getElementById('scene')?.value || null) : null,
                 cover_id: document.getElementById('coverId').value ? parseInt(document.getElementById('coverId').value, 10) : null,
             })
         });
-        const data = await resp.json();
+        // 防护：后端可能返回HTML异常页而非JSON
+        const respText = await resp.text();
+        let data;
+        try {
+            data = JSON.parse(respText);
+        } catch (parseErr) {
+            // 提取HTML中的有用信息
+            let errMsg = '服务器返回了非JSON响应（可能是PHP异常或服务未启动）';
+            if (respText.includes('<!DOCTYPE') || respText.startsWith('<')) {
+                const titleMatch = respText.match(/<h1[^>]*>(.*?)<\/h1>/is);
+                const msgMatch = respText.match(/<p[^>]*class=".*?exception.*?"[^>]*>(.*?)<\/p>/is);
+                if (msgMatch) errMsg = msgMatch[1].replace(/<[^>]+>/g, '').trim();
+                else if (titleMatch) errMsg = titleMatch[1].replace(/<[^>]+>/g, '').trim();
+                else errMsg = '后端返回了HTML页面（HTTP ' + resp.status + '），请检查Laravel日志或重启Docker容器';
+            }
+            throw new Error(errMsg);
+        }
         if (!resp.ok) {
-            throw new Error(data.error || '提交失败');
+            throw new Error(data.error || '提交失败（HTTP ' + resp.status + '）');
         }
         if (data.quota != null) {
             document.getElementById('quotaHint').textContent =
@@ -288,8 +398,10 @@ async function pollStatus(jobId) {
     for (let i = 0; i < 300; i++) {  // 最多 10 分钟轮询（真实配音约 5–10 分钟）
         await new Promise(r => setTimeout(r, 2000));
         try {
-            const resp = await fetch('/studio/scroll/status/' + jobId);
-            const data = await resp.json();
+            const statusResp = await fetch('/studio/scroll/status/' + jobId);
+            const statusText = await statusResp.text();
+            let data;
+            try { data = JSON.parse(statusText); } catch (_) { return; } // 网络抖动，跳过本轮
             if (data.status === 'done') {
                 sessionStorage.removeItem('hgt_active_job');
                 badge.textContent = '完成'; badge.className = 'rounded-full bg-green-100 px-3 py-1 text-xs text-green-700';

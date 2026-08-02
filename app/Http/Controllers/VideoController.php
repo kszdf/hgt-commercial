@@ -52,6 +52,7 @@ class VideoController extends Controller
             'female_vol' => ['sometimes', 'integer', 'between:0,100'],
             'natural' => ['sometimes', 'boolean'],
             'model' => ['sometimes', 'string', 'max:120'],
+            'scene' => ['sometimes', 'string', 'max:40', 'in:office_a,office_b'],
             'cover_id' => ['sometimes', 'integer', 'exists:cover_assets,id'],
         ]);
 
@@ -104,6 +105,7 @@ class VideoController extends Controller
             'female_voice' => $tenant->default_female_voice,
             'natural' => (bool) $request->input('natural', false),
             'model' => $request->input('model'),   // 仅数字人模式使用；字幕卡模式为 null，微服务自动跳过
+            'scene' => $request->input('scene'),   // 数字人出镜场景（office_a / office_b）
         ];
 
         // 分声线感情/快慢：仅当页面传了才透传（不传则脚本用默认值）
