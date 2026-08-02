@@ -296,11 +296,11 @@ function setMode(m) {
     const ta = document.getElementById('dialogue');
 
     if (m === 'avatar') {
-        // 数字人出镜：要求对话格式
-        label.innerHTML = '对话稿（<b class="text-red-600">必须</b>每行 <span class="font-mono text-brand-600">女：</span> / <span class="font-mono text-brand-600">男：</span> 开头）';
-        hint.innerHTML = '<span class="text-amber-600">数字人模式需要对话格式</span>';
-        hint.className = 'text-[11px] font-normal text-amber-600';
-        // 检测当前文本是否符合对话格式
+        // 数字人出镜：支持独白与双声对话（不再强制 女：/男：）
+        label.innerHTML = '对话稿 / 独白（<span class="text-slate-400">纯文本=男声独白；每行 女：/男： 开头=男女双声对话</span>）';
+        hint.innerHTML = '<span class="text-emerald-600">支持独白与双声对话</span>';
+        hint.className = 'text-[11px] font-normal text-emerald-600';
+        // 检测当前文本格式并给出温和提示（不阻断提交）
         checkDialogueFormat(ta.value, warning);
     } else {
         // 滚动字幕卡：接受任意格式
@@ -311,22 +311,31 @@ function setMode(m) {
     }
 }
 
-// 检测文本是否为合法的对话格式（女：/男：开头）
+// 检测文本格式并给出温和提示（数字人模式支持独白与双声对话，不阻断提交）
 function checkDialogueFormat(text, warnEl) {
     if (!warnEl) return;
     const lines = text.split('\n').filter(l => l.trim());
     const dialogueLines = lines.filter(l => /^(女|男)[：:]/.test(l.trim()));
-    if (lines.length > 0 && dialogueLines.length < lines.length) {
-        // 有非对话格式的行
-        const nonDialogue = lines.length - dialogueLines.length;
-        warnEl.textContent = '警告：' + nonDialogue + ' 行文本不符合「女：/男：」对话格式。数字人出镜需要严格的对话格式才能正确分声线配音和嘴型对齐。建议切换到「滚动字幕卡」模式，或修改文本格式。';
-        warnEl.classList.remove('hidden');
-        return false;
-    } else if (lines.length > 0 && dialogueLines.length === lines.length) {
+    if (lines.length === 0) {
         warnEl.classList.add('hidden');
-        return true;
+        return;
     }
-    return true; // 空文本不报错
+    if (dialogueLines.length === lines.length) {
+        // 纯双声对话
+        warnEl.textContent = '已识别男女双声对话：女：行用女声、男：行用男声，数字人将用对应声线配音。';
+        warnEl.className = 'mt-1 hidden rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700';
+        warnEl.classList.remove('hidden');
+    } else if (dialogueLines.length === 0) {
+        // 纯独白
+        warnEl.textContent = '检测到独白文本：将用所选男声（数字人形象声线）统一配音。如需男女双声，请每行以 女：/男： 开头。';
+        warnEl.className = 'mt-1 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700';
+        warnEl.classList.remove('hidden');
+    } else {
+        // 混合
+        warnEl.textContent = '混合格式：含 女：/男： 的行用对应声线，其余行用男声（数字人形象声线）配音。如需男女双声对话，请确保每行都以 女：/男： 开头。';
+        warnEl.className = 'mt-1 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700';
+        warnEl.classList.remove('hidden');
+    }
 }
 
 // 文本输入时实时检测格式（仅 avatar 模式）

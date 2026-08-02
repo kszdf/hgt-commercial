@@ -10,12 +10,17 @@
      烧字幕 + 拼品牌片头，产出发布级成品 mp4
 
 说明:
-  - avatar 为单声出镜（默认男声=张老师）；数字人模特为男模 BGZSP，故统一用男声。
+  - avatar 支持男声独白 / 男女双声对话：女：行用女声、男：行与独白行用男声；
+    数字人模特为男模 BGZSP，故独白/混合行统一用男声（声画一致）。
   - 依赖 gpt_sovits 下的 qwen_tts（真实配音）、make_avatar_video.py（HEYGEM 流程）、
     本地 HEYGEM 容器(http://localhost:8383)、ffmpeg 全量、model_keys.env 的 dashscope key。
 
 用法:
-  python make_avatar_from_dialogue.py --dialogue dlg.txt --out out.mp4 --voice <voice_id>
+  # 独白（纯文本）：用男声统一配音
+  python make_avatar_from_dialogue.py --dialogue dlg.txt --out out.mp4
+  # 双声对话（每行 女：/男： 开头）：女：行用女声、男：行用男声
+  python make_avatar_from_dialogue.py --dialogue dlg.txt --out out.mp4 \
+      --male-voice <男声voice_id> --female-voice <女声voice_id>
 """
 import argparse
 import os
@@ -34,6 +39,10 @@ MAKE_AVATAR = os.path.join(GPT_SOVITS, "make_avatar_video.py")
 PY310 = r"D:/heygem/py310/Scripts/python.exe"
 DEFAULT_MODEL = "/code/data/BGZSP20260721_t18_silent.mp4"  # 容器内男模路径
 
+# 默认配音音色（与 server.py / gpt_sovits 定稿一致）
+DEFAULT_MALE_VOICE = "cosyvoice-v3-plus-zhangc2-28a7c3541e1c45518a03046c11baeb1d"
+DEFAULT_FEMALE_VOICE = "cosyvoice-v3-plus-jiangnv3-991b204c1d564ac7a60f0cb9a8fd78bd"
+
 from qwen_tts import synth as qwen_synth
 
 
@@ -42,20 +51,28 @@ def _clean(text):
 
 
 def parse_dialogue(text):
+    """解析对话/独白稿，返回 [(gender, txt), ...]。
+    gender: 'female'（女：/女: 行）/ 'male'（男：/男: 行）/ None（纯文本行，独白或混合）。
+    独白（无前缀）与混合行统一归为男声（数字人形象为男模，声画一致）。"""
     segs = []
     for line in text.splitlines():
         line = line.strip()
         if not line:
             continue
         if line.startswith("女") or line.startswith("女：") or line.startswith("女:"):
-            txt = line[line.find("：") + 1:] if "：" in line else line[line.find(":") + 1:]
+            gender = "female"
+            sep = "：" if "：" in line else ":"
+            txt = line[line.find(sep) + 1:]
         elif line.startswith("男") or line.startswith("男：") or line.startswith("男:"):
-            txt = line[line.find("：") + 1:] if "：" in line else line[line.find(":") + 1:]
+            gender = "male"
+            sep = "：" if "：" in line else ":"
+            txt = line[line.find(sep) + 1:]
         else:
+            gender = None
             txt = line
         txt = txt.strip()
         if txt:
-            segs.append(txt)
+            segs.append((gender, txt))
     return segs
 
 
@@ -67,11 +84,13 @@ def wav_duration(path):
     return float(r.stdout.strip())
 
 
-def synth_concat(segs, voice, tmpdir, gap=0.25):
-    """逐句合成真实配音，句间插 gap，拼成总音频；返回 (总wav, [(start,end,display)])。"""
+def synth_concat(segs, male_voice, female_voice, tmpdir, gap=0.25):
+    """逐句合成真实配音，句间插 gap，拼成总音频；返回 (总wav, [(start,end,display)])。
+    按句性别选声线：女：行用女声，男：行/独白行用男声。"""
     seg_wavs, starts, ends, displays = [], [], [], []
     t = 0.0
-    for i, txt in enumerate(segs):
+    for i, (gender, txt) in enumerate(segs):
+        voice = female_voice if gender == "female" else male_voice
         wav = os.path.join(tmpdir, f"s_{i:03d}.wav")
         qwen_synth(_clean(txt), voice, wav,
                    model="cosyvoice-v3-plus", speech_rate=1.0, pitch_rate=1.0, volume=50)
@@ -133,10 +152,12 @@ def write_ass(timed, path):
 
 def main():
     ap = argparse.ArgumentParser(description="对话稿 -> 本地数字人出镜视频")
-    ap.add_argument("--dialogue", required=True, help="对话稿 txt（每行 女：/男： 开头）")
+    ap.add_argument("--dialogue", required=True, help="对话/独白稿 txt（女：/男： 开头=双声对话，纯文本=男声独白）")
     ap.add_argument("--out", required=True, help="输出 mp4 路径")
-    ap.add_argument("--voice", default="cosyvoice-v3-plus-zhangc2-28a7c3541e1c45518a03046c11baeb1d",
-                    help="配音音色 voice_id（默认张老师克隆音）")
+    ap.add_argument("--male-voice", default=DEFAULT_MALE_VOICE,
+                    help="男声/独白配音音色 voice_id（默认张老师克隆音）")
+    ap.add_argument("--female-voice", default=DEFAULT_FEMALE_VOICE,
+                    help="女声配音音色 voice_id（对话中 女： 行使用）")
     ap.add_argument("--model", default=DEFAULT_MODEL, help="容器内模特视频路径")
     args = ap.parse_args()
 
@@ -146,7 +167,7 @@ def main():
         sys.exit("对话稿为空或解析失败")
 
     tmp = tempfile.mkdtemp(prefix="avatar_")
-    audio_wav, timed = synth_concat(segs, args.voice, tmp)
+    audio_wav, timed = synth_concat(segs, args.male_voice, args.female_voice, tmp)
     ass_path = os.path.join(tmp, "sub.ass")
     write_ass(timed, ass_path)
     print(f"[avatar] 配音 {len(segs)} 句，总时长 {timed[-1][1]:.1f}s，字幕已生成")

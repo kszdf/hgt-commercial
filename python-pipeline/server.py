@@ -17,16 +17,16 @@
            "title": "...", "subtitle": "...",
            "bg": "可选背景图",
            "dry_tts": false,            # true=静音占位(仅验画面)；false=真实 CosyVoice 配音
-           "male_voice": "voice_id",    # 可选，覆盖默认男声
-           "female_voice": "voice_id"   # 可选，覆盖默认女声(仅 scroll 双声用)
+           "male_voice": "voice_id",    # 可选，覆盖默认男声（avatar 独白/男：行、scroll 男：行）
+           "female_voice": "voice_id"   # 可选，覆盖默认女声（avatar 女：行、scroll 女：行）
          }
     GET  /status/{job_id}            -> {"job_id","status","result","error"}
     GET  /download/{job_id}          -> video/mp4 流
 
 说明:
     - dry_tts=false（默认）走真实 TTS，需 model_keys.env 中的 dashscope key 与联网。
-    - scroll 模式：多声（女：/男：）滚动字幕卡，不出镜。
-    - avatar 模式：单声（默认男声=张老师）驱动本地数字人(HEYGEM) 嘴型对齐，出镜。
+  - scroll 模式：多声（女：/男：）滚动字幕卡，不出镜。
+  - avatar 模式：男声独白 / 男女双声对话（女：行用女声、男：行用男声）驱动本地数字人(HEYGEM) 嘴型对齐，出镜。
     - Laravel 容器经 host.docker.internal:8500 调用本服务，服务本身不对外暴露。
 """
 
@@ -401,9 +401,10 @@ def run_job(job_id, payload):
         out_path = os.path.join(job_dir, "out.mp4")
 
         if mode == "avatar":
-            voice = payload.get("male_voice") or payload.get("voice") or DEFAULT_MALE
-            args = [PY310, SCRIPT_AVATAR, "--dialogue", dlg_path,
-                    "--out", out_path, "--voice", voice]
+            args = [PY310, SCRIPT_AVATAR, "--dialogue", dlg_path, "--out", out_path]
+            mv = payload.get("male_voice") or payload.get("voice") or DEFAULT_MALE
+            fv = payload.get("female_voice") or DEFAULT_FEMALE
+            args += ["--male-voice", mv, "--female-voice", fv]
             model = payload.get("model")
             if model:
                 # 友好名/裸文件名 -> 容器内完整路径；已是完整路径则原样用；未知则回退默认
