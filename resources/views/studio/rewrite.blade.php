@@ -2,7 +2,6 @@
 <div class="mx-auto max-w-5xl p-6">
     <header class="mb-5">
         <h2 class="text-xl font-semibold text-slate-800">智能二创</h2>
-        <p class="mt-0.5 text-sm text-slate-400">多模式智能改写 + 违禁词自动检测标红，输出可直接用于配音出片的清洗稿。</p>
     </header>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">

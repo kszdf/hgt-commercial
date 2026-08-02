@@ -2,7 +2,6 @@
 <div class="mx-auto max-w-5xl p-6">
     <header class="mb-5">
         <h2 class="text-xl font-semibold text-slate-800">智能选题</h2>
-        <p class="mt-0.5 text-sm text-slate-400">基于{{ $tenantName }}方向，自动生成短视频选题角度与留资钩子。</p>
     </header>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">

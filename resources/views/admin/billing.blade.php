@@ -59,7 +59,6 @@
                 </div>
             @endforeach
         </div>
-        <p class="mt-3 text-xs text-slate-400">注：支付网关（微信支付 / Stripe）即将上线，当前套餐切换直接生效，由管理员调整额度。</p>
     </section>
 
     <!-- 最近任务 -->

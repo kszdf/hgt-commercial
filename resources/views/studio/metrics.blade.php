@@ -109,7 +109,6 @@
 
                 <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-5">
                     <h2 class="font-semibold mb-4">平台授权</h2>
-                    <p class="text-xs text-zinc-400 mb-3">平台数据对接（OAuth）即将上线；当前支持手动录入数据。</p>
                     <ul class="space-y-2 text-sm">
                         @foreach ($accounts as $a)
                             <li class="flex items-center justify-between">

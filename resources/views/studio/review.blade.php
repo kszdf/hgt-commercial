@@ -2,7 +2,6 @@
 <div class="mx-auto max-w-5xl p-6">
     <header class="mb-5">
         <h2 class="text-xl font-semibold text-slate-800">人工审核</h2>
-        <p class="mt-0.5 text-sm text-slate-400">出片渲染完成后进入审核队列，逐条确认质量后通过或驳回。</p>
     </header>
 
     @if(session('success'))

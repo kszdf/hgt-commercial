@@ -2,7 +2,6 @@
 <div class="mx-auto max-w-5xl p-6">
     <header class="mb-5">
         <h2 class="text-xl font-semibold text-slate-800">智能质检</h2>
-        <p class="mt-0.5 text-sm text-slate-400">违禁词扫描 + 时长预估 + 风险等级，出片前先过一遍合规关。</p>
     </header>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">

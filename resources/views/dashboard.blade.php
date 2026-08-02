@@ -35,7 +35,6 @@
         <header class="top-header sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-white/90 backdrop-blur-sm">
             <div>
                 <h2 class="text-base font-semibold text-slate-800">工作台</h2>
-                <p class="mt-0.5 text-xs text-slate-400">欢迎回来，{{ auth()->user()->name }} · 财税短视频智能生产平台</p>
             </div>
             <div class="flex items-center gap-2">
                 <button onclick="toggleTheme()" title="切换明暗"
@@ -157,12 +156,6 @@
             </div>
         </section>
 
-        <!-- 底部状态 -->
-        <div class="px-6 pb-8 pt-3">
-            <div class="luxury-glass px-5 py-3.5 text-center text-[11px] text-slate-400">
-                已上线功能：多租户管理 · 智能选题 · 文案改写 · 克隆配音 · 滚动字幕卡 · 数字人出片 · 质检审核 · 计费配额
-            </div>
-        </div>
     </main>
 </div>
 </x-app-layout>

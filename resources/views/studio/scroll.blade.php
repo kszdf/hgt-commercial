@@ -2,9 +2,6 @@
 <div class="mx-auto max-w-5xl p-6">
     <header class="mb-5">
         <h2 class="text-xl font-semibold text-slate-800">视频出片工作台</h2>
-        <p class="mt-0.5 text-sm text-slate-400">
-            输入男女对话稿，一键生成短视频。已接入真实 CosyVoice 克隆配音（男声 / 江老师音色）。
-        </p>
     </header>
 
     <!-- 模式切换 -->
