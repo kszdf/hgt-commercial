@@ -53,6 +53,10 @@ class StudioController extends Controller
             'industry' => ['required', 'string', 'max:40'],
             'keywords' => ['nullable', 'string', 'max:120'],
             'count'    => ['sometimes', 'integer', 'between:3,12'],
+            'platform' => ['sometimes', 'string', 'max:20'],
+            'hotness'  => ['sometimes', 'string', 'max:20'],
+            'hook'     => ['sometimes', 'string', 'max:20'],
+            'form'     => ['sometimes', 'string', 'max:20'],
         ]);
 
         $resp = Http::timeout(120)->post($this->pipelineUrl() . '/topic', $data);

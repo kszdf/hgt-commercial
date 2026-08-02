@@ -80,15 +80,28 @@ MODEL_REGISTRY = {
 }
 
 # ============ AI 文本能力（选题 / 二创，复用 gpt_sovits 的 DeepSeek + 违禁词）============
-def ai_topic(industry, keywords, count):
-    """智能选题：用 DeepSeek 生成财税短视频选题建议列表。返回 list[dict]。"""
+def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, form=None):
+    """智能选题：用 DeepSeek 生成财税短视频选题建议列表。返回 list[dict]。
+    支持维度筛选：platform(平台)/hotness(热度)/hook(钩子类型)/form(呈现形式)。"""
     cfg = get_text_config()
     cnt = max(3, min(12, int(count or 6)))
+    # 维度约束（用户在前端筛选，强约束 AI 输出方向）
+    dim_hints = []
+    if platform:
+        dim_hints.append(f"目标平台：{platform}（据此调整钩子话术与呈现节奏，贴合该平台调性）")
+    if hotness:
+        dim_hints.append(f"热度取向：{hotness}（优先选取{'当下高热度/热议' if '高' in hotness else '常规稳健可复用'}的痛点方向）")
+    if hook:
+        dim_hints.append(f"钩子类型：{hook}（每条选题结尾的 hook 必须围绕「{hook}」设计）")
+    if form:
+        dim_hints.append(f"呈现形式：{form}（每条选题的 form 字段固定为「{form}」）")
+    dim_block = "\n".join(f"- {h}" for h in dim_hints) if dim_hints else ""
     prompt = (
         f"你是资深财税短视频选题策划。面向「{industry or '财税'}」行业的企业主/老板，"
         f"结合关键词「{keywords or '税务风险、金税四期、公转私'}」，"
         f"生成 {cnt} 个高转化短视频选题。\n"
-        "每个选题严格按 JSON 数组输出，元素结构：\n"
+        + (f"维度约束（必须满足）：\n{dim_block}\n" if dim_block else "")
+        + "每个选题严格按 JSON 数组输出，元素结构：\n"
         '{"title":"标题(吸睛、戳痛点,≤18字)","angle":"切入角度/痛点","potential":"爆款潜力理由","hook":"结尾留资钩子建议","form":"建议形式:单声口播/双声对话"}\n'
         "只输出 JSON 数组，不要任何解释或代码块标记。"
     )
@@ -683,6 +696,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 data.get("industry", "") or "",
                 data.get("keywords", "") or "",
                 int(data.get("count", 6) or 6),
+                platform=data.get("platform") or None,
+                hotness=data.get("hotness") or None,
+                hook=data.get("hook") or None,
+                form=data.get("form") or None,
             )
             return self._send(200, {"ok": True, "topics": result})
         except Exception as e:  # noqa: BLE001

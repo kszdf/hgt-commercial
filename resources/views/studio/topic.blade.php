@@ -8,22 +8,59 @@
         <!-- 输入区 -->
         <section class="luxury-glass p-5">
             <form id="topicForm" class="space-y-4">
-                <!-- 视频分类：自定义文件夹名称，用于归类存放不同类型视频 -->
-                <div>
-                    <label class="mb-1 block text-sm font-medium text-slate-600">视频分类</label>
-                    <div class="space-y-2">
+                <!-- 维度筛选：用维度替代文件夹菜单 -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-slate-600">行业（必填维度）</label>
                         <input type="text" id="industry" name="industry" value="{{ $industryHint }}" maxlength="30"
                             class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100"
                             placeholder="如：税务风险、建筑财税、公转私…">
-                        <div class="flex flex-wrap gap-1.5">
+                        <div class="mt-2 flex flex-wrap gap-1.5">
                             <button type="button" data-cat="税务风险" class="cat-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">税务风险</button>
                             <button type="button" data-cat="建筑财税" class="cat-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">建筑财税</button>
                             <button type="button" data-cat="公转私" class="cat-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">公转私</button>
                             <button type="button" data-cat="金税四期" class="cat-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">金税四期</button>
                             <button type="button" data-cat="成本费用" class="cat-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">成本费用</button>
                         </div>
-                        <p class="text-xs text-slate-400">用于将生成的视频归入不同分类文件夹，方便后续管理</p>
                     </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="mb-1 block text-xs font-medium text-slate-600">目标平台</label>
+                            <select id="platform" name="platform" class="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                                <option value="">不限</option>
+                                <option value="视频号">视频号</option>
+                                <option value="抖音">抖音</option>
+                                <option value="小红书">小红书</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-medium text-slate-600">热度取向</label>
+                            <select id="hotness" name="hotness" class="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                                <option value="">不限</option>
+                                <option value="高热度选题">高热度</option>
+                                <option value="常规选题">常规</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-medium text-slate-600">钩子类型</label>
+                            <select id="hook" name="hook" class="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                                <option value="">不限</option>
+                                <option value="留资钩子">留资钩子</option>
+                                <option value="咨询钩子">咨询钩子</option>
+                                <option value="私域钩子">私域钩子</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-medium text-slate-600">呈现形式</label>
+                            <select id="form" name="form" class="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                                <option value="">不限</option>
+                                <option value="单声口播">单声口播</option>
+                                <option value="双声对话">双声对话</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-400">用维度筛选替代文件夹分类，AI 按所选平台 / 热度 / 钩子 / 形式定向产出选题；视频下载走浏览器本地默认路径，不再按文件夹归类。</p>
                 </div>
 
                 <div>
@@ -125,6 +162,10 @@ document.getElementById('topicForm').addEventListener('submit', async function (
                 industry: document.getElementById('industry').value,
                 keywords: document.getElementById('keywords').value,
                 count: parseInt(document.getElementById('count').value, 10),
+                platform: document.getElementById('platform').value || null,
+                hotness: document.getElementById('hotness').value || null,
+                hook: document.getElementById('hook').value || null,
+                form: document.getElementById('form').value || null,
             })
         });
         const data = await resp.json();
