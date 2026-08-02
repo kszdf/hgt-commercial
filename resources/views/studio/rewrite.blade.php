@@ -2,12 +2,21 @@
 <div class="mx-auto max-w-5xl p-6">
     <header class="mb-5">
         <h2 class="text-xl font-semibold text-slate-800">智能二创</h2>
-        <p class="mt-0.5 text-sm text-slate-400">三模式改写 + 违禁词自动标红，去 AI 感，可直接用于配音出片。</p>
+        <p class="mt-0.5 text-sm text-slate-400">多模式智能改写 + 违禁词自动检测标红，输出可直接用于配音出片的清洗稿。</p>
     </header>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <!-- ===== 左侧：输入区（增强版） ===== -->
         <section class="luxury-glass p-5">
+            <!-- 批量选题面板（从"全部去二创"跳转时显示） -->
+            <div id="batchPanel" class="mb-4 hidden rounded-lg border border-brand-200 bg-brand-50/50 p-3">
+                <div class="mb-2 flex items-center justify-between">
+                    <h4 class="text-xs font-semibold text-brand-700">📋 待改写选题（点击选用）</h4>
+                    <button type="button" id="toggleBatchPanel" class="text-xs text-slate-500 hover:text-slate-700">收起 ▲</button>
+                </div>
+                <div id="batchTopicList" class="max-h-48 space-y-1.5 overflow-y-auto"></div>
+            </div>
+
             <form id="rwForm" class="space-y-4">
                 <!-- 改写模式 -->
                 <div>
@@ -26,12 +35,12 @@
                         重点方向 <span class="font-normal text-slate-400">（可选，引导 AI 侧重方向）</span>
                     </label>
                     <div id="focusChips" class="flex flex-wrap gap-1.5">
-                        <button type="button" data-focus="痛点警示" class="focus-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">⚡ 痛点警示</button>
-                        <button type="button" data-focus="政策解读" class="focus-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">📋 政策解读</button>
-                        <button type="button" data-focus="实操指南" class="focus-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">🛠 实操指南</button>
-                        <button type="button" data-focus="案例故事" class="focus-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">📖 案例故事</button>
-                        <button type="button" data-focus="避坑指南" class="focus-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">🚨 避坑指南</button>
-                        <button type="button" data-focus="留资转化" class="focus-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">💰 留资转化</button>
+                        <button type="button" data-focus="痛点警示" class="focus-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">痛点警示</button>
+                        <button type="button" data-focus="政策解读" class="focus-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">政策解读</button>
+                        <button type="button" data-focus="实操指南" class="focus-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">实操指南</button>
+                        <button type="button" data-focus="案例故事" class="focus-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">案例故事</button>
+                        <button type="button" data-focus="避坑指南" class="focus-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">避坑指南</button>
+                        <button type="button" data-focus="留资转化" class="focus-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">留资转化</button>
                     </div>
                     <input type="hidden" id="focus" name="focus" value="">
                     <p id="focusDisplay" class="mt-1 hidden text-xs text-brand-600">已选：<span id="focusTags"></span> <button type="button" id="clearFocus" class="text-slate-400 hover:text-red-500">清除</button></p>
@@ -84,19 +93,19 @@
 
             <!-- 操作按钮组（改写完成后显示） -->
             <div id="actionBar" class="mt-4 hidden rounded-lg border border-brand-200 bg-gradient-to-r from-brand-50 to-white p-3">
-                <p class="mb-2 text-xs font-medium text-brand-700">✅ 改写完成 — 下一步你想怎么做？</p>
+                <p class="mb-2 text-xs font-medium text-brand-700">改写完成 — 下一步</p>
                 <div class="flex flex-wrap gap-2">
                     <button type="button" id="btnCopy" class="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50">
-                        📋 复制清洗稿
+                        复制清洗稿
                     </button>
                     <button type="button" id="btnGoScroll" class="inline-flex items-center gap-1 rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-brand-600">
-                        🎬 带稿去出片 →
+                        带稿去出片 →
                     </button>
                     <button type="button" id="btnGoQc" class="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50">
-                        🔍 跑质检 →
+                        跑质检 →
                     </button>
                     <button type="button" id="btnRegen" class="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-2 text-xs font-medium text-slate-400 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50">
-                        🔄 重新改写
+                        重新改写
                     </button>
                 </div>
             </div>
@@ -110,7 +119,10 @@
 // ========== 1. 从选题页跳转自动填入 ==========
 (function () {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('from') === 'topic') {
+    const fromTopic = params.get('from');
+
+    // 1a. 单条选题跳转（从选题卡片"去二创"过来）
+    if (fromTopic === 'topic') {
         const title = sessionStorage.getItem('hgt_topic_title') || '';
         const hook = sessionStorage.getItem('hgt_topic_hook') || '';
         const ta = document.getElementById('text');
@@ -121,9 +133,52 @@
             updateCharCount();
             const hint = document.createElement('div');
             hint.className = 'mb-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-700';
-            hint.innerHTML = '✅ 已从「智能选题」带入选题标题，可直接点击「智能改写」开始二创。 <a href="/studio/topic" class="font-medium underline hover:text-brand-900">← 返回选题</a>';
+            hint.innerHTML = '已从「智能选题」带入选题标题，可直接点击「智能改写」开始二创。 <a href="/studio/topic" class="font-medium underline hover:text-brand-900">← 返回选题</a>';
             document.querySelector('header').after(hint);
         }
+    }
+
+    // 1b. 批量选题跳转（从"全部去二创"过来）
+    if (fromTopic === 'topic-all') {
+        const raw = sessionStorage.getItem('hgt_batch_topics');
+        let topics = [];
+        try { topics = raw ? JSON.parse(raw) : []; } catch(e) { topics = []; }
+        if (topics.length) {
+            const panel = document.getElementById('batchPanel');
+            const list = document.getElementById('batchTopicList');
+            panel.classList.remove('hidden');
+
+            topics.forEach((t, i) => {
+                const el = document.createElement('div');
+                el.className = 'cursor-pointer rounded-md border border-white bg-white px-3 py-2 text-xs transition hover:border-brand-300 hover:shadow-sm';
+                el.innerHTML =
+                    '<div class="flex items-start justify-between gap-2">' +
+                        '<div class="min-w-0 flex-1">' +
+                            '<span class="rounded bg-slate-100 px-1 py-0.5 text-[10px] text-slate-500">' + (i+1) + '</span> ' +
+                            '<span class="font-medium text-slate-700">' + escapeHtml(t.title) + '</span>' +
+                            (t.hook ? '<p class="mt-0.5 text-slate-400 truncate">钩子：' + escapeHtml(t.hook) + '</p>' : '') +
+                        '</div>' +
+                    '</div>';
+                el.addEventListener('click', function() {
+                    const ta = document.getElementById('text');
+                    ta.value = t.title + (t.hook ? '\n\n（钩子方向：' + t.hook + '）' : '');
+                    updateCharCount();
+                    // 高亮当前选中
+                    list.querySelectorAll('div').forEach(d => d.classList.remove('border-brand-400','bg-brand-50'));
+                    this.classList.add('border-brand-400','bg-brand-50');
+                });
+                list.appendChild(el);
+            });
+
+            // 收起/展开切换
+            document.getElementById('toggleBatchPanel').addEventListener('click', function() {
+                const listEl = document.getElementById('batchTopicList');
+                const isHidden = listEl.style.display === 'none';
+                listEl.style.display = isHidden ? '' : 'none';
+                this.textContent = isHidden ? '收起 ▲' : '展开 ' + topics.length + ' 条 ▼';
+            });
+        }
+        sessionStorage.removeItem('hgt_batch_topics'); // 用完即清
     }
 })();
 

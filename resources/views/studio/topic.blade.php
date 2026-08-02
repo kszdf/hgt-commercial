@@ -2,24 +2,29 @@
 <div class="mx-auto max-w-5xl p-6">
     <header class="mb-5">
         <h2 class="text-xl font-semibold text-slate-800">智能选题</h2>
-        <p class="mt-0.5 text-sm text-slate-400">面向{{ $tenantName }}，AI 生成高转化短视频选题与留资钩子。</p>
+        <p class="mt-0.5 text-sm text-slate-400">基于{{ $tenantName }}方向，自动生成短视频选题角度与留资钩子。</p>
     </header>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <!-- 输入区 -->
         <section class="luxury-glass p-5">
             <form id="topicForm" class="space-y-4">
-                <!-- 行业：只读上下文标签，不再让用户手填 -->
+                <!-- 视频分类：自定义文件夹名称，用于归类存放不同类型视频 -->
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-slate-600">目标行业</label>
-                    <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-600">
-                        <span class="inline-flex items-center gap-1 rounded-md bg-brand-100 px-2 py-0.5 text-xs font-medium text-brand-700">
-                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                            {{ $industryHint }}
-                        </span>
-                        <span class="text-slate-400">（已根据你的账号自动设定）</span>
+                    <label class="mb-1 block text-sm font-medium text-slate-600">视频分类</label>
+                    <div class="space-y-2">
+                        <input type="text" id="industry" name="industry" value="{{ $industryHint }}" maxlength="30"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100"
+                            placeholder="如：税务风险、建筑财税、公转私…">
+                        <div class="flex flex-wrap gap-1.5">
+                            <button type="button" data-cat="税务风险" class="cat-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">税务风险</button>
+                            <button type="button" data-cat="建筑财税" class="cat-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">建筑财税</button>
+                            <button type="button" data-cat="公转私" class="cat-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">公转私</button>
+                            <button type="button" data-cat="金税四期" class="cat-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">金税四期</button>
+                            <button type="button" data-cat="成本费用" class="cat-chip rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-brand-300 hover:text-brand-600">成本费用</button>
+                        </div>
+                        <p class="text-xs text-slate-400">用于将生成的视频归入不同分类文件夹，方便后续管理</p>
                     </div>
-                    <input type="hidden" id="industry" name="industry" value="{{ $industryHint }}">
                 </div>
 
                 <div>
@@ -71,11 +76,11 @@
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <p class="text-xs text-brand-700"><strong id="topicCount">0</strong> 条选题已生成 — 点击单条卡片的按钮选用，或：</p>
                     <div class="flex gap-2">
-                        <a href="/studio/rewrite" class="inline-flex items-center gap-1 rounded-md bg-white px-3 py-1.5 text-xs font-medium text-brand-600 shadow-sm transition hover:bg-brand-50">
-                            📝 全部去二创 →
+                        <a href="javascript:void(0)" id="batchRewriteBtn" class="inline-flex items-center gap-1 rounded-md bg-white px-3 py-1.5 text-xs font-medium text-brand-600 shadow-sm transition hover:bg-brand-50">
+                            全部去二创 →
                         </a>
                         <button type="button" id="regenBtn" class="inline-flex items-center gap-1 rounded-md bg-brand-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-brand-600">
-                            🔄 重新生成
+                            重新生成
                         </button>
                     </div>
                 </div>
@@ -88,6 +93,16 @@
 
 <script>
 let lastTopics = [];
+
+// 分类快捷标签点击
+document.querySelectorAll('.cat-chip').forEach(chip => {
+    chip.addEventListener('click', function () {
+        document.getElementById('industry').value = this.dataset.cat;
+        // 高亮选中态
+        document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('bg-brand-100', 'border-brand-400', 'text-brand-700'));
+        this.classList.add('bg-brand-100', 'border-brand-400', 'text-brand-700');
+    });
+});
 
 document.getElementById('topicForm').addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -134,9 +149,9 @@ document.getElementById('topicForm').addEventListener('submit', async function (
                         '</div>' +
                         '<p class="text-xs leading-relaxed text-slate-500">角度：' + escapeHtml(t.angle || '') + '</p>' +
                         '<p class="mt-0.5 text-xs leading-relaxed text-slate-500">潜力：' + escapeHtml(t.potential || '') + '</p>' +
-                        '<p class="mt-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-xs leading-relaxed text-amber-700">🪝 钩子：' + escapeHtml(t.hook || '') + '</p>' +
+                        '<p class="mt-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-xs leading-relaxed text-amber-700">留资钩子：' + escapeHtml(t.hook || '') + '</p>' +
                     '</div>' +
-                    '<button type="button" data-idx="' + i + '" class="use-topic-btn shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-sm transition hover:bg-brand-600 group-hover:opacity-100">选用 → 去二创</button>' +
+                    '<button type="button" data-idx="' + i + '" class="use-topic-btn shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-brand-600 active:bg-brand-700">去二创</button>' +
                 '</div>';
             result.appendChild(el);
         });
@@ -170,6 +185,13 @@ document.getElementById('topicForm').addEventListener('submit', async function (
 document.getElementById('regenBtn')?.addEventListener('click', function () {
     document.getElementById('topicForm').scrollIntoView({ behavior: 'smooth' });
     document.getElementById('genBtn').click();
+});
+
+// 全部去二创 → 存所有选题到 sessionStorage 跳 rewrite
+document.getElementById('batchRewriteBtn')?.addEventListener('click', function () {
+    if (!lastTopics.length) return;
+    sessionStorage.setItem('hgt_batch_topics', JSON.stringify(lastTopics));
+    window.location.href = '/studio/rewrite?from=topic-all';
 });
 
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }

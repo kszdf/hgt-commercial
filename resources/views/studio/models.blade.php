@@ -52,7 +52,7 @@
                         <div class="flex items-center justify-between">
                             <span class="truncate text-sm font-medium text-slate-700">{{ $a->name }}</span>
                             @if($a->status === 'ready')
-                                <span class="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">可用</span>
+                                <span class="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">就绪</span>
                             @else
                                 <span class="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">质检未过</span>
                             @endif

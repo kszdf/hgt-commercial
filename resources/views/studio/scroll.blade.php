@@ -270,7 +270,7 @@ document.getElementById('genForm').addEventListener('submit', async function (e)
         }
         // 持久化当前任务，用户离开页面后回来可自动续接进度
         sessionStorage.setItem('hgt_active_job', data.job_id);
-        result.innerHTML = '<div class="text-center text-slate-400"><div class="mb-2 text-3xl">🎬</div>'
+        result.innerHTML = '<div class="text-center text-slate-400"><div class="mb-2 text-3xl">⏳</div>'
             + '<div class="font-medium text-slate-600">出片任务已提交，正在真实配音合成…</div>'
             + '<div class="mt-1 text-xs">您可先去其他页面，回来会自动续接进度</div></div>';
         pollStatus(data.job_id);
@@ -316,7 +316,7 @@ async function pollStatus(jobId) {
                 badge.textContent = '出片中'; badge.className = 'rounded-full bg-brand-100 px-3 py-1 text-xs text-brand-600';
                 const sec = i * 2;
                 result.innerHTML = '<div class="text-center text-slate-400">' +
-                    '<div class="mb-2 text-3xl">🎬</div>' +
+                    '<div class="mb-2 text-3xl">⏳</div>' +
                     '<div class="font-medium text-slate-600">真实配音合成中…</div>' +
                     '<div class="mt-1 text-xs">已等待 ' + sec + ' 秒 · 预计 5–10 分钟</div>' +
                     '<div class="mt-1 text-xs text-brand-500">可先去其他页面，回来会自动续接</div></div>';
