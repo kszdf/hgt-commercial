@@ -12,11 +12,11 @@
         <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{{ session('error') }}</div>
     @endif
 
-    {{-- 演示模式提示 --}}
+    {{-- 平台对接提示 --}}
     <div class="mb-5 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
         <svg class="mt-0.5 h-5 w-5 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0L3.16 16.25A2 2 0 005 19z"/></svg>
         <div>
-            <div class="font-medium">演示模式</div>
+            <div class="font-medium">平台对接说明</div>
             <div class="mt-0.5 text-amber-700">当前发布为本地模拟，点击即生成分发记录。真实多平台上传需在各平台开放平台配置 OAuth 授权（<code>platform_accounts</code>），授权接入后将自动对接官方 API 上传并回写平台视频 ID。本模块已预留接口与发布记录表。</div>
         </div>
     </div>
@@ -39,7 +39,7 @@
                             @if($acc && $acc->isAuthorized())
                                 <span class="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] text-emerald-700">已授权</span>
                             @else
-                                <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-400">未授权·演示</span>
+                                <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-400">未授权</span>
                             @endif
                         </label>
                     @endforeach

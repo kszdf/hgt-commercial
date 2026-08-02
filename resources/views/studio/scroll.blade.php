@@ -60,7 +60,7 @@
 
                 <!-- 模特选择（按出片模式条件显示） -->
                 <div id="modelHint" class="rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-700">
-                    ✅ 滚动字幕卡模式：无需选模特，已自动跳过。
+                    滚动字幕卡模式：无需选模特，已自动跳过。
                 </div>
                 <div id="modelSelectWrap" class="hidden rounded-lg border border-slate-200 bg-slate-50/80 p-3.5">
                     <label class="mb-1.5 block text-sm font-medium text-slate-600">选择数字人模特</label>
@@ -444,11 +444,11 @@ async function pollStatus(jobId) {
                 badge.textContent = '完成'; badge.className = 'rounded-full bg-green-100 px-3 py-1 text-xs text-green-700';
                 result.innerHTML =
                     '<div class="w-full">' +
-                    '  <div class="mb-2 flex items-center gap-2 text-sm font-medium text-green-700">✅ 出片完成（真实配音短视频）</div>' +
+                    '  <div class="mb-2 flex items-center gap-2 text-sm font-medium text-green-700">出片完成（真实配音短视频）</div>' +
                     '  <video src="/studio/scroll/download/' + jobId + '" controls class="max-h-[55vh] w-full rounded-lg bg-black"></video>' +
                     '  <div class="mt-3 flex flex-wrap gap-2">' +
                     '    <a href="/studio/scroll/download/' + jobId + '" download class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">⬇ 下载视频</a>' +
-                    '    <a href="/studio/publish" class="rounded-lg border border-brand-300 bg-white px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50">🚀 去发布</a>' +
+                    '    <a href="/studio/publish" class="rounded-lg border border-brand-300 bg-white px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50">去发布</a>' +
                     '    <a href="/studio/scroll" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 hover:bg-slate-50">↻ 再出一条</a>' +
                     '  </div>' +
                     '</div>';

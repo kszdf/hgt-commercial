@@ -59,7 +59,7 @@
                 </div>
             @endforeach
         </div>
-        <p class="mt-3 text-xs text-slate-400">注：支付网关（微信支付 / Stripe）为 Phase 3 后续集成点，当前切换为直接生效的额度调整，用于商用测试。</p>
+        <p class="mt-3 text-xs text-slate-400">注：支付网关（微信支付 / Stripe）即将上线，当前套餐切换直接生效，由管理员调整额度。</p>
     </section>
 
     <!-- 最近任务 -->

@@ -102,14 +102,14 @@
                     <form method="POST" action="{{ route('studio.metrics.import') }}" enctype="multipart/form-data" class="space-y-3 text-sm">
                         @csrf
                         <input type="file" name="csv" accept=".csv,.txt" required class="w-full text-sm">
-                        <p class="text-xs text-zinc-400 leading-relaxed">表头：job_id,platform,metric_date,views,shares,comments,likes<br>job_id 支持内部 ID 或出片任务号；重复按「出片×平台×日期」覆盖。</p>
+                        <p class="text-xs text-zinc-400 leading-relaxed">表头：job_id,platform,metric_date,views,shares,comments,likes<br>job_id 支持任务编号或出片任务号；重复按「出片×平台×日期」覆盖。</p>
                         <button class="w-full rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 text-sm font-medium">导入</button>
                     </form>
                 </div>
 
                 <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-5">
                     <h2 class="font-semibold mb-4">平台授权</h2>
-                    <p class="text-xs text-zinc-400 mb-3">真实平台需开放平台 OAuth；当前为演示模式，数据手动录入。</p>
+                    <p class="text-xs text-zinc-400 mb-3">平台数据对接（OAuth）即将上线；当前支持手动录入数据。</p>
                     <ul class="space-y-2 text-sm">
                         @foreach ($accounts as $a)
                             <li class="flex items-center justify-between">

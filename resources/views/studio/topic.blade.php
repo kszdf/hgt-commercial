@@ -49,7 +49,7 @@
 
                 <button type="submit" id="genBtn"
                     class="w-full rounded-lg bg-brand-500 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                    ✨ 生成选题
+                    生成选题
                 </button>
                 <p id="formMsg" class="text-sm text-red-500"></p>
             </form>
@@ -173,9 +173,9 @@ document.getElementById('topicForm').addEventListener('submit', async function (
         actionBar.classList.remove('hidden');
         document.getElementById('topicCount').textContent = lastTopics.length;
 
-        btn.disabled = false; btn.textContent = '✨ 生成选题';
+        btn.disabled = false; btn.textContent = '生成选题';
     } catch (err) {
-        btn.disabled = false; btn.textContent = '✨ 生成选题';
+        btn.disabled = false; btn.textContent = '生成选题';
         badge.textContent = '失败'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
         errBox.textContent = err.message; errBox.classList.remove('hidden');
     }

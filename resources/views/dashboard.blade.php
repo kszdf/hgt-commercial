@@ -96,12 +96,12 @@
             </a>
         </section>
 
-        <!-- ========== 完整工作流面板（9步）========== -->
+        <!-- ========== 完整工作流面板 ========== -->
         <section class="px-6 pb-2">
             <div class="mb-4 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <h3 class="text-sm font-semibold text-slate-700">完整生产管线</h3>
-                    <span class="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-600">9 步闭环</span>
+                    <span class="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-600">完整工作流</span>
                 </div>
             </div>
 
@@ -145,13 +145,6 @@
                             <div class="mt-2 text-center">
                                 <div class="text-[11px] font-semibold text-slate-700">{{ $s['name'] }}</div>
                                 <div class="mt-0.5 text-[10px] text-slate-400 leading-tight">{{ $s['desc'] }}</div>
-                                @if(($s['status'] ?? '') === 'ready')
-                                    <span class="mt-1 inline-block rounded-full bg-fresh-50 px-1.5 py-0.5 text-[10px] font-medium text-fresh-600">可用</span>
-                                @elseif(($s['status'] ?? '') === 'cond')
-                                    <span class="mt-1 inline-block rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">按模式</span>
-                                @else
-                                    <span class="mt-1 inline-block rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">规划中</span>
-                                @endif
                             </div>
 
                         @if(!empty($s['link']))
@@ -167,9 +160,7 @@
         <!-- 底部状态 -->
         <div class="px-6 pb-8 pt-3">
             <div class="luxury-glass px-5 py-3.5 text-center text-[11px] text-slate-400">
-                Phase 1–3 已落地 · 多租户账号 / 滚动字幕卡 / 数字人出片 / 克隆配音 / 计费配额已可用
-                <span class="mx-1.5 text-slate-300">|</span>
-                9 步生产管线全打通 · 选题/二创/配音/模特/出片/质检/审核/外发/复盘闭环可用
+                已上线功能：多租户管理 · 智能选题 · 文案改写 · 克隆配音 · 滚动字幕卡 · 数字人出片 · 质检审核 · 计费配额
             </div>
         </div>
     </main>

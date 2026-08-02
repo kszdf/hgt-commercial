@@ -11,7 +11,7 @@
             <!-- 批量选题面板（从"全部去二创"跳转时显示） -->
             <div id="batchPanel" class="mb-4 hidden rounded-lg border border-brand-200 bg-brand-50/50 p-3">
                 <div class="mb-2 flex items-center justify-between">
-                    <h4 class="text-xs font-semibold text-brand-700">📋 待改写选题（点击选用）</h4>
+                    <h4 class="text-xs font-semibold text-brand-700">待改写选题（点击选用）</h4>
                     <button type="button" id="toggleBatchPanel" class="text-xs text-slate-500 hover:text-slate-700">收起 ▲</button>
                 </div>
                 <div id="batchTopicList" class="max-h-48 space-y-1.5 overflow-y-auto"></div>
@@ -95,7 +95,7 @@
                 <!-- 提交按钮 -->
                 <button type="submit" id="genBtn"
                     class="w-full rounded-lg bg-brand-500 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                    ✨ 智能改写
+                    智能改写
                 </button>
                 <p id="formMsg" class="text-sm text-red-500"></p>
             </form>
@@ -360,7 +360,7 @@ document.getElementById('rwForm').addEventListener('submit', async function (e) 
         if (hits.length) {
             const high = hits.filter(h => h.level === 'high');
             html += '<div class="rounded-xl ' + (high.length ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50') + ' p-3 text-xs ' + (high.length ? 'text-red-600' : 'text-amber-700') + '">';
-            html += '⚠️ 命中<strong>' + hits.length + '</strong>处' + (high.length ? '（<strong>' + high.length + '处高风险</strong>）' : '') + '违禁词：';
+            html += '<div class="rounded-lg bg-amber-50 p-2.5 text-xs text-amber-700">命中<strong>' + hits.length + '</strong>处' + (high.length ? '（<strong>' + high.length + '处高风险</strong>）' : '') + '违禁词：';
             html += hits.map(h => escapeHtml(h.word || '')).join('、') + '</div>';
         }
 
@@ -389,9 +389,9 @@ document.getElementById('rwForm').addEventListener('submit', async function (e) 
         // 显示操作按钮组
         actionBar.classList.remove('hidden');
 
-        btn.disabled = false; btn.textContent = '✨ 智能改写';
+        btn.disabled = false; btn.textContent = '智能改写';
     } catch (err) {
-        btn.disabled = false; btn.textContent = '✨ 智能改写';
+        btn.disabled = false; btn.textContent = '智能改写';
         badge.textContent = '失败'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
         errBox.textContent = err.message; errBox.classList.remove('hidden');
     }
@@ -404,7 +404,7 @@ function copyText() {
         navigator.clipboard.writeText(t).then(() => {
             const btn = document.getElementById('btnCopy');
             const orig = btn.innerHTML;
-            btn.innerHTML = '✅ 已复制';
+            btn.innerHTML = '已复制';
             setTimeout(() => btn.innerHTML = orig, 1500);
         });
     }

@@ -76,7 +76,7 @@
             sessionStorage.removeItem('hgt_qc_text');
             const hint = document.createElement('div');
             hint.className = 'mb-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-700';
-            hint.innerHTML = '✅ 已从「智能二创」带入清洗稿，可直接点击「开始质检」。 <a href="/studio/rewrite" class="font-medium underline hover:text-brand-900">← 返回二创</a>';
+            hint.innerHTML = '已从「智能二创」带入清洗稿，可直接点击「开始质检」。 <a href="/studio/rewrite" class="font-medium underline hover:text-brand-900">← 返回二创</a>';
             document.querySelector('header').after(hint);
         }
     }
@@ -119,12 +119,12 @@ document.getElementById('qcForm').addEventListener('submit', async function (e) 
         if (hits.length) {
             html += '<div class="space-y-1.5">';
             hits.forEach(h => {
-                const tag = h.level === 'high' ? '🔴 高危' : '🟡 中等';
+                const tag = h.level === 'high' ? '高危' : '中等';
                 html += '<div class="rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-700"><span class="font-medium">' + tag + ' “' + escapeHtml(h.word || '') + '”</span> <span class="text-red-500">建议：' + escapeHtml(h.suggest || '删除/替换') + '</span><div class="mt-1 text-red-400">…' + escapeHtml(h.context || '') + '…</div></div>';
             });
             html += '</div>';
         } else {
-            html += '<div class="rounded-lg bg-green-50 p-2.5 text-xs text-green-700">✅ 未发现违禁词风险（仍建议人工通读）</div>';
+            html += '<div class="rounded-lg bg-green-50 p-2.5 text-xs text-green-700">未发现违禁词风险（仍建议人工通读）</div>';
         }
         html += '</div>';
         result.innerHTML = html;
