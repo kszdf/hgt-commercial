@@ -441,6 +441,12 @@ def run_job(job_id, payload):
                 v = payload.get(key)
                 if v is not None:
                     args += [flag, str(v)]
+            # 字幕样式可调（字号/行数/描边/位置；可选，不传则脚本默认）
+            for key, flag in (("subtitle_size", "--subtitle-size"), ("subtitle_lines", "--subtitle-lines"),
+                              ("subtitle_outline", "--subtitle-outline"), ("subtitle_position", "--subtitle-position")):
+                v = payload.get(key)
+                if v is not None:
+                    args += [flag, str(v)]
             # 口语化自然润色（去AI感）：显式开启才调 DeepSeek 改写稿子
             if payload.get("natural"):
                 args += ["--natural"]

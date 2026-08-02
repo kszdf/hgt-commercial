@@ -60,6 +60,10 @@ class VideoController extends Controller
             'female_pitch' => ['sometimes', 'numeric', 'between:0.5,2.0'],
             'male_vol' => ['sometimes', 'integer', 'between:0,100'],
             'female_vol' => ['sometimes', 'integer', 'between:0,100'],
+            'subtitle_size' => ['sometimes', 'integer', 'between:48,140'],
+            'subtitle_lines' => ['sometimes', 'integer', 'in:1,2,3'],
+            'subtitle_outline' => ['sometimes', 'integer', 'between:0,10'],
+            'subtitle_position' => ['sometimes', 'string', 'in:bottom,center'],
             'natural' => ['sometimes', 'boolean'],
             'model' => ['sometimes', 'string', 'max:120'],
             'scene' => ['sometimes', 'string', 'max:40', 'in:office_a,office_b'],
@@ -149,6 +153,12 @@ class VideoController extends Controller
 
         // 分声线感情/快慢：仅当页面传了才透传（不传则脚本用默认值）
         foreach (['male_rate', 'female_rate', 'male_pitch', 'female_pitch', 'male_vol', 'female_vol'] as $k) {
+            if ($request->has($k)) {
+                $payload[$k] = $request->input($k);
+            }
+        }
+        // 字幕样式可调：仅当页面传了才透传（不传则脚本用默认值）
+        foreach (['subtitle_size', 'subtitle_lines', 'subtitle_outline', 'subtitle_position'] as $k) {
             if ($request->has($k)) {
                 $payload[$k] = $request->input($k);
             }

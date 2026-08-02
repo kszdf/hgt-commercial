@@ -114,6 +114,43 @@
                     </p>
                 </div>
 
+                <!-- 字幕样式调试（实时预览） -->
+                <details class="rounded-lg border border-slate-200 bg-slate-50/80 p-3.5">
+                    <summary class="cursor-pointer text-sm font-medium text-slate-600 select-none">字幕样式调试（字号 / 行数 / 描边 / 位置）</summary>
+                    <p class="mt-2 text-xs text-slate-400">拖动滑块实时预览字幕效果；不调则使用平台默认样式。</p>
+                    <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs text-slate-500"><span>字号</span><span id="v_sub_size" class="font-mono text-brand-600">92</span></div>
+                            <input type="range" id="subtitle_size" min="48" max="140" step="1" value="92" class="w-full accent-brand-500"
+                                oninput="document.getElementById('v_sub_size').textContent=this.value;updateSubPreview()">
+                        </div>
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs text-slate-500"><span>描边</span><span id="v_sub_outline" class="font-mono text-brand-600">5</span></div>
+                            <input type="range" id="subtitle_outline" min="0" max="10" step="1" value="5" class="w-full accent-brand-500"
+                                oninput="document.getElementById('v_sub_outline').textContent=this.value;updateSubPreview()">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="block text-xs text-slate-500">单条字幕行数</label>
+                            <select id="subtitle_lines" class="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700" onchange="updateSubPreview()">
+                                <option value="1">1 行</option>
+                                <option value="2">2 行</option>
+                                <option value="3" selected>3 行（默认）</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="block text-xs text-slate-500">字幕位置</label>
+                            <select id="subtitle_position" class="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700" onchange="updateSubPreview()">
+                                <option value="bottom" selected>底部（默认）</option>
+                                <option value="center">居中</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-3 flex justify-center">
+                        <canvas id="subPreview" width="270" height="480" class="rounded-lg border border-slate-200 bg-slate-900 shadow-sm"></canvas>
+                    </div>
+                    <p class="mt-2 text-center text-[11px] text-slate-400">预览为示意，实际以出片为准</p>
+                </details>
+
                 <!-- 配音感情/快慢调节（分声线） -->
                 <details class="rounded-lg border border-slate-200 bg-slate-50/80 p-3.5">
                     <summary class="cursor-pointer text-sm font-medium text-slate-600 select-none">🎚 配音感情 / 快慢调节（高级）</summary>
@@ -372,12 +409,60 @@ function updateDurationHint() {
     }
 }
 updateDurationHint();
+updateSubPreview();
 
 function resetVoice() {
     const defs = {male_rate:0.98, female_rate:0.98, male_pitch:0.95, female_pitch:1.02, male_vol:53, female_vol:49};
     for (const k in defs) {
         const el = document.getElementById(k);
         if (el) { el.value = defs[k]; const v = document.getElementById('v_' + k); if (v) v.textContent = defs[k].toFixed(2).replace(/\.?0+$/, '') || defs[k]; }
+    }
+}
+
+// 字幕样式实时预览：等比映射 1080x1920 → canvas，模拟当前行字号/行数/描边/位置
+function updateSubPreview() {
+    const cv = document.getElementById('subPreview');
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#0f172a'); g.addColorStop(1, '#1e293b');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    const sx = W / 1080;
+    const size = parseInt(document.getElementById('subtitle_size').value, 10);
+    const linesN = parseInt(document.getElementById('subtitle_lines').value, 10);
+    const outline = parseInt(document.getElementById('subtitle_outline').value, 10);
+    const position = document.getElementById('subtitle_position').value;
+    const fontPx = Math.max(8, Math.round(size * sx));
+    ctx.font = '700 ' + fontPx + 'px "Microsoft YaHei", SimHei, sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+
+    // 示例文本（按字数均分到 linesN 行，示意折行效果）
+    const sample = '暂估成本这个坑千万别踩，能票的走票不能票的走合同';
+    const per = Math.max(1, Math.ceil(sample.length / linesN));
+    const lines = [];
+    for (let i = 0; i < sample.length; i += per) lines.push(sample.slice(i, i + per));
+
+    const gap = Math.round(172 * sx * (size / 92));   // 行距随字号同比例
+    const x = 80 * sx;
+    let startY;
+    if (position === 'center') {
+        startY = H / 2 - ((lines.length - 1) * gap) / 2;
+    } else {
+        startY = H - 120 * sx - (lines.length - 1) * gap;
+    }
+    ctx.lineJoin = 'round';
+    for (let i = 0; i < lines.length; i++) {
+        const y = startY + i * gap;
+        if (outline > 0) {
+            ctx.lineWidth = Math.max(1, Math.round(outline * sx * (size / 92)));
+            ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+            ctx.strokeText(lines[i], x, y);
+        }
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(lines[i], x, y);
     }
 }
 
@@ -426,6 +511,10 @@ document.getElementById('genForm').addEventListener('submit', async function (e)
                 model: currentMode === 'avatar' ? (document.getElementById('model').value || null) : null,
                 scene: currentMode === 'avatar' ? (document.getElementById('scene')?.value || null) : null,
                 cover_id: document.getElementById('coverId').value ? parseInt(document.getElementById('coverId').value, 10) : null,
+                subtitle_size: parseInt(document.getElementById('subtitle_size').value, 10),
+                subtitle_lines: parseInt(document.getElementById('subtitle_lines').value, 10),
+                subtitle_outline: parseInt(document.getElementById('subtitle_outline').value, 10),
+                subtitle_position: document.getElementById('subtitle_position').value,
             })
         });
         // 防护：后端可能返回HTML异常页而非JSON
