@@ -125,10 +125,12 @@ class VideoController extends Controller
             'status' => 'queued',
         ]);
 
-        // 解析封面素材（仅限本租户），落库后回填
+        // 解析封面素材（本租户上传 或 平台预设均可），落库后回填
         if ($request->filled('cover_id')) {
             $cover = \App\Models\CoverAsset::where('id', $request->input('cover_id'))
-                ->where('tenant_id', $tenant->id)
+                ->where(function ($q) use ($tenant) {
+                    $q->where('is_preset', true)->orWhere('tenant_id', $tenant->id);
+                })
                 ->first();
             if ($cover) {
                 $job->update(['cover_asset_id' => $cover->id]);

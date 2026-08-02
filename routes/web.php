@@ -62,6 +62,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/covers', [CoverAssetController::class, 'store']);
     Route::delete('/studio/covers/{coverAsset}', [CoverAssetController::class, 'destroy'])->name('studio.covers.destroy');
     Route::post('/studio/covers/{coverAsset}/reupload', [CoverAssetController::class, 'reupload'])->name('studio.covers.reupload');
+    Route::post('/studio/covers/{coverAsset}/pick', [CoverAssetController::class, 'pickPreset'])->name('studio.covers.pick');
 
     // 声音克隆（租户上传音频 → CosyVoice 克隆 → 声音库）
     Route::get('/studio/voices', [VoiceCloneController::class, 'index'])->name('studio.voices');

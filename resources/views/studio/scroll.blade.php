@@ -78,6 +78,7 @@
                     <select id="coverId" name="cover_id" class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                         <option value="">不使用封面（平台默认）</option>
                         <optgroup label="我的封面" id="userCoversGroup"></optgroup>
+                        <optgroup label="平台预设" id="presetCoversGroup"></optgroup>
                     </select>
                     <p class="mt-1.5 flex items-center justify-between text-xs text-slate-400">
                         <span>发布到视频号 / 抖音 / 小红书 时建议指定封面。</span>
@@ -293,22 +294,28 @@ let currentMode = 'scroll';
     } catch (e) { /* 静默：内置模特仍可用 */ }
 })();
 
-// 拉取当前租户已上传封面，填入「我的封面」分组
-(async function loadUserCovers() {
+// 拉取封面（我的封面 + 平台预设），分别填入对应分组
+(async function loadCovers() {
     try {
         const resp = await fetch('/studio/covers/json', {
             headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' }
         });
         const data = await resp.json();
-        const group = document.getElementById('userCoversGroup');
-        if (group && data.ok && Array.isArray(data.covers)) {
-            data.covers.forEach(c => {
+        if (!data.ok) return;
+        const mine = document.getElementById('userCoversGroup');
+        const preset = document.getElementById('presetCoversGroup');
+        const fill = (group, list) => {
+            if (!group || !Array.isArray(list)) return;
+            list.forEach(c => {
                 const opt = document.createElement('option');
                 opt.value = c.id;
-                opt.textContent = c.name + (c.width ? '（' + c.width + '×' + c.height + '）' : '');
+                const tag = c.is_preset ? '（预设）' : '';
+                opt.textContent = c.name + tag + (c.width ? '（' + c.width + '×' + c.height + '）' : '');
                 group.appendChild(opt);
             });
-        }
+        };
+        fill(mine, data.covers);
+        fill(preset, data.presets);
     } catch (e) { /* 静默：可不指定封面 */ }
 })();
 

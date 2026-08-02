@@ -42,6 +42,47 @@
     </section>
 
     <section class="mt-4">
+        <h3 class="mb-2 text-sm font-semibold text-slate-700">平台预设封面库</h3>
+        <p class="mb-3 text-sm text-slate-400">按行业分类的精美封面模板，出片页「平台预设」中可直接选用；点「收藏」可复制到我的封面自行改图（预设本身不可删改）。</p>
+
+        <div class="mb-4 flex flex-wrap gap-2" id="presetTabs">
+            @foreach($presetCategories as $cat)
+                <button type="button" data-cat="{{ $cat['slug'] }}"
+                    class="preset-tab rounded-full border px-3.5 py-1.5 text-sm transition
+                    {{ $loop->first ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300' }}">
+                    {{ $cat['label'] }}
+                </button>
+            @endforeach
+        </div>
+
+        @foreach($presetCategories as $cat)
+            <div class="preset-panel" data-cat="{{ $cat['slug'] }}" @if(!$loop->first) style="display:none" @endif>
+                <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+                    @foreach($cat['covers'] as $c)
+                        <div class="luxury-glass flex flex-col p-3">
+                            <div class="relative mb-2 overflow-hidden rounded-lg bg-black/5">
+                                <img src="{{ route('studio.covers.preview', $c) }}" alt="{{ $c->name }}"
+                                    class="h-44 w-full object-cover">
+                                @if(Str::endsWith($c->file_path, '.gif'))
+                                    <span class="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white">动态</span>
+                                @endif
+                            </div>
+                            <span class="truncate text-sm font-medium text-slate-700" title="{{ $c->name }}">{{ $c->name }}</span>
+                            <span class="mt-1 text-xs text-slate-400">
+                                {{ $c->width && $c->height ? $c->width.'×'.$c->height : '-' }}
+                            </span>
+                            <form action="{{ route('studio.covers.pick', $c) }}" method="POST" class="mt-2">
+                                @csrf
+                                <button type="submit" class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50">收藏到我的封面</button>
+                            </form>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endforeach
+    </section>
+
+    <section class="mt-4">
         <h3 class="mb-3 text-sm font-semibold text-slate-700">已上传封面（{{ $assets->count() }}）</h3>
         @if($assets->isEmpty())
             <p class="rounded-lg bg-slate-50 p-4 text-sm text-slate-400">还没有上传任何封面，先上传一张试试。</p>
@@ -76,4 +117,25 @@
         @endif
     </section>
 </div>
+<script>
+    (function () {
+        const tabs = document.querySelectorAll('#presetTabs .preset-tab');
+        const panels = document.querySelectorAll('.preset-panel');
+        tabs.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const cat = btn.dataset.cat;
+                tabs.forEach(t => {
+                    const on = t === btn;
+                    t.classList.toggle('border-brand-400', on);
+                    t.classList.toggle('bg-brand-50', on);
+                    t.classList.toggle('text-brand-700', on);
+                    t.classList.toggle('border-slate-200', !on);
+                    t.classList.toggle('bg-white', !on);
+                    t.classList.toggle('text-slate-600', !on);
+                });
+                panels.forEach(p => { p.style.display = p.dataset.cat === cat ? '' : 'none'; });
+            });
+        });
+    })();
+</script>
 </x-app-layout>
