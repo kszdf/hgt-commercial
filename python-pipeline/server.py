@@ -100,7 +100,7 @@ def ai_topic(industry, keywords, count):
         return [{"title": "解析失败", "angle": content[:200]}]
 
 
-def ai_rewrite(text, mode, focus=None):
+def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None):
     """智能二创：三模式改写 + 违禁词标红/清洗。返回含元数据的完整结果。"""
     cfg = get_text_config()
     if mode == "single":
@@ -116,10 +116,33 @@ def ai_rewrite(text, mode, focus=None):
     if focus and isinstance(focus, str) and focus.strip():
         focus_hint = f"\n【用户指定的重点方向】：{focus.strip()} — 请在改写中特别强化这个方向的内容比重与表达力度。\n"
 
+    # 目标时长约束
+    dur_hint = ""
+    if target_duration is not None:
+        try:
+            secs = int(target_duration)
+            if secs > 0:
+                chars_low = max(30, round(secs * 130 / 60))   # 慢速约 130字/分
+                chars_high = round(secs * 160 / 60)             # 快速约 160字/分
+                dur_hint = (f"\n【目标时长约束】：用户要求改写稿适合 {secs} 秒的视频"
+                            f"（约 {chars_low}–{chars_high} 字）。请严格控制输出长度在此范围内，"
+                            f"过长则精简、过短则适当展开，但不要注水凑字数。\n")
+        except (ValueError, TypeError):
+            pass
+
+    # 保留要素约束
+    preserve_hint = ""
+    if preserve and isinstance(preserve, str) and preserve.strip():
+        items = [line.strip() for line in preserve.strip().splitlines() if line.strip()]
+        if items:
+            preserve_hint = ("\n【必须保留的要素】（以下内容在改写时绝对不能删除、替换或改写，"
+                             "必须原样保留在输出稿中）：\n" +
+                             "\n".join(f"  • {item}" for item in items) + "\n")
+
     prompt = (
         f"你是资深财税短视频脚本编辑。请把下面的稿子改写为「{role}」的自然口语稿，"
         "彻底去除AI机械感与书面腔，但保持财税专业准确性、不编造数据、不改原意。"
-        f"{focus_hint}"
+        f"{focus_hint}{dur_hint}{preserve_hint}"
         "要求：保留原意与关键结论；长短句结合、自然停顿；不堆砌语气词、禁用'啊/嘛/呢/哎哟'等夸张口语；"
         "对话感来自内容互动而非语气词；老张说话干脆直给。\n"
         "只输出改写后的稿子本身，不要解释、不要标题、不要代码块。\n\n"
@@ -491,7 +514,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if not text:
             return self._send(400, {"error": "text required"})
         try:
-            return self._send(200, ai_rewrite(text, data.get("mode", "dual"), data.get("focus")))
+            return self._send(200, ai_rewrite(text, data.get("mode", "dual"), data.get("focus"),
+                                              data.get("target_duration"), data.get("preserve")))
         except Exception as e:  # noqa: BLE001
             return self._send(200, {"ok": False, "error": str(e)})
 

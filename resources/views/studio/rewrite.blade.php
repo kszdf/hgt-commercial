@@ -57,6 +57,41 @@
                         placeholder="粘贴你的口播稿 / 文案 / 选题标题…&#10;&#10;提示：从「智能选题」点「选用」过来的标题会自动填入此处"></textarea>
                 </div>
 
+                <!-- 目标时长（控制改写稿长度匹配视频时长） -->
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-slate-600">
+                        目标时长 <span class="font-normal text-slate-400">（控制改写稿长度）</span>
+                    </label>
+                    <div class="flex items-center gap-2">
+                        <select id="durationPreset" name="duration_preset"
+                            class="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                            <option value="">不限（按原文自然长度）</option>
+                            <option value="30">30 秒（短视频/朋友圈）</option>
+                            <option value="60" selected>1 分钟（标准口播·推荐）</option>
+                            <option value="120">2 分钟（深度讲解）</option>
+                            <option value="180">3 分钟（案例拆解）</option>
+                            <option value="300">5 分钟（长视频）</option>
+                            <option value="custom">自定义…</option>
+                        </select>
+                        <input type="number" id="durationCustom" name="duration_custom" min="10" max="600"
+                            placeholder="秒数，如 90"
+                            class="hidden w-28 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                        <span id="durationHint" class="text-xs text-slate-400">约 130–160 字/分钟</span>
+                    </div>
+                    <input type="hidden" id="targetDuration" name="target_duration" value="">
+                </div>
+
+                <!-- 保留要素（用户指定改写时必须保留的内容） -->
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-slate-600">
+                        保留要素 <span class="font-normal text-slate-400">（可选，改写时必须保留的关键内容）</span>
+                    </label>
+                    <textarea id="preserve" name="preserve" rows="2"
+                        class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none placeholder:text-slate-300 focus:border-brand-400 focus:ring-1 focus:ring-brand-100"
+                        placeholder="例如：&#10;• 必须保留「虚开发票」这个关键词&#10;• 保留具体数据「5万元」「2026年」&#10;• 保留法规名称《税收征收管理法》&#10;留空则 AI 自由发挥"></textarea>
+                    <p class="mt-0.5 text-[11px] text-slate-400">每行一条，AI 改写时会确保这些内容不被删改或替换</p>
+                </div>
+
                 <!-- 提交按钮 -->
                 <button type="submit" id="genBtn"
                     class="w-full rounded-lg bg-brand-500 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -217,7 +252,41 @@ document.getElementById('clearFocus')?.addEventListener('click', function () {
     });
 });
 
-// ========== 3. 实时字数统计 ==========
+// ========== 3. 目标时长预设切换 ==========
+const durPreset = document.getElementById('durationPreset');
+const durCustom = document.getElementById('durationCustom');
+const durHidden = document.getElementById('targetDuration');
+const durHint = document.getElementById('durationHint');
+
+durPreset.addEventListener('change', function () {
+    if (this.value === 'custom') {
+        durCustom.classList.remove('hidden');
+        durCustom.focus();
+        durHint.textContent = '手动输入秒数';
+        durHidden.value = '';
+    } else {
+        durCustom.classList.add('hidden');
+        durHidden.value = this.value || '';
+        // 更新提示文字
+        const secs = parseInt(this.value) || 0;
+        if (secs >= 60) {
+            const min = Math.floor(secs / 60);
+            const remain = secs % 60;
+            const low = Math.round(min * 130 + (remain / 60) * 130);
+            const high = Math.round(min * 160 + (remain / 60) * 160);
+            durHint.textContent = '约 ' + low + '–' + high + ' 字';
+        } else if (secs > 0) {
+            durHint.textContent = '约 ' + Math.round(secs * 130 / 60) + '–' + Math.round(secs * 160 / 60) + ' 字';
+        } else {
+            durHint.textContent = '按原文自然长度';
+        }
+    }
+});
+durCustom.addEventListener('input', function () {
+    durHidden.value = this.value || '';
+});
+
+// ========== 4. 实时字数统计 ==========
 function updateCharCount() {
     const txt = document.getElementById('text').value.replace(/\s/g, '');
     const chars = txt.length;
@@ -257,6 +326,8 @@ document.getElementById('rwForm').addEventListener('submit', async function (e) 
                 mode: document.getElementById('mode').value,
                 text: document.getElementById('text').value,
                 focus: document.getElementById('focus').value || undefined,
+                target_duration: document.getElementById('targetDuration').value || undefined,
+                preserve: document.getElementById('preserve').value.trim() || undefined,
             })
         });
         const data = await resp.json();
