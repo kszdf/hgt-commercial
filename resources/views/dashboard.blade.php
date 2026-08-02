@@ -133,9 +133,9 @@
 
                     @foreach($steps as $i => $s)
                         @if(!empty($s['link']))
-                        <a href="{{ $s['link'] }}" class="workflow-step group" data-color="{{ $s['color'] }}" data-status="{{ $s['status'] }}">
+                        <a href="{{ $s['link'] }}" class="workflow-step group relative" data-color="{{ $s['color'] }}" data-status="{{ $s['status'] }}" data-desc="{{ $s['desc'] }}">
                         @else
-                        <div class="workflow-step group" data-color="{{ $s['color'] }}" data-status="{{ $s['status'] }}">
+                        <div class="workflow-step group relative" data-color="{{ $s['color'] }}" data-status="{{ $s['status'] }}" data-desc="{{ $s['desc'] }}">
                         @endif
 
                             <div class="step-icon-wrap tool-{{ $s['color'] }}">
@@ -143,7 +143,6 @@
                             </div>
                             <div class="mt-2 text-center">
                                 <div class="text-[11px] font-semibold text-slate-700">{{ $s['name'] }}</div>
-                                <div class="mt-0.5 text-[10px] text-slate-400 leading-tight">{{ $s['desc'] }}</div>
                             </div>
 
                         @if(!empty($s['link']))
@@ -155,6 +154,102 @@
                 </div>
             </div>
         </section>
+
+        <!-- 工作流卡片 Tooltip 交互 -->
+        <style>
+            .wf-tooltip {
+                position: absolute;
+                z-index: 50;
+                padding: 8px 12px;
+                border-radius: 10px;
+                background: #1e293b;
+                color: #f8fafc;
+                font-size: 12px;
+                line-height: 1.5;
+                white-space: nowrap;
+                pointer-events: none;
+                opacity: 0;
+                transform: translateY(4px) scale(0.96);
+                transition: opacity 0.2s ease, transform 0.2s ease;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.1);
+            }
+            .wf-tooltip.visible {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                pointer-events: auto;
+            }
+            /* 暗色模式适配 */
+            [data-theme="dark"] .wf-tooltip,
+            .dark .wf-tooltip {
+                background: #e2e8f0;
+                color: #0f172a;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+            }
+        </style>
+        <script>
+        (function(){
+            var activeTooltip = null;
+
+            document.querySelectorAll('.workflow-step[data-desc]').forEach(function(el){
+                el.addEventListener('click', function(e){
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var desc = this.getAttribute('data-desc');
+                    if (!desc) return;
+
+                    // 如果当前已有 tooltip 且属于这个元素，关闭它
+                    if (activeTooltip && activeTooltip._owner === this) {
+                        hideTip();
+                        return;
+                    }
+                    // 关闭旧的
+                    if (activeTooltip) hideTip();
+
+                    // 创建新 tooltip
+                    var tip = document.createElement('div');
+                    tip.className = 'wf-tooltip';
+                    tip.textContent = desc;
+                    tip._owner = this;
+                    document.body.appendChild(tip);
+
+                    // 定位：在按钮正下方居中
+                    var rect = this.getBoundingClientRect();
+                    var tipW = tip.offsetWidth;
+                    var left = rect.left + (rect.width - tipW) / 2;
+                    var top = rect.bottom + 8;
+
+                    // 边界修正：不超出视口左右
+                    if (left < 4) left = 4;
+                    if (left + tipW > window.innerWidth - 4) left = window.innerWidth - tipW - 4;
+
+                    tip.style.left = left + 'px';
+                    tip.style.top = top + 'px';
+
+                    // 下一帧显示（触发 transition）
+                    requestAnimationFrame(function(){ tip.classList.add('visible'); });
+                    activeTooltip = tip;
+                });
+            });
+
+            function hideTip() {
+                if (!activeTooltip) return;
+                activeTooltip.classList.remove('visible');
+                var t = activeTooltip;
+                setTimeout(function(){ if (t.parentNode) t.parentNode.removeChild(t); }, 220);
+                activeTooltip = null;
+            }
+
+            // 点击页面其他区域关闭
+            document.addEventListener('click', function(e){
+                if (!e.target.closest('.workflow-step')) hideTip();
+            });
+
+            // ESC 关闭
+            document.addEventListener('keydown', function(e){
+                if (e.key === 'Escape') hideTip();
+            });
+        })();
+        </script>
 
     </main>
 </div>
