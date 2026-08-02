@@ -132,6 +132,7 @@
                 </details>
 
                 <p id="quotaHint" class="text-xs text-slate-400"></p>
+                <p id="durationHint" class="mt-2 text-xs text-slate-400"></p>
                 <p class="flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
                     <span>⏱</span><span>真实配音约需 <b>5–10 分钟</b>（逐句克隆音 + 字幕卡合成）。提交后本页自动刷新状态，您也可先去其他页面，回来会自动续接进度。</span>
                 </p>
@@ -307,7 +308,35 @@ document.getElementById('dialogue')?.addEventListener('input', function () {
     if (currentMode === 'avatar') {
         checkDialogueFormat(this.value, document.getElementById('formatWarning'));
     }
+    updateDurationHint();
 });
+
+// 实时预估视频时长（与后端 estimateDurationSec 算法一致）
+function estimateDuration() {
+    const text = document.getElementById('dialogue').value;
+    let chars = 0;
+    text.split('\n').forEach(raw => {
+        let line = raw.trim();
+        if (!line) return;
+        if (/^(女|男)[:：]/.test(line)) line = line.slice(2);
+        chars += line.replace(/\s/g, '').length;
+    });
+    return Math.max(1, Math.round(chars / 4.5));
+}
+function updateDurationHint() {
+    const el = document.getElementById('durationHint');
+    if (!el) return;
+    const sec = estimateDuration();
+    const max = 1800;
+    if (sec > max) {
+        el.className = 'mt-2 text-xs font-medium text-red-600';
+        el.textContent = '⚠ 预估时长 ' + Math.floor(sec / 60) + '分' + (sec % 60) + '秒，超过单次上限 30 分钟，请拆分内容后再提交。';
+    } else {
+        el.className = 'mt-2 text-xs text-slate-400';
+        el.textContent = '预估视频时长：约 ' + Math.floor(sec / 60) + '分' + (sec % 60) + '秒（单次上限 30 分钟）';
+    }
+}
+updateDurationHint();
 
 function resetVoice() {
     const defs = {male_rate:0.98, female_rate:0.98, male_pitch:0.95, female_pitch:1.02, male_vol:53, female_vol:49};
@@ -325,6 +354,14 @@ document.getElementById('genForm').addEventListener('submit', async function (e)
     const result = document.getElementById('result');
     const errBox = document.getElementById('errorBox');
     msg.textContent = ''; errBox.classList.add('hidden');
+
+    // 本地预校验：时长超限直接拦，不白提交（后端有 422 双保险）
+    const est = estimateDuration();
+    if (est > 1800) {
+        errBox.textContent = '时长超限：预估约 ' + est + ' 秒，超过单次上限 1800 秒（30分钟）。请拆分内容分批生成。';
+        errBox.classList.remove('hidden');
+        return;
+    }
 
     btn.disabled = true; btn.textContent = '提交中…';
     badge.textContent = '排队中'; badge.className = 'rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-700';

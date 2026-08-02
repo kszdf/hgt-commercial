@@ -329,82 +329,132 @@ def process_asset(raw_path, tenant_id):
 
 
 
-jobs = {}          # job_id -> {"status","out","error"}
+# ===== 多租户稳定性护栏（可在环境变量覆盖；默认值基于本地 GPU/CPU 共享瓶颈）=====
+GLOBAL_MAX_JOBS = int(os.environ.get("PIPELINE_GLOBAL_MAX_JOBS", "3"))       # 全局同时渲染上限
+TENANT_MAX_JOBS = int(os.environ.get("PIPELINE_TENANT_MAX_JOBS", "2"))       # 单租户同时渲染上限
+HARD_TIMEOUT = int(os.environ.get("PIPELINE_HARD_TIMEOUT", "2100"))          # 单任务硬超时 35 分钟（防僵尸）
+MAX_DURATION_SEC = int(os.environ.get("PIPELINE_MAX_DURATION_SEC", "1800"))  # 单次生成时长上限 30 分钟
+
+jobs = {}          # job_id -> {"status","out","error","tenant_id"}
 lock = threading.Lock()
+active_total = 0              # 全局在跑任务数（用于并发护栏）
+active_by_tenant = {}         # tenant_id -> 在跑任务数
+
+
+def estimate_duration_sec(dialogue):
+    """从对话稿粗略估算 TTS 时长（中文约 4.5 字/秒，去除 女：/男： 前缀）。"""
+    chars = 0
+    for line in (dialogue or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line[:2] in ("女：", "女:", "男：", "男:"):
+            line = line[2:]
+        chars += len(line.replace(" ", ""))
+    return max(1, round(chars / 4.5))
+
+
+def run_with_timeout(args, cwd, timeout):
+    """Windows 安全的带超时进程运行；超时杀进程树，防 ffmpeg 等子进程变孤儿。"""
+    proc = subprocess.Popen(
+        args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+    )
+    try:
+        out, err = proc.communicate(timeout=timeout)
+        return proc.returncode, out, err
+    except subprocess.TimeoutExpired:
+        # 杀整个进程树（taskkill /T 递归），避免 PY310→ffmpeg 链变僵尸
+        try:
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                           capture_output=True, text=True, timeout=10)
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+        try:
+            out, err = proc.communicate(timeout=5)
+        except Exception:
+            out, err = "", ""
+        return 124, out, err   # 124 = 超时约定码
 
 
 def run_job(job_id, payload):
-    mode = (payload.get("mode") or "scroll").lower()
-    dialogue = payload.get("dialogue", "").strip()
-    if not dialogue:
-        with lock:
-            jobs[job_id]["status"] = "failed"
-            jobs[job_id]["error"] = "dialogue required"
-        return
-
-    job_dir = os.path.join(JOBS_DIR, job_id)
-    os.makedirs(job_dir, exist_ok=True)
-    dlg_path = os.path.join(job_dir, "dialogue.txt")
-    with open(dlg_path, "w", encoding="utf-8") as f:
-        f.write(dialogue)
-    out_path = os.path.join(job_dir, "out.mp4")
-
-    if mode == "avatar":
-        voice = payload.get("male_voice") or payload.get("voice") or DEFAULT_MALE
-        args = [PY310, SCRIPT_AVATAR, "--dialogue", dlg_path,
-                "--out", out_path, "--voice", voice]
-        model = payload.get("model")
-        if model:
-            # 友好名/裸文件名 -> 容器内完整路径；已是完整路径则原样用；未知则回退默认
-            model = MODEL_REGISTRY.get(
-                model,
-                model if model.startswith("/code/data/") else DEFAULT_AVATAR_MODEL,
-            )
-            args += ["--model", model]
-        # 场景选择（办公桌前正面/侧面等预录场景）
-        scene = payload.get("scene")
-        if scene:
-            args += ["--scene", scene]
-    else:  # scroll
-        args = [PY310, SCRIPT_SCROLL, "--dialogue", dlg_path, "--out", out_path]
-        if payload.get("title"):
-            args += ["--title", payload["title"]]
-        if payload.get("subtitle"):
-            args += ["--subtitle", payload["subtitle"]]
-        if payload.get("bg"):
-            args += ["--bg", payload["bg"]]
-        # 真实 TTS 为默认；仅当显式 dry_tts=true 才用静音占位
-        if payload.get("dry_tts"):
-            args += ["--dry-tts"]
-        mv = payload.get("male_voice")
-        if mv:
-            args += ["--male-voice", mv]
-        fv = payload.get("female_voice")
-        if fv:
-            args += ["--female-voice", fv]
-        # 分声线感情/快慢（可选；不传则用脚本默认值：男声沉稳慢、女声略活泼）
-        for key, flag in (("male_rate", "--male-rate"), ("female_rate", "--female-rate"),
-                          ("male_pitch", "--male-pitch"), ("female_pitch", "--female-pitch"),
-                          ("male_vol", "--male-vol"), ("female_vol", "--female-vol")):
-            v = payload.get(key)
-            if v is not None:
-                args += [flag, str(v)]
-        # 口语化自然润色（去AI感）：显式开启才调 DeepSeek 改写稿子
-        if payload.get("natural"):
-            args += ["--natural"]
-
+    tenant_id = payload.get("tenant_id") or "default"
     try:
+        mode = (payload.get("mode") or "scroll").lower()
+        dialogue = payload.get("dialogue", "").strip()
+        if not dialogue:
+            with lock:
+                jobs[job_id]["status"] = "failed"
+                jobs[job_id]["error"] = "dialogue required"
+            return
+
+        job_dir = os.path.join(JOBS_DIR, job_id)
+        os.makedirs(job_dir, exist_ok=True)
+        dlg_path = os.path.join(job_dir, "dialogue.txt")
+        with open(dlg_path, "w", encoding="utf-8") as f:
+            f.write(dialogue)
+        out_path = os.path.join(job_dir, "out.mp4")
+
+        if mode == "avatar":
+            voice = payload.get("male_voice") or payload.get("voice") or DEFAULT_MALE
+            args = [PY310, SCRIPT_AVATAR, "--dialogue", dlg_path,
+                    "--out", out_path, "--voice", voice]
+            model = payload.get("model")
+            if model:
+                # 友好名/裸文件名 -> 容器内完整路径；已是完整路径则原样用；未知则回退默认
+                model = MODEL_REGISTRY.get(
+                    model,
+                    model if model.startswith("/code/data/") else DEFAULT_AVATAR_MODEL,
+                )
+                args += ["--model", model]
+            # 场景选择（办公桌前正面/侧面等预录场景）
+            scene = payload.get("scene")
+            if scene:
+                args += ["--scene", scene]
+        else:  # scroll
+            args = [PY310, SCRIPT_SCROLL, "--dialogue", dlg_path, "--out", out_path]
+            if payload.get("title"):
+                args += ["--title", payload["title"]]
+            if payload.get("subtitle"):
+                args += ["--subtitle", payload["subtitle"]]
+            if payload.get("bg"):
+                args += ["--bg", payload["bg"]]
+            # 真实 TTS 为默认；仅当显式 dry_tts=true 才用静音占位
+            if payload.get("dry_tts"):
+                args += ["--dry-tts"]
+            mv = payload.get("male_voice")
+            if mv:
+                args += ["--male-voice", mv]
+            fv = payload.get("female_voice")
+            if fv:
+                args += ["--female-voice", fv]
+            # 分声线感情/快慢（可选；不传则用脚本默认值：男声沉稳慢、女声略活泼）
+            for key, flag in (("male_rate", "--male-rate"), ("female_rate", "--female-rate"),
+                              ("male_pitch", "--male-pitch"), ("female_pitch", "--female-pitch"),
+                              ("male_vol", "--male-vol"), ("female_vol", "--female-vol")):
+                v = payload.get(key)
+                if v is not None:
+                    args += [flag, str(v)]
+            # 口语化自然润色（去AI感）：显式开启才调 DeepSeek 改写稿子
+            if payload.get("natural"):
+                args += ["--natural"]
+
         with lock:
             jobs[job_id]["status"] = "rendering"
-        proc = subprocess.run(
-            args, cwd=GPT_SOVITS, capture_output=True, text=True, timeout=1200
-        )
-        if proc.returncode == 0 and os.path.exists(out_path):
+        rc, out, err = run_with_timeout(args, GPT_SOVITS, HARD_TIMEOUT)
+        if rc == 0 and os.path.exists(out_path):
             with lock:
                 jobs[job_id]["status"] = "done"
                 jobs[job_id]["out"] = out_path
+        elif rc == 124:
+            with lock:
+                jobs[job_id]["status"] = "failed"
+                jobs[job_id]["error"] = f"渲染超时（超过 {HARD_TIMEOUT} 秒硬上限），已自动终止以释放资源。请缩短内容或分批生成。"
         else:
-            tail = (proc.stderr or proc.stdout or "")[-4000:]
+            tail = (err or out or "")[-4000:]
             with lock:
                 jobs[job_id]["status"] = "failed"
                 jobs[job_id]["error"] = tail
@@ -412,6 +462,15 @@ def run_job(job_id, payload):
         with lock:
             jobs[job_id]["status"] = "failed"
             jobs[job_id]["error"] = str(e)
+    finally:
+        # 释放并发计数（无论成功/失败/异常都递减，防泄漏）
+        with lock:
+            global active_total
+            active_total = max(0, active_total - 1)
+            if active_by_tenant.get(tenant_id, 0) > 0:
+                active_by_tenant[tenant_id] -= 1
+                if active_by_tenant[tenant_id] <= 0:
+                    del active_by_tenant[tenant_id]
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -490,12 +549,40 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     # ---- 出片（异步 job）----
     def _handle_generate(self, data):
+        global active_total, active_by_tenant
         dialogue = (data.get("dialogue") or "").strip()
         if not dialogue:
             return self._send(400, {"error": "dialogue required"})
-        jid = uuid.uuid4().hex
+
+        # 时长上限（第一道闸）：预估 TTS 时长超 MAX_DURATION_SEC 直接拒
+        est = estimate_duration_sec(dialogue)
+        if est > MAX_DURATION_SEC:
+            return self._send(422, {
+                "error": f"时长超限：预估约 {est} 秒，超过单次上限 {MAX_DURATION_SEC} 秒（30分钟）。请拆分内容后分批生成。",
+                "code": "duration_exceeded",
+                "estimated_sec": est,
+                "max_sec": MAX_DURATION_SEC,
+            })
+
+        # 并发护栏：全局 + 单租户双闸，超了直接 429 拒绝而非无脑接收
+        tenant_id = str(data.get("tenant_id") or "default")
         with lock:
-            jobs[jid] = {"status": "queued", "out": None, "error": None}
+            if active_total >= GLOBAL_MAX_JOBS:
+                return self._send(429, {
+                    "error": f"系统繁忙：当前渲染任务已达全局上限（{GLOBAL_MAX_JOBS}），请稍后重试。",
+                    "code": "global_busy",
+                    "active": active_total, "max": GLOBAL_MAX_JOBS,
+                })
+            if active_by_tenant.get(tenant_id, 0) >= TENANT_MAX_JOBS:
+                return self._send(429, {
+                    "error": f"并发超限：当前账号已有 {active_by_tenant.get(tenant_id, 0)} 个进行中的渲染任务，请等待完成后再提交。",
+                    "code": "tenant_busy",
+                    "active": active_by_tenant.get(tenant_id, 0), "max": TENANT_MAX_JOBS,
+                })
+            active_total += 1
+            active_by_tenant[tenant_id] = active_by_tenant.get(tenant_id, 0) + 1
+            jid = uuid.uuid4().hex
+            jobs[jid] = {"status": "queued", "out": None, "error": None, "tenant_id": tenant_id}
         t = threading.Thread(target=run_job, args=(jid, data), daemon=True)
         t.start()
         return self._send(200, {"job_id": jid, "status": "queued"})

@@ -56,6 +56,32 @@ class VideoController extends Controller
             'cover_id' => ['sometimes', 'integer', 'exists:cover_assets,id'],
         ]);
 
+        // —— 单次时长上限（后端硬约束，前端拦不住的才是真闸）——
+        $estSec = $this->estimateDurationSec($data['dialogue']);
+        $maxDuration = (int) env('MAX_VIDEO_DURATION_SEC', 1800);
+        if ($estSec > $maxDuration) {
+            return response()->json([
+                'error' => '时长超限：预估约 ' . $estSec . ' 秒，超过单次上限 ' . $maxDuration . ' 秒（30分钟）。请拆分内容分批生成。',
+                'code' => 'duration_exceeded',
+                'estimated_sec' => $estSec,
+                'max_sec' => $maxDuration,
+            ], 422);
+        }
+
+        // —— 本租户并发上限（与 8500 双保险；第一道闸在 Laravel 侧）——
+        $active = \App\Models\VideoJob::where('tenant_id', $tenant->id)
+            ->where('status', 'queued')
+            ->count();
+        $tenantMax = (int) env('TENANT_MAX_CONCURRENT_JOBS', 2);
+        if ($active >= $tenantMax) {
+            return response()->json([
+                'error' => '并发超限：当前账号已有 ' . $active . ' 个进行中的渲染任务，请等待完成后再提交。',
+                'code' => 'tenant_busy',
+                'active' => $active,
+                'max' => $tenantMax,
+            ], 429);
+        }
+
         $mode = $data['mode'] ?? 'scroll';
         $title = $data['title'] ?? null;
 
@@ -106,6 +132,7 @@ class VideoController extends Controller
             'natural' => (bool) $request->input('natural', false),
             'model' => $request->input('model'),   // 仅数字人模式使用；字幕卡模式为 null，微服务自动跳过
             'scene' => $request->input('scene'),   // 数字人出镜场景（office_a / office_b）
+            'tenant_id' => (string) $tenant->id,   // 透传给 8500 做并发护栏（无租户上下文则无法区分）
         ];
 
         // 分声线感情/快慢：仅当页面传了才透传（不传则脚本用默认值）
@@ -131,6 +158,27 @@ class VideoController extends Controller
             'usage' => $tenant->usageThisMonth(),
             'quota' => $tenant->quota_monthly,
         ]);
+    }
+
+    /**
+     * 从对话稿粗略估算 TTS 时长（中文约 4.5 字/秒，去除 女：/男： 前缀）。
+     * 与 8500 server.py estimate_duration_sec 算法保持一致。
+     */
+    private function estimateDurationSec(string $dialogue): int
+    {
+        $chars = 0;
+        foreach (explode("\n", $dialogue) as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+            if (str_starts_with($line, '女：') || str_starts_with($line, '女:')
+                || str_starts_with($line, '男：') || str_starts_with($line, '男:')) {
+                $line = mb_substr($line, 2);
+            }
+            $chars += mb_strlen(str_replace(' ', '', $line));
+        }
+        return max(1, (int) round($chars / 4.5));
     }
 
     public function status(string $jobId)
