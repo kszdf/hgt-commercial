@@ -11,13 +11,14 @@ class Tenant extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name', 'slug', 'plan', 'status', 'quota_monthly',
+        'name', 'slug', 'plan', 'status', 'trial_ends_at', 'quota_monthly',
         'default_avatar', 'default_male_voice', 'default_female_voice', 'settings',
     ];
 
     protected $casts = [
         'settings' => 'array',
         'quota_monthly' => 'integer',
+        'trial_ends_at' => 'datetime',
     ];
 
     public function users(): HasMany
@@ -88,5 +89,54 @@ class Tenant extends Model
             return null;
         }
         return max(0, $this->quota_monthly - $this->usageThisMonth());
+    }
+
+    /**
+     * 免费试用是否仍在进行。
+     * - 非免费套餐（已订阅）一律视为不在试用期内；
+     * - trial_ends_at 为空（存量兜底）视为仍可用。
+     */
+    public function isTrialActive(): bool
+    {
+        if ($this->plan !== 'free') {
+            return false;
+        }
+        if ($this->trial_ends_at === null) {
+            return true;
+        }
+        return $this->trial_ends_at->isFuture();
+    }
+
+    /** 免费试用是否已结束（已订阅套餐永不为 true）。 */
+    public function isTrialExpired(): bool
+    {
+        return $this->plan === 'free'
+            && $this->trial_ends_at !== null
+            && $this->trial_ends_at->isPast();
+    }
+
+    /** 试用剩余天数（无试用期返回 null）。 */
+    public function trialDaysLeft(): ?int
+    {
+        if ($this->trial_ends_at === null) {
+            return null;
+        }
+        return max(0, (int) now()->diffInDays($this->trial_ends_at, false));
+    }
+
+    /**
+     * 是否可发起新的视频生成。
+     * - 已订阅套餐（pro/enterprise）：仅受月度额度约束；
+     * - 免费套餐：试用期内且未超额度方可生成，到期未订阅则禁止。
+     */
+    public function canGenerate(): bool
+    {
+        if ($this->plan !== 'free') {
+            return true;
+        }
+        if ($this->isTrialExpired()) {
+            return false;
+        }
+        return ! $this->isOverQuota();
     }
 }

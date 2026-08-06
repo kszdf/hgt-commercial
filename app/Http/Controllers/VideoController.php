@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\PipelineUnavailableException;
 use App\Models\VideoJob;
 use App\Models\TenantVoice;
+use App\Services\PipelineClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -38,6 +40,14 @@ class VideoController extends Controller
         $user = $request->user();
         $tenant = $user->tenant;
 
+        // —— 试用到期拦截（未订阅则禁止继续出片）——
+        if ($tenant->isTrialExpired()) {
+            return response()->json([
+                'error' => '免费试用已结束，请升级订阅套餐后继续生成视频。',
+                'code' => 'trial_expired',
+            ], 402);
+        }
+
         // —— 配额拦截（计费基础）——
         if ($tenant->isOverQuota()) {
             return response()->json([
@@ -65,11 +75,11 @@ class VideoController extends Controller
             'subtitle_outline' => ['sometimes', 'integer', 'between:0,10'],
             'subtitle_position' => ['sometimes', 'string', 'in:bottom,center'],
             'natural' => ['sometimes', 'boolean'],
-            'model' => ['sometimes', 'string', 'max:120'],
-            'scene' => ['sometimes', 'string', 'max:40', 'in:office_a,office_b'],
-            'cover_id' => ['sometimes', 'integer', 'exists:cover_assets,id'],
-            'male_voice' => ['sometimes', 'string', 'max:120'],
-            'female_voice' => ['sometimes', 'string', 'max:120'],
+            'model' => ['nullable', 'string', 'max:120'],
+            'scene' => ['nullable', 'string', 'max:40', 'in:office_a,office_b'],
+            'cover_id' => ['nullable', 'integer', 'exists:cover_assets,id'],
+            'male_voice' => ['nullable', 'string', 'max:120'],
+            'female_voice' => ['nullable', 'string', 'max:120'],
         ]);
 
         // —— 单次时长上限（后端硬约束，前端拦不住的才是真闸）——
@@ -166,7 +176,12 @@ class VideoController extends Controller
             }
         }
 
-        $resp = Http::timeout(15)->post($this->pipelineUrl() . '/generate', $payload);
+        try {
+            $resp = app(PipelineClient::class)->post('/generate', $payload, 15);
+        } catch (PipelineUnavailableException $e) {
+            $job->update(['status' => 'failed']);
+            return response()->json(['error' => '出片服务暂时不可用，请稍后重试（' . $e->getMessage() . '）'], 503);
+        }
 
         if (! $resp->successful()) {
             $job->update(['status' => 'failed']);
@@ -207,7 +222,11 @@ class VideoController extends Controller
 
     public function status(string $jobId)
     {
-        $resp = Http::timeout(15)->get($this->pipelineUrl() . '/status/' . $jobId);
+        try {
+            $resp = app(PipelineClient::class)->get('/status/' . $jobId, 15);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '状态查询服务暂时不可用，请稍后重试'], 503);
+        }
         if (! $resp->successful()) {
             return response()->json(['error' => '状态查询失败'], 502);
         }
@@ -228,7 +247,11 @@ class VideoController extends Controller
 
     public function download(string $jobId)
     {
-        $resp = Http::timeout(180)->get($this->pipelineUrl() . '/download/' . $jobId);
+        try {
+            $resp = app(PipelineClient::class)->get('/download/' . $jobId, 180);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '下载服务暂时不可用，请稍后重试'], 503);
+        }
         if (! $resp->successful()) {
             abort(404);
         }

@@ -1,6 +1,6 @@
 <x-app-layout>
-<div class="flex min-h-screen items-center justify-center p-6">
-    <div class="luxury-glass w-full max-w-md p-8">
+<div class="flex min-h-screen min-h-dvh items-start justify-center overflow-y-auto p-6 py-10 sm:items-center sm:py-6">
+    <div class="my-auto w-full max-w-md p-6 sm:p-8 luxury-glass">
         <!-- 品牌区 -->
         <div class="mb-7 flex items-center gap-2.5">
             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 text-lg font-bold text-white shadow-sm">追</div>
@@ -26,13 +26,16 @@
 
         <form class="space-y-4" method="POST" action="/register">
             @csrf
-            <flux:input label="企业 / 团队名称" name="tenant_name" placeholder="追梦科技" required />
-            <flux:input label="管理员姓名" name="name" placeholder="您的姓名" required />
-            <flux:input label="账号 / 邮箱" name="email" type="email" placeholder="you@company.com" required />
+            <flux:input label="企业 / 团队名称" name="tenant_name" placeholder="追梦科技" required value="{{ old('tenant_name') }}" />
+            <flux:input label="管理员 / Administrator" name="name" placeholder="您的姓名" required value="{{ old('name') }}" />
+            <flux:input label="邮箱登录 / Email Login" name="email" type="email" placeholder="you@company.com" required value="{{ old('email') }}" />
             <flux:input label="密码" name="password" type="password" placeholder="••••••••" required />
+            <p class="text-xs text-slate-400 -mt-2">至少 6 位；需含大小写字母，或数字与特殊字符组合。</p>
             <flux:input label="确认密码" name="password_confirmation" type="password" placeholder="••••••••" required />
 
-            <flux:button variant="primary" type="submit" class="w-full !bg-brand-500 hover:!bg-brand-600 !shadow-sm mt-2">开通工作台</flux:button>
+            <flux:button variant="primary" type="submit" class="w-full !bg-brand-500 hover:!bg-brand-600 !shadow-sm mt-2 mb-safe">
+                开通工作台
+            </flux:button>
         </form>
 
         <p class="mt-5 text-center text-sm text-slate-400">
@@ -42,7 +45,7 @@
     </div>
 
     <p class="absolute bottom-5 text-xs text-slate-300">
-        © 2026 追梦 · 财税短视频智能生产平台
+        © 2026 追梦 · 短视频智能生产平台
     </p>
 </div>
 </x-app-layout>

@@ -26,7 +26,7 @@
 
         <form class="space-y-4" method="POST" action="/login">
             @csrf
-            <flux:input label="账号 / 邮箱" name="email" type="email" placeholder="you@company.com" required value="{{ old('email') }}" />
+            <flux:input label="邮箱登录 / Email Login" name="email" type="email" placeholder="you@company.com" required value="{{ old('email') }}" />
             <flux:input label="密码" name="password" type="password" placeholder="••••••••" required />
 
             <div class="flex items-center justify-between text-sm">
@@ -46,7 +46,7 @@
     </div>
 
     <p class="absolute bottom-5 text-xs text-slate-300">
-        © 2026 追梦 · 财税短视频智能生产平台
+        © 2026 追梦 · 短视频智能生产平台
     </p>
 </div>
 </x-app-layout>
