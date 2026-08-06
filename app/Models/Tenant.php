@@ -139,4 +139,14 @@ class Tenant extends Model
         }
         return ! $this->isOverQuota();
     }
+
+    /**
+     * 试用期内单条视频时长硬上限（秒）。
+     * 默认 600 秒（10 分钟），可由 TRIAL_MAX_DURATION_SEC 环境变量覆盖。
+     * 已订阅套餐不受此限（走全局 MAX_VIDEO_DURATION_SEC）。
+     */
+    public function trialMaxDurationSec(): int
+    {
+        return (int) env('TRIAL_MAX_DURATION_SEC', 600);
+    }
 }

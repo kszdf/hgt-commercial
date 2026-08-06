@@ -2,18 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\PipelineUnavailableException;
 use App\Models\PlatformAccount;
 use App\Models\PublishRecord;
 use App\Models\VideoJob;
+use App\Services\PipelineClient;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 
 /**
- * 批量外发模块：审核通过(publish_status=approved)的视频，一键分发到多平台。
+ * 批量外发模块：审核通过(publish_status=approved)的视频，一键真实分发到多平台。
  *
- * 当前为「演示模式」——真实多平台分发需要各平台 OAuth 授权凭据
- * （platform_accounts），由后台任务对接官方开放平台 API 完成实际上传。
- * 演示模式下直接落 success 记录，便于打通「审核→外发→数据复盘」整条链路，
- * 页面顶部明确标注「需配置 OAuth 授权」。
+ * 真实链路：表单提交 → 本控制器对每个视频调 8500 出片微服务 /publish 端点
+ * （{job_id(8500 UUID), platforms}）→ 8500 逐平台调官方开放平台 API 上传发布
+ * → 返回 results[{platform,status,url,error}] → 本控制器落 PublishRecord 真实成败。
+ * 前端平台 key(wechat) 会自动映射为 8500 key(shipinhao)。未授权平台前置拦截，
+ * 避免对开放平台白跑请求。
  */
 class PublishController extends Controller
 {
@@ -29,7 +33,7 @@ class PublishController extends Controller
 
         $accounts = PlatformAccount::where('tenant_id', $tenant->id)->get();
 
-        // 平台清单（演示模式下即使未授权也可发布，仅作提示）
+        // 平台清单（真实模式：未授权平台会前置拦截，提示先授权）
         $platforms = [
             'wechat'       => '视频号',
             'douyin'       => '抖音',
@@ -42,13 +46,37 @@ class PublishController extends Controller
             ->limit(50)
             ->get();
 
-        return view('studio.publish', compact('videos', 'accounts', 'platforms', 'records'));
+        // 真实授权态：问 8500 出片微服务的 /oauth/status（OAuth token 缓存 / client_credential env）。
+        // 8500 不可达时降级为「未授权」，不阻断页面渲染。wechat 由 8500 归一为 shipinhao。
+        $authStatus = [];
+        $base = env('PYTHON_PIPELINE_URL', 'http://host.docker.internal:8500');
+        foreach (array_keys($platforms) as $key) {
+            try {
+                $resp = app(PipelineClient::class)->get("/oauth/status/{$key}", 3);
+                $authStatus[$key] = $resp->successful() && ($resp->json('authorized') === true);
+            } catch (PipelineUnavailableException $e) {
+                $authStatus[$key] = false;
+            }
+        }
+
+        // 浏览器侧访问 8500 的公网/本地地址（弹窗授权用；与 OAUTH_REDIRECT_BASE 保持一致）
+        $publicBase = env('PYTHON_PIPELINE_PUBLIC_URL', 'http://127.0.0.1:8500');
+
+        $isTrial = $tenant->plan === 'free';
+
+        return view('studio.publish', compact('videos', 'accounts', 'platforms', 'records', 'authStatus', 'publicBase', 'isTrial'));
     }
 
-    /** 批量发布（演示桩）。 */
+    /** 批量发布（真实链路：调 8500 出片微服务 /publish）。 */
     public function publish(Request $request)
     {
         $tenant = request()->user()->tenant;
+
+        // —— 试用版（免费套餐）禁止批量外发（后端硬闸）——
+        if ($tenant->plan === 'free') {
+            return redirect()->route('studio.publish')
+                ->with('error', '免费试用版暂不支持批量外发，请升级套餐后使用。');
+        }
 
         $data = $request->validate([
             'video_ids'   => ['required', 'array', 'min:1'],
@@ -57,40 +85,135 @@ class PublishController extends Controller
             'platforms.*' => ['string', 'in:wechat,douyin,xiaohongshu'],
         ]);
 
-        // 仅操作本租户、且已审核通过的视频（越权/非 approved 的自动忽略）
+        // 仅操作本租户、已审核通过、且渲染完成的视频（越权/非 approved/done 的自动忽略）
         $jobs = VideoJob::where('tenant_id', $tenant->id)
             ->whereIn('id', $data['video_ids'])
             ->where('publish_status', 'approved')
+            ->where('status', 'done')
             ->get();
 
         if ($jobs->isEmpty()) {
-            return redirect()->route('studio.publish')->with('error', '没有可发布的视频（需先通过人工审核）。');
+            return redirect()->route('studio.publish')->with('error', '没有可发布的视频（需先通过人工审核且渲染完成）。');
         }
 
-        $created = 0;
-        foreach ($jobs as $job) {
-            foreach ($data['platforms'] as $platform) {
-                // 优先关联已授权账号（演示模式下可能没有）
-                $account = PlatformAccount::where('tenant_id', $tenant->id)
-                    ->where('platform', $platform)
-                    ->where('status', 'authorized')
-                    ->first();
+        $base = env('PYTHON_PIPELINE_URL', 'http://host.docker.internal:8500');
 
-                PublishRecord::create([
-                    'tenant_id'           => $tenant->id,
-                    'video_job_id'        => $job->id,
-                    'platform'            => $platform,
-                    'platform_account_id' => $account?->id,
-                    'status'              => 'success', // 演示桩：直接成功
-                    'published_at'        => now(),
-                ]);
-                $created++;
+        // 真实授权态：问 8500，未授权平台前置拦截（不白跑真实 API）
+        $authStatus = [];
+        foreach (['wechat', 'douyin', 'xiaohongshu'] as $k) {
+            try {
+                $r = app(PipelineClient::class)->get("/oauth/status/{$k}", 3);
+                $authStatus[$k] = $r->successful() && $r->json('authorized') === true;
+            } catch (PipelineUnavailableException $e) {
+                $authStatus[$k] = false;
             }
-            // 标记视频已外发
-            $job->update(['publish_status' => 'published']);
         }
 
-        return redirect()->route('studio.publish')
-            ->with('success', "演示发布完成：已生成 {$created} 条分发记录（演示模式，真实平台需配置 OAuth 授权后自动上传）。");
+        // 前端平台 key → 8500 平台 key
+        $map = ['wechat' => 'shipinhao', 'douyin' => 'douyin', 'xiaohongshu' => 'xiaohongshu'];
+
+        $okCount = 0;
+        $failCount = 0;
+
+        foreach ($jobs as $job) {
+            if (empty($job->job_id)) {
+                continue; // 缺少 8500 job_id，无法发布
+            }
+
+            $mapped = [];
+            foreach ($data['platforms'] as $p) {
+                if (empty($authStatus[$p])) {
+                    PublishRecord::create([
+                        'tenant_id'    => $tenant->id,
+                        'video_job_id' => $job->id,
+                        'platform'     => $p,
+                        'status'       => 'failed',
+                        'error'        => '该平台尚未授权，请先点击「授权」完成平台授权后再发布',
+                        'published_at' => now(),
+                    ]);
+                    $failCount++;
+                    continue;
+                }
+                $mapped[] = $map[$p];
+            }
+            if (empty($mapped)) {
+                continue;
+            }
+
+            // 调 8500 /publish 真实分发（同步逐平台上传发布，超时放宽到 180s）
+            // 注意：8500 严格要求 JSON body，必须用 withBody(json_encode) 显式发送，
+            // 否则 Laravel 默认的 Http::post(array) 会发 form 表单导致 8500 返回 400 bad json。
+            try {
+                $resp = app(PipelineClient::class)->postJson('/publish', [
+                    'job_id'    => $job->job_id,
+                    'platforms' => $mapped,
+                    'title'     => $job->title ?: '短视频',
+                ], 180);
+
+                if ($resp->failed()) {
+                    // 8500 返回非 2xx（如 400 bad json / 500）→ 视为本次分发失败，记录真实错误
+                    foreach ($mapped as $mk) {
+                        $plat = array_search($mk, $map, true) ?: $mk;
+                        PublishRecord::create([
+                            'tenant_id'    => $tenant->id,
+                            'video_job_id' => $job->id,
+                            'platform'     => $plat,
+                            'status'       => 'failed',
+                            'error'        => '出片服务返回错误：' . $resp->body(),
+                            'published_at' => now(),
+                        ]);
+                        $failCount++;
+                    }
+                    continue;
+                }
+                $results = $resp->json('results') ?: [];
+            } catch (\Throwable $e) {
+                foreach ($mapped as $mk) {
+                    $plat = array_search($mk, $map, true) ?: $mk;
+                    PublishRecord::create([
+                        'tenant_id'    => $tenant->id,
+                        'video_job_id' => $job->id,
+                        'platform'     => $plat,
+                        'status'       => 'failed',
+                        'error'        => '出片服务不可达：' . $e->getMessage(),
+                        'published_at' => now(),
+                    ]);
+                    $failCount++;
+                }
+                continue;
+            }
+
+            foreach ($results as $res) {
+                $plat = array_search($res['platform'] ?? '', $map, true) ?: ($res['platform'] ?? '');
+                $isOk = ($res['status'] ?? 'failed') === 'published';
+                PublishRecord::create([
+                    'tenant_id'    => $tenant->id,
+                    'video_job_id' => $job->id,
+                    'platform'     => $plat,
+                    'status'       => $isOk ? 'success' : 'failed',
+                    'external_id'  => ($res['url'] ?? '') ?: ($res['post_id'] ?? ''),
+                    'error'        => $res['error'] ?? null,
+                    'published_at' => now(),
+                ]);
+                if ($isOk) {
+                    $okCount++;
+                } else {
+                    $failCount++;
+                }
+            }
+
+            // 只要有一个平台成功即标记视频已外发
+            $jobDone = collect($results)->contains(fn($r) => ($r['status'] ?? '') === 'published');
+            if ($jobDone) {
+                $job->update(['publish_status' => 'published']);
+            }
+        }
+
+        $msg = "已提交真实发布：成功 {$okCount} 条";
+        if ($failCount > 0) {
+            $msg .= "，失败 {$failCount} 条（未授权或平台返回错误，详情见下方发布历史）";
+        }
+
+        return redirect()->route('studio.publish')->with('success', $msg);
     }
 }

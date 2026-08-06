@@ -82,12 +82,16 @@ class VideoController extends Controller
             'female_voice' => ['nullable', 'string', 'max:120'],
         ]);
 
-        // —— 单次时长上限（后端硬约束，前端拦不住的才是真闸）——
+        // —— 单次时长上限（后端硬约束）——
+        // 试用期内更严格：单条 ≤ TRIAL_MAX_DURATION_SEC（默认 600 秒 = 10 分钟）；
+        // 已订阅套餐放宽到 MAX_VIDEO_DURATION_SEC（默认 1800 秒 = 30 分钟）。
         $estSec = $this->estimateDurationSec($data['dialogue']);
-        $maxDuration = (int) env('MAX_VIDEO_DURATION_SEC', 1800);
+        $maxDuration = $tenant->isTrialActive()
+            ? (int) env('TRIAL_MAX_DURATION_SEC', 600)
+            : (int) env('MAX_VIDEO_DURATION_SEC', 1800);
         if ($estSec > $maxDuration) {
             return response()->json([
-                'error' => '时长超限：预估约 ' . $estSec . ' 秒，超过单次上限 ' . $maxDuration . ' 秒（30分钟）。请拆分内容分批生成。',
+                'error' => '时长超限：预估约 ' . $estSec . ' 秒，超过单次上限 ' . $maxDuration . ' 秒（' . round($maxDuration / 60) . '分钟）。请拆分内容分批生成。',
                 'code' => 'duration_exceeded',
                 'estimated_sec' => $estSec,
                 'max_sec' => $maxDuration,

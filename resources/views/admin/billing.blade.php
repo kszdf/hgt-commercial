@@ -18,7 +18,7 @@
     @if ($tenant->isTrialExpired())
         <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">免费试用已结束，请选择下方套餐升级后继续生成视频。</div>
     @elseif ($tenant->plan === 'free' && $tenant->trialDaysLeft() !== null)
-        <div class="mb-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm text-brand-700">免费试用中，剩余 <span class="font-semibold">{{ $tenant->trialDaysLeft() }}</span> 天（每月可生成 {{ $quota }} 次）。</div>
+        <div class="mb-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm text-brand-700">免费试用中，剩余 <span class="font-semibold">{{ $tenant->trialDaysLeft() }}</span> 天（每月可生成 {{ $quota }} 次，约 5 元规模）· 单条视频 ≤ 10 分钟 · 不含批量外发，升级后解锁。</div>
     @endif
 
     <!-- 用量概览 -->
