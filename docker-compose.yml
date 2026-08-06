@@ -3,6 +3,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    restart: always
+    mem_limit: 512m
+    mem_reservation: 256m
+    cpus: '1.0'
+    healthcheck:
+      # php:fpm 镜像无 ps；用 php 自带 fsockopen 探 FPM 监听端口(9000)存活
+      test: ["CMD-SHELL", "php -r 'exit(@fsockopen(\"127.0.0.1\", 9000) ? 0 : 1);'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     volumes:
       - .:/var/www
     networks:
@@ -12,6 +23,17 @@ services:
 
   nginx:
     image: nginx:alpine
+    restart: always
+    mem_limit: 128m
+    cpus: '0.5'
+    healthcheck:
+      # 经 nginx -> app -> Laravel /up（自带 DB 探活）；app 或 DB 挂则 502 -> 不健康
+      # 用 127.0.0.1 显式地址，规避 busybox wget 对 localhost 的解析坑
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/up || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     ports:
       - "8080:80"   # 宿主 8080 -> 新平台预览（避开 8385）
     volumes:
@@ -24,6 +46,15 @@ services:
 
   mysql:
     image: mysql:8.0
+    restart: always
+    mem_limit: 768m
+    cpus: '1.0'
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -prootpass_change_me || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     environment:
       MYSQL_DATABASE: hgt_commercial
       MYSQL_ROOT_PASSWORD: rootpass_change_me
@@ -39,6 +70,14 @@ services:
 
   redis:
     image: redis:alpine
+    restart: always
+    mem_limit: 128m
+    cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
     networks:
       - hgt
 

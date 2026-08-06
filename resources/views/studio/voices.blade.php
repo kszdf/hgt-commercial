@@ -1,8 +1,7 @@
 <x-app-layout>
+<x-workspace-layout title="声音库">
 <div class="mx-auto max-w-5xl p-6">
-    <header class="mb-5">
-        <h2 class="text-xl font-semibold text-slate-800">我的声音库</h2>
-        <p class="mt-0.5 text-sm text-slate-400">上传参考音频克隆专属音色，支持多个男声 / 女声，出片时可自由选择。克隆后的音色仅你本租户可用。</p>
+        <p class="mt-0.5 text-sm text-slate-400">上传参考音频克隆专属音色，支持多个男声 / 女声，出片时可自由选择。克隆后的音色仅你本租户可用，并会原样保留你录音里的口音 / 方言——无需单独选方言。</p>
         <p class="mt-2 flex flex-wrap gap-3">
             <a href="/studio/models" class="text-sm text-brand-600 hover:underline">管理我的模特 →</a>
             <a href="/studio/covers" class="text-sm text-brand-600 hover:underline">管理封面素材 →</a>
@@ -30,7 +29,8 @@
             <li>· <b>时长</b>：建议 10–30 秒，过短音色学不准，过长无意义</li>
             <li>· <b>发音</b>：自然说话，咬字清晰，避免语速过快或含混</li>
             <li>· <b>语调</b>：用你期望克隆的常态语调，避免刻意拿腔或念稿</li>
-            <li>· <b>方言</b>：如需方言音色，请直接用该方言录制参考音频</li>
+            <li>· <b>授权</b>：仅克隆你本人或已获授权的声音，勿上传他人声音用于商用分发</li>
+            <li>· <b>方言</b>：克隆音色会原样保留你录音里的口音 / 方言，出片即该方言，平台不另设方言选项</li>
             <li>· <b>格式</b>：wav / mp3 / m4a，单文件 ≤ 30MB</li>
         </ul>
     </section>
@@ -102,4 +102,5 @@
         @endif
     </section>
 </div>
+</x-workspace-layout>
 </x-app-layout>

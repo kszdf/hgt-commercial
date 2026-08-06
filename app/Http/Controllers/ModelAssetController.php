@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\PipelineUnavailableException;
 use App\Models\ModelAsset;
+use App\Services\PipelineClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Response;
@@ -93,10 +95,15 @@ class ModelAssetController extends Controller
             'exists_container' => file_exists($rawPath) ? 'YES' : 'NO',
             'realpath' => realpath($rawPath) ?: 'false',
         ]);
-        $resp = Http::timeout(300)->post($this->pipelineUrl() . '/process-asset', [
-            'file_path' => $this->containerToHost($rawPath),
-            'tenant_id' => $tenant->id,
-        ]);
+        try {
+            $resp = app(PipelineClient::class)->post('/process-asset', [
+                'file_path' => $this->containerToHost($rawPath),
+                'tenant_id' => $tenant->id,
+            ], 300);
+        } catch (PipelineUnavailableException $e) {
+            @unlink($rawPath);
+            return redirect()->back()->with('error', '出片服务暂时不可用，请稍后重试（' . $e->getMessage() . '）');
+        }
         \Illuminate\Support\Facades\Log::info('MODEL_ASSET_PROC', [
             'url' => $this->pipelineUrl() . '/process-asset',
             'status' => $resp->status(),
@@ -173,10 +180,15 @@ class ModelAssetController extends Controller
         $rawRel = $file->storeAs('models', '_raw_' . uniqid() . '.' . $ext);
         $rawPath = \Illuminate\Support\Facades\Storage::disk('local')->path($rawRel);
 
-        $resp = Http::timeout(300)->post($this->pipelineUrl() . '/process-asset', [
-            'file_path' => $this->containerToHost($rawPath),
-            'tenant_id' => $tenant->id,
-        ]);
+        try {
+            $resp = app(PipelineClient::class)->post('/process-asset', [
+                'file_path' => $this->containerToHost($rawPath),
+                'tenant_id' => $tenant->id,
+            ], 300);
+        } catch (PipelineUnavailableException $e) {
+            @unlink($rawPath);
+            return redirect()->back()->with('error', '出片服务暂时不可用，请稍后重试（' . $e->getMessage() . '）');
+        }
         if (! $resp->successful() || ! ($resp->json('ok') ?? false)) {
             @unlink($rawPath);
             return redirect()->back()->with('error', '重新处理失败。');

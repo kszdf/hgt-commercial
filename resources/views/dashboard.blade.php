@@ -19,7 +19,7 @@
         </div>
     @elseif ($trialActive)
         <div class="mb-5 flex items-center justify-between rounded-xl border border-brand-200 bg-brand-50 px-4 py-3">
-            <div class="text-sm text-brand-700">免费试用中 · 剩余 <span class="font-semibold">{{ $tenant->trialDaysLeft() }}</span> 天 · 本月已用 {{ $usage }} / {{ $quota }} 次（约 5 元）· 单条 ≤ 10 分钟 · 不含批量外发</div>
+            <div class="text-sm text-brand-700">免费试用中 · 剩余 <span class="font-semibold">{{ $tenant->trialDaysLeft() }}</span> 天 · 本月已用 {{ $usage }} / {{ $quota }} 次（约 {{ (int) ceil($quota * 0.5) }} 元规模）· 单条 ≤ 10 分钟 · 不含批量外发</div>
             <a href="/admin/billing" class="text-sm font-medium text-brand-600 hover:underline">查看套餐</a>
         </div>
     @else
@@ -162,48 +162,6 @@
     <script>
     (function(){
         var activeTooltip = null;
-
-        document.querySelectorAll('.workflow-step[data-desc]').forEach(function(el){
-            el.addEventListener('click', function(e){
-                e.preventDefault();
-                e.stopPropagation();
-                var desc = this.getAttribute('data-desc');
-                if (!desc) return;
-
-                // 如果当前已有 tooltip 且属于这个元素，关闭它
-                if (activeTooltip && activeTooltip._owner === this) {
-                    hideTip();
-                    return;
-                }
-                // 关闭旧的
-                if (activeTooltip) hideTip();
-
-                // 创建新 tooltip
-                var tip = document.createElement('div');
-                tip.className = 'wf-tooltip';
-                tip.textContent = desc;
-                tip._owner = this;
-                document.body.appendChild(tip);
-
-                // 定位：在按钮正下方居中
-                var rect = this.getBoundingClientRect();
-                var tipW = tip.offsetWidth;
-                var left = rect.left + (rect.width - tipW) / 2;
-                var top = rect.bottom + 8;
-
-                // 边界修正：不超出视口左右
-                if (left < 4) left = 4;
-                if (left + tipW > window.innerWidth - 4) left = window.innerWidth - tipW - 4;
-
-                tip.style.left = left + 'px';
-                tip.style.top = top + 'px';
-
-                // 下一帧显示（触发 transition）
-                requestAnimationFrame(function(){ tip.classList.add('visible'); });
-                activeTooltip = tip;
-            });
-        });
-
         function hideTip() {
             if (!activeTooltip) return;
             activeTooltip.classList.remove('visible');
@@ -211,12 +169,34 @@
             setTimeout(function(){ if (t.parentNode) t.parentNode.removeChild(t); }, 220);
             activeTooltip = null;
         }
-
-        // 点击页面其他区域关闭
-        document.addEventListener('click', function(e){
-            if (!e.target.closest('.workflow-step')) hideTip();
+        document.querySelectorAll('.workflow-step[data-desc]').forEach(function(el){
+            var hasLink = el.tagName === 'A' && !!el.getAttribute('href');
+            // 桌面端：hover 显示步骤说明 tooltip（点击仍交给 <a> 正常跳转）
+            el.addEventListener('mouseenter', function(){
+                hideTip();
+                var desc = el.getAttribute('data-desc');
+                if (!desc) return;
+                var tip = document.createElement('div');
+                tip.className = 'wf-tooltip';
+                tip.textContent = desc;
+                document.body.appendChild(tip);
+                var rect = el.getBoundingClientRect();
+                var tipW = tip.offsetWidth;
+                var left = rect.left + (rect.width - tipW) / 2;
+                var top = rect.bottom + 8;
+                if (left < 4) left = 4;
+                if (left + tipW > window.innerWidth - 4) left = window.innerWidth - tipW - 4;
+                tip.style.left = left + 'px';
+                tip.style.top = top + 'px';
+                requestAnimationFrame(function(){ tip.classList.add('visible'); });
+                activeTooltip = tip;
+            });
+            el.addEventListener('mouseleave', hideTip);
+            // 无链接的占位步骤禁用点击；有链接的步骤让浏览器正常跳转
+            if (!hasLink) {
+                el.addEventListener('click', function(e){ e.preventDefault(); });
+            }
         });
-
         // ESC 关闭
         document.addEventListener('keydown', function(e){
             if (e.key === 'Escape') hideTip();

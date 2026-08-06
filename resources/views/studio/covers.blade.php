@@ -1,7 +1,6 @@
 <x-app-layout>
+<x-workspace-layout title="封面素材库">
 <div class="mx-auto max-w-5xl p-6">
-    <header class="mb-5">
-        <h2 class="text-xl font-semibold text-slate-800">封面素材库</h2>
         <p class="mt-0.5 text-sm text-slate-400">上传视频封面图（jpg/png/webp，≤10MB）。发布到视频号 / 抖音 / 小红书 时可指定封面。系统自动记录尺寸与大小，租户隔离。</p>
         <p class="mt-2 flex flex-wrap gap-3">
             <a href="/studio/voices" class="text-sm text-brand-600 hover:underline">声音库 →</a>
@@ -27,12 +26,12 @@
             </div>
             <div>
                 <label class="mb-1 block text-sm font-medium text-slate-600">封面名称</label>
-                <input type="text" name="name" maxlength="60" placeholder="如：金税四期钩子图"
+                <input type="text" name="name" maxlength="60" placeholder="如：新品发布钩子图"
                     class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
             </div>
             <div>
                 <label class="mb-1 block text-sm font-medium text-slate-600">场景标签</label>
-                <input type="text" name="scene" maxlength="40" placeholder="如：财税科普 / 政策解读"
+                <input type="text" name="scene" maxlength="40" placeholder="如：行业科普 / 产品讲解"
                     class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
             </div>
             <div class="lg:col-span-2">
@@ -138,4 +137,5 @@
         });
     })();
 </script>
+</x-workspace-layout>
 </x-app-layout>

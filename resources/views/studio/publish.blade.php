@@ -9,10 +9,19 @@
         <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{{ session('error') }}</div>
     @endif
 
+    <!-- 发布渠道说明（常显） -->
+    <div class="mb-5 rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <div class="text-sm font-semibold text-slate-700">发布渠道说明</div>
+        <ul class="mt-1 space-y-1 text-sm text-slate-500">
+            <li>· 自动分发：抖音、小红书（完成平台授权后一键发布）</li>
+            <li>· 手动发布：视频号（微信暂未开放发布接口，请在「视频号助手」App 手动上传）</li>
+        </ul>
+    </div>
+
     @if(isset($isTrial) && $isTrial)
         <div class="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
             <div class="text-sm font-semibold text-amber-800">免费试用版暂不支持批量外发</div>
-            <div class="mt-1 text-sm text-amber-700">升级到专业版 / 企业版后，即可一键分发视频到抖音、视频号、小红书等平台。</div>
+            <div class="mt-1 text-sm text-amber-700">升级到专业版 / 企业版后，即可一键分发视频到抖音、小红书等平台。</div>
             <a href="{{ route('admin.billing') }}" class="mt-3 inline-block rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-amber-600">前往升级 →</a>
         </div>
     @elseif($videos->isEmpty())
@@ -47,7 +56,7 @@
                         </div>
                     @endforeach
                 </div>
-                <p class="mt-2 text-xs text-slate-400">抖音 / 小红书需点「授权」在弹窗内完成平台授权（授权后本页自动刷新为「已授权」）。视频号为 client_credential 模式，在 model_keys.env 填好密钥即生效。</p>
+                <p class="mt-2 text-xs text-slate-400">抖音 / 小红书需点「授权」在弹窗内完成平台授权（授权后本页自动刷新为「已授权」）。</p>
             </div>
 
             {{-- 待发视频 --}}

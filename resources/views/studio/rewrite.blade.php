@@ -1,8 +1,6 @@
 <x-app-layout>
+<x-workspace-layout title="智能二创">
 <div class="mx-auto max-w-5xl p-6">
-    <header class="mb-5">
-        <h2 class="text-xl font-semibold text-slate-800">智能二创</h2>
-    </header>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <!-- ===== 左侧：输入区（增强版） ===== -->
@@ -87,7 +85,7 @@
                     </label>
                     <textarea id="preserve" name="preserve" rows="2"
                         class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none placeholder:text-slate-300 focus:border-brand-400 focus:ring-1 focus:ring-brand-100"
-                        placeholder="例如：&#10;• 必须保留「虚开发票」这个关键词&#10;• 保留具体数据「5万元」「2026年」&#10;• 保留法规名称《税收征收管理法》&#10;留空则 AI 自由发挥"></textarea>
+                        placeholder="例如：&#10;• 必须保留「核心卖点」这个关键词&#10;• 保留具体数据「5000+ 用户」「2026年」&#10;• 保留品牌名《XX 产品》&#10;留空则 AI 自由发挥"></textarea>
                     <p class="mt-0.5 text-[11px] text-slate-400">每行一条，AI 改写时会确保这些内容不被删改或替换</p>
                 </div>
 
@@ -318,6 +316,7 @@ document.getElementById('rwForm').addEventListener('submit', async function (e) 
         const resp = await fetch('/studio/rewrite/generate', {
             method: 'POST',
             headers: {
+                'Accept': 'application/json',
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
             },
@@ -440,4 +439,5 @@ function highlight(text, hits){
     return h;
 }
 </script>
+</x-workspace-layout>
 </x-app-layout>

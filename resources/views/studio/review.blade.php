@@ -1,8 +1,6 @@
 <x-app-layout>
+<x-workspace-layout title="人工审核">
 <div class="mx-auto max-w-5xl p-6">
-    <header class="mb-5">
-        <h2 class="text-xl font-semibold text-slate-800">人工审核</h2>
-    </header>
 
     @if(session('success'))
         <div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">{{ session('success') }}</div>
@@ -50,7 +48,7 @@
                                 <div class="mb-1 font-medium">机器质检结论（得分 {{ $job->qcReport->score ?? '-' }} · 等级 {{ $job->qcReport->level ?? '-' }}）</div>
                                 @if($job->qcReport->issues)
                                     <ul class="list-disc space-y-0.5 pl-4">
-                                    @foreach(json_decode($job->qcReport->issues, true) ?? [] as $iss)
+                                    @foreach($job->qcReport->issues ?? [] as $iss)
                                         <li>{{ $iss['label'] ?? ($iss['type'] ?? '问题') }}：{{ $iss['detail'] ?? '' }}</li>
                                     @endforeach
                                     </ul>
@@ -83,4 +81,5 @@
         </div>
     @endif
 </div>
+</x-workspace-layout>
 </x-app-layout>

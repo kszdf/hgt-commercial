@@ -68,6 +68,7 @@ python-pipeline/verify_*.py
 python-pipeline/server_8500.log
 python-pipeline/_out_avatar.mp4
 python-pipeline/__pycache__/
+python-pipeline/.credentials.json
 
 # ===== frpc 二进制与日志（部署期依赖，非源码）=====
 bin/frpc.exe

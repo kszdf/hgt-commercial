@@ -34,10 +34,14 @@ class PublishController extends Controller
         $accounts = PlatformAccount::where('tenant_id', $tenant->id)->get();
 
         // 平台清单（真实模式：未授权平台会前置拦截，提示先授权）
+        // 视频号无开放发布 API，仅作手动发布渠道，不进入自动分发列表。
         $platforms = [
-            'wechat'       => '视频号',
             'douyin'       => '抖音',
             'xiaohongshu'  => '小红书',
+        ];
+        // 手动发布渠道（无开放接口，需在对应 App 手动发布，平台仅做状态跟踪）
+        $manualPlatforms = [
+            'wechat' => '视频号',
         ];
 
         $records = PublishRecord::where('tenant_id', $tenant->id)
@@ -64,7 +68,7 @@ class PublishController extends Controller
 
         $isTrial = $tenant->plan === 'free';
 
-        return view('studio.publish', compact('videos', 'accounts', 'platforms', 'records', 'authStatus', 'publicBase', 'isTrial'));
+        return view('studio.publish', compact('videos', 'accounts', 'platforms', 'manualPlatforms', 'records', 'authStatus', 'publicBase', 'isTrial'));
     }
 
     /** 批量发布（真实链路：调 8500 出片微服务 /publish）。 */
@@ -82,7 +86,7 @@ class PublishController extends Controller
             'video_ids'   => ['required', 'array', 'min:1'],
             'video_ids.*' => ['integer'],
             'platforms'   => ['required', 'array', 'min:1'],
-            'platforms.*' => ['string', 'in:wechat,douyin,xiaohongshu'],
+            'platforms.*' => ['string', 'in:douyin,xiaohongshu'],
         ]);
 
         // 仅操作本租户、已审核通过、且渲染完成的视频（越权/非 approved/done 的自动忽略）
@@ -100,7 +104,7 @@ class PublishController extends Controller
 
         // 真实授权态：问 8500，未授权平台前置拦截（不白跑真实 API）
         $authStatus = [];
-        foreach (['wechat', 'douyin', 'xiaohongshu'] as $k) {
+        foreach (['douyin', 'xiaohongshu'] as $k) {
             try {
                 $r = app(PipelineClient::class)->get("/oauth/status/{$k}", 3);
                 $authStatus[$k] = $r->successful() && $r->json('authorized') === true;
@@ -110,7 +114,7 @@ class PublishController extends Controller
         }
 
         // 前端平台 key → 8500 平台 key
-        $map = ['wechat' => 'shipinhao', 'douyin' => 'douyin', 'xiaohongshu' => 'xiaohongshu'];
+        $map = ['douyin' => 'douyin', 'xiaohongshu' => 'xiaohongshu'];
 
         $okCount = 0;
         $failCount = 0;

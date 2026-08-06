@@ -23,7 +23,7 @@
 ```
 
 - **Web 工作台**：Laravel 管「人 / 租户 / 界面 / 计费」，提供登录、注册、工作台、视频出片页、计费订阅页。
-- **容器编排**（`docker-compose.yml`）：`app`(php-fpm) / `nginx`(:8080) / `mysql:8.0` / `redis:alpine`。
+- **容器编排**（`docker-compose.yml`）：`app`(php-fpm) / `nginx`(:8080) / `mysql:8.0` / `redis:alpine`。**四个服务均设 `restart: always`**（Docker 守护进程重启后自动拉起，避免云端 frp→本地 8080 断流导致 502）。
 - **视频出片**：微服务支持两种模式——
   - `scroll`：滚动字幕卡（不出镜，男女双声，**真实 CosyVoice 配音**）。
   - `avatar`：本地数字人出镜（HEYGEM 嘴型对齐 + 真实配音 + 烧字幕拼片头）。
@@ -48,12 +48,13 @@ docker compose up -d --build
 docker compose exec app php artisan migrate --force
 docker compose exec app php artisan db:seed --force
 
-# 3) 启动 Python 出片微服务（Windows 宿主，普通终端即可；停止出片功能=关掉此进程）
-D:/heygem/py310/Scripts/python.exe D:/heygem_data/hgt-commercial/python-pipeline/server.py
-#    便捷：双击 python-pipeline/start_pipeline.bat 即可启动（出片功能依赖此进程常驻）
+# 3) 启动 Python 出片微服务（Windows 宿主，由 NSSM 服务 `HGTCommercial8500` 常驻，开机自启）
+#    查看状态：  sc query HGTCommercial8500
+#    重启服务：  sc stop HGTCommercial8500  &&  sc start HGTCommercial8500
+#    （改源码后须重启该服务才能生效：先 stop 再 start）
 ```
 
-> ⚠️ **视频出片功能依赖宿主 Python 微服务常驻**。重启机器或关闭该进程后，点「生成视频」会返回「出片服务暂不可用」。日常使用双击 `python-pipeline/start_pipeline.bat` 启动即可。
+> ⚠️ **视频出片功能依赖宿主 Python 微服务常驻**。NSSM 服务 `HGTCommercial8500` 崩溃自启；若服务被手动停止或机器重启后未起，点「生成视频」会返回「出片服务暂不可用」，重启该服务即恢复。
 
 浏览器打开 **http://localhost:8080**。
 

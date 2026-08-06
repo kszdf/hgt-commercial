@@ -19,8 +19,10 @@
         </div>
 
         @if ($errors->any())
-            <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-                {{ $errors->first() }}
+            <div class="mb-4 space-y-1 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                @foreach ($errors->all() as $err)
+                    <div>{{ $err }}</div>
+                @endforeach
             </div>
         @endif
 
@@ -44,8 +46,9 @@
         </p>
     </div>
 
-    <p class="absolute bottom-5 text-xs text-slate-300">
-        © 2026 追梦 · 短视频智能生产平台
+    <p class="absolute bottom-5 left-0 right-0 text-center text-xs text-slate-300">
+        © 2026 追梦 · 短视频智能生产平台<br>
+        <a href="https://beian.miit.gov.cn" target="_blank" rel="nofollow" class="underline hover:text-white">苏ICP备2026023229号-2</a>
     </p>
 </div>
 </x-app-layout>

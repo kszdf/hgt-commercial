@@ -14,3 +14,4 @@ type = "tcp"
 localIP = "127.0.0.1"
 localPort = 8500
 remotePort = 8500            # 云端对外开放端口；hgtcs 防火墙须放行，且 frps 允许该 remote_port
+

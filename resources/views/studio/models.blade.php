@@ -1,7 +1,6 @@
 <x-app-layout>
+<x-workspace-layout title="数字人模特">
 <div class="mx-auto max-w-5xl p-6">
-    <header class="mb-5">
-        <h2 class="text-xl font-semibold text-slate-800">我的数字人模特</h2>
         <p class="mt-0.5 text-sm text-slate-400">上传不同场景的专属数字人驱动视频。系统自动转码静音化 + 竖屏/时长质检，通过后方可用于出片。</p>
         <p class="mt-2 flex flex-wrap gap-3">
             <a href="/studio/voices" class="text-sm text-brand-600 hover:underline">声音库 →</a>
@@ -130,4 +129,5 @@
     });
 })();
 </script>
+</x-workspace-layout>
 </x-app-layout>

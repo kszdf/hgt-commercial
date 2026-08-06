@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\PipelineUnavailableException;
 use App\Models\TenantVoice;
+use App\Services\PipelineClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -45,11 +47,15 @@ class VoiceCloneController extends Controller
 
         $b64 = base64_encode(file_get_contents($file->getRealPath()));
 
-        $resp = Http::timeout(120)->post($this->pipelineUrl() . '/clone_voice', [
-            'audio_b64' => $b64,
-            'name'      => $data['name'] ?: $file->getClientOriginalName(),
-            'gender'    => $data['gender'],
-        ]);
+        try {
+            $resp = app(PipelineClient::class)->post('/clone_voice', [
+                'audio_b64' => $b64,
+                'name'      => $data['name'] ?: $file->getClientOriginalName(),
+                'gender'    => $data['gender'],
+            ], 120);
+        } catch (PipelineUnavailableException $e) {
+            return redirect()->back()->with('error', '克隆服务暂时不可用，请稍后重试（' . $e->getMessage() . '）');
+        }
 
         if (! $resp->successful()) {
             Log::error('VOICE_CLONE_FAIL', ['status' => $resp->status(), 'body' => substr($resp->body(), 0, 500)]);

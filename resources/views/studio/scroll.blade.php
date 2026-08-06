@@ -1,8 +1,6 @@
 <x-app-layout>
+<x-workspace-layout title="视频出片工作台">
 <div class="mx-auto max-w-5xl p-6">
-    <header class="mb-5">
-        <h2 class="text-xl font-semibold text-slate-800">视频出片工作台</h2>
-    </header>
 
     <!-- 模式切换 -->
     <div class="mb-4 flex gap-2">
@@ -20,16 +18,19 @@
             <form id="genForm" class="space-y-4">
                 <div>
                     <label class="mb-1 flex items-center justify-between">
-                        <span class="text-sm font-medium text-slate-600" id="dialogueLabel">对话稿（每行 <span class="font-mono text-brand-600">女：</span> / <span class="font-mono text-brand-600">男：</span> 开头）</span>
+                        <span class="text-sm font-medium text-slate-700" id="dialogueLabel">
+                            文稿内容
+                            <span class="ml-1 rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-medium text-red-600">必填</span>
+                        </span>
                         <span id="formatHint" class="text-[11px] font-normal"></span>
                     </label>
                     <textarea id="dialogue" name="dialogue" rows="11" required
                         class="w-full rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100"
-                        placeholder="女：老板们注意了，暂估成本这个坑千万别踩。&#10;男：那要是年底还没票，税务局怎么看？&#10;女：轻则纳税调整，重则认定虚列成本。&#10;男：那正确做法是什么？&#10;女：能票的走票，不能票的走合同和流水，别硬估。">女：老板们注意了，暂估成本这个坑千万别踩。
-男：那要是年底还没票，税务局怎么看？
-女：轻则纳税调整，重则认定虚列成本。
-男：那正确做法是什么？
-女：能票的走票，不能票的走合同和流水，别硬估。</textarea>
+                        placeholder="女：很多人做短视频，开头三秒就决定了完播率。&#10;男：那怎么把开头写好？&#10;女：先抛痛点，再给钩子，别上来就自我介绍。&#10;男：能举个例子吗？&#10;女：比如「你是不是也遇到过这种情况……」">女：很多人做短视频，开头三秒就决定了完播率。
+男：那怎么把开头写好？
+女：先抛痛点，再给钩子，别上来就自我介绍。
+男：能举个例子吗？
+女：比如「你是不是也遇到过这种情况……」</textarea>
                     <p id="formatWarning" class="mt-1 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700"></p>
                 </div>
 
@@ -44,14 +45,32 @@
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-slate-600">标题（≤10字）</label>
-                        <input id="title" name="title" value="暂估成本避坑" maxlength="10"
+                        <label class="mb-1 flex items-center justify-between">
+                            <span class="text-sm font-medium text-slate-700">
+                                标题（≤10字）
+                                <span id="titleAutoTag" class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500">选填</span>
+                            </span>
+                        </label>
+                        <input id="title" name="title" maxlength="30"
                             class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                        <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                            <span class="text-[11px] text-slate-400">标题风格</span>
+                            <button type="button" data-style="smart" class="title-style-btn rounded-md border border-brand-300 bg-brand-50 px-2 py-0.5 text-[11px] text-brand-600">智能提取</button>
+                            <button type="button" data-style="full" class="title-style-btn rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-500">首句完整</button>
+                            <button type="button" data-style="suspense" class="title-style-btn rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-500">悬念式</button>
+                        </div>
+                        <p id="titleHint" class="mt-1 hidden text-[11px] text-slate-400"></p>
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-slate-600">副标题</label>
-                        <input id="subtitle" name="subtitle" value="建筑财税·追梦讲财税" maxlength="40"
+                        <label class="mb-1 flex items-center justify-between">
+                            <span class="text-sm font-medium text-slate-700">
+                                副标题
+                                <span id="subtitleAutoTag" class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500">选填</span>
+                            </span>
+                        </label>
+                        <input id="subtitle" name="subtitle" maxlength="40"
                             class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                        <p id="subtitleHint" class="mt-1 hidden text-[11px] text-slate-400"></p>
                     </div>
                 </div>
 
@@ -224,6 +243,8 @@
 
 <script>
 let currentMode = 'scroll';
+let titleDirty = false;       // 用户是否已手动编辑过标题
+let subtitleDirty = false;    // 用户是否已手动编辑过副标题
 
 // 从二创页「带稿去出片」跳转过来时，自动填入清洗稿并推荐模式
 (function () {
@@ -234,6 +255,7 @@ let currentMode = 'scroll';
         if (cleaned) {
             const ta = document.getElementById('dialogue');
             if (ta) { ta.value = cleaned; }
+            autoSuggest();   // 带入改写稿后，立即根据内容生成标题/副标题建议
             sessionStorage.removeItem('hgt_rewrite_cleaned');
             sessionStorage.removeItem('hgt_rewrite_mode');
 
@@ -279,7 +301,10 @@ let currentMode = 'scroll';
 (async function loadUserModels() {
     try {
         const resp = await fetch('/studio/models/json', {
-            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' }
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            }
         });
         const data = await resp.json();
         const group = document.getElementById('userModelsGroup');
@@ -298,7 +323,10 @@ let currentMode = 'scroll';
 (async function loadCovers() {
     try {
         const resp = await fetch('/studio/covers/json', {
-            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' }
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            }
         });
         const data = await resp.json();
         if (!data.ok) return;
@@ -390,6 +418,114 @@ document.getElementById('dialogue')?.addEventListener('input', function () {
     updateDurationHint();
 });
 
+// 根据文稿内容自动生成标题 / 副标题建议（客户端启发式，可人工覆盖）
+function stripRolePrefix(line) {
+    return line.replace(/^(女|男|旁白|解说|主播|画外音|独白|配音)[:：]\s*/, '');
+}
+let titleStyle = 'smart';   // 标题生成策略：smart(智能提取) / full(首句完整) / suspense(悬念式)
+function suggestTitleSmart(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return '';
+    let first = stripRolePrefix(lines[0]).replace(/[\s，。！？!?；;、…\.,]+/g, '');
+    return first.slice(0, 10);
+}
+function suggestTitleFull(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return '';
+    // 首句完整句（去角色前缀、合并空白），放宽到 30 字
+    let first = stripRolePrefix(lines[0]).replace(/\s+/g, ' ').trim();
+    return first.slice(0, 30);
+}
+function suggestTitleSuspense(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return '';
+    let hook = stripRolePrefix(lines[0]).replace(/[\s，。！？!?；;、…\.,]+/g, '').slice(0, 12);
+    const tpl = [
+        hook + '的真相，90%的人都理解错了',
+        '关于' + hook + '，老板不会主动告诉你',
+        hook + '？这三点必须提前知道',
+        '别等吃亏才懂：' + hook,
+    ];
+    for (const t of tpl) if (t.length <= 30) return t;
+    return tpl[0].slice(0, 30);
+}
+function suggestTitle(text) {
+    if (titleStyle === 'full') return suggestTitleFull(text);
+    if (titleStyle === 'suspense') return suggestTitleSuspense(text);
+    return suggestTitleSmart(text);
+}
+function suggestSubtitle(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return '';
+    // 合并前两句（去角色前缀），截 40 字以内，作为内容钩子
+    let body = lines.slice(0, 2).map(stripRolePrefix).join(' ');
+    body = body.replace(/[\s，。！？!?；;、…\.,]+/g, ' ').trim();
+    return body.slice(0, 40);
+}
+function autoSuggest() {
+    const text = document.getElementById('dialogue').value;
+    const titleEl = document.getElementById('title');
+    const subEl = document.getElementById('subtitle');
+    const tTag = document.getElementById('titleAutoTag');
+    const sTag = document.getElementById('subtitleAutoTag');
+    const tHint = document.getElementById('titleHint');
+    const sHint = document.getElementById('subtitleHint');
+    const t = suggestTitle(text), s = suggestSubtitle(text);
+    if (!titleDirty && t) titleEl.value = t;
+    if (!subtitleDirty && s) subEl.value = s;
+    // 标签与提示：区分「自动生成」与「已手动修改」
+    if (titleDirty) {
+        tTag.textContent = '选填 · 已手动修改';
+        tTag.className = 'ml-1 rounded bg-brand-50 px-1.5 py-0.5 text-[11px] font-normal text-brand-500';
+        tHint.classList.add('hidden');
+    } else if (t) {
+        tTag.textContent = '选填 · 自动生成';
+        tTag.className = 'ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500';
+        const styleLabel = {smart:'智能提取（首句关键词）', full:'首句完整句', suspense:'悬念式'}[titleStyle];
+        tHint.textContent = '💡 已按「' + styleLabel + '」自动生成，可直接修改';
+        tHint.classList.remove('hidden');
+    } else {
+        tTag.textContent = '选填';
+        tTag.className = 'ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500';
+        tHint.classList.add('hidden');
+    }
+    if (subtitleDirty) {
+        sTag.textContent = '选填 · 已手动修改';
+        sTag.className = 'ml-1 rounded bg-brand-50 px-1.5 py-0.5 text-[11px] font-normal text-brand-500';
+        sHint.classList.add('hidden');
+    } else if (s) {
+        sTag.textContent = '选填 · 自动生成';
+        sTag.className = 'ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500';
+        sHint.textContent = '💡 已根据文稿前两句自动生成，可直接修改';
+        sHint.classList.remove('hidden');
+    } else {
+        sTag.textContent = '选填';
+        sTag.className = 'ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500';
+        sHint.classList.add('hidden');
+    }
+}
+// 用户手动编辑标题/副标题后，标记为已改，停止自动覆盖
+document.getElementById('title').addEventListener('input', () => { titleDirty = true; autoSuggest(); });
+document.getElementById('subtitle').addEventListener('input', () => { subtitleDirty = true; autoSuggest(); });
+// 标题风格分段控件：切换策略时，若未手动改过标题则按新风格重新生成
+document.querySelectorAll('.title-style-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        titleStyle = btn.dataset.style;
+        document.querySelectorAll('.title-style-btn').forEach(b => {
+            const on = b === btn;
+            b.className = 'title-style-btn rounded-md border px-2 py-0.5 text-[11px] ' +
+                (on ? 'border-brand-300 bg-brand-50 text-brand-600' : 'border-slate-200 bg-white text-slate-500');
+        });
+        autoSuggest();
+    });
+});
+// 文稿变化时（去抖 300ms）自动生成建议
+let _suggestTimer = null;
+document.getElementById('dialogue')?.addEventListener('input', () => {
+    clearTimeout(_suggestTimer);
+    _suggestTimer = setTimeout(autoSuggest, 300);
+});
+
 // 实时预估视频时长（与后端 estimateDurationSec 算法一致）
 function estimateDuration() {
     const text = document.getElementById('dialogue').value;
@@ -416,6 +552,7 @@ function updateDurationHint() {
     }
 }
 updateDurationHint();
+autoSuggest();
 updateSubPreview();
 
 function resetVoice() {
@@ -447,7 +584,7 @@ function updateSubPreview() {
     ctx.textAlign = 'left';
 
     // 示例文本（按字数均分到 linesN 行，示意折行效果）
-    const sample = '暂估成本这个坑千万别踩，能票的走票不能票的走合同';
+    const sample = '很多新手容易踩的坑，其实都有规律可循';
     const per = Math.max(1, Math.ceil(sample.length / linesN));
     const lines = [];
     for (let i = 0; i < sample.length; i += per) lines.push(sample.slice(i, i + per));
@@ -482,6 +619,16 @@ document.getElementById('genForm').addEventListener('submit', async function (e)
     const errBox = document.getElementById('errorBox');
     msg.textContent = ''; errBox.classList.add('hidden');
 
+    // 本地预校验：文稿为空时拦截
+    const dialogue = document.getElementById('dialogue').value.trim();
+    if (!dialogue) {
+        msg.textContent = '⚠ 请输入文稿内容（必填）。单声口播直接写文案；双声对话每行以「女：」「男：」开头。';
+        errBox.innerHTML = '<strong>提交失败：文稿为空</strong><br><span class="text-xs mt-1 block text-red-400">「文稿内容」是必填项，请先撰写或从「智能二创」带入改写稿后再提交出片。</span>';
+        errBox.classList.remove('hidden');
+        document.getElementById('dialogue').focus();
+        return;
+    }
+
     // 本地预校验：时长超限直接拦，不白提交（后端有 422 双保险）
     const est = estimateDuration();
     if (est > 1800) {
@@ -497,6 +644,7 @@ document.getElementById('genForm').addEventListener('submit', async function (e)
         const resp = await fetch('/studio/scroll/generate', {
             method: 'POST',
             headers: {
+                'Accept': 'application/json',
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
             },
@@ -542,6 +690,11 @@ document.getElementById('genForm').addEventListener('submit', async function (e)
             throw new Error(errMsg);
         }
         if (!resp.ok) {
+            // Laravel 验证错误返回 {message, errors: {field: [msg]}}；业务错误返回 {error: string}
+            if (data.errors) {
+                const fields = Object.values(data.errors).flat();
+                throw new Error(fields.join('；') || data.message || '提交失败（HTTP ' + resp.status + '）');
+            }
             throw new Error(data.error || '提交失败（HTTP ' + resp.status + '）');
         }
         if (data.quota != null) {
@@ -568,7 +721,12 @@ async function pollStatus(jobId) {
     for (let i = 0; i < 300; i++) {  // 最多 10 分钟轮询（真实配音约 5–10 分钟）
         await new Promise(r => setTimeout(r, 2000));
         try {
-            const statusResp = await fetch('/studio/scroll/status/' + jobId);
+            const statusResp = await fetch('/studio/scroll/status/' + jobId, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                }
+            });
             const statusText = await statusResp.text();
             let data;
             try { data = JSON.parse(statusText); } catch (_) { return; } // 网络抖动，跳过本轮
@@ -619,4 +777,5 @@ async function pollStatus(jobId) {
     }
 })();
 </script>
+</x-workspace-layout>
 </x-app-layout>

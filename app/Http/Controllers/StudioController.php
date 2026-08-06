@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\PipelineUnavailableException;
 use App\Models\QcReport;
 use App\Models\QcRule;
 use App\Models\VideoJob;
+use App\Services\PipelineClient;
+use App\Services\PlatformRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -26,7 +29,8 @@ class StudioController extends Controller
         return view('studio.topic', [
             'tenantName'   => $tenant->name,
             'tenantSlug'   => $tenant->slug,
-            'industryHint' => $tenant->settings['industry'] ?? '建筑工程',
+            'industryHint' => $tenant->settings['industry'] ?? '',
+            'topicPlatforms' => PlatformRegistry::topicList(),
         ]);
     }
 
@@ -49,17 +53,33 @@ class StudioController extends Controller
 
     public function topicGenerate(Request $request)
     {
+        $topicKeys = array_keys(PlatformRegistry::topicList());
+        $topicLabels = array_values(PlatformRegistry::topicList());
+        $validPlatforms = array_unique(array_merge($topicKeys, $topicLabels));
+
         $data = $request->validate([
-            'industry' => ['required', 'string', 'max:40'],
+            // 行业非必填：通用平台，行业由用户输入（不预置特定行业），不强填
+            'industry' => ['sometimes', 'string', 'max:40'],
             'keywords' => ['nullable', 'string', 'max:120'],
             'count'    => ['sometimes', 'integer', 'between:3,12'],
-            'platform' => ['sometimes', 'string', 'max:20'],
-            'hotness'  => ['sometimes', 'string', 'max:20'],
-            'hook'     => ['sometimes', 'string', 'max:20'],
-            'form'     => ['sometimes', 'string', 'max:20'],
+            // 平台兼容 key（如 shipinhao）与中文 label（如 视频号），「不限」传空/null 视为未选
+            'platform' => ['sometimes', 'nullable', 'string', 'in:' . implode(',', $validPlatforms)],
+            'hotness'  => ['sometimes', 'nullable', 'string', 'max:20'],
+            'hook'     => ['sometimes', 'nullable', 'string', 'max:20'],
+            'form'     => ['sometimes', 'nullable', 'string', 'max:20'],
         ]);
 
-        $resp = Http::timeout(120)->post($this->pipelineUrl() . '/topic', $data);
+        // 统一把 platform 转成中文 label，供 8500 /topic 注入 AI 提示词的调性描述
+        if (!empty($data['platform'])) {
+            $label = PlatformRegistry::label($data['platform']);
+            $data['platform'] = $label ?: $data['platform'];
+        }
+
+        try {
+            $resp = app(PipelineClient::class)->post('/topic', $data, 120);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '选题服务暂时不可用，请稍后重试'], 503);
+        }
         if (! $resp->successful()) {
             return response()->json(['error' => '选题服务暂不可用，请确认微服务已启动'], 502);
         }
@@ -74,7 +94,11 @@ class StudioController extends Controller
             'focus' => ['nullable', 'string', 'max:100'],
         ]);
 
-        $resp = Http::timeout(120)->post($this->pipelineUrl() . '/rewrite', $data);
+        try {
+            $resp = app(PipelineClient::class)->post('/rewrite', $data, 120);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '二创服务暂时不可用，请稍后重试'], 503);
+        }
         if (! $resp->successful()) {
             return response()->json(['error' => '二创服务暂不可用，请确认微服务已启动'], 502);
         }
@@ -88,7 +112,11 @@ class StudioController extends Controller
             'platform' => ['sometimes', 'string', 'max:20'],
         ]);
 
-        $resp = Http::timeout(120)->post($this->pipelineUrl() . '/qc', $data);
+        try {
+            $resp = app(PipelineClient::class)->post('/qc', $data, 120);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '质检服务暂时不可用，请稍后重试'], 503);
+        }
         if (! $resp->successful()) {
             return response()->json(['error' => '质检服务暂不可用，请确认微服务已启动'], 502);
         }
@@ -100,14 +128,22 @@ class StudioController extends Controller
     {
         $user = $request->user();
         $tenant = $user->tenant;
-        $job = VideoJob::where('job_id', $jobId)
-            ->where('tenant_id', $tenant->id)
-            ->firstOrFail();
+        try {
+            $job = VideoJob::where('job_id', $jobId)
+                ->where('tenant_id', $tenant->id)
+                ->firstOrFail();
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['error' => '出片任务不存在或无权访问'], 404);
+        }
 
-        $resp = Http::timeout(90)->post($this->pipelineUrl() . '/qc-video', [
-            'job_id' => $jobId,
-            'rules'  => $this->collectRuleParams(),
-        ]);
+        try {
+            $resp = app(PipelineClient::class)->post('/qc-video', [
+                'job_id' => $jobId,
+                'rules'  => $this->collectRuleParams(),
+            ], 90);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '质检服务暂时不可用，请稍后重试'], 503);
+        }
         if (! $resp->successful()) {
             return response()->json(['error' => '质检服务暂不可用，请确认微服务已启动'], 502);
         }

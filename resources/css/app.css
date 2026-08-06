@@ -2,6 +2,12 @@
 @import '../../vendor/livewire/flux/dist/flux.css';
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* 显式声明 Tailwind 内容扫描路径（防御性：确保新增的 blade 组件/模板
+   中的工具类一定被收录，不依赖 v4 的自动探测。若将来移动目录或新增
+   非常规位置模板，在此追加 @source 即可。 */
+@source '../../resources/views';
+@source '../../resources/js';
+
 @theme {
     --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
 

@@ -14,7 +14,7 @@ use App\Http\Controllers\CoverAssetController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return redirect('/login');
+    return auth()->check() ? redirect('/dashboard') : redirect('/login');
 });
 
 Route::middleware('guest')->group(function () {

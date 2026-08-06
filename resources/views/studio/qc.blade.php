@@ -1,8 +1,6 @@
 <x-app-layout>
+<x-workspace-layout title="智能质检">
 <div class="mx-auto max-w-5xl p-6">
-    <header class="mb-5">
-        <h2 class="text-xl font-semibold text-slate-800">智能质检</h2>
-    </header>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section class="luxury-glass p-5">
@@ -20,7 +18,7 @@
                     <label class="mb-1 block text-sm font-medium text-slate-600">待检稿（对话稿 / 口播稿）</label>
                     <textarea id="text" name="text" rows="11" required
                         class="w-full rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100"
-                        placeholder="粘贴待检稿…">虚开和暂估成本这种操作风险很高，老板们要注意。公转私更是重点稽查对象。</textarea>
+                        placeholder="粘贴待检稿…">这个方案的优势很明显，很多同行都在用，你可以参考一下再决定。</textarea>
                 </div>
                 <button type="submit" id="genBtn"
                     class="w-full rounded-lg bg-brand-500 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -95,6 +93,7 @@ document.getElementById('qcForm').addEventListener('submit', async function (e) 
         const resp = await fetch('/studio/qc/generate', {
             method: 'POST',
             headers: {
+                'Accept': 'application/json',
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
             },
@@ -147,7 +146,10 @@ document.querySelectorAll('.run-qc').forEach(btn => {
         try {
             const resp = await fetch('/studio/qc/video/' + jobId, {
                 method: 'POST',
-                headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' }
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                }
             });
             const data = await resp.json();
             if (!resp.ok) throw new Error(data.error || '检测失败');
@@ -165,4 +167,5 @@ document.querySelectorAll('.run-qc').forEach(btn => {
     });
 });
 </script>
+</x-workspace-layout>
 </x-app-layout>

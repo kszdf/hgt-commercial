@@ -14,5 +14,11 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // 全局兜底：任何漏网的 8500 不可达异常 → 503 友好降级，避免裸 500
+        $exceptions->renderable(function (\App\Exceptions\PipelineUnavailableException $e) {
+            return response()->json([
+                'error' => '出片服务暂时不可用，请稍后重试',
+                'detail' => $e->getMessage(),
+            ], 503);
+        });
     })->create();

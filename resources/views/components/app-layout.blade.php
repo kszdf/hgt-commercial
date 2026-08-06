@@ -15,6 +15,7 @@
 
     @livewireScripts
     @fluxScripts
+    @stack('scripts')
     <script>
         // 主题切换
         function toggleTheme(){

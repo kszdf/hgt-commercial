@@ -1,4 +1,5 @@
 <x-app-layout>
+<x-workspace-layout title="数据录入">
     <x-container>
         <div class="flex items-center justify-between mb-6">
             <div>
@@ -126,4 +127,5 @@
             </div>
         </div>
     </x-container>
+</x-workspace-layout>
 </x-app-layout>

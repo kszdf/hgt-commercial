@@ -1,4 +1,5 @@
 <x-app-layout>
+<x-workspace-layout title="数据复盘看板">
     <x-container>
         <div class="flex items-center justify-between mb-6">
             <div>
@@ -123,4 +124,5 @@
             </div>
         @endif
     </x-container>
+</x-workspace-layout>
 </x-app-layout>
