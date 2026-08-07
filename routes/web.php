@@ -18,17 +18,24 @@ Route::get('/', function () {
     return auth()->check() ? redirect('/dashboard') : redirect('/login');
 });
 
+// 公开法律页（无需登录）
+Route::view('/privacy', 'legal.privacy')->name('privacy');
+Route::view('/terms', 'legal.terms')->name('terms');
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login']);
+    // 登录限流：每 IP 每分钟最多 5 次，防暴力破解
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-    Route::post('/register', [AuthController::class, 'register']);
+    // 注册限流：每 IP 每分钟最多 5 次，防批量注册滥用
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
 
     // 手机验证码找回密码（B 方案：无需邮箱，凭手机号+短信验证码重置）
     Route::get('/forgot-password', [PasswordResetController::class, 'showForgot'])->name('password.request');
-    Route::post('/forgot-password', [PasswordResetController::class, 'sendCode'])->name('password.send');
+    // 发码限流：每 IP 每分钟最多 5 次（叠加控制器内层 60s/手机号 + 每日 10 条，防短信轰炸）
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendCode'])->middleware('throttle:5,1');
     Route::get('/reset-password', [PasswordResetController::class, 'showReset'])->name('password.reset');
-    Route::post('/reset-password', [PasswordResetController::class, 'reset'])->name('password.update');
+    Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:10,1');
 });
 
 Route::middleware('auth')->group(function () {

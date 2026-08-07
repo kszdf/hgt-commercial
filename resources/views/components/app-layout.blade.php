@@ -4,7 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>追梦 · 商用短视频智能工作台</title>
+    <title>@yield('title', '追梦 · 商用短视频智能工作台')</title>
+    <meta name="description" content="追梦 — 面向企业的短视频智能生产 SaaS 平台，提供智能选题、文案二创、数字人出片、配音、字幕与多平台分发能力。">
+    <meta name="theme-color" content="#6366f1">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="追梦 · 商用短视频智能工作台">
+    <meta property="og:description" content="面向企业的短视频智能生产 SaaS 平台：选题、二创、出片、配音、字幕、分发一站式。">
+    <meta property="og:image" content="/images/logo.jpg">
+    <link rel="icon" href="/images/logo.jpg">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])

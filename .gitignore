@@ -27,6 +27,7 @@ __pycache__/
 /storage/framework/views/*
 /storage/framework/testing/*
 /storage/app/*
+/storage/backups/*
 /bootstrap/cache/*
 /public/storage
 !/public/storage/.gitkeep

@@ -11,7 +11,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        // 站点经云端 nginx(SSL 终止) → frp 隧道 → 本容器；仅信任该链路。
+        // 容器无公网直连，故以 '*' 信任上游 X-Forwarded-*，使 Laravel 正确识别 https 并生成 https 资源链接。
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // 全局兜底：任何漏网的 8500 不可达异常 → 503 友好降级，避免裸 500
