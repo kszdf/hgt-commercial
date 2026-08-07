@@ -1,7 +1,6 @@
 <x-app-layout>
 <div class="flex min-h-screen items-center justify-center p-6">
     <div class="luxury-glass w-full max-w-md p-8">
-        <!-- 品牌区 -->
         <div class="relative mb-7 text-center">
             <div class="absolute right-0 top-0">
                 <button onclick="toggleTheme()" title="切换明暗"
@@ -12,8 +11,12 @@
                 </button>
             </div>
             <img src="/images/logo.jpg" alt="追梦" class="mx-auto h-20 w-auto rounded-2xl shadow-sm">
-            <p class="mt-2 text-xs text-slate-400">商用短视频智能工作台</p>
+            <p class="mt-2 text-xs text-slate-400">找回密码 · 手机验证码</p>
         </div>
+
+        @if (session('status'))
+            <div class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-600">{{ session('status') }}</div>
+        @endif
 
         @if ($errors->any())
             <div class="mb-4 space-y-1 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -23,24 +26,25 @@
             </div>
         @endif
 
-        <form class="space-y-4" method="POST" action="/login">
+        <form class="space-y-4" method="POST" action="/forgot-password">
             @csrf
-            <flux:input label="账号 / 手机号或邮箱" name="login" type="text" placeholder="手机号或邮箱" required value="{{ old('login') }}" />
-            <flux:input label="密码" name="password" type="password" placeholder="••••••••" required />
-
-            <div class="flex items-center justify-between text-sm">
-                <label class="flex items-center gap-2 text-slate-500">
-                    <flux:checkbox name="remember" /> 记住我
-                </label>
-                <a href="/forgot-password" class="text-brand-500 hover:underline text-sm">忘记密码？</a>
-            </div>
-
-            <flux:button variant="primary" type="submit" class="w-full !bg-brand-500 hover:!bg-brand-600 !shadow-sm mt-2">登录工作台</flux:button>
+            <flux:input label="手机号" name="phone" type="tel" placeholder="注册时填写的 11 位手机号" required value="{{ old('phone', session('phone', '')) }}" />
+            <flux:button variant="primary" type="submit" class="w-full !bg-brand-500 hover:!bg-brand-600 !shadow-sm mt-2">发送验证码</flux:button>
         </form>
 
+        @if (session('code_sent'))
+            <div class="mt-5 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-600">
+                {{ session('status') ?? '验证码已发送，请查收短信。' }}
+            </div>
+            <form class="space-y-4 mt-4" method="GET" action="/reset-password">
+                @csrf
+                <input type="hidden" name="phone" value="{{ session('phone', old('phone')) }}">
+                <flux:button variant="primary" type="submit" class="w-full !bg-brand-600 hover:!bg-brand-700 !shadow-sm">已收到验证码，去重置密码</flux:button>
+            </form>
+        @endif
+
         <p class="mt-5 text-center text-sm text-slate-400">
-            还没有账号？
-            <a href="/register" class="font-medium text-brand-500 hover:underline">注册</a>
+            <a href="/login" class="font-medium text-brand-500 hover:underline">返回登录</a>
         </p>
     </div>
 

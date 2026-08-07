@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    // 腾讯云短信（手机验证码登录/找回密码）
+    'tencent_sms' => [
+        'secret_id'  => env('TENCENT_SMS_SECRET_ID'),
+        'secret_key' => env('TENCENT_SMS_SECRET_KEY'),
+        'sdk_app_id' => env('TENCENT_SMS_SDK_APP_ID'),
+        'sign_name'  => env('TENCENT_SMS_SIGN_NAME'),
+        'template_id' => env('TENCENT_SMS_TEMPLATE_ID'),
+    ],
+
 ];

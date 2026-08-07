@@ -31,7 +31,7 @@
             <flux:input label="企业 / 团队名称" name="tenant_name" placeholder="追梦科技" required value="{{ old('tenant_name') }}" />
             <flux:input label="管理员 / Administrator" name="name" placeholder="您的姓名" required value="{{ old('name') }}" />
             <flux:input label="邮箱登录 / Email Login" name="email" type="email" placeholder="you@company.com" required value="{{ old('email') }}" />
-            <flux:input label="手机号（选填）" name="phone" type="tel" placeholder="11 位手机号，可用于登录与找回密码" value="{{ old('phone') }}" />
+            <flux:input label="手机号" name="phone" type="tel" placeholder="11 位手机号，用于登录与找回密码" required value="{{ old('phone') }}" />
             <flux:input label="密码" name="password" type="password" placeholder="••••••••" required />
             <p class="text-xs text-slate-400 -mt-2">至少 6 位；需含大小写字母，或数字与特殊字符组合。</p>
             <flux:input label="确认密码" name="password_confirmation" type="password" placeholder="••••••••" required />

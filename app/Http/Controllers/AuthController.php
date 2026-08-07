@@ -48,8 +48,8 @@ class AuthController extends Controller
             'tenant_name' => ['required', 'string', 'max:60'],
             'name' => ['required', 'string', 'max:60'],
             'email' => ['required', 'email', 'unique:users,email'],
-            // 手机号选填：填写时须为合法大陆手机号且全局唯一（用于手机登录与找回密码）。
-            'phone' => ['nullable', 'string', 'regex:/^1[3-9]\d{9}$/', 'unique:users,phone'],
+            // 手机号必填：合法大陆手机号且全局唯一（用于手机登录与找回密码）。
+            'phone' => ['required', 'string', 'regex:/^1[3-9]\d{9}$/', 'unique:users,phone'],
             // 至少 6 位；且需含大小写字母，或含数字与特殊字符组合。
             // 用闭包自定义规则：跨版本兼容，且规避正则中 | 被规则分隔符误拆的问题。
             'password' => [
@@ -68,6 +68,7 @@ class AuthController extends Controller
             'email.required' => '请填写邮箱登录账号。',
             'email.email' => '邮箱格式不正确。',
             'email.unique' => '该邮箱已注册。',
+            'phone.required' => '请填写手机号。',
             'phone.regex' => '手机号格式不正确（须为 11 位大陆手机号）。',
             'phone.unique' => '该手机号已注册。',
             'password.required' => '请设置登录密码。',

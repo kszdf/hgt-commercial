@@ -1,7 +1,6 @@
 <x-app-layout>
 <div class="flex min-h-screen items-center justify-center p-6">
     <div class="luxury-glass w-full max-w-md p-8">
-        <!-- 品牌区 -->
         <div class="relative mb-7 text-center">
             <div class="absolute right-0 top-0">
                 <button onclick="toggleTheme()" title="切换明暗"
@@ -12,8 +11,12 @@
                 </button>
             </div>
             <img src="/images/logo.jpg" alt="追梦" class="mx-auto h-20 w-auto rounded-2xl shadow-sm">
-            <p class="mt-2 text-xs text-slate-400">商用短视频智能工作台</p>
+            <p class="mt-2 text-xs text-slate-400">设置新密码</p>
         </div>
+
+        @if (session('status'))
+            <div class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-600">{{ session('status') }}</div>
+        @endif
 
         @if ($errors->any())
             <div class="mb-4 space-y-1 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -23,24 +26,19 @@
             </div>
         @endif
 
-        <form class="space-y-4" method="POST" action="/login">
+        <form class="space-y-4" method="POST" action="/reset-password">
             @csrf
-            <flux:input label="账号 / 手机号或邮箱" name="login" type="text" placeholder="手机号或邮箱" required value="{{ old('login') }}" />
-            <flux:input label="密码" name="password" type="password" placeholder="••••••••" required />
+            <flux:input label="手机号" name="phone" type="tel" placeholder="注册时填写的手机号" required value="{{ old('phone', $phone ?? '') }}" />
+            <flux:input label="短信验证码" name="code" type="text" inputmode="numeric" placeholder="6 位数字验证码" required value="{{ old('code') }}" />
+            <flux:input label="新密码" name="password" type="password" placeholder="••••••••" required />
+            <p class="text-xs text-slate-400 -mt-2">至少 6 位；需含大小写字母，或数字与特殊字符组合。</p>
+            <flux:input label="确认新密码" name="password_confirmation" type="password" placeholder="••••••••" required />
 
-            <div class="flex items-center justify-between text-sm">
-                <label class="flex items-center gap-2 text-slate-500">
-                    <flux:checkbox name="remember" /> 记住我
-                </label>
-                <a href="/forgot-password" class="text-brand-500 hover:underline text-sm">忘记密码？</a>
-            </div>
-
-            <flux:button variant="primary" type="submit" class="w-full !bg-brand-500 hover:!bg-brand-600 !shadow-sm mt-2">登录工作台</flux:button>
+            <flux:button variant="primary" type="submit" class="w-full !bg-brand-500 hover:!bg-brand-600 !shadow-sm mt-2">重置密码</flux:button>
         </form>
 
         <p class="mt-5 text-center text-sm text-slate-400">
-            还没有账号？
-            <a href="/register" class="font-medium text-brand-500 hover:underline">注册</a>
+            <a href="/login" class="font-medium text-brand-500 hover:underline">返回登录</a>
         </p>
     </div>
 
