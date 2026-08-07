@@ -2,13 +2,8 @@
 <div class="flex min-h-screen items-center justify-center p-6">
     <div class="luxury-glass w-full max-w-md p-8">
         <!-- 品牌区 -->
-        <div class="mb-7 flex items-center gap-2.5">
-            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 text-lg font-bold text-white shadow-sm">追</div>
-            <div>
-                <h1 class="text-xl font-bold text-slate-800">追梦</h1>
-                <p class="text-xs text-slate-400">商用短视频智能工作台</p>
-            </div>
-            <div class="ml-auto">
+        <div class="relative mb-7 text-center">
+            <div class="absolute right-0 top-0">
                 <button onclick="toggleTheme()" title="切换明暗"
                     class="rounded-lg border border-slate-200 bg-white p-2 text-slate-400 transition hover:border-brand-300 hover:text-brand-500">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
@@ -16,6 +11,8 @@
                     </svg>
                 </button>
             </div>
+            <img src="/images/logo.jpg" alt="追梦" class="mx-auto h-20 w-auto rounded-2xl shadow-sm">
+            <p class="mt-2 text-xs text-slate-400">商用短视频智能工作台</p>
         </div>
 
         @if ($errors->any())
@@ -43,7 +40,7 @@
 
         <p class="mt-5 text-center text-sm text-slate-400">
             还没有账号？
-            <a href="/register" class="font-medium text-brand-500 hover:underline">注册你的租户</a>
+            <a href="/register" class="font-medium text-brand-500 hover:underline">注册</a>
         </p>
     </div>
 
