@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Tenant;
+use App\Services\PaymentService;
 use Illuminate\Http\Request;
 
 /**
@@ -31,6 +32,7 @@ class AdminController extends Controller
             'remaining' => $tenant->remainingQuota(),
             'unlimited' => $tenant->isUnlimited(),
             'recent' => $recent,
+            'prices' => PaymentService::PLAN_PRICE,
             'plans' => [
                 'free' => ['label' => '免费版', 'quota' => self::PLAN_QUOTA['free']],
                 'pro' => ['label' => '专业版', 'quota' => self::PLAN_QUOTA['pro']],
@@ -40,23 +42,12 @@ class AdminController extends Controller
     }
 
     /**
-     * 升级/切换套餐（支付网关集成前的占位实现：直接切换额度）。
-     * TODO(Phase 3 后续): 接入支付（微信支付/Stripe）后再真正扣费并切换。
+     * 升级/切换套餐（兼容入口：引导用户走支付流程）。
+     * 真正扣费与套餐切换由 PaymentController + PaymentService 在支付回调中完成。
      */
     public function upgrade(Request $request)
     {
-        $plan = $request->input('plan');
-        if (! array_key_exists($plan, self::PLAN_QUOTA)) {
-            return back()->withErrors(['plan' => '未知套餐']);
-        }
-
-        $tenant = $request->user()->tenant;
-        $tenant->update([
-            'plan' => $plan,
-            'quota_monthly' => self::PLAN_QUOTA[$plan],
-        ]);
-
         return redirect()->route('admin.billing')
-            ->with('status', '已切换到「' . (self::PLAN_QUOTA[$plan] === 0 ? '企业版(不限量)' : $plan) . '」');
+            ->with('status', '请在下方选择支付方式完成套餐升级');
     }
 }

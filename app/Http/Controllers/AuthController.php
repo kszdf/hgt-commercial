@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Tenant;
 use App\Models\User;
+use App\Mail\WelcomeMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
@@ -111,6 +113,13 @@ class AuthController extends Controller
         ]);
 
         Auth::login($user);
+
+        // 注册欢迎邮件（邮件服务未配置时静默失败，不阻断注册）
+        try {
+            Mail::to($user->email)->send(new WelcomeMail($tenant));
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return redirect('/dashboard');
     }

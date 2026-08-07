@@ -45,27 +45,73 @@
         @endif
     </section>
 
-    <!-- 套餐切换 -->
+    <!-- 套餐升级 -->
     <section class="luxury-glass mb-5 p-5">
-        <h3 class="mb-3 text-sm font-semibold text-slate-700">切换套餐</h3>
+        <h3 class="mb-3 text-sm font-semibold text-slate-700">升级套餐</h3>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
             @foreach ($plans as $k => $p)
                 <div class="rounded-lg border {{ $tenant->plan === $k ? 'border-brand-300 bg-brand-50 ring-1 ring-brand-200' : 'border-slate-200 bg-white' }} p-4">
                     <div class="font-medium text-slate-800">{{ $p['label'] }}</div>
-                    <div class="mb-3 text-xs text-slate-400 mt-0.5">额度：{{ is_numeric($p['quota']) ? $p['quota'].' 次/月' : $p['quota'] }}</div>
+                    <div class="mb-1 text-xs text-slate-400 mt-0.5">额度：{{ is_numeric($p['quota']) ? $p['quota'].' 次/月' : $p['quota'] }}</div>
+                    <div class="mb-3 text-xs text-slate-400">¥{{ $prices[$k] ?? 0 }}/月</div>
                     @if ($tenant->plan === $k)
                         <div class="rounded-lg bg-brand-500 px-3 py-1.5 text-center text-sm font-medium text-white shadow-sm">当前套餐</div>
-                    @else
+                    @elseif (($prices[$k] ?? 0) == 0)
                         <form method="POST" action="{{ route('admin.billing.upgrade') }}">
                             @csrf
                             <input type="hidden" name="plan" value="{{ $k }}">
                             <button class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 transition">切换</button>
                         </form>
+                    @else
+                        <div class="flex gap-2">
+                            <button onclick="startPay('{{ $k }}','wechat')" class="flex-1 rounded-lg bg-brand-500 px-2 py-1.5 text-center text-xs font-medium text-white hover:bg-brand-600 transition">微信 ¥{{ $prices[$k] }}</button>
+                            <button onclick="startPay('{{ $k }}','alipay')" class="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-center text-xs text-slate-600 hover:border-brand-300 hover:text-brand-600 transition">支付宝</button>
+                        </div>
                     @endif
                 </div>
             @endforeach
         </div>
     </section>
+
+    <!-- 支付弹窗（微信扫码 / 支付宝跳转） -->
+    <div id="pay-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40">
+        <div class="luxury-glass w-80 rounded-2xl p-6 text-center">
+            <p id="pay-title" class="mb-3 text-sm font-medium text-slate-700">请扫码支付</p>
+            <img id="pay-qr" src="" alt="支付二维码" class="mx-auto h-48 w-48 rounded-lg border border-slate-100">
+            <p class="mt-3 text-xs text-slate-400">支付完成后页面将自动刷新</p>
+            <button onclick="document.getElementById('pay-modal').classList.add('hidden')" class="mt-4 text-xs text-slate-400 hover:text-slate-600">关闭</button>
+        </div>
+    </div>
+
+    <script>
+        async function startPay(plan, gateway) {
+            const modal = document.getElementById('pay-modal');
+            const qr = document.getElementById('pay-qr');
+            const title = document.getElementById('pay-title');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            title.textContent = gateway === 'wechat' ? '请用微信扫码支付' : '正在跳转支付宝…';
+            const resp = await fetch('{{ route('admin.billing.checkout') }}', {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ plan, gateway })
+            });
+            const data = await resp.json();
+            if (data.error) { alert(data.error); modal.classList.add('hidden'); modal.classList.remove('flex'); return; }
+            if (data.gateway === 'free') { location.reload(); return; }
+            if (data.gateway === 'alipay') { window.location.href = data.pay_url; return; }
+            qr.src = 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=' + encodeURIComponent(data.code_url);
+            pollOrder(data.order_id);
+        }
+        async function pollOrder(orderId) {
+            for (let i = 0; i < 60; i++) {
+                await new Promise(r => setTimeout(r, 2000));
+                const r = await fetch('{{ route('admin.billing.order-status') }}?order_id=' + orderId, { headers: { 'Accept': 'application/json' } });
+                const d = await r.json();
+                if (d.paid) { location.reload(); return; }
+            }
+        }
+    </script>
 
     <!-- 最近任务 -->
     <section class="luxury-glass p-5">

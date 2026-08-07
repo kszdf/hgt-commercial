@@ -44,4 +44,25 @@ return [
         'template_id' => env('TENCENT_SMS_TEMPLATE_ID'),
     ],
 
+    // 微信支付 V3（Native 扫码）
+    'wechat_pay' => [
+        'mchid'         => env('WECHAT_PAY_MCHID'),
+        'appid'         => env('WECHAT_PAY_APPID'),
+        'serial_no'     => env('WECHAT_PAY_SERIAL_NO'),
+        'private_key'   => env('WECHAT_PAY_PRIVATE_KEY'),    // 商户 API 私钥 PEM（含 -----BEGIN PRIVATE KEY-----）
+        'api_v3_key'    => env('WECHAT_PAY_API_V3_KEY'),     // APIv3 密钥（32 位）
+        'platform_cert' => env('WECHAT_PAY_PLATFORM_CERT'),  // 微信平台证书公钥 PEM（回调验签用）
+    ],
+
+    // 支付宝（电脑网站支付 page.pay）
+    'alipay' => [
+        'app_id'            => env('ALIPAY_APP_ID'),
+        'private_key'       => env('ALIPAY_PRIVATE_KEY'),        // 应用私钥 PEM
+        'alipay_public_key' => env('ALIPAY_PUBLIC_KEY'),          // 支付宝公钥 PEM（回调验签用）
+        'notify_url'        => env('ALIPAY_NOTIFY_URL'),
+    ],
+
+    // 试用到期提醒提前天数
+    'trial_notify_days' => env('TRIAL_NOTIFY_DAYS', 3),
+
 ];

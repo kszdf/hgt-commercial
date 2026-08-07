@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\VideoController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\StudioController;
 use App\Http\Controllers\ModelAssetController;
 use App\Http\Controllers\VoiceCloneController;
@@ -105,4 +106,13 @@ Route::middleware('auth')->group(function () {
     // 计费与配额
     Route::get('/admin/billing', [AdminController::class, 'billing'])->name('admin.billing');
     Route::post('/admin/billing/upgrade', [AdminController::class, 'upgrade'])->name('admin.billing.upgrade');
+    Route::post('/admin/billing/checkout', [PaymentController::class, 'checkout'])->name('admin.billing.checkout');
+    Route::get('/admin/billing/order-status', [PaymentController::class, 'orderStatus'])->name('admin.billing.order-status');
 });
+
+// 支付异步回调（微信/支付宝服务器直连，CSRF 豁免）
+Route::post('/pay/wechat/notify', [PaymentController::class, 'wechatNotify'])
+    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+Route::post('/pay/alipay/notify', [PaymentController::class, 'alipayNotify'])
+    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+Route::get('/pay/return', [PaymentController::class, 'return'])->name('pay.return');
