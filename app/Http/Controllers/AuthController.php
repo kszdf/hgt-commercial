@@ -19,18 +19,22 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email' => ['required', 'email'],
+            'login' => ['required', 'string'],
             'password' => ['required'],
         ]);
 
-        if (Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
+        // 支持「手机号或邮箱」作为登录名：按输入格式判定字段。
+        $login = $request->input('login');
+        $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'phone';
+
+        if (Auth::attempt([$field => $login, 'password' => $request->password], $request->boolean('remember'))) {
             $request->session()->regenerate();
             return redirect()->intended('/dashboard');
         }
 
         return back()->withErrors([
-            'email' => '账号或密码不正确。',
-        ])->onlyInput('email');
+            'login' => '账号或密码不正确。',
+        ])->onlyInput('login');
     }
 
     public function showRegister()
@@ -44,6 +48,8 @@ class AuthController extends Controller
             'tenant_name' => ['required', 'string', 'max:60'],
             'name' => ['required', 'string', 'max:60'],
             'email' => ['required', 'email', 'unique:users,email'],
+            // 手机号选填：填写时须为合法大陆手机号且全局唯一（用于手机登录与找回密码）。
+            'phone' => ['nullable', 'string', 'regex:/^1[3-9]\d{9}$/', 'unique:users,phone'],
             // 至少 6 位；且需含大小写字母，或含数字与特殊字符组合。
             // 用闭包自定义规则：跨版本兼容，且规避正则中 | 被规则分隔符误拆的问题。
             'password' => [
@@ -62,6 +68,8 @@ class AuthController extends Controller
             'email.required' => '请填写邮箱登录账号。',
             'email.email' => '邮箱格式不正确。',
             'email.unique' => '该邮箱已注册。',
+            'phone.regex' => '手机号格式不正确（须为 11 位大陆手机号）。',
+            'phone.unique' => '该手机号已注册。',
             'password.required' => '请设置登录密码。',
             'password.confirmed' => '两次输入的密码不一致，请重新输入密码。',
             'password.min' => '密码至少 6 位。',
@@ -96,6 +104,7 @@ class AuthController extends Controller
             'tenant_id' => $tenant->id,
             'name' => $request->name,
             'email' => $request->email,
+            'phone' => $request->phone ?: null,
             'password' => Hash::make($request->password),
             'email_verified_at' => now(),
         ]);

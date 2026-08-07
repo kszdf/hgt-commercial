@@ -25,7 +25,7 @@
 
         <form class="space-y-4" method="POST" action="/login">
             @csrf
-            <flux:input label="邮箱登录 / Email Login" name="email" type="email" placeholder="you@company.com" required value="{{ old('email') }}" />
+            <flux:input label="账号 / 手机号或邮箱" name="login" type="text" placeholder="手机号或邮箱" required value="{{ old('login') }}" />
             <flux:input label="密码" name="password" type="password" placeholder="••••••••" required />
 
             <div class="flex items-center justify-between text-sm">
