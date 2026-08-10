@@ -282,6 +282,40 @@ class VideoController extends Controller
         return response()->json($json);
     }
 
+    /**
+     * 出片队列预估：供提交页在提交前 / 轮询时展示「当前队列数 + 预计等待分钟」。
+     * 仅读 video_jobs，无外部依赖、无写入，可高频调用。
+     * 并发模型：出片全局并发 C（默认 3，由 8500 侧执行），单条约 10 分钟；
+     * 预计等待 = ceil(全局未完成任务数 / C) × 平均渲染分钟（保守：整批算满，不假设前批已渲进度）。
+     */
+    public function queueEstimate(Request $request)
+    {
+        $tenant = $request->user()->tenant;
+
+        // 全局未完成任务（含正在渲染 + 排队等待，Laravel 侧统一为 queued）
+        $globalQueued = \App\Models\VideoJob::where('status', 'queued')->count();
+        // 本账号进行中任务（受租户并发闸约束，达上限将被 429 拦截）
+        $tenantQueued = \App\Models\VideoJob::where('tenant_id', $tenant->id)
+            ->where('status', 'queued')->count();
+
+        $concurrency  = (int) env('GLOBAL_MAX_JOBS', 3);
+        $tenantMax    = (int) env('TENANT_MAX_CONCURRENT_JOBS', 2);
+        $avgRenderMin = (int) env('AVG_RENDER_MIN', 10);
+
+        // 新提交使全局队列 +1，其排队批次 = ceil((N+1)/C)，前面 N 条需渲完
+        $estWaitMin = (int) ceil($globalQueued / max(1, $concurrency)) * $avgRenderMin;
+
+        return response()->json([
+            'global_queued'  => $globalQueued,
+            'tenant_queued'  => $tenantQueued,
+            'concurrency'    => $concurrency,
+            'tenant_max'     => $tenantMax,
+            'avg_render_min' => $avgRenderMin,
+            'est_wait_min'   => $estWaitMin,
+            'will_accept'    => $tenantQueued < $tenantMax,
+        ]);
+    }
+
     public function download(string $jobId)
     {
         try {

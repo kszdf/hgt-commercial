@@ -32,13 +32,13 @@
                     </label>
                     <select id="roleMode" name="role_mode"
                         class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
-                        <option value="auto">自动分配（由 AI 根据内容判断男/女/旁白）</option>
+                        <option value="auto">自动分配（由 AI 根据内容判断男声/女声/对话）</option>
                         <option value="single_male">单人口播（男声）</option>
                         <option value="single_female">单人口播（女声）</option>
                         <option value="dual_female_lead">男女对话（女声开头）</option>
                         <option value="dual_male_lead">男女对话（男声开头）</option>
-                        <option value="narrator_male">旁白解说（男声）</option>
-                        <option value="narrator_female">旁白解说（女声）</option>
+                        <option value="narrator_male">男声幕后音（解说口吻）</option>
+                        <option value="narrator_female">女声幕后音（解说口吻）</option>
                         <option value="custom">自由角色分配（按下方说明切换）</option>
                     </select>
                     <textarea id="roleNote" name="role_note" rows="2"
@@ -46,10 +46,10 @@
                         placeholder="例如：开头由女声提问，第3段起男声解答，结尾女声留钩子"></textarea>
                     <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs text-slate-500">
                         <input type="checkbox" id="keepManualRoles" name="keep_manual_roles" value="1" class="accent-brand-500 rounded">
-                        保留原稿中已有的「男：/女：/旁白：」标注
+                        保留原稿中已有的「男：/女：」对话标注
                     </label>
                     <p class="mt-1.5 text-xs text-slate-400">
-                        <span class="text-brand-600">提示：</span>「男女对话 / 旁白解说」适合「滚动字幕卡」形态；「单人口播」两种形态均可。出片时「女：」行用女声、「男：」行用男声。
+                        <span class="text-brand-600">提示：</span>「男声幕后音 / 女声幕后音 / 男女对话幕后音」由文稿「女：/男：」区分声线，单人形式无需前缀；「单人数字人出镜」为单人独白，对话前缀会自动忽略。出片时「女：」行用女声、「男：」行用男声。
                     </p>
                 </div>
 

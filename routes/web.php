@@ -52,6 +52,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/scroll/generate', [VideoController::class, 'generate']);
     Route::get('/studio/scroll/status/{jobId}', [VideoController::class, 'status']);
     Route::get('/studio/scroll/download/{jobId}', [VideoController::class, 'download']);
+    // 出片队列预估（提交前 / 轮询时展示当前队列数与预计等待，只读）
+    Route::get('/studio/scroll/queue-estimate', [VideoController::class, 'queueEstimate']);
 
     // 批量出片（统一形式一键生成 N 条）
     Route::get('/studio/available-voices', [VideoController::class, 'voices']);

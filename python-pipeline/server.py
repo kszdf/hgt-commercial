@@ -48,7 +48,7 @@
 说明:
     - dry_tts=false（默认）走真实 TTS，需 model_keys.env 中的 dashscope key 与联网。
   - scroll 模式：多声（女：/男：）滚动字幕卡，不出镜。
-  - avatar 模式：单人独白（统一单声线，取消男女对话）；数字人形象为单人出镜，女：/男：/旁白： 角色前缀会被自动忽略，整稿用所选单一声线配音。
+  - avatar 模式：单人独白（统一单声线，取消男女对话）；数字人形象为单人出镜，「女：/男：」对话前缀会被自动忽略，整稿用所选单一声线配音。
     - Laravel 容器经 host.docker.internal:8500 调用本服务，服务本身不对外暴露。
 """
 
@@ -258,35 +258,60 @@ def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, 
 
 
 def _build_role_instruction(role_mode, role_note, keep_manual_roles, mode):
-    """根据用户选择的角色/声音分配生成 prompt 角色指令。"""
+    """根据用户选择的角色/声音分配生成 prompt 角色指令。
+
+    核心对齐规则：
+    - 单人呈现形式（单人数字人出镜 / 男声幕后音 / 女声幕后音）属于「单声线独白」，
+      不需要「男：/女：」角色前缀，否则会让数字人看起来在念台词、或与所选呈现形式矛盾。
+    - 只有男女对话幕后音才需要用「男：」「女：」前缀区分对话角色。
+    """
     if keep_manual_roles:
-        return ("原稿中已包含「男：」「女：」「旁白：」等角色标注，请严格保留这些前缀，只改写前缀后的内容。"
+        return ("原稿中已包含「男：」「女：」等对话角色标注，请严格保留这些前缀，只改写前缀后的内容。"
                 "每行仍必须保留原有角色前缀，不要新增或删除前缀。")
 
     rm = (role_mode or "").strip() or "auto"
     if rm == "custom" and role_note and str(role_note).strip():
-        return (f"请按以下角色分配进行改写，每行以「男：」「女：」或「旁白：」开头：\n{role_note.strip()}\n"
+        return (f"请按以下角色分配进行改写：\n{role_note.strip()}\n"
                 "注意：单一句子不要拆成多行，每行是一句完整的角色台词。")
 
+    # single_* / narrator_* 统一要求：不加任何角色前缀，输出纯口播稿。
+    # 声线由后续配音环节（voice_form）控制，而不是靠文本前缀。
+    single_male_inst = (
+        "单人口播，全程由男声讲述。这是单人独白稿，不要输出任何「男：」「女：」角色前缀，"
+        "直接输出自然流畅的口播内容。"
+    )
+    single_female_inst = (
+        "单人口播，全程由女声讲述。这是单人独白稿，不要输出任何「男：」「女：」角色前缀，"
+        "直接输出自然流畅的口播内容。"
+    )
+    narrator_male_inst = (
+        "男声幕后音解说，以客观口吻讲述。这是单声线幕后音稿，不要输出任何「男：」「女：」角色前缀，"
+        "直接输出讲述内容。"
+    )
+    narrator_female_inst = (
+        "女声幕后音解说，以客观口吻讲述。这是单声线幕后音稿，不要输出任何「男：」「女：」角色前缀，"
+        "直接输出讲述内容。"
+    )
+
     mapping = {
-        "single_male": "单人口播，全程由男声讲述。每行以「男：」开头。",
-        "single_female": "单人口播，全程由女声讲述。每行以「女：」开头。",
+        "single_male": single_male_inst,
+        "single_female": single_female_inst,
         "dual_female_lead": "男女双声对话，女声先开口、抛疑问/场景，男声解答。每行以「女：」或「男：」开头，交替自然。",
         "dual_male_lead": "男女双声对话，男声先开口、引出话题，女声提问/补充，男声解答。每行以「男：」或「女：」开头，交替自然。",
-        "narrator_male": "旁白解说，由男声以客观旁白口吻讲述。每行以「旁白：」开头。",
-        "narrator_female": "旁白解说，由女声以客观旁白口吻讲述。每行以「旁白：」开头。",
-        "auto": "请根据内容自动判断每句话的角色：提问、场景引入用「女：」；解答、总结、权威结论用「男：」；客观陈述可用「旁白：」。每行必须以「男：」「女：」或「旁白：」开头。",
+        "narrator_male": narrator_male_inst,
+        "narrator_female": narrator_female_inst,
+        "auto": "请根据内容自动判断：若适合男女对话，用「男：」「女：」前缀区分角色；若适合单人讲述，直接输出纯口播稿，不要默认加「男：」「女：」角色前缀。",
     }
     base = mapping.get(rm, mapping["auto"])
 
     # role_mode 未指定时，回退兼容旧 mode 语义
     if rm == "auto":
         if mode == "single":
-            base = mapping["single_male"]
+            base = single_male_inst
         elif mode == "dual":
             base = mapping["dual_female_lead"]
         elif mode == "script":
-            base = mapping["narrator_male"]
+            base = narrator_male_inst
     return base
 
 
@@ -300,7 +325,7 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
         style = ("单人口播（实战派行业顾问）。口语化、去AI播音腔、像真人在跟客户面对面聊；"
                  "说话干脆利落、不拖长音、不堆语气词；该严肃严肃、该轻松轻松，自然有起伏，不演")
     elif mode == "script":
-        style = "专业口播稿（保留行业术语与权威感，结构清晰、重点突出，适合直接配音）"
+        style = "单人数字人出镜口播稿（保留行业术语与权威感，结构清晰、重点突出，适合直接配音）"
     else:
         style = ("双声对话：女声(抛疑问/场景)，男声(耐心解答，说话干脆、不拖长音、不堆语气词，像真人在跟客户聊)；"
                  "语气词极克制；结尾女声留咨询钩子")

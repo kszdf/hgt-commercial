@@ -67,13 +67,13 @@
                     </label>
                     <select id="roleMode" name="role_mode"
                         class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
-                        <option value="auto">自动分配（由 AI 根据内容判断男/女/旁白）</option>
+                        <option value="auto">自动分配（由 AI 根据内容判断男声/女声/对话）</option>
                         <option value="single_male">单人口播（男声）</option>
                         <option value="single_female">单人口播（女声）</option>
                         <option value="dual_female_lead">男女对话（女声开头）</option>
                         <option value="dual_male_lead">男女对话（男声开头）</option>
-                        <option value="narrator_male">旁白解说（男声）</option>
-                        <option value="narrator_female">旁白解说（女声）</option>
+                        <option value="narrator_male">男声幕后音（解说口吻）</option>
+                        <option value="narrator_female">女声幕后音（解说口吻）</option>
                         <option value="custom">自由角色分配（按下方说明切换）</option>
                     </select>
                     <textarea id="roleNote" name="role_note" rows="2"
@@ -81,10 +81,10 @@
                         placeholder="例如：开头由女声提问，第3段起男声解答，结尾女声留钩子"></textarea>
                     <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs text-slate-500">
                         <input type="checkbox" id="keepManualRoles" name="keep_manual_roles" value="1" class="accent-brand-500 rounded">
-                        保留原稿中已有的「男：/女：/旁白：」标注
+                        保留原稿中已有的「男：/女：」对话标注
                     </label>
                     <p class="mt-1.5 text-xs text-slate-400">
-                        <span class="text-brand-600">提示：</span>「男女对话 / 旁白解说」适合「滚动字幕卡」形态（数字人出镜为单人独白，对话前缀会自动忽略）；「单人口播」两种形态均可。出片时「女：」行用女声、「男：」行用男声。
+                        <span class="text-brand-600">提示：</span>「男声幕后音 / 女声幕后音 / 男女对话幕后音」由文稿「女：/男：」区分声线，单人形式无需前缀；「单人数字人出镜」为单人独白，对话前缀会自动忽略。出片时「女：」行用女声、「男：」行用男声。
                     </p>
                 </div>
 
@@ -227,7 +227,7 @@
 
             <!-- 批量出片 · 统一形式选择器 -->
             <div id="batchVideoModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+                <div id="batchVideoModalCard" class="w-full max-w-md cursor-move rounded-2xl bg-white p-5 shadow-xl">
                     <h3 class="text-base font-semibold text-slate-800">批量出片 · 统一形式</h3>
                     <p class="mt-1 text-xs text-slate-500">将用同一种呈现形式为 <span id="bvCount" class="font-medium text-brand-600">0</span> 条清洗稿生成视频。混合形式请改用逐条「带稿去出片」。</p>
                     <div class="mt-3 grid grid-cols-2 gap-2" id="bvFormGrid">
@@ -302,7 +302,7 @@ function mapTopicFormToMode(form) {
     // 新的 4 值直接透传
     if (['avatar','scroll_male','scroll_female','scroll_dual'].includes(f)) return f;
     // 兼容旧值/Topic API 返回值
-    if (f === '单声口播' || f === '幕后音口播_单人' || f === '单人口播' || f === 'script' || f === '专业口播稿') return 'avatar';
+    if (f === '单声口播' || f === '幕后音口播_单人' || f === '单人口播' || f === 'script') return 'avatar';
     if (f === '幕后音口播_双人' || f === '双声对话' || f === '双人口播') return 'scroll_dual';
     return 'avatar';
 }
@@ -1267,6 +1267,56 @@ async function resumeBatchVideo(batchId) {
     const modal = document.getElementById('batchVideoModal');
     if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
     document.querySelectorAll('[data-bv-form]').forEach(b => b.addEventListener('click', () => selectBvForm(b.dataset.bvForm)));
+})();
+
+// 批量出片弹窗：鼠标拖拽移动
+(function makeBatchVideoModalDraggable(){
+    const card = document.getElementById('batchVideoModalCard');
+    const modal = document.getElementById('batchVideoModal');
+    if (!card || !modal) return;
+
+    let dragging = false, startX = 0, startY = 0, initialLeft = 0, initialTop = 0;
+
+    // 点击卡片空白处可拖拽；点击按钮/输入框/选择框时不触发拖拽
+    card.addEventListener('mousedown', function (e) {
+        const tag = (e.target.tagName || '').toLowerCase();
+        const isInteractive = ['button', 'input', 'select', 'textarea', 'a', 'label'].includes(tag)
+            || e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('textarea') || e.target.closest('a');
+        if (isInteractive) return;
+        dragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        const rect = card.getBoundingClientRect();
+        initialLeft = rect.left;
+        initialTop = rect.top;
+        card.style.position = 'fixed';
+        card.style.left = initialLeft + 'px';
+        card.style.top = initialTop + 'px';
+        card.style.margin = '0';
+        card.style.transform = 'none';
+        card.style.maxWidth = rect.width + 'px';
+        card.classList.add('select-none');
+    });
+
+    window.addEventListener('mousemove', function (e) {
+        if (!dragging) return;
+        e.preventDefault();
+        let nx = initialLeft + (e.clientX - startX);
+        let ny = initialTop + (e.clientY - startY);
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const rect = card.getBoundingClientRect();
+        // 限制在可视窗口内，至少保留 40px 可见
+        nx = Math.max(0, Math.min(nx, vw - 40));
+        ny = Math.max(0, Math.min(ny, vh - 40));
+        card.style.left = nx + 'px';
+        card.style.top = ny + 'px';
+    });
+
+    window.addEventListener('mouseup', function () {
+        if (!dragging) return;
+        dragging = false;
+        card.classList.remove('select-none');
+    });
 })();
 
 // 初始化字数

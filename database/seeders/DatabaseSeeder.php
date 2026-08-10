@@ -35,15 +35,19 @@ class DatabaseSeeder extends Seeder
             'default_female_voice' => 'cosyvoice-v3-plus-jiangnv3-991b204c1d564ac7a60f0cb9a8fd78bd',
         ]);
 
-        if (! User::where('email', '2864225@qq.com')->exists()) {
-            User::create([
-                'tenant_id' => $tenant->id,
+        // 超级管理员账号：全局超管判定靠 tenant_id === null，故 tenant_id 必须显式设为 null（否则只是普通租户成员，看不了监控大盘）。
+        // 密码从 .env 的 ADMIN_PASSWORD 读取，生产必须配置强密码；未配置时回退 admin888（仅本地测试）。
+        $adminEmail = '2864225@qq.com';
+        $admin = User::updateOrCreate(
+            ['email' => $adminEmail],
+            [
+                'tenant_id' => null,
                 'name' => '张老师',
-                'email' => '2864225@qq.com',
-                'password' => Hash::make('admin888'),
+                'email' => $adminEmail,
+                'password' => Hash::make(env('ADMIN_PASSWORD', 'admin888')),
                 'email_verified_at' => now(),
-            ]);
-        }
+            ]
+        );
 
         $this->call(QcRulesSeeder::class);
     }

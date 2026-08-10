@@ -151,7 +151,7 @@
                         </select>
                     </div>
                     <p id="voiceHint" class="mt-1.5 flex items-center justify-between text-xs text-slate-400">
-                        <span>女：行用女声、男：行用男声；单人旁白用所选对应声线。</span>
+                        <span>女：行用女声、男：行用男声；单人幕后音用所选对应声线。</span>
                         <a href="/studio/voices" class="text-brand-600 hover:underline">去克隆新声音 →</a>
                     </p>
                 </div>
@@ -238,6 +238,7 @@
 
                 <p id="quotaHint" class="text-xs text-slate-400"></p>
                 <p id="durationHint" class="mt-2 text-xs text-slate-400"></p>
+                <p id="queueHint" class="mt-2 text-xs text-slate-400"></p>
                 <p class="flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
                     <span>⏱</span><span>真实配音约需 <b>5–10 分钟</b>（逐句克隆音 + 字幕卡合成）。提交后本页自动刷新状态，您也可先去其他页面，回来会自动续接进度。</span>
                 </p>
@@ -267,6 +268,7 @@
 let currentMode = 'scroll';
 let titleDirty = false;       // 用户是否已手动编辑过标题
 let subtitleDirty = false;    // 用户是否已手动编辑过副标题
+let jobSubmitted = false;     // 是否已成功提交出片任务（提交后冻结队列提示，避免被定时刷新误报为超限）
 
 // 统一控制生成按钮的加载态（增强状态反馈，避免用户以为没反应）
 function setBtnLoading(isLoading, text) {
@@ -344,7 +346,7 @@ function setBtnLoading(isLoading, text) {
                 reason = '双声改写但文本非标准对话格式，推荐「滚动字幕卡」';
             } else if (mode === 'single' || mode === 'script') {
                 recommendedMode = 'avatar';
-                reason = '单声/专业口播稿模式，适合「数字人出镜」（单人独白）';
+                reason = '单声口播模式，适合「数字人出镜」（单人独白）';
             }
             setMode(recommendedMode);
             applyVoiceFormAuto(cleaned);
@@ -532,7 +534,7 @@ function checkDialogueFormat(text, warnEl) {
     if (!warnEl) return;
     if (currentMode === 'avatar') {
         // 数字人 = 单人独白：角色前缀将被忽略、统一用所选单一声线
-        warnEl.textContent = '数字人出镜为单人独白模式：若文稿含「女：/男：/旁白：」前缀，将自动忽略并统一用所选单一声线配音。';
+        warnEl.textContent = '数字人出镜为单人独白模式：若文稿含「女：/男：」对话前缀，将自动忽略并统一用所选单一声线配音。';
         warnEl.className = 'mt-1 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700';
         warnEl.classList.remove('hidden');
         return;
@@ -703,11 +705,41 @@ function updateDurationHint() {
         el.textContent = '预估视频时长：约 ' + Math.floor(sec / 60) + '分' + (sec % 60) + '秒（单次上限 30 分钟）';
     }
 }
+
+// 出片队列预估：展示「当前队列数 + 预计等待分钟」，并在租户达并发上限时提示
+async function fetchQueueEstimate() {
+    if (jobSubmitted) return;   // 已提交则冻结，避免把「自己刚提交的任务」误报为超限
+    const el = document.getElementById('queueHint');
+    if (!el) return;
+    try {
+        const resp = await fetch('/studio/scroll/queue-estimate', {
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            }
+        });
+        if (!resp.ok) return;
+        const d = await resp.json();
+        if (!d.will_accept) {
+            el.className = 'mt-2 text-xs font-medium text-red-600';
+            el.textContent = '⚠ 您账号已有 ' + d.tenant_queued + ' 条进行中，达并发上限（' + d.tenant_max + '），请等待完成后再提交（预计约 ' + d.est_wait_min + ' 分钟）。';
+        } else if (d.global_queued === 0) {
+            el.className = 'mt-2 text-xs text-emerald-600';
+            el.textContent = '✓ 当前无排队，提交后通常立即开始渲染（单条约 ' + d.avg_render_min + ' 分钟）。';
+        } else {
+            el.className = 'mt-2 text-xs text-brand-600';
+            el.textContent = '当前全平台有 ' + d.global_queued + ' 条任务在队列（系统同时处理 ' + d.concurrency + ' 条，单条约 ' + d.avg_render_min + ' 分钟），您提交后预计等待约 ' + d.est_wait_min + ' 分钟。';
+        }
+    } catch (e) { /* 静默：队列提示非关键路径 */ }
+}
 setMode('scroll');
 updateDurationHint();
 autoSuggest();
 applyVoiceFormAuto(document.getElementById('dialogue').value);
 updateSubPreview();
+// 出片队列预估：初始拉一次，并每 20 秒刷新（队列动态变化）
+fetchQueueEstimate();
+setInterval(fetchQueueEstimate, 20000);
 
 function resetVoice() {
     const defs = {male_rate:0.98, female_rate:0.98, male_pitch:0.95, female_pitch:1.02, male_vol:53, female_vol:49};
@@ -861,6 +893,9 @@ document.getElementById('genForm').addEventListener('submit', async function (e)
         }
         // 持久化当前任务，用户离开页面后回来可自动续接进度
         sessionStorage.setItem('hgt_active_job', data.job_id);
+        jobSubmitted = true;
+        const qh = document.getElementById('queueHint');
+        if (qh) { qh.className = 'mt-2 text-xs text-emerald-600'; qh.textContent = '✓ 任务已提交，已进入出片队列，系统将按顺序渲染。'; }
         setBtnLoading(true, '出片中…');
         result.innerHTML = '<div class="text-center text-slate-400"><div class="mb-2 text-3xl">⏳</div>'
             + '<div class="font-medium text-slate-600">出片任务已提交，正在真实配音合成…</div>'
@@ -930,6 +965,7 @@ async function pollStatus(jobId) {
 (function resumeJob() {
     const jobId = sessionStorage.getItem('hgt_active_job');
     if (jobId) {
+        jobSubmitted = true;
         setBtnLoading(true, '出片中…');
         pollStatus(jobId);
     }
