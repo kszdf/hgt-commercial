@@ -40,8 +40,8 @@ PY310 = r"D:/heygem/py310/Scripts/python.exe"
 DEFAULT_MODEL = "/code/data/BGZSP20260721_t18_silent.mp4"  # 容器内男模路径
 
 # 默认配音音色（与 server.py / gpt_sovits 定稿一致）
-DEFAULT_MALE_VOICE = "cosyvoice-v3-plus-zhangc2-28a7c3541e1c45518a03046c11baeb1d"
-DEFAULT_FEMALE_VOICE = "cosyvoice-v3-plus-jiangnv3-991b204c1d564ac7a60f0cb9a8fd78bd"
+DEFAULT_MALE_VOICE = ""   # 新租户初始无自带声音；须由租户克隆/选择后显式传入
+DEFAULT_FEMALE_VOICE = ""
 
 from qwen_tts import synth as qwen_synth
 

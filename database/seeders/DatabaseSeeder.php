@@ -11,7 +11,7 @@ class DatabaseSeeder extends Seeder
 {
     /**
      * 预置默认租户 huigentang（慧根堂）与管理员，
-     * 使平台开箱即可登录测试：admin@huigentang.com / admin888
+     * 使平台开箱即可登录测试：2864225@qq.com / admin888
      */
     public function run(): void
     {
@@ -35,11 +35,11 @@ class DatabaseSeeder extends Seeder
             'default_female_voice' => 'cosyvoice-v3-plus-jiangnv3-991b204c1d564ac7a60f0cb9a8fd78bd',
         ]);
 
-        if (! User::where('email', 'admin@huigentang.com')->exists()) {
+        if (! User::where('email', '2864225@qq.com')->exists()) {
             User::create([
                 'tenant_id' => $tenant->id,
                 'name' => '张老师',
-                'email' => 'admin@huigentang.com',
+                'email' => '2864225@qq.com',
                 'password' => Hash::make('admin888'),
                 'email_verified_at' => now(),
             ]);

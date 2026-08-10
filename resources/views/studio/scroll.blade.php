@@ -1,4 +1,4 @@
-<x-app-layout>
+﻿<x-app-layout>
 <x-workspace-layout title="视频出片工作台">
 <div class="mx-auto max-w-5xl p-6">
 
@@ -8,7 +8,7 @@
             class="rounded-lg px-4 py-2 text-sm font-medium border border-brand-500 bg-brand-50 text-brand-700"
             onclick="setMode('scroll')">滚动字幕卡（不出镜）</button>
         <button type="button" id="modeAvatar"
-            class="rounded-lg px-4 py-2 text-sm font-medium border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700"
+            class="rounded-lg px-4 py-2 text-sm font-medium studio-card studio-card-sm text-slate-500 hover:border-slate-300 hover:text-slate-700"
             onclick="setMode('avatar')">数字人出镜（本地 HEYGEM）</button>
     </div>
 
@@ -26,18 +26,14 @@
                     </label>
                     <textarea id="dialogue" name="dialogue" rows="11" required
                         class="w-full rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100"
-                        placeholder="女：很多人做短视频，开头三秒就决定了完播率。&#10;男：那怎么把开头写好？&#10;女：先抛痛点，再给钩子，别上来就自我介绍。&#10;男：能举个例子吗？&#10;女：比如「你是不是也遇到过这种情况……」">女：很多人做短视频，开头三秒就决定了完播率。
-男：那怎么把开头写好？
-女：先抛痛点，再给钩子，别上来就自我介绍。
-男：能举个例子吗？
-女：比如「你是不是也遇到过这种情况……」</textarea>
+                        placeholder="粘贴你的口播稿 / 文案 / 改写稿…&#10;男女对话格式：每行以「女：」「男：」开头&#10;单人独白：直接写正文即可"></textarea>
                     <p id="formatWarning" class="mt-1 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700"></p>
                 </div>
 
                 <!-- 数字人场景选择（仅avatar模式显示） -->
-                <div id="sceneSelectWrap" class="hidden rounded-lg border border-slate-200 bg-slate-50/80 p-3.5">
+                <div id="sceneSelectWrap" class="hidden rounded-lg studio-card studio-card-sm">
                     <label class="mb-1.5 block text-sm font-medium text-slate-600">出镜场景</label>
-                    <select id="scene" name="scene" class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                    <select id="scene" name="scene" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                         <option value="office_a">办公桌前·正面（推荐）</option>
                         <option value="office_b">办公桌前·侧面</option>
                     </select>
@@ -52,12 +48,12 @@
                             </span>
                         </label>
                         <input id="title" name="title" maxlength="30"
-                            class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                            class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                         <div class="mt-2 flex flex-wrap items-center gap-1.5">
                             <span class="text-[11px] text-slate-400">标题风格</span>
                             <button type="button" data-style="smart" class="title-style-btn rounded-md border border-brand-300 bg-brand-50 px-2 py-0.5 text-[11px] text-brand-600">智能提取</button>
-                            <button type="button" data-style="full" class="title-style-btn rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-500">首句完整</button>
-                            <button type="button" data-style="suspense" class="title-style-btn rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-500">悬念式</button>
+                            <button type="button" data-style="full" class="title-style-btn rounded-md studio-badge studio-badge-brand">首句完整</button>
+                            <button type="button" data-style="suspense" class="title-style-btn rounded-md studio-badge studio-badge-brand">悬念式</button>
                         </div>
                         <p id="titleHint" class="mt-1 hidden text-[11px] text-slate-400"></p>
                     </div>
@@ -69,7 +65,7 @@
                             </span>
                         </label>
                         <input id="subtitle" name="subtitle" maxlength="40"
-                            class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                            class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                         <p id="subtitleHint" class="mt-1 hidden text-[11px] text-slate-400"></p>
                     </div>
                 </div>
@@ -78,9 +74,9 @@
                 <div id="modelHint" class="rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-700">
                     滚动字幕卡模式：无需选模特，已自动跳过。
                 </div>
-                <div id="modelSelectWrap" class="hidden rounded-lg border border-slate-200 bg-slate-50/80 p-3.5">
+                <div id="modelSelectWrap" class="hidden rounded-lg studio-card studio-card-sm">
                     <label class="mb-1.5 block text-sm font-medium text-slate-600">选择数字人模特</label>
-                    <select id="model" name="model" class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                    <select id="model" name="model" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                         <option value="BGZSP20260721_t18_silent.mp4">张老师·稳重主力（推荐）</option>
                         <option value="szrsp">自然略晃·备选</option>
                         <optgroup label="我的模特" id="userModelsGroup"></optgroup>
@@ -92,9 +88,9 @@
                 </div>
 
                 <!-- 封面选择（发布平台需封面） -->
-                <div class="rounded-lg border border-slate-200 bg-slate-50/80 p-3.5">
+                <div class="rounded-lg studio-card studio-card-sm">
                     <label class="mb-1.5 block text-sm font-medium text-slate-600">选择封面（可选）</label>
-                    <select id="coverId" name="cover_id" class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                    <select id="coverId" name="cover_id" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                         <option value="">不使用封面（平台默认）</option>
                         <optgroup label="我的封面" id="userCoversGroup"></optgroup>
                         <optgroup label="平台预设" id="presetCoversGroup"></optgroup>
@@ -105,13 +101,26 @@
                     </p>
                 </div>
 
-                <!-- 声音选择（从本租户克隆的声音库自由选择） -->
-                <div class="rounded-lg border border-slate-200 bg-slate-50/80 p-3.5">
-                    <label class="mb-1.5 block text-sm font-medium text-slate-600">配音声线（从你的声音库选择）</label>
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <!-- 声线形式（仅滚动字幕模式显示；数字人模式为单人独白，此控件隐藏） -->
+                <div id="voiceFormWrap" class="hidden rounded-lg border border-brand-200 bg-brand-50/60 p-3.5">
+                    <label class="mb-1.5 block text-sm font-medium text-slate-600">声线形式</label>
+                    <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="声线形式">
+                        <button type="button" data-form="dialogue" class="voice-form-btn rounded-lg border border-brand-400 bg-brand-500 px-3 py-1.5 text-xs font-medium text-white">男女对话</button>
+                        <button type="button" data-form="male_mono" class="voice-form-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300">男声独白</button>
+                        <button type="button" data-form="female_mono" class="voice-form-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300">女声独白</button>
+                        <button type="button" data-form="mono" class="voice-form-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300">单声线</button>
+                    </div>
+                    <p id="voiceFormHint" class="mt-1.5 text-xs text-slate-400">男女对话：每行以「女：」「男：」开头，分别用女声/男声；单人独白请在下方选单一声线。</p>
+                </div>
+
+                <!-- 声音选择 -->
+                <div class="rounded-lg studio-card studio-card-sm">
+                    <label id="voiceLabel" class="mb-1.5 block text-sm font-medium text-slate-600">配音声线</label>
+                    <!-- dualVoiceWrap：滚动字幕模式下男/女双声线下拉容器（数字人模式隐藏）；独白时由 setVoiceForm 控制单声线显隐 -->
+                    <div id="dualVoiceWrap" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
                             <select id="maleVoice" name="male_voice"
-                                class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                                class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                                 <option value="">默认男声</option>
                                 @foreach($maleVoices as $mv)
                                     <option value="{{ $mv->voice_id }}" @if($mv->is_default) selected @endif>{{ $mv->name }}</option>
@@ -120,7 +129,7 @@
                         </div>
                         <div>
                             <select id="femaleVoice" name="female_voice"
-                                class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                                class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                                 <option value="">默认女声</option>
                                 @foreach($femaleVoices as $fv)
                                     <option value="{{ $fv->voice_id }}" @if($fv->is_default) selected @endif>{{ $fv->name }}</option>
@@ -128,14 +137,27 @@
                             </select>
                         </div>
                     </div>
-                    <p class="mt-1.5 flex items-center justify-between text-xs text-slate-400">
+                    <!-- 单人（数字人出镜 / 滚动字幕独白） -->
+                    <div id="singleVoiceWrap" class="hidden">
+                        <select id="singleVoice" name="single_voice"
+                            class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                            <option value="">默认声线</option>
+                            @foreach($maleVoices as $mv)
+                                <option value="{{ $mv->voice_id }}">{{ $mv->name }}（男）</option>
+                            @endforeach
+                            @foreach($femaleVoices as $fv)
+                                <option value="{{ $fv->voice_id }}">{{ $fv->name }}（女）</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <p id="voiceHint" class="mt-1.5 flex items-center justify-between text-xs text-slate-400">
                         <span>女：行用女声、男：行用男声；单人旁白用所选对应声线。</span>
                         <a href="/studio/voices" class="text-brand-600 hover:underline">去克隆新声音 →</a>
                     </p>
                 </div>
 
                 <!-- 字幕样式调试（实时预览） -->
-                <details class="rounded-lg border border-slate-200 bg-slate-50/80 p-3.5">
+                <details class="rounded-lg studio-card studio-card-sm">
                     <summary class="cursor-pointer text-sm font-medium text-slate-600 select-none">字幕样式调试（字号 / 行数 / 描边 / 位置）</summary>
                     <p class="mt-2 text-xs text-slate-400">拖动滑块实时预览字幕效果；不调则使用平台默认样式。</p>
                     <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -151,7 +173,7 @@
                         </div>
                         <div class="space-y-1">
                             <label class="block text-xs text-slate-500">单条字幕行数</label>
-                            <select id="subtitle_lines" class="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700" onchange="updateSubPreview()">
+                            <select id="subtitle_lines" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700" onchange="updateSubPreview()">
                                 <option value="1">1 行</option>
                                 <option value="2">2 行</option>
                                 <option value="3" selected>3 行（默认）</option>
@@ -159,7 +181,7 @@
                         </div>
                         <div class="space-y-1">
                             <label class="block text-xs text-slate-500">字幕位置</label>
-                            <select id="subtitle_position" class="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700" onchange="updateSubPreview()">
+                            <select id="subtitle_position" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700" onchange="updateSubPreview()">
                                 <option value="bottom" selected>底部（默认）</option>
                                 <option value="center">居中</option>
                             </select>
@@ -172,7 +194,7 @@
                 </details>
 
                 <!-- 配音感情/快慢调节（分声线） -->
-                <details class="rounded-lg border border-slate-200 bg-slate-50/80 p-3.5">
+                <details class="rounded-lg studio-card studio-card-sm">
                     <summary class="cursor-pointer text-sm font-medium text-slate-600 select-none">🎚 配音感情 / 快慢调节（高级）</summary>
                     <p class="mt-2 text-xs text-slate-400">语速越低越慢；音调越高越亮/尖；音量 0-100。男声默认沉稳慢、女声默认略亮亲和。</p>
                     <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -246,53 +268,100 @@ let currentMode = 'scroll';
 let titleDirty = false;       // 用户是否已手动编辑过标题
 let subtitleDirty = false;    // 用户是否已手动编辑过副标题
 
+// 统一控制生成按钮的加载态（增强状态反馈，避免用户以为没反应）
+function setBtnLoading(isLoading, text) {
+    const btn = document.getElementById('genBtn');
+    if (!btn) return;
+    if (isLoading) {
+        btn.disabled = true;
+        // 用内联 style 避免 Tailwind 扫描不到 JS 字符串中的任意值类
+        btn.innerHTML = '<span class="inline-block h-4 w-4 animate-spin rounded-full" style="margin-right:.25rem;vertical-align:-2px;border:2px solid rgba(255,255,255,0.45);border-top-color:#fff;"></span> ' + (text || '生成中…');
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = '生成视频';
+    }
+}
+
 // 从二创页「带稿去出片」跳转过来时，自动填入清洗稿并推荐模式
 (function () {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('from') === 'rewrite') {
-        const cleaned = sessionStorage.getItem('hgt_rewrite_cleaned') || '';
-        const mode = sessionStorage.getItem('hgt_rewrite_mode') || '';
-        if (cleaned) {
-            const ta = document.getElementById('dialogue');
-            if (ta) { ta.value = cleaned; }
-            autoSuggest();   // 带入改写稿后，立即根据内容生成标题/副标题建议
-            sessionStorage.removeItem('hgt_rewrite_cleaned');
-            sessionStorage.removeItem('hgt_rewrite_mode');
+    const src = params.get('src') || 'original';
+    const srcMap = {
+        topic:    { label: '选题二创', back: '/studio/rewrite' },
+        original: { label: '原始稿二创', back: '/studio/rewrite-original' },
+    };
+    const srcInfo = srcMap[src] || srcMap.original;
+    // 批量二创来源：返回时回到批量二创面板（保留已改写的批量进度）
+    let backUrl = srcInfo.back;
+    if (params.get('batch') === '1') {
+        backUrl = '/studio/rewrite?from=topic-all';
+    }
 
-            // 自动检测文本格式并推荐出片模式
+    // 优先 URL 参数（可刷新、可分享），其次 sessionStorage（兼容旧跳转）
+    let cleaned = '';
+    if (params.has('dialogue')) {
+        try { cleaned = decodeURIComponent(params.get('dialogue')); } catch (e) { cleaned = ''; }
+    }
+    if (!cleaned && params.get('from') === 'rewrite') {
+        cleaned = sessionStorage.getItem('hgt_rewrite_cleaned') || '';
+    }
+    const mode = params.get('mode') || sessionStorage.getItem('hgt_rewrite_mode') || '';
+
+    if (cleaned) {
+        const ta = document.getElementById('dialogue');
+        if (ta) { ta.value = cleaned; }
+        autoSuggest();
+
+        let recommendedMode = 'scroll';
+        let reason = '';
+
+        // 新呈现形式值：直接决定出片模式与声线形式，不再按文本反推
+        const displayModeMap = {
+            'avatar':        { mode: 'avatar', voiceForm: null,          label: '单人数字人出镜' },
+            'scroll_male':   { mode: 'scroll', voiceForm: 'male_mono',   label: '男声幕后音' },
+            'scroll_female': { mode: 'scroll', voiceForm: 'female_mono', label: '女声幕后音' },
+            'scroll_dual':   { mode: 'scroll', voiceForm: 'dialogue',    label: '男女对话幕后音' }
+        };
+
+        if (displayModeMap[mode]) {
+            recommendedMode = displayModeMap[mode].mode;
+            reason = '已在「' + srcInfo.label + '」选择「' + displayModeMap[mode].label + '」，已自动匹配出片模式';
+            setMode(recommendedMode);
+            if (recommendedMode === 'scroll' && displayModeMap[mode].voiceForm) {
+                setVoiceForm(displayModeMap[mode].voiceForm);
+            }
+        } else {
+            // 兼容旧值 / 无模式：按文本自动推断
             const lines = cleaned.split('\n').filter(l => l.trim());
             const dialogueLines = lines.filter(l => /^(女|男)[：:]/.test(l.trim()));
             const isDialogue = lines.length > 0 && dialogueLines.length >= Math.min(3, lines.length * 0.6);
 
-            let recommendedMode = 'scroll';
-            let reason = '';
             if (mode === 'dual' && isDialogue) {
-                recommendedMode = 'avatar';
-                reason = '检测到对话格式 + 双声改写模式，推荐「数字人出镜」';
+                recommendedMode = 'scroll';
+                reason = '检测到对话格式 + 双声改写模式，推荐「滚动字幕卡」（男女对话）';
             } else if (mode === 'dual' && !isDialogue) {
                 recommendedMode = 'scroll';
-                reason = '双声改写但文本非标准对话格式，推荐「滚动字幕卡」（或切换数字人后手动调整格式）';
+                reason = '双声改写但文本非标准对话格式，推荐「滚动字幕卡」';
             } else if (mode === 'single' || mode === 'script') {
-                recommendedMode = 'scroll';
-                reason = '单声/专业口播稿模式，适合「滚动字幕卡」出片';
+                recommendedMode = 'avatar';
+                reason = '单声/专业口播稿模式，适合「数字人出镜」（单人独白）';
             }
-
-            // 应用推荐模式
             setMode(recommendedMode);
+            applyVoiceFormAuto(cleaned);
+        }
 
-            // 顶部提示
-            const hint = document.createElement('div');
-            hint.className = 'mb-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-700';
-            hint.innerHTML = '<div class="flex items-center justify-between"><span>已从「智能二创」带入清洗稿。' +
-                (reason ? '<br><span class="text-xs text-brand-600 mt-1 inline-block">' + reason + '</span>' : '') +
-                '</span></div>' +
-                '<a href="/studio/rewrite" class="font-medium underline hover:text-brand-900 text-xs">← 返回二创</a>';
-            document.querySelector('header').after(hint);
+        // 推荐模式提示
+        const hint = document.createElement('div');
+        hint.className = 'mb-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-700';
+        hint.innerHTML = '<div class="flex items-center justify-between"><span>已从「' + srcInfo.label + '」带入清洗稿。' +
+            (reason ? '<br><span class="text-xs text-brand-600 mt-1 inline-block">' + reason + '</span>' : '') +
+            '</span></div>' +
+            '<a href="' + backUrl + '" class="font-medium underline hover:text-brand-900 text-xs">← 返回二创</a>';
+        document.querySelector('header').after(hint);
 
-            // 如果是avatar模式但文本不完全符合对话格式，触发一次校验
-            if (recommendedMode === 'avatar') {
-                checkDialogueFormat(cleaned, document.getElementById('formatWarning'));
-            }
+        // 如果是 avatar 模式，触发一次校验
+        if (recommendedMode === 'avatar') {
+            checkDialogueFormat(cleaned, document.getElementById('formatWarning'));
         }
     }
 })();
@@ -360,6 +429,17 @@ function setMode(m) {
     document.getElementById('modelHint').classList.toggle('hidden', m !== 'scroll');
     document.getElementById('modelSelectWrap').classList.toggle('hidden', m !== 'avatar');
     document.getElementById('sceneSelectWrap').classList.toggle('hidden', m !== 'avatar');
+    // 声线形式控件：仅滚动字幕模式显示；数字人模式隐藏（单人独白）
+    document.getElementById('voiceFormWrap').classList.toggle('hidden', m !== 'scroll');
+    // 声线选择：数字人=单声线下拉；滚动字幕=由 setVoiceForm 决定（对话双下拉 / 独白单下拉 / 单声线）
+    const singleVW = document.getElementById('singleVoiceWrap');
+    const dualVW = document.getElementById('dualVoiceWrap');
+    if (m === 'avatar') {
+        singleVW.classList.remove('hidden');
+        dualVW.classList.add('hidden');
+    } else {
+        setVoiceForm(voiceForm);   // 内部会正确设置 single/dual 的显隐
+    }
 
     // 文本格式提示与校验
     const label = document.getElementById('dialogueLabel');
@@ -368,11 +448,10 @@ function setMode(m) {
     const ta = document.getElementById('dialogue');
 
     if (m === 'avatar') {
-        // 数字人出镜：支持独白与双声对话（不再强制 女：/男：）
-        label.innerHTML = '对话稿 / 独白（<span class="text-slate-400">纯文本=男声独白；每行 女：/男： 开头=男女双声对话</span>）';
-        hint.innerHTML = '<span class="text-emerald-600">支持独白与双声对话</span>';
+        // 数字人出镜：统一单人独白（取消男女对话），角色前缀自动忽略
+        label.innerHTML = '独白文稿（<span class="text-slate-400">单人单声，直接写文案即可；无需 女：/男： 前缀</span>）';
+        hint.innerHTML = '<span class="text-emerald-600">单人独白模式</span>';
         hint.className = 'text-[11px] font-normal text-emerald-600';
-        // 检测当前文本格式并给出温和提示（不阻断提交）
         checkDialogueFormat(ta.value, warning);
     } else {
         // 滚动字幕卡：接受任意格式
@@ -383,9 +462,81 @@ function setMode(m) {
     }
 }
 
-// 检测文本格式并给出温和提示（数字人模式支持独白与双声对话，不阻断提交）
+// 声线形式切换（滚动字幕模式）：男女对话 / 男声独白 / 女声独白
+let voiceFormManual = false; // 用户是否手动点过声线形式按钮；手动后不再自动推断
+let voiceForm = 'dialogue';
+
+// 根据文稿内容自动推断合适的声线形式
+function detectVoiceForm(text) {
+    const lines = (text || '').split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return voiceForm;
+    const femaleLines = lines.filter(l => /^女[：:]/.test(l)).length;
+    const maleLines = lines.filter(l => /^男[：:]/.test(l)).length;
+    // 对话：必须同时存在男女声前缀，且角色行占比足够
+    if (femaleLines > 0 && maleLines > 0 && (femaleLines + maleLines) >= Math.min(3, lines.length * 0.6)) {
+        return 'dialogue';
+    }
+    // 全为一种性别前缀：推荐对应独白
+    if (femaleLines > 0) return 'female_mono';
+    if (maleLines > 0) return 'male_mono';
+    // 无角色前缀：不假设性别，交给租户从全部已克隆声音中自选（单声线下拉）
+    return 'mono';
+}
+function applyVoiceFormAuto(text) {
+    if (voiceFormManual || currentMode !== 'scroll') return;
+    const inferred = detectVoiceForm(text);
+    if (inferred !== voiceForm) setVoiceForm(inferred);
+}
+function setVoiceForm(f) {
+    voiceForm = f;
+    document.querySelectorAll('.voice-form-btn').forEach(b => {
+        const on = b.dataset.form === f;
+        b.className = 'voice-form-btn rounded-lg border px-3 py-1.5 text-xs font-medium transition ' +
+            (on ? 'border-brand-400 bg-brand-500 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300');
+    });
+    const dualVW = document.getElementById('dualVoiceWrap');
+    const singleVW = document.getElementById('singleVoiceWrap');
+    const maleWrap = document.getElementById('maleVoice').parentNode;
+    const femaleWrap = document.getElementById('femaleVoice').parentNode;
+    const hint = document.getElementById('voiceFormHint');
+    if (f === 'mono') {
+        // 单声线（不限性别）：从全部已克隆声音中任选一个
+        singleVW.classList.remove('hidden');
+        dualVW.classList.add('hidden');
+        hint.textContent = '单声线：从全部已克隆声音中任选一个，不限性别；适合无「女：/男：」前缀的独白稿。';
+    } else {
+        // 对话 / 男声独白 / 女声独白：使用男+女双下拉容器
+        dualVW.classList.remove('hidden');
+        singleVW.classList.add('hidden');
+        if (f === 'male_mono') {
+            maleWrap.classList.remove('hidden'); femaleWrap.classList.add('hidden');
+            hint.textContent = '男声独白：整段用男声单口播，无需角色前缀（若文稿含「女：/男：」前缀将自动忽略）。';
+        } else if (f === 'female_mono') {
+            maleWrap.classList.add('hidden'); femaleWrap.classList.remove('hidden');
+            hint.textContent = '女声独白：整段用女声单口播，无需角色前缀（若文稿含「女：/男：」前缀将自动忽略）。';
+        } else {
+            maleWrap.classList.remove('hidden'); femaleWrap.classList.remove('hidden');
+            hint.textContent = '男女对话：每行以「女：」「男：」开头，分别用女声/男声；单人独白请在下方选单一声线。';
+        }
+    }
+}
+document.querySelectorAll('.voice-form-btn').forEach(b => {
+    b.addEventListener('click', () => {
+        voiceFormManual = true;
+        setVoiceForm(b.dataset.form);
+    });
+});
+
+// 检测文本格式并给出温和提示（数字人模式为单人独白，对话前缀会被忽略）
 function checkDialogueFormat(text, warnEl) {
     if (!warnEl) return;
+    if (currentMode === 'avatar') {
+        // 数字人 = 单人独白：角色前缀将被忽略、统一用所选单一声线
+        warnEl.textContent = '数字人出镜为单人独白模式：若文稿含「女：/男：/旁白：」前缀，将自动忽略并统一用所选单一声线配音。';
+        warnEl.className = 'mt-1 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700';
+        warnEl.classList.remove('hidden');
+        return;
+    }
     const lines = text.split('\n').filter(l => l.trim());
     const dialogueLines = lines.filter(l => /^(女|男)[：:]/.test(l.trim()));
     if (lines.length === 0) {
@@ -394,27 +545,28 @@ function checkDialogueFormat(text, warnEl) {
     }
     if (dialogueLines.length === lines.length) {
         // 纯双声对话
-        warnEl.textContent = '已识别男女双声对话：女：行用女声、男：行用男声，数字人将用对应声线配音。';
+        warnEl.textContent = '已识别男女双声对话：女：行用女声、男：行用男声，分别用对应克隆音配音。';
         warnEl.className = 'mt-1 hidden rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700';
         warnEl.classList.remove('hidden');
     } else if (dialogueLines.length === 0) {
         // 纯独白
-        warnEl.textContent = '检测到独白文本：将用所选男声（数字人形象声线）统一配音。如需男女双声，请每行以 女：/男： 开头。';
+        warnEl.textContent = '检测到独白文本：将用所选单一声线（男声/女声）统一配音。';
         warnEl.className = 'mt-1 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700';
         warnEl.classList.remove('hidden');
     } else {
         // 混合
-        warnEl.textContent = '混合格式：含 女：/男： 的行用对应声线，其余行用男声（数字人形象声线）配音。如需男女双声对话，请确保每行都以 女：/男： 开头。';
+        warnEl.textContent = '混合格式：含 女：/男： 的行按角色分声线，其余行用默认男声。单人独白请在上方选「男声独白/女声独白」。';
         warnEl.className = 'mt-1 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700';
         warnEl.classList.remove('hidden');
     }
 }
 
-// 文本输入时实时检测格式（仅 avatar 模式）
+// 文本输入时实时检测格式与声线形式
 document.getElementById('dialogue')?.addEventListener('input', function () {
     if (currentMode === 'avatar') {
         checkDialogueFormat(this.value, document.getElementById('formatWarning'));
     }
+    applyVoiceFormAuto(this.value);
     updateDurationHint();
 });
 
@@ -551,8 +703,10 @@ function updateDurationHint() {
         el.textContent = '预估视频时长：约 ' + Math.floor(sec / 60) + '分' + (sec % 60) + '秒（单次上限 30 分钟）';
     }
 }
+setMode('scroll');
 updateDurationHint();
 autoSuggest();
+applyVoiceFormAuto(document.getElementById('dialogue').value);
 updateSubPreview();
 
 function resetVoice() {
@@ -612,7 +766,6 @@ function updateSubPreview() {
 
 document.getElementById('genForm').addEventListener('submit', async function (e) {
     e.preventDefault();
-    const btn = document.getElementById('genBtn');
     const msg = document.getElementById('formMsg');
     const badge = document.getElementById('statusBadge');
     const result = document.getElementById('result');
@@ -623,7 +776,7 @@ document.getElementById('genForm').addEventListener('submit', async function (e)
     const dialogue = document.getElementById('dialogue').value.trim();
     if (!dialogue) {
         msg.textContent = '⚠ 请输入文稿内容（必填）。单声口播直接写文案；双声对话每行以「女：」「男：」开头。';
-        errBox.innerHTML = '<strong>提交失败：文稿为空</strong><br><span class="text-xs mt-1 block text-red-400">「文稿内容」是必填项，请先撰写或从「智能二创」带入改写稿后再提交出片。</span>';
+        errBox.innerHTML = '<strong>提交失败：文稿为空</strong><br><span class="text-xs mt-1 block text-red-400">「文稿内容」是必填项，请先撰写或从「二创」（选题二创 / 原始稿二创）带入改写稿后再提交出片。</span>';
         errBox.classList.remove('hidden');
         document.getElementById('dialogue').focus();
         return;
@@ -637,7 +790,7 @@ document.getElementById('genForm').addEventListener('submit', async function (e)
         return;
     }
 
-    btn.disabled = true; btn.textContent = '提交中…';
+    setBtnLoading(true, '正在提交…');
     badge.textContent = '排队中'; badge.className = 'rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-700';
 
     try {
@@ -661,8 +814,13 @@ document.getElementById('genForm').addEventListener('submit', async function (e)
                 male_vol: parseInt(document.getElementById('male_vol').value, 10),
                 female_vol: parseInt(document.getElementById('female_vol').value, 10),
                 natural: document.getElementById('natural').checked,
-                male_voice: document.getElementById('maleVoice').value || null,
-                female_voice: document.getElementById('femaleVoice').value || null,
+                male_voice: (currentMode === 'avatar' || (currentMode === 'scroll' && voiceForm === 'mono'))
+                    ? (document.getElementById('singleVoice').value || null)
+                    : (document.getElementById('maleVoice').value || null),
+                female_voice: (currentMode === 'avatar' || (currentMode === 'scroll' && voiceForm === 'mono'))
+                    ? null
+                    : (document.getElementById('femaleVoice').value || null),
+                voice_form: currentMode === 'avatar' ? null : voiceForm,
                 model: currentMode === 'avatar' ? (document.getElementById('model').value || null) : null,
                 scene: currentMode === 'avatar' ? (document.getElementById('scene')?.value || null) : null,
                 cover_id: document.getElementById('coverId').value ? parseInt(document.getElementById('coverId').value, 10) : null,
@@ -703,12 +861,13 @@ document.getElementById('genForm').addEventListener('submit', async function (e)
         }
         // 持久化当前任务，用户离开页面后回来可自动续接进度
         sessionStorage.setItem('hgt_active_job', data.job_id);
+        setBtnLoading(true, '出片中…');
         result.innerHTML = '<div class="text-center text-slate-400"><div class="mb-2 text-3xl">⏳</div>'
             + '<div class="font-medium text-slate-600">出片任务已提交，正在真实配音合成…</div>'
             + '<div class="mt-1 text-xs">您可先去其他页面，回来会自动续接进度</div></div>';
         pollStatus(data.job_id);
     } catch (err) {
-        btn.disabled = false; btn.textContent = '生成视频';
+        setBtnLoading(false);
         badge.textContent = '失败'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
         errBox.textContent = err.message; errBox.classList.remove('hidden');
     }
@@ -716,7 +875,6 @@ document.getElementById('genForm').addEventListener('submit', async function (e)
 
 async function pollStatus(jobId) {
     const badge = document.getElementById('statusBadge');
-    const btn = document.getElementById('genBtn');
     const result = document.getElementById('result');
     for (let i = 0; i < 300; i++) {  // 最多 10 分钟轮询（真实配音约 5–10 分钟）
         await new Promise(r => setTimeout(r, 2000));
@@ -739,18 +897,19 @@ async function pollStatus(jobId) {
                     '  <video src="/studio/scroll/download/' + jobId + '" controls class="max-h-[55vh] w-full rounded-lg bg-black"></video>' +
                     '  <div class="mt-3 flex flex-wrap gap-2">' +
                     '    <a href="/studio/scroll/download/' + jobId + '" download class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">⬇ 下载视频</a>' +
-                    '    <a href="/studio/publish" class="rounded-lg border border-brand-300 bg-white px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50">去发布</a>' +
-                    '    <a href="/studio/scroll" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 hover:bg-slate-50">↻ 再出一条</a>' +
+                    '    <a href="/studio/review" class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">去审核</a>' +
+                    '    <span title="完成人工审核通过后可发布" class="cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-400">去发布</span>' +
+                    '    <a href="/studio/scroll" onclick="sessionStorage.removeItem(\'hgt_rewrite_cleaned\'); sessionStorage.removeItem(\'hgt_rewrite_mode\');" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 hover:bg-slate-50">↻ 再出一条</a>' +
                     '  </div>' +
                     '</div>';
-                btn.disabled = false; btn.textContent = '生成视频';
+                setBtnLoading(false);
                 return;
             } else if (data.status === 'failed') {
                 sessionStorage.removeItem('hgt_active_job');
                 badge.textContent = '失败'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
                 const eb = document.getElementById('errorBox');
                 eb.textContent = '出片失败：' + (data.error || '未知错误'); eb.classList.remove('hidden');
-                btn.disabled = false; btn.textContent = '生成视频';
+                setBtnLoading(false);
                 return;
             } else {
                 badge.textContent = '出片中'; badge.className = 'rounded-full bg-brand-100 px-3 py-1 text-xs text-brand-600';
@@ -764,15 +923,14 @@ async function pollStatus(jobId) {
         } catch (e) { /* 网络抖动，继续轮询 */ }
     }
     badge.textContent = '超时'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
-    btn.disabled = false; btn.textContent = '生成视频';
+    setBtnLoading(false);
 }
 
 // 续接未完成的出片任务（用户离开页面后回来自动恢复轮询）
 (function resumeJob() {
     const jobId = sessionStorage.getItem('hgt_active_job');
     if (jobId) {
-        const btn = document.getElementById('genBtn');
-        btn.disabled = true; btn.textContent = '出片中…';
+        setBtnLoading(true, '出片中…');
         pollStatus(jobId);
     }
 })();

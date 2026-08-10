@@ -26,6 +26,17 @@ try {
         exit 1
     }
     Write-Host "SUCCESS: build + verify passed." -ForegroundColor Green
+
+    # 前端构建完成后自动固化服务端缓存并重启容器，避免 view/config/route 缓存陈旧
+    $deployScript = Join-Path $root 'scripts/deploy.ps1'
+    if (Test-Path $deployScript) {
+        Write-Host ">> Running deploy (cache + restart)..." -ForegroundColor Cyan
+        & $psExe -ExecutionPolicy Bypass -File $deployScript
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "ERROR: deploy step failed" -ForegroundColor Red
+            exit 1
+        }
+    }
 } finally {
     Pop-Location
 }

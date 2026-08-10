@@ -15,6 +15,10 @@
             <p class="mt-2 text-xs text-slate-400">商用短视频智能工作台</p>
         </div>
 
+        @if (session('status'))
+            <div class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-600">{{ session('status') }}</div>
+        @endif
+
         @if ($errors->any())
             <div class="mb-4 space-y-1 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
                 @foreach ($errors->all() as $err)
@@ -23,9 +27,44 @@
             </div>
         @endif
 
-        <form class="space-y-4" method="POST" action="/login">
+        @php
+            $method = 'email';
+            if (old('login')) {
+                if (filter_var(old('login'), FILTER_VALIDATE_EMAIL)) {
+                    $method = 'email';
+                } elseif (preg_match('/^1[3-9]\d{9}$/', old('login'))) {
+                    $method = 'phone';
+                }
+            }
+        @endphp
+
+        <form class="space-y-4" method="POST" action="/login" id="login-form">
             @csrf
-            <flux:input label="账号 / 手机号或邮箱" name="login" type="text" placeholder="手机号或邮箱" required value="{{ old('login') }}" />
+
+            <!-- 登录方式切换：分区明显，不并列输入 -->
+            <div class="mb-5 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+                <button type="button" id="tab-email" onclick="setLoginMethod('email')"
+                    class="rounded-lg px-4 py-2.5 text-sm font-semibold transition-all {{ $method === 'email' ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-500 hover:text-slate-700' }}">
+                    邮箱登录
+                </button>
+                <button type="button" id="tab-phone" onclick="setLoginMethod('phone')"
+                    class="rounded-lg px-4 py-2.5 text-sm font-semibold transition-all {{ $method === 'phone' ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-500 hover:text-slate-700' }}">
+                    手机号登录
+                </button>
+            </div>
+
+            <div>
+                <label id="login-label" for="login" class="block text-sm font-medium text-slate-700">
+                    {{ $method === 'email' ? '邮箱' : '手机号' }}
+                </label>
+                <input id="login" name="login" type="{{ $method === 'email' ? 'email' : 'tel' }}"
+                    placeholder="{{ $method === 'email' ? 'you@company.com' : '11 位手机号' }}"
+                    required
+                    value="{{ old('login') }}"
+                    inputmode="{{ $method === 'email' ? 'email' : 'tel' }}"
+                    class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+            </div>
+
             <flux:input label="密码" name="password" type="password" placeholder="••••••••" required />
 
             <div class="flex items-center justify-between text-sm">
@@ -39,7 +78,7 @@
         </form>
 
         <p class="mt-5 text-center text-sm text-slate-400">
-            还没有账号？
+            还没有？
             <a href="/register" class="font-medium text-brand-500 hover:underline">注册</a>
         </p>
     </div>
@@ -53,4 +92,31 @@
         <a href="/terms" class="underline hover:text-white">用户协议</a>
     </p>
 </div>
+
+<script>
+    function setLoginMethod(method) {
+        const loginInput = document.getElementById('login');
+        const loginLabel = document.getElementById('login-label');
+        const tabEmail = document.getElementById('tab-email');
+        const tabPhone = document.getElementById('tab-phone');
+
+        if (method === 'email') {
+            loginInput.type = 'email';
+            loginInput.placeholder = 'you@company.com';
+            loginInput.inputMode = 'email';
+            loginLabel.textContent = '邮箱';
+            tabEmail.className = 'rounded-lg px-4 py-2.5 text-sm font-semibold transition-all bg-white text-brand-600 shadow-sm';
+            tabPhone.className = 'rounded-lg px-4 py-2.5 text-sm font-semibold transition-all text-slate-500 hover:text-slate-700';
+        } else {
+            loginInput.type = 'tel';
+            loginInput.placeholder = '11 位手机号';
+            loginInput.inputMode = 'tel';
+            loginLabel.textContent = '手机号';
+            tabPhone.className = 'rounded-lg px-4 py-2.5 text-sm font-semibold transition-all bg-white text-brand-600 shadow-sm';
+            tabEmail.className = 'rounded-lg px-4 py-2.5 text-sm font-semibold transition-all text-slate-500 hover:text-slate-700';
+        }
+        loginInput.value = '';
+        loginInput.focus();
+    }
+</script>
 </x-app-layout>

@@ -13,10 +13,12 @@ class Tenant extends Model
     protected $fillable = [
         'name', 'slug', 'plan', 'status', 'trial_ends_at', 'quota_monthly',
         'default_avatar', 'default_male_voice', 'default_female_voice', 'settings',
+        'theme_preset', 'theme_overrides',
     ];
 
     protected $casts = [
         'settings' => 'array',
+        'theme_overrides' => 'array',
         'quota_monthly' => 'integer',
         'trial_ends_at' => 'datetime',
     ];

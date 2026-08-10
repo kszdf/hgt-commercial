@@ -23,6 +23,7 @@ class User extends Authenticatable
         'email',
         'phone',
         'password',
+        'last_seen_at',
     ];
 
     /**
@@ -36,6 +37,27 @@ class User extends Authenticatable
     public function isGlobalAdmin(): bool
     {
         return $this->tenant_id === null;
+    }
+
+    /**
+     * 是否在线：最近 N 分钟内有活跃心跳。
+     */
+    public function isOnline(int $minutes = 5): bool
+    {
+        return $this->last_seen_at !== null
+            && $this->last_seen_at->gt(now()->subMinutes($minutes));
+    }
+
+    /**
+     * 更新最近活跃时间（刻意绕过 updated_at，避免干扰业务逻辑排序）。
+     */
+    public function touchSeen(): void
+    {
+        if (! $this->exists) {
+            return;
+        }
+        static::whereKey($this->getKey())->update(['last_seen_at' => now()]);
+        $this->last_seen_at = now();
     }
 
     /**
@@ -57,6 +79,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'last_seen_at' => 'datetime',
             'password' => 'hashed',
         ];
     }

@@ -1,4 +1,4 @@
-<x-app-layout>
+﻿<x-app-layout>
 <x-workspace-layout title="智能质检">
 <div class="mx-auto max-w-5xl p-6">
 
@@ -7,7 +7,7 @@
             <form id="qcForm" class="space-y-4">
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-600">目标平台（可选，影响违禁词库）</label>
-                    <select id="platform" name="platform" class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                    <select id="platform" name="platform" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                         <option value="">全平台</option>
                         <option value="视频号">视频号</option>
                         <option value="抖音">抖音</option>
@@ -18,7 +18,7 @@
                     <label class="mb-1 block text-sm font-medium text-slate-600">待检稿（对话稿 / 口播稿）</label>
                     <textarea id="text" name="text" rows="11" required
                         class="w-full rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100"
-                        placeholder="粘贴待检稿…">这个方案的优势很明显，很多同行都在用，你可以参考一下再决定。</textarea>
+                        placeholder="粘贴待检稿…"></textarea>
                 </div>
                 <button type="submit" id="genBtn"
                     class="w-full rounded-lg bg-brand-500 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -34,7 +34,7 @@
                 <span id="statusBadge" class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500">待检测</span>
             </div>
             <div id="result" class="space-y-3">
-                <p class="rounded-lg bg-slate-50 p-4 text-sm text-slate-400">质检结果将显示在这里</p>
+                <p class="rounded-lg studio-card studio-card-sm text-sm text-slate-400">质检结果将显示在这里</p>
             </div>
             <div id="errorBox" class="mt-3 hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600"></div>
         </section>
@@ -43,11 +43,11 @@
     <section class="luxury-glass mt-4 p-5">
         <div class="mb-3 flex items-center justify-between">
             <h3 class="text-sm font-semibold text-slate-700">对已完成出片做技术质检</h3>
-            <span class="text-xs text-slate-400">渲染完成的视频自动检查音轨 / 画幅 / 时长，结果记入质检报告</span>
+            <span class="text-xs text-slate-400">渲染完成的视频可手动运行技术质检（音轨 / 画幅 / 时长），结果记入质检报告</span>
         </div>
         <div id="jobList" class="space-y-2">
             @forelse($jobs as $j)
-                <div class="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2" data-job="{{ $j->job_id }}">
+                <div class="flex items-center justify-between rounded-lg studio-card studio-card-sm" data-job="{{ $j->job_id }}">
                     <div>
                         <div class="text-sm text-slate-700">{{ $j->title ?: '未命名' }} <span class="text-xs text-slate-400">· {{ $j->mode }}</span></div>
                         <div class="qc-status text-xs text-slate-400">{{ $j->qc_status ? '已质检：'.$j->qc_status : '待质检' }}</div>
@@ -65,17 +65,21 @@
 // 从二创页「跑质检」跳转过来时，自动填入清洗稿
 (function () {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('from') === 'rewrite') {
-        const text = sessionStorage.getItem('hgt_qc_text') || '';
-        if (text) {
-            const ta = document.getElementById('text');
-            if (ta) { ta.value = text; }
-            sessionStorage.removeItem('hgt_qc_text');
-            const hint = document.createElement('div');
-            hint.className = 'mb-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-700';
-            hint.innerHTML = '已从「智能二创」带入清洗稿，可直接点击「开始质检」。 <a href="/studio/rewrite" class="font-medium underline hover:text-brand-900">← 返回二创</a>';
-            document.querySelector('header').after(hint);
-        }
+    let text = '';
+    if (params.has('text')) {
+        try { text = decodeURIComponent(params.get('text')); } catch (e) { text = ''; }
+    }
+    if (!text && params.get('from') === 'rewrite') {
+        text = sessionStorage.getItem('hgt_qc_text') || '';
+    }
+    if (text) {
+        const ta = document.getElementById('text');
+        if (ta) { ta.value = text; }
+        const src = params.get('src') === 'topic' ? '/studio/rewrite' : '/studio/rewrite-original';
+        const hint = document.createElement('div');
+        hint.className = 'mb-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-700';
+        hint.innerHTML = '已从「二创」带入清洗稿，可直接点击「开始质检」。 <a href="' + src + '" class="font-medium underline hover:text-brand-900">← 返回二创</a>';
+        document.querySelector('header').after(hint);
     }
 })();
 

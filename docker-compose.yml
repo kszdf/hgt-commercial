@@ -81,6 +81,43 @@ services:
     networks:
       - hgt
 
+  # 出片状态兜底同步守护进程：周期性把卡在 queued 的任务按 8500 真实状态回写，
+  # 防止用户关页面后任务永久卡 queued 并挡住后续提交（429）。restart:always 保证自愈。
+  video-sync:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    mem_limit: 256m
+    cpus: '0.5'
+    command: php artisan video:sync --daemon --interval=30
+    volumes:
+      - .:/var/www
+    networks:
+      - hgt
+    depends_on:
+      - mysql
+      - redis
+
+  # Laravel 调度常驻进程：每 60 秒检查 routes/console.php 里的 Schedule 定义，
+  # 到 dailyAt('09:00') 自动触发 tenants:notify-trial-expiring（试用到期提醒）。
+  # 容器本身无 cron，用 schedule:work 常驻进程替代；restart:always 自愈。
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    mem_limit: 128m
+    cpus: '0.25'
+    command: php artisan schedule:work
+    volumes:
+      - .:/var/www
+    networks:
+      - hgt
+    depends_on:
+      - mysql
+      - redis
+
 volumes:
   mysql_data:
 

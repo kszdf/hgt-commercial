@@ -38,19 +38,77 @@
 }
 
 /* ============================================
+   主题令牌层（多预设 + 租户 DIY 覆盖）
+   默认（indigo 预设）与既有外观完全一致，零回归。
+   [data-theme="..."] 覆盖品牌色与表面色；租户 DIY 通过
+   注入 :root 内联变量实现最高优先级覆盖。[data-density]
+   仅收紧侧栏导航内边距。
+   ============================================ */
+:root {
+    --surface-page: #ffffff;
+    --surface-card: #ffffff;
+    --surface-card-border: #e8ecf1;
+    --text-strong: #1e293b;
+    --text-body: #334155;
+    --text-muted: #64748b;
+    --nav-active-bg: #eef2ff;
+    --nav-active-fg: #4f46e5;
+    --nav-hover-bg: #f1f5f9;
+    --sidebar-bg: #f8fafc;
+    --topbar-bg: #ffffff;
+    --nav-py: 0.5625rem;
+}
+
+[data-theme="warm"] {
+    --color-brand-500: #f59e0b;
+    --color-brand-600: #d97706;
+    --color-brand-700: #b45309;
+    --surface-page: #fdfaf5;
+    --surface-card: #fffdfa;
+    --surface-card-border: #f0e6da;
+    --text-strong: #3f2d1e;
+    --text-body: #5c4a37;
+    --text-muted: #92785f;
+    --nav-active-bg: #fef3e2;
+    --nav-active-fg: #b45309;
+    --nav-hover-bg: #fdf5ec;
+    --sidebar-bg: #fbf6ef;
+    --topbar-bg: #fffdfa;
+}
+
+[data-theme="teal"] {
+    --color-brand-500: #14b8a6;
+    --color-brand-600: #0d9488;
+    --color-brand-700: #0f766e;
+    --surface-page: #f0fdfa;
+    --surface-card: #ffffff;
+    --surface-card-border: #ccfbf1;
+    --text-strong: #0f3d3a;
+    --text-body: #38514f;
+    --text-muted: #5b8a86;
+    --nav-active-bg: #ccfbf1;
+    --nav-active-fg: #0f766e;
+    --nav-hover-bg: #ecfdf5;
+    --sidebar-bg: #f0fdfa;
+    --topbar-bg: #ffffff;
+}
+
+[data-density="compact"] { --nav-py: 0.4rem; }
+
+/* ============================================
    腾讯云数字人风格 — 白底 + 多彩功能色
    ============================================ */
 
-/* 页面底色：纯白 */
+/* 页面底色：语义变量（随预设/DIY 变化） */
 body {
-    background-color: #ffffff;
+    background-color: var(--surface-page);
 }
 .dark body { background-color: #0b0d1a; }
 
 /* 白底卡片 + 柔阴影 */
 .luxury-glass {
-    background: #ffffff;
-    border: 1px solid #e8ecf1;
+    background: var(--surface-card);
+    border: 1px solid var(--surface-card-border);
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
 }
@@ -110,24 +168,6 @@ body {
 .hero-purple { background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 55%, #5b21b6 100%); }
 .hero-blue   { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 55%, #1e40af 100%); }
 
-/* ===== 工具图标容器（各功能独立彩色）===== */
-.tool-icon {
-    display: flex; align-items: center; justify-content: center;
-    width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
-}
-.tool-icon svg { width: 22px; height: 22px; }
-
-/* 各功能专属配色 */
-.tool-green  { background: var(--color-fresh-50);   color: var(--color-fresh-500); }   /* 出片/播报 */
-.tool-purple { background: var(--color-violet-50);  color: var(--color-violet-500); }  /* 二创/配音 */
-.tool-blue   { background: var(--color-sky-50);     color: var(--color-sky-500); }     /* 直播/管理 */
-.tool-rose   { background: var(--color-rose-50);    color: var(--color-rose-500); }    /* 剪辑 */
-.tool-amber  { background: var(--color-amber-50);   color: var(--color-amber-500); }   /* 擦除/直播 */
-.tool-teal   { background: var(--color-teal-50);    color: var(--color-teal-500); }    /* 抹除 */
-.tool-indigo { background: var(--color-indigo-50);  color: var(--color-indigo-500); }  /* 字幕/识别 */
-.tool-sky   { background: var(--color-sky-50);     color: var(--color-sky-500); }     /* 选题/直播 */
-.tool-slate { background: #f1f5f9;                 color: #475569; }               /* 数据复盘 */
-
 /* 暗色回退 */
 .dark .luxury-glass { background: rgba(15,17,33,0.55); border-color: rgba(255,255,255,0.08); box-shadow: none; }
 .dark .luxury-glass:hover { box-shadow: none; }
@@ -161,26 +201,149 @@ body {
 .nav-item.active { background: #eef2ff; color: #4338ca; }
 .nav-item svg { flex-shrink: 0; }
 
-/* ===== Hero 卡步骤编号 ===== */
-.step-num {
-    display: inline-flex; align-items: center; justify-content: center;
-    min-width: 28px; height: 22px; padding: 0 8px;
-    border-radius: 6px;
-    background: rgba(255,255,255,0.2); backdrop-filter: blur(4px);
-    font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+/* ============================================
+   全局按钮按下态反馈（Task 4）
+   目标：所有功能按钮在点击瞬间有明显「凹凸感 + 缩放 + 阴影变化」，
+   与未点击态形成清晰区分，提升操作确认感。
+   采用 !important 确保不被 Tailwind 的 active:/hover: 工具类覆盖。
+   ============================================ */
+
+/* 统一过渡：让缩放/阴影/亮度变化平滑 */
+button,
+.btn,
+[role="button"],
+.flux-button,
+a.rounded-lg,
+a.rounded-xl,
+a.rounded-2xl {
+    transition: transform 0.08s ease, box-shadow 0.14s ease, filter 0.14s ease !important;
 }
 
-/* ===== 工作流步骤卡片（9步管线）===== */
-.workflow-step {
-    display: flex; flex-direction: column; align-items: center;
-    padding: 14px 8px 10px; border-radius: 12px;
-    transition: all 0.2s ease; cursor: default;
+/* 按下瞬间：轻微内缩 + 缩放 + 内陷阴影 + 微暗，制造「被按下」的实体感 */
+button:active,
+.btn:active,
+[role="button"]:active,
+.flux-button:active,
+a.rounded-lg:active,
+a.rounded-xl:active,
+a.rounded-2xl:active {
+    transform: scale(0.96) !important;
+    box-shadow: inset 0 2px 5px rgba(15, 23, 42, 0.22),
+                inset 0 1px 2px rgba(15, 23, 42, 0.15) !important;
+    filter: brightness(0.95);
 }
-.workflow-step:hover { background: #f8fafc; transform: translateY(-1px); }
-a.workflow-step:hover { cursor: pointer; }
 
-.step-icon-wrap {
-    display: flex; align-items: center; justify-content: center;
-    width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+/* 已禁用按钮不响应按下态，避免误导 */
+button:disabled:active,
+.btn:disabled:active,
+[role="button"][aria-disabled="true"]:active {
+    transform: none !important;
+    box-shadow: none !important;
+    filter: none !important;
 }
-.step-icon-wrap svg { width: 20px; height: 20px; }
+
+/* ============================================
+   追梦 · 统一工作台组件层（DESIGN.md 落地）
+   目标：让 studio 各页无需逐页拼 Tailwind，直接套用
+   统一卡片 / 标题 / 输入 / 徽标 / 按钮，彻底弃用旧灰卡。
+   ============================================ */
+
+/* 统一卡片：白底 + #e8ecf1 浅边框 + 柔阴影（等同 .luxury-glass 但带默认内边距） */
+.studio-card {
+    background: var(--surface-card);
+    border: 1px solid var(--surface-card-border);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+    padding: 20px;
+}
+.studio-card:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }
+.studio-card-sm { padding: 14px; }
+
+/* 区块标题：统一 slate-800 半粗，可带左侧品牌色条 */
+.studio-section-title {
+    font-size: 15px; font-weight: 600; line-height: 1.4;
+    color: var(--text-strong);
+    display: flex; align-items: center; gap: 8px;
+}
+.studio-section-title::before {
+    content: ''; width: 3px; height: 14px; border-radius: 2px;
+    background: var(--color-brand-600); flex: none;
+}
+
+/* 表单字段标签 */
+.studio-field-label {
+    display: block; margin-bottom: 6px;
+    font-size: 13px; font-weight: 500; color: var(--text-body);
+}
+.studio-field-hint { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+
+/* 输入框：聚焦品牌环（覆盖 Tailwind 默认，保证一致） */
+.studio-input,
+input.studio-input,
+select.studio-input,
+textarea.studio-input {
+    width: 100%;
+    border: 1px solid var(--surface-card-border);
+    border-radius: 10px;
+    padding: 9px 12px;
+    color: var(--text-body);
+    background: var(--surface-card);
+    font-size: 14px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.studio-input:focus {
+    outline: none;
+    border-color: var(--color-brand-400);
+    box-shadow: 0 0 0 3px var(--color-brand-100);
+}
+.studio-input::placeholder { color: #94a3b8; }
+
+/* 统一按钮（复用全局 :active 反馈，不再另写按下态） */
+.studio-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border-radius: 10px; padding: 9px 18px; font-size: 14px; font-weight: 600;
+    cursor: pointer; border: 1px solid transparent;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.studio-btn-primary { background: var(--color-brand-600); color: #fff; }
+.studio-btn-primary:hover { background: var(--color-brand-700); }
+.studio-btn-fresh { background: var(--color-fresh-600); color: #fff; }   /* 出片/播报 */
+.studio-btn-fresh:hover { background: #047857; }
+.studio-btn-violet { background: var(--color-violet-600); color: #fff; } /* 配音/二创 */
+.studio-btn-violet:hover { background: #6d28d9; }
+.studio-btn-secondary {
+    background: var(--surface-card); border-color: var(--surface-card-border); color: var(--text-body); font-weight: 500;
+}
+.studio-btn-secondary:hover { background: #f8fafc; }
+.studio-btn-danger { background: var(--color-rose-600); color: #fff; }
+.studio-btn-danger:hover { background: #be123c; }
+.studio-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* 模块色浅底徽标（圆角胶囊） */
+.studio-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    border-radius: 9999px; padding: 2px 10px;
+    font-size: 11px; font-weight: 600; line-height: 1.4;
+}
+.studio-badge-fresh   { background: var(--color-fresh-50);   color: var(--color-fresh-600); }
+.studio-badge-violet  { background: var(--color-violet-50);  color: var(--color-violet-600); }
+.studio-badge-sky     { background: var(--color-sky-50);     color: var(--color-sky-600); }
+.studio-badge-rose    { background: var(--color-rose-50);    color: var(--color-rose-600); }
+.studio-badge-amber   { background: var(--color-amber-50);   color: var(--color-amber-600); }
+.studio-badge-brand   { background: var(--color-brand-50);   color: var(--color-brand-600); }
+
+/* 白卡内文字防御：任何直接挂在 luxury-glass/studio-card 上的白字强制改深色
+   （根治 analytics 等页白压白隐患，同时保持渐变 Hero 卡不受影响——Hero 用 .hero-card 不在此列） */
+.luxury-glass.text-white,
+.studio-card.text-white { color: #1e293b !important; }
+.luxury-glass .text-white,
+.studio-card .text-white { color: #334155 !important; }
+.luxury-glass .text-slate-300,
+.studio-card .text-slate-300 { color: #64748b !important; }
+
+/* 暗色回退 */
+.dark .studio-card { background: rgba(15,17,33,0.55); border-color: rgba(255,255,255,0.08); box-shadow: none; }
+.dark .studio-card:hover { box-shadow: none; }
+.dark .studio-input { background: rgba(15,17,33,0.6); border-color: rgba(255,255,255,0.12); color: #e2e8f0; }
+.dark .studio-btn-secondary { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.12); color: #cbd5e1; }
+.dark .studio-section-title { color: #f1f5f9; }

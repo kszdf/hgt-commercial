@@ -1,13 +1,8 @@
-<x-app-layout>
+﻿<x-app-layout>
 <x-workspace-layout title="人工审核">
 <div class="mx-auto max-w-5xl p-6">
 
-    @if(session('success'))
-        <div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{{ session('error') }}</div>
-    @endif
+    @include('components.flash')
 
     @if($jobs->isEmpty())
         <div class="luxury-glass p-10 text-center text-slate-400">暂无待审核视频。出片完成后会自动进入此处。</div>
@@ -41,6 +36,18 @@
                                 @else bg-slate-100 text-slate-500 @endif">
                                 质检：{{ $job->qc_status == 'passed' ? '通过' : ($job->qc_status == 'warned' ? '告警' : ($job->qc_status == 'blocked' ? '阻断' : '未检')) }}
                             </span>
+                            @php
+                                $aiBlocked = $job->qc_status === 'blocked';
+                                $aiPending = !in_array($job->qc_status, ['passed','warned','blocked'], true);
+                                $aiWarn = $job->qc_status === 'warned';
+                            @endphp
+                            <span class="rounded px-2 py-0.5
+                                @if($aiBlocked) bg-red-100 text-red-700
+                                @elseif($aiPending) bg-slate-100 text-slate-500
+                                @elseif($aiWarn) bg-amber-100 text-amber-700
+                                @else bg-emerald-100 text-emerald-700 @endif">
+                                AI合规：{{ $aiBlocked ? '风险' : ($aiPending ? '待复核' : ($aiWarn ? '合规·告警' : '合规')) }}
+                            </span>
                         </div>
 
                         @if($job->qcReport)
@@ -63,14 +70,14 @@
                         @endif
 
                         <div class="mt-auto flex items-end gap-2 pt-2">
-                            <form method="POST" action="{{ route('studio.review.approve', $job) }}" onsubmit="return confirm('确认通过该视频并放入可外发队列？');">
+                            <form id="approve-{{ $job->id }}" method="POST" action="{{ route('studio.review.approve', $job) }}">
                                 @csrf
-                                <button class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">通过</button>
+                                <button type="button" onclick="hgtConfirm({title:'审核通过', message:'确认通过该视频并放入可外发队列？', danger:false, okText:'确认通过', onConfirm:function(){ document.getElementById('approve-{{ $job->id }}').submit(); }})" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">通过</button>
                             </form>
                             <form method="POST" action="{{ route('studio.review.reject', $job) }}" class="flex flex-1 items-end gap-2">
                                 @csrf
                                 <input name="reason" required maxlength="500" placeholder="驳回理由（必填）"
-                                       class="flex-1 rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700 outline-none focus:border-brand-400">
+                                       class="flex-1 rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400">
                                 <button class="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600">驳回</button>
                             </form>
                         </div>

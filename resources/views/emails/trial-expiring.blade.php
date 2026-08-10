@@ -7,7 +7,8 @@
       <div style="font-size:20px;font-weight:700;color:#0f172a;">免费试用即将结束</div>
       <p style="font-size:15px;line-height:1.7;color:#475569;">
         您好，您的企业租户「{{ $tenant->name }}」的免费试用还剩
-        <strong style="color:#d97706;">{{ $daysLeft }} 天</strong>。
+        <strong style="color:#d97706;">{{ $daysLeft }} 天</strong>，
+        将于 <strong style="color:#0f172a;">{{ $expiresAtText }}（北京时间）</strong> 正式结束。
         试用期结束后若未升级，将无法继续生成视频。
       </p>
       <p style="font-size:14px;line-height:1.7;color:#475569;">

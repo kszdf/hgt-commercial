@@ -1,5 +1,5 @@
-<x-app-layout>
-<x-workspace-layout title="数字人模特">
+﻿<x-app-layout>
+<x-workspace-layout title="数字人模特" :breadcrumbs="[['label' => '工作台总览', 'url' => '/dashboard'], ['label' => '数字人模特']]">
 <div class="mx-auto max-w-5xl p-6">
         <p class="mt-0.5 text-sm text-slate-400">上传不同场景的专属数字人驱动视频。系统自动转码静音化 + 竖屏/时长质检，通过后方可用于出片。</p>
         <p class="mt-2 flex flex-wrap gap-3">
@@ -8,12 +8,7 @@
         </p>
     </header>
 
-    @if(session('success'))
-        <div class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-700">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{{ session('error') }}</div>
-    @endif
+    @include('components.flash')
 
     <!-- 拍摄注意事项（克隆质量的关键） -->
     <section class="mb-4 rounded-xl border border-amber-200 bg-amber-50/70 p-5">
@@ -42,18 +37,18 @@
             <div class="lg:col-span-2">
                 <label class="mb-1 block text-sm font-medium text-slate-600">模特视频（mp4/mov/webm，≤200MB，建议竖屏 9:16、5–30s）</label>
                 <input type="file" name="file" accept="video/*" required
-                    class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                    class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                 <p id="fileHint" class="mt-1.5 text-xs"></p>
             </div>
             <div>
                 <label class="mb-1 block text-sm font-medium text-slate-600">素材名称</label>
                 <input type="text" name="name" maxlength="60" placeholder="如：会议室主讲"
-                    class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                    class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
             </div>
             <div>
                 <label class="mb-1 block text-sm font-medium text-slate-600">场景标签</label>
                 <input type="text" name="scene" maxlength="40" placeholder="如：会议室 / 户外"
-                    class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                    class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
             </div>
             <div class="lg:col-span-2">
                 <button type="submit" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-600">上传并自动质检</button>
@@ -64,7 +59,7 @@
     <section class="mt-4">
         <h3 class="mb-3 text-sm font-semibold text-slate-700">已上传素材（{{ $assets->count() }}）</h3>
         @if($assets->isEmpty())
-            <p class="rounded-lg bg-slate-50 p-4 text-sm text-slate-400">还没有上传任何模特，先上传一个试试。</p>
+            <p class="rounded-lg studio-card studio-card-sm text-sm text-slate-400">还没有上传任何模特，先上传一个试试。</p>
         @else
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach($assets as $a)
@@ -89,9 +84,9 @@
                                 <input type="file" name="file" accept="video/*" class="hidden" onchange="this.form.submit()">
                                 <button type="button" onclick="this.previousElementSibling.click()" class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50">重新上传</button>
                             </form>
-                            <form action="{{ route('studio.models.destroy', $a) }}" method="POST" onsubmit="return confirm('确定删除该素材？');" class="flex-1">
+                            <form action="{{ route('studio.models.destroy', $a) }}" method="POST" class="flex-1">
                                 @csrf @method('DELETE')
-                                <button type="submit" class="w-full rounded-lg border border-red-200 bg-white px-2 py-1.5 text-xs text-red-600 hover:bg-red-50">删除</button>
+                                <button type="button" onclick="hgtDel(this)" data-msg="确定删除该素材？删除后不可恢复。" class="w-full rounded-lg border border-red-200 bg-white px-2 py-1.5 text-xs text-red-600 hover:bg-red-50">删除</button>
                             </form>
                         </div>
                     </div>

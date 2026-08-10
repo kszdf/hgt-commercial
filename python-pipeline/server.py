@@ -48,18 +48,20 @@
 说明:
     - dry_tts=false（默认）走真实 TTS，需 model_keys.env 中的 dashscope key 与联网。
   - scroll 模式：多声（女：/男：）滚动字幕卡，不出镜。
-  - avatar 模式：男声独白 / 男女双声对话（女：行用女声、男：行用男声）驱动本地数字人(HEYGEM) 嘴型对齐，出镜。
+  - avatar 模式：单人独白（统一单声线，取消男女对话）；数字人形象为单人出镜，女：/男：/旁白： 角色前缀会被自动忽略，整稿用所选单一声线配音。
     - Laravel 容器经 host.docker.internal:8500 调用本服务，服务本身不对外暴露。
 """
 
 import http.server
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import threading
 import time
+import traceback
 import uuid
 from urllib.parse import urlparse
 
@@ -97,8 +99,8 @@ JOBS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jobs")
 os.makedirs(JOBS_DIR, exist_ok=True)
 
 # 默认音色（与 gpt_sovits 定稿一致）；租户可在请求里覆盖
-DEFAULT_MALE = "cosyvoice-v3-plus-zhangc2-28a7c3541e1c45518a03046c11baeb1d"
-DEFAULT_FEMALE = "cosyvoice-v3-plus-jiangnv3-991b204c1d564ac7a60f0cb9a8fd78bd"
+DEFAULT_MALE = ""   # 新租户初始无自带声音；须由租户克隆/选择后显式传入，禁止静默回退到特定克隆音
+DEFAULT_FEMALE = ""
 # 声音克隆目标模型（与 clone_cjps_v2.py 一致）
 MODEL_CLONE = "cosyvoice-v3-plus"
 
@@ -147,11 +149,61 @@ HOTSPOT_SEED = [
 ]
 
 # ============ AI 文本能力（选题 / 二创，复用 gpt_sovits 的 DeepSeek + 违禁词）============
+def _extract_json_array(text):
+    """从文本中提取第一个 JSON 数组；找不到返回 None。容忍 ``` 包裹与前后多余文本。"""
+    if not text:
+        return None
+    text = text.strip()
+    try:
+        obj = json.loads(text)
+        if isinstance(obj, list):
+            return obj
+        if isinstance(obj, dict):
+            for key in ("topics", "data", "list", "items", "results"):
+                if isinstance(obj.get(key), list):
+                    return obj[key]
+            return [obj]
+    except Exception:
+        pass
+    start = text.find("[")
+    if start == -1:
+        return None
+    depth = 0
+    in_str = False
+    escape = False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if escape:
+            escape = False
+            continue
+        if ch == "\\":
+            escape = True
+            continue
+        if ch == '"':
+            in_str = not in_str
+            continue
+        if in_str:
+            continue
+        if ch == "[":
+            depth += 1
+        elif ch == "]":
+            depth -= 1
+            if depth == 0:
+                try:
+                    obj = json.loads(text[start:i + 1])
+                    if isinstance(obj, list):
+                        return obj
+                except Exception:
+                    pass
+                return None
+    return None
+
+
 def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, form=None):
     """智能选题：用 DeepSeek 生成短视频选题建议列表。返回 list[dict]。
     支持维度筛选：platform(平台)/hotness(热度)/hook(钩子类型)/form(呈现形式)。行业为通用维度。"""
     cfg = get_text_config()
-    cnt = max(3, min(12, int(count or 6)))
+    cnt = max(1, min(10, int(count or 5)))
     # 维度约束（用户在前端筛选，强约束 AI 输出方向）
     dim_hints = []
     if platform:
@@ -172,27 +224,88 @@ def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, 
         '{"title":"标题(吸睛、戳痛点,≤18字)","angle":"切入角度/痛点","potential":"爆款潜力理由","hook":"结尾留资钩子建议","form":"建议形式:单声口播/双声对话"}\n'
         "只输出 JSON 数组，不要任何解释或代码块标记。"
     )
-    content = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
-    content = content.strip()
+    raw = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
+    # 归一化：deepseek_chat 正常返回 str；个别分支可能返回 dict，统一成 str
+    if isinstance(raw, dict):
+        raw = raw.get("content") or json.dumps(raw, ensure_ascii=False)
+    content = (raw or "").strip()
+    # 去除 ```json ... ``` 代码块包裹
     if content.startswith("```"):
-        content = content.split("```")[1]
-    try:
-        return json.loads(content)
-    except Exception:
+        content = content.strip("`")
+        if content[:4].lower() == "json":
+            content = content[4:]
+        content = content.strip()
+    # 从模型输出中提取 JSON 数组（容忍前后多余文本 / 包装对象）
+    arr = _extract_json_array(content)
+    if arr is None:
         return [{"title": "解析失败", "angle": content[:200]}]
+    # 归一化为 list[dict]，保证前端安全遍历
+    topics = []
+    for item in arr:
+        if isinstance(item, dict):
+            topics.append({
+                "title": str(item.get("title", "") or "")[:60] or "未命名选题",
+                "angle": str(item.get("angle", "") or "")[:200],
+                "potential": str(item.get("potential", "") or "")[:200],
+                "hook": str(item.get("hook", "") or "")[:200],
+                "form": str(item.get("form", form or "短视频") or "")[:20] or (form or "短视频"),
+            })
+        elif isinstance(item, str) and item.strip():
+            topics.append({"title": item.strip()[:60], "angle": "", "potential": "", "hook": "", "form": form or "短视频"})
+    if not topics:
+        return [{"title": "解析失败", "angle": content[:200]}]
+    return topics[:cnt]
 
 
-def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None):
-    """智能二创：三模式改写 + 违禁词标红/清洗。返回含元数据的完整结果。"""
+def _build_role_instruction(role_mode, role_note, keep_manual_roles, mode):
+    """根据用户选择的角色/声音分配生成 prompt 角色指令。"""
+    if keep_manual_roles:
+        return ("原稿中已包含「男：」「女：」「旁白：」等角色标注，请严格保留这些前缀，只改写前缀后的内容。"
+                "每行仍必须保留原有角色前缀，不要新增或删除前缀。")
+
+    rm = (role_mode or "").strip() or "auto"
+    if rm == "custom" and role_note and str(role_note).strip():
+        return (f"请按以下角色分配进行改写，每行以「男：」「女：」或「旁白：」开头：\n{role_note.strip()}\n"
+                "注意：单一句子不要拆成多行，每行是一句完整的角色台词。")
+
+    mapping = {
+        "single_male": "单人口播，全程由男声讲述。每行以「男：」开头。",
+        "single_female": "单人口播，全程由女声讲述。每行以「女：」开头。",
+        "dual_female_lead": "男女双声对话，女声先开口、抛疑问/场景，男声解答。每行以「女：」或「男：」开头，交替自然。",
+        "dual_male_lead": "男女双声对话，男声先开口、引出话题，女声提问/补充，男声解答。每行以「男：」或「女：」开头，交替自然。",
+        "narrator_male": "旁白解说，由男声以客观旁白口吻讲述。每行以「旁白：」开头。",
+        "narrator_female": "旁白解说，由女声以客观旁白口吻讲述。每行以「旁白：」开头。",
+        "auto": "请根据内容自动判断每句话的角色：提问、场景引入用「女：」；解答、总结、权威结论用「男：」；客观陈述可用「旁白：」。每行必须以「男：」「女：」或「旁白：」开头。",
+    }
+    base = mapping.get(rm, mapping["auto"])
+
+    # role_mode 未指定时，回退兼容旧 mode 语义
+    if rm == "auto":
+        if mode == "single":
+            base = mapping["single_male"]
+        elif mode == "dual":
+            base = mapping["dual_female_lead"]
+        elif mode == "script":
+            base = mapping["narrator_male"]
+    return base
+
+
+def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
+               role_mode=None, role_note=None, keep_manual_roles=None):
+    """智能二创：多模式改写 + 角色/声音分配 + 违禁词标红/清洗。返回含元数据的完整结果。"""
     cfg = get_text_config()
+
+    # 风格基调（由 mode 控制）
     if mode == "single":
-        role = ("单人口播（实战派行业顾问）。口语化、去AI播音腔、像真人在跟客户面对面聊；"
-                "说话干脆利落、不拖长音、不堆语气词；该严肃严肃、该轻松轻松，自然有起伏，不演")
+        style = ("单人口播（实战派行业顾问）。口语化、去AI播音腔、像真人在跟客户面对面聊；"
+                 "说话干脆利落、不拖长音、不堆语气词；该严肃严肃、该轻松轻松，自然有起伏，不演")
     elif mode == "script":
-        role = "专业口播稿（保留行业术语与权威感，结构清晰、重点突出，适合直接配音）"
+        style = "专业口播稿（保留行业术语与权威感，结构清晰、重点突出，适合直接配音）"
     else:
-        role = ("双声对话：女声(抛疑问/场景)，男声(耐心解答，说话干脆、不拖长音、不堆语气词，像真人在跟客户聊)；"
-                "语气词极克制；结尾女声留咨询钩子")
+        style = ("双声对话：女声(抛疑问/场景)，男声(耐心解答，说话干脆、不拖长音、不堆语气词，像真人在跟客户聊)；"
+                 "语气词极克制；结尾女声留咨询钩子")
+
+    role_instruction = _build_role_instruction(role_mode, role_note, keep_manual_roles, mode)
 
     focus_hint = ""
     if focus and isinstance(focus, str) and focus.strip():
@@ -222,8 +335,9 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None):
                              "\n".join(f"  • {item}" for item in items) + "\n")
 
     prompt = (
-        f"你是资深短视频脚本编辑。请把下面的稿子改写为「{role}」的自然口语稿，"
-        "彻底去除AI机械感与书面腔，但保持专业准确性、不编造数据、不改原意。"
+        f"你是资深短视频脚本编辑。请把下面的稿子改写为「{style}」的自然口语稿，"
+        "彻底去除AI机械感与书面腔，但保持专业准确性、不编造数据、不改原意。\n\n"
+        f"【角色与声音分配】\n{role_instruction}\n"
         f"{focus_hint}{dur_hint}{preserve_hint}"
         "要求：保留原意与关键结论；长短句结合、自然停顿；不堆砌语气词、禁用'啊/嘛/呢/哎哟'等夸张口语；"
         "对话感来自内容互动而非语气词；说话干脆直给。\n"
@@ -747,7 +861,8 @@ def run_with_timeout(args, cwd, timeout, log_path=None):
     logf = None
     if log_path:
         try:
-            logf = open(log_path, "w", encoding="utf-8", errors="replace")
+            # 二进制模式写日志，避免 subprocess reader thread 用系统默认编码(GBK)解码失败
+            logf = open(log_path, "wb")
         except Exception:  # noqa: BLE001
             logf = None
     stdout_t = logf if logf else subprocess.DEVNULL
@@ -889,10 +1004,14 @@ def run_job(job_id, payload):
         d_mv, d_fv = DEFAULT_MALE, DEFAULT_FEMALE
 
         if mode == "avatar":
+            # 数字人统一单人独白：去除角色前缀，整稿用单一声线（取消男女对话）
+            dialogue = re.sub(r'^\s*(?:女|男|旁白)[:：]\s*', '', dialogue, flags=re.M)
+            with open(dlg_path, "w", encoding="utf-8") as f:
+                f.write(dialogue)
             args = [PY310, SCRIPT_AVATAR, "--dialogue", dlg_path, "--out", out_path]
             mv = payload.get("male_voice") or payload.get("voice") or d_mv
-            fv = payload.get("female_voice") or d_fv
-            args += ["--male-voice", mv, "--female-voice", fv]
+            args += ["--male-voice", mv]
+            # 注：数字人不传 --female-voice，强制单人单声线
             model = payload.get("model")
             # 场景选择：底层 make_avatar_from_dialogue.py 以 --model 决定出镜背景/场景，
             # 其 argparse 不接受 --scene（曾因传 --scene 导致 avatar 任务必崩）；
@@ -901,6 +1020,7 @@ def run_job(job_id, payload):
                 "office_a": DEFAULT_AVATAR_MODEL,          # 办公桌前正面（已验证可用）
                 "office_b": "/code/data/YXSZR1.mp4",       # 备选场景（容器内真实存在）
             }
+            scene = payload.get("scene")
             if not model and scene:
                 model = SCENE_MODEL.get(scene, DEFAULT_AVATAR_MODEL)
             if model:
@@ -921,12 +1041,37 @@ def run_job(job_id, payload):
             # 真实 TTS 为默认；仅当显式 dry_tts=true 才用静音占位
             if payload.get("dry_tts"):
                 args += ["--dry-tts"]
-            mv = payload.get("male_voice") or d_mv
-            if mv:
-                args += ["--male-voice", mv]
-            fv = payload.get("female_voice") or d_fv
-            if fv:
-                args += ["--female-voice", fv]
+
+            # 声线形式：three forms（男声独白 / 女声独白 / 男女对话）
+            voice_form = payload.get("voice_form") or "dialogue"
+            if voice_form == "female_mono":
+                # 女声独白：去角色前缀 + 单一女声
+                dialogue = re.sub(r'^\s*(?:女|男|旁白)[:：]\s*', '', dialogue, flags=re.M)
+                with open(dlg_path, "w", encoding="utf-8") as f:
+                    f.write(dialogue)
+                fv = payload.get("female_voice") or d_fv
+                args += ["--female-voice", fv, "--default-role", "F"]
+            elif voice_form == "male_mono":
+                # 男声独白：去角色前缀 + 单一男声
+                dialogue = re.sub(r'^\s*(?:女|男|旁白)[:：]\s*', '', dialogue, flags=re.M)
+                with open(dlg_path, "w", encoding="utf-8") as f:
+                    f.write(dialogue)
+                mv = payload.get("male_voice") or d_mv
+                args += ["--male-voice", mv, "--default-role", "M"]
+            elif voice_form == "mono":
+                # 单声线（不限性别）：去角色前缀 + 单一声音（从前端的 male_voice 槽位取租户所选，性别无关）
+                dialogue = re.sub(r'^\s*(?:女|男|旁白)[:：]\s*', '', dialogue, flags=re.M)
+                with open(dlg_path, "w", encoding="utf-8") as f:
+                    f.write(dialogue)
+                mv = payload.get("male_voice") or d_mv
+                args += ["--male-voice", mv, "--default-role", "M"]
+            else:  # dialogue：男女双声对话（默认）
+                mv = payload.get("male_voice") or d_mv
+                if mv:
+                    args += ["--male-voice", mv]
+                fv = payload.get("female_voice") or d_fv
+                if fv:
+                    args += ["--female-voice", fv]
             # 分声线感情/快慢（可选；不传则用脚本默认值：男声沉稳慢、女声略活泼）
             for key, flag in (("male_rate", "--male-rate"), ("female_rate", "--female-rate"),
                               ("male_pitch", "--male-pitch"), ("female_pitch", "--female-pitch"),
@@ -1171,6 +1316,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             data = json.loads(raw.decode("utf-8"))
         except Exception:  # noqa: BLE001
             return self._send(400, {"error": "bad json"})
+        # 容忍双重编码：body 本身可能是 JSON 字符串（如 "{\"industry\":...}"）
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except Exception:  # noqa: BLE001
+                return self._send(400, {"error": "bad json (double-encoded)"})
 
         if p.path == "/generate":
             return self._handle_generate(data)
@@ -1477,6 +1628,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
     # ---- 智能选题（同步 AI）----
     def _handle_topic(self, data):
         try:
+            if not isinstance(data, dict):
+                return self._send(400, {"ok": False, "error": "invalid request body: expected JSON object"})
             result = ai_topic(
                 data.get("industry", "") or "",
                 data.get("keywords", "") or "",
@@ -1488,6 +1641,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             )
             return self._send(200, {"ok": True, "topics": result})
         except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
             return self._send(200, {"ok": False, "error": str(e)})
 
     # ---- 智能二创（同步 AI + 违禁词）----
@@ -1496,8 +1650,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if not text:
             return self._send(400, {"error": "text required"})
         try:
-            return self._send(200, ai_rewrite(text, data.get("mode", "dual"), data.get("focus"),
-                                              data.get("target_duration"), data.get("preserve")))
+            return self._send(200, ai_rewrite(
+                text, data.get("mode", "dual"), data.get("focus"),
+                data.get("target_duration"), data.get("preserve"),
+                data.get("role_mode"), data.get("role_note"), data.get("keep_manual_roles")))
         except Exception as e:  # noqa: BLE001
             return self._send(200, {"ok": False, "error": str(e)})
 

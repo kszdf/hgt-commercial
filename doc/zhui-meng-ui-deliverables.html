@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>追梦 · 6 大功能 UI 交付（设计验证稿）</title>
+<style>
+  :root{
+    --brand-50:#eef2ff;--brand-100:#e0e7ff;--brand-200:#c7d2fe;--brand-300:#a5b4fc;--brand-400:#818cf8;
+    --brand-500:#6366f1;--brand-600:#4f46e5;--brand-700:#4338ca;--brand-800:#3730a3;
+    --fresh-50:#ecfdf5;--fresh-500:#10b981;--fresh-600:#059669;
+    --violet-50:#f5f3ff;--violet-500:#8b5cf6;--violet-600:#7c3aed;
+    --sky-50:#eff6ff;--sky-500:#3b82f6;--sky-600:#2563eb;
+    --rose-50:#fff1f2;--rose-500:#f43f5e;--rose-600:#e11d48;
+    --amber-50:#fffbeb;--amber-500:#f59e0b;--amber-600:#d97706;
+    --teal-50:#f0fdfa;--teal-500:#14b8a6;
+    --slate-50:#f8fafc;--slate-100:#f1f5f9;--slate-200:#e2e8f0;--slate-300:#cbd5e1;--slate-400:#94a3b8;
+    --slate-500:#64748b;--slate-600:#475569;--slate-700:#334155;--slate-800:#1e293b;--slate-900:#0f172a;
+    --border:#e8ecf1;--page:#ffffff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;background:var(--page);color:var(--slate-700);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 20px 80px}
+  h1{font-size:24px;font-weight:700;color:var(--slate-800);letter-spacing:-.01em}
+  h2{font-size:20px;font-weight:600;color:var(--slate-800);margin:40px 0 4px}
+  .lead{color:var(--slate-500);font-size:13px;margin-bottom:16px}
+  .sec{border-top:1px solid var(--border);padding-top:8px}
+  .luxury-glass{background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.04),0 1px 2px rgba(0,0,0,.02);padding:20px}
+  .luxury-glass:hover{box-shadow:0 4px 12px rgba(0,0,0,.08)}
+
+  /* buttons */
+  .btn{display:inline-flex;align-items:center;gap:6px;border-radius:10px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:transform .08s,box-shadow .14s,filter .14s,background .15s}
+  .btn:active{transform:scale(.96);box-shadow:inset 0 2px 5px rgba(15,23,42,.22),inset 0 1px 2px rgba(15,23,42,.15);filter:brightness(.95)}
+  .btn-primary{background:var(--brand-600);color:#fff}.btn-primary:hover{background:var(--brand-700)}
+  .btn-secondary{background:#fff;color:var(--slate-700);border-color:var(--border)}.btn-secondary:hover{border-color:var(--brand-300);color:var(--brand-600)}
+  .btn-ghost{background:transparent;color:var(--slate-500)}.btn-ghost:hover{background:var(--slate-50);color:var(--slate-700)}
+  .btn-danger{background:var(--rose-500);color:#fff}.btn-danger:hover{background:var(--rose-600)}
+  .btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+  .btn:disabled:hover{background:initial;color:initial;border-color:initial}
+  .btn:disabled.btn-primary{background:var(--slate-300);color:#fff}
+  .btn:disabled.btn-secondary{background:#fff;color:var(--slate-400);border-color:var(--border)}
+
+  /* badges */
+  .badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600}
+  .badge-brand{background:var(--brand-100);color:var(--brand-600)}
+  .badge-success{background:var(--fresh-50);color:var(--fresh-600)}
+  .badge-warning{background:var(--amber-50);color:var(--amber-600)}
+  .badge-danger{background:var(--rose-50);color:var(--rose-600)}
+  .badge-info{background:var(--sky-50);color:var(--sky-600)}
+
+  /* breadcrumb */
+  .crumb{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--slate-500);margin-bottom:12px}
+  .crumb a{color:var(--brand-600);text-decoration:none}
+  .crumb .sep{color:var(--slate-300)}
+  .crumb .cur{color:var(--slate-800);font-weight:600}
+
+  /* back button */
+  .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--slate-500);text-decoration:none;margin-bottom:12px}
+  .back:hover{color:var(--brand-600)}
+
+  /* step progress */
+  .steps{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}
+  .step{flex:1;min-width:96px;text-align:center;padding:12px 6px;border-radius:12px;background:var(--slate-50);color:var(--slate-500);font-size:12px;font-weight:600;position:relative}
+  .step .dot{width:26px;height:26px;border-radius:50%;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;background:#fff;border:2px solid var(--slate-200);font-size:12px;color:var(--slate-400)}
+  .step.done{background:var(--fresh-50);color:var(--fresh-600)}
+  .step.done .dot{background:var(--fresh-500);border-color:var(--fresh-500);color:#fff}
+  .step.active{background:var(--brand-50);color:var(--brand-700)}
+  .step.active .dot{background:var(--brand-600);border-color:var(--brand-600);color:#fff}
+
+  /* video list */
+  .vrow{display:flex;align-items:center;gap:14px;padding:12px;border-bottom:1px solid var(--border)}
+  .vrow:last-child{border-bottom:none}
+  .thumb{width:64px;height:90px;border-radius:8px;background:linear-gradient(135deg,var(--brand-500),var(--brand-700));flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600}
+  .vmain{flex:1;min-width:0}
+  .vtitle{font-weight:600;color:var(--slate-800);font-size:14px}
+  .vmeta{font-size:12px;color:var(--slate-500);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .vactions{display:flex;gap:8px;flex-shrink:0}
+
+  /* toast */
+  #toasts{position:fixed;top:16px;right:16px;z-index:60;display:flex;flex-direction:column;gap:10px}
+  .toast{display:flex;align-items:center;gap:10px;min-width:260px;max-width:340px;background:#fff;border:1px solid var(--border);border-left-width:4px;border-radius:10px;padding:12px 14px;box-shadow:0 8px 24px rgba(15,23,42,.12);animation:tin .2s ease;font-size:13px}
+  .toast.success{border-left-color:var(--fresh-500)} .toast.error{border-left-color:var(--rose-500)}
+  .toast.warning{border-left-color:var(--amber-500)} .toast.info{border-left-color:var(--sky-500)}
+  .toast .ic{width:18px;height:18px;flex-shrink:0}
+  .toast.success .ic{color:var(--fresh-500)} .toast.error .ic{color:var(--rose-500)}
+  .toast.warning .ic{color:var(--amber-500)} .toast.info .ic{color:var(--sky-500)}
+  .toast .x{margin-left:auto;color:var(--slate-400);cursor:pointer;background:none;border:none;font-size:16px}
+  @keyframes tin{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;z-index:50;background:rgba(15,17,33,.45);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center}
+  .overlay.show{display:flex}
+  .modal{background:#fff;border-radius:16px;padding:24px;width:min(420px,92vw);box-shadow:0 20px 50px rgba(15,23,42,.25);animation:min .18s ease}
+  @keyframes min{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+  .modal h3{font-size:18px;font-weight:700;color:var(--slate-800);margin-bottom:6px}
+  .modal p{font-size:13px;color:var(--slate-500);margin-bottom:20px}
+  .modal .row{display:flex;gap:10px;justify-content:flex-end}
+  .empty{text-align:center;padding:40px 20px;color:var(--slate-500)}
+  .empty .ic{width:48px;height:48px;border-radius:12px;background:var(--slate-50);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;color:var(--slate-400)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:680px){.grid2{grid-template-columns:1fr}.vactions{flex-direction:column}.vrow{flex-wrap:wrap}}
+  .tag{font-size:11px;font-weight:700;color:var(--slate-400);text-transform:uppercase;letter-spacing:.04em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>追梦 · 6 大功能 UI 交付（设计验证稿）</h1>
+  <p class="lead">基于 <code>DESIGN.md</code> 与现有 <code>app.css</code> 真实令牌（brand-600 #4f46e5 / luxury-glass / 功能色）实现。可直接浏览器打开预览，落地时映射为 Blade 组件。</p>
+
+  <!-- 1. Toast -->
+  <div class="sec">
+    <h2>1) 全局 Toast 反馈</h2>
+    <p class="lead">右上角栈式提示，四态，3 秒自动消失，可手动关闭（z-index 60）。</p>
+    <div class="luxury-glass">
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="toast('success','已保存草稿')">success</button>
+        <button class="btn btn-secondary" onclick="toast('error','出片失败，请重试')">error</button>
+        <button class="btn btn-secondary" onclick="toast('warning','试用版单条≤10分钟')">warning</button>
+        <button class="btn btn-secondary" onclick="toast('info','正在生成选题…')">info</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 面包屑 + 返回 + 步骤条 -->
+  <div class="sec">
+    <h2>2) 面包屑 / 返回上一页 / 步骤进度条</h2>
+    <p class="lead">每页顶部：返回上一页 + 面包屑；管线页展示 9 步进度（已完成/当前/未达）。</p>
+    <div class="luxury-glass">
+      <a class="back" href="#" onclick="return false()">← 返回上一页</a>
+      <div class="crumb"><a href="#">首页</a><span class="sep">›</span><a href="#">生产管线</a><span class="sep">›</span><span class="cur">视频出片</span></div>
+      <div class="steps" id="steps"></div>
+    </div>
+  </div>
+
+  <!-- 3. AI 合规标识 -->
+  <div class="sec">
+    <h2>3) AI 内容合规标识</h2>
+    <p class="lead">三态徽标 + 平台统一「AI 生成」水印标识，随视频/报告展示。</p>
+    <div class="luxury-glass">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <span class="badge badge-success">● 合规通过</span>
+        <span class="badge badge-warning">● 待人工复核</span>
+        <span class="badge badge-danger">● 存在风险</span>
+        <span class="badge badge-info">✦ AI 生成内容</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. 视频生成列表页 -->
+  <div class="sec">
+    <h2>4) 视频生成列表页</h2>
+    <p class="lead">VideoJob 索引：缩略图 / 标题 / 模式 / 状态 / 合规 / 操作（去审核·去发布·删除）。含空态。</p>
+    <div class="luxury-glass" style="padding:0;overflow:hidden">
+      <div class="vrow" style="background:var(--slate-50);font-weight:600;color:var(--slate-600);font-size:12px">
+        <div class="thumb" style="background:transparent;color:var(--slate-400)">封面</div>
+        <div class="vmain">视频 / 标题</div>
+        <div class="vactions">操作</div>
+      </div>
+      <div class="vrow">
+        <div class="thumb">视频</div>
+        <div class="vmain">
+          <div class="vtitle">金税四期下老板必知的3个雷区</div>
+          <div class="vmeta"><span class="badge badge-brand">选题二创</span><span class="badge badge-info">出片中</span><span class="badge badge-success">合规通过</span><span>2026-08-08</span></div>
+        </div>
+        <div class="vactions"><button class="btn btn-primary" onclick="toast('info','进入人工审核')">去审核</button><button class="btn btn-secondary" disabled title="需先通过人工审核">去发布</button><button class="btn btn-danger" onclick="openDel('金税四期下老板必知的3个雷区')">删除</button></div>
+      </div>
+      <div class="vrow">
+        <div class="thumb">视频</div>
+        <div class="vmain">
+          <div class="vtitle">公转私的合规路径拆解</div>
+          <div class="vmeta"><span class="badge badge-violet" style="background:var(--violet-50);color:var(--violet-600)">自由稿</span><span class="badge badge-success">已完成</span><span class="badge badge-warning">待人工复核</span></div>
+        </div>
+        <div class="vactions"><button class="btn btn-secondary" disabled title="待人工复核通过后可发布">去发布</button><button class="btn btn-danger" onclick="openDel('公转私的合规路径拆解')">删除</button></div>
+      </div>
+      <div class="vrow">
+        <div class="thumb">视频</div>
+        <div class="vmain">
+          <div class="vtitle">个人卡流水的风险边界</div>
+          <div class="vmeta"><span class="badge badge-brand">选题二创</span><span class="badge badge-success">已完成</span><span class="badge badge-success">已审核·合规</span></div>
+        </div>
+        <div class="vactions"><button class="btn btn-secondary" onclick="toast('info','进入发布')">去发布</button><button class="btn btn-danger" onclick="openDel('个人卡流水的风险边界')">删除</button></div>
+      </div>
+      <div class="vrow"><div class="empty" style="padding:28px"><div class="ic">🗑</div><div style="font-weight:600;color:var(--slate-600)">暂无更多视频</div><div style="font-size:12px;margin-top:4px">已删除视频可在「回收站」恢复 30 天</div></div></div>
+    </div>
+  </div>
+
+  <!-- 5. 删除确认 + 回收站 -->
+  <div class="sec">
+    <h2>5) 删除二次确认 + 回收站</h2>
+    <p class="lead">危险操作走模态确认（danger 色）；删除后进回收站软删除，30 天内可恢复。</p>
+    <div class="grid2">
+      <div class="luxury-glass">
+        <span class="tag">删除模态</span>
+        <p style="font-size:13px;color:var(--slate-500);margin:8px 0">点击列表「删除」触发的确认框：</p>
+        <button class="btn btn-danger" onclick="openDel('示例视频')">演示删除确认</button>
+      </div>
+      <div class="luxury-glass">
+        <span class="tag">回收站入口</span>
+        <p style="font-size:13px;color:var(--slate-500);margin:8px 0">侧栏「系统」分组或列表页底部入口：</p>
+        <button class="btn btn-secondary" onclick="toast('info','打开回收站')">前往回收站 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. OAuth 占位说明 -->
+  <div class="sec">
+    <h2>6) 平台 OAuth（依赖 .env 密钥）</h2>
+    <p class="lead">UI 形态为「绑定账号」卡片；实际授权跳转依赖 .env 中微信/抖音/小红书 AppID+Secret（当前为待配置占位）。</p>
+    <div class="luxury-glass" style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-secondary" onclick="toast('warning','OAuth 未配置：待填 .env 微信/抖音/小红书密钥')">绑定微信</button>
+      <button class="btn btn-secondary" onclick="toast('warning','OAuth 未配置：待填 .env 微信/抖音/小红书密钥')">绑定抖音</button>
+      <button class="btn btn-secondary" onclick="toast('warning','OAuth 未配置：待填 .env 微信/抖音/小红书密钥')">绑定小红书</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast 容器 -->
+<div id="toasts"></div>
+
+<!-- 删除确认模态 -->
+<div class="overlay" id="delOverlay">
+  <div class="modal">
+    <h3>确认删除该视频？</h3>
+    <p id="delName">删除后将进入回收站，30 天内可从回收站恢复。</p>
+    <div class="row">
+      <button class="btn btn-secondary" onclick="closeDel()">取消</button>
+      <button class="btn btn-danger" onclick="confirmDel()">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---- Toast ----
+  function toast(type,msg){
+    var ic={success:'✓',error:'✕',warning:'!',info:'i'}[type]||'i';
+    var el=document.createElement('div');
+    el.className='toast '+type;
+    el.innerHTML='<span class="ic">'+ic+'</span><span>'+msg+'</span><button class="x" onclick="this.parentNode.remove()">×</button>';
+    document.getElementById('toasts').appendChild(el);
+    setTimeout(function(){if(el.parentNode)el.remove();},3000);
+  }
+  // ---- Steps ----
+  var steps=[['选题',1],['二创',1],['出片',1],['质检',0],['审核',2],['发布',2],['数据',2],['素材',2],['系统',2]];
+  var box=document.getElementById('steps');
+  steps.forEach(function(s){
+    var d=document.createElement('div');
+    d.className='step '+(s[1]===1?'done':s[1]===0?'active':'');
+    var mark=s[1]===1?'✓':(s[1]===0?'•':'');
+    d.innerHTML='<div class="dot">'+mark+'</div>'+s[0];
+    box.appendChild(d);
+  });
+  // ---- Delete modal ----
+  var pending=null;
+  function openDel(name){pending=name;document.getElementById('delName').textContent='「'+name+'」删除后将进入回收站，30 天内可恢复。';document.getElementById('delOverlay').classList.add('show');}
+  function closeDel(){document.getElementById('delOverlay').classList.remove('show');}
+  function confirmDel(){closeDel();toast('success','已移入回收站：'+pending);}
+  document.getElementById('delOverlay').addEventListener('click',function(e){if(e.target===this)closeDel();});
+</script>
+</body>
+</html>

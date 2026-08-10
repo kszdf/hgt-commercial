@@ -10,8 +10,6 @@ use App\Http\Controllers\ModelAssetController;
 use App\Http\Controllers\VoiceCloneController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\PublishController;
-use App\Http\Controllers\MetricController;
-use App\Http\Controllers\AnalyticController;
 use App\Http\Controllers\CoverAssetController;
 use Illuminate\Support\Facades\Route;
 
@@ -45,17 +43,40 @@ Route::middleware('auth')->group(function () {
     })->name('dashboard');
     Route::post('/logout', [AuthController::class, 'logout']);
 
+    // 登录用户自助改密码（账号安全）
+    Route::get('/settings/password', [AuthController::class, 'showChangePassword'])->name('settings.password');
+    Route::post('/settings/password', [AuthController::class, 'changePassword']);
+
     // 视频出片（滚动字幕卡 / 本地数字人出镜）闭环
     Route::get('/studio/scroll', [VideoController::class, 'showScroll']);
     Route::post('/studio/scroll/generate', [VideoController::class, 'generate']);
     Route::get('/studio/scroll/status/{jobId}', [VideoController::class, 'status']);
     Route::get('/studio/scroll/download/{jobId}', [VideoController::class, 'download']);
 
+    // 批量出片（统一形式一键生成 N 条）
+    Route::get('/studio/available-voices', [VideoController::class, 'voices']);
+    Route::post('/studio/batch-video/plan', [VideoController::class, 'storeBatchPlan']);
+    Route::get('/studio/batch-video/{batchId}', [VideoController::class, 'batchStatus']);
+    Route::post('/studio/batch-video/{batchId}/progress', [VideoController::class, 'batchProgress']);
+
+    // 视频生成列表 / 回收站（软删除：删除进回收站，可恢复或彻底删除）
+    Route::get('/studio/videos', [VideoController::class, 'library'])->name('studio.videos');
+    Route::delete('/studio/videos/{videoJob}', [VideoController::class, 'destroy'])->name('studio.videos.destroy');
+    Route::get('/studio/recycle', [VideoController::class, 'recycle'])->name('studio.recycle');
+    Route::post('/studio/recycle/{videoJob}/restore', [VideoController::class, 'restore'])->name('studio.recycle.restore')->withTrashed();
+    Route::delete('/studio/recycle/{videoJob}', [VideoController::class, 'forceDestroy'])->name('studio.recycle.force')->withTrashed();
+
     // 智能选题 / 智能二创（AI 文本，代理到 8500 的 /topic /rewrite）
     Route::get('/studio/topic', [StudioController::class, 'topic'])->name('studio.topic');
     Route::post('/studio/topic/generate', [StudioController::class, 'topicGenerate']);
+    // 选题二创：仅承接从「智能选题」选中的选题，不处理自由原始稿
     Route::get('/studio/rewrite', [StudioController::class, 'rewrite'])->name('studio.rewrite');
+    // 原始稿二创：用户自有文案/口播稿的自由改写入口，与选题上下文隔离
+    Route::get('/studio/rewrite-original', [StudioController::class, 'rewriteOriginal'])->name('studio.rewrite-original');
     Route::post('/studio/rewrite/generate', [StudioController::class, 'rewriteGenerate']);
+
+    // 实时活动心跳上报（选题 / 二创 / 出片在线态，供超级管理员监控大盘）
+    Route::post('/studio/activity', [StudioController::class, 'activityPing']);
 
     // 智能质检（违禁词 / 时长 / 风险 / 视频技术层，代理到 8500 的 /qc、/qc-video）
     Route::get('/studio/qc', [StudioController::class, 'qc'])->name('studio.qc');
@@ -94,20 +115,20 @@ Route::middleware('auth')->group(function () {
     Route::get('/studio/publish', [PublishController::class, 'index'])->name('studio.publish');
     Route::post('/studio/publish', [PublishController::class, 'publish'])->name('studio.publish.do');
 
-    // 数据模块（录入 / CSV导入 / 平台授权占位）
-    Route::get('/studio/metrics', [MetricController::class, 'index'])->name('studio.metrics');
-    Route::post('/studio/metrics', [MetricController::class, 'store'])->name('studio.metrics.store');
-    Route::post('/studio/metrics/import', [MetricController::class, 'import'])->name('studio.metrics.import');
-    Route::get('/studio/metrics/connect/{platform}', [MetricController::class, 'connect'])->name('studio.metrics.connect');
-
-    // 数据复盘看板
-    Route::get('/studio/analytics', [AnalyticController::class, 'index'])->name('studio.analytics');
-
     // 计费与配额
     Route::get('/admin/billing', [AdminController::class, 'billing'])->name('admin.billing');
     Route::post('/admin/billing/upgrade', [AdminController::class, 'upgrade'])->name('admin.billing.upgrade');
     Route::post('/admin/billing/checkout', [PaymentController::class, 'checkout'])->name('admin.billing.checkout');
     Route::get('/admin/billing/order-status', [PaymentController::class, 'orderStatus'])->name('admin.billing.order-status');
+
+    // 超级管理员实时监控大盘（仅超级管理员可访问，组件 mount 内强制守卫）
+    Route::get('/admin/monitor', function () {
+        return view('admin.monitor');
+    })->name('admin.monitor');
+
+    // 外观设置（多主题预设 + 租户 DIY 覆盖）
+    Route::get('/studio/settings/appearance', [StudioController::class, 'appearance'])->name('studio.settings.appearance');
+    Route::post('/studio/settings/appearance', [StudioController::class, 'appearanceUpdate']);
 });
 
 // 支付异步回调（微信/支付宝服务器直连，CSRF 豁免）

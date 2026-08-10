@@ -1,5 +1,5 @@
-<x-app-layout>
-<x-workspace-layout title="声音库">
+﻿<x-app-layout>
+<x-workspace-layout title="声音库" :breadcrumbs="[['label' => '工作台总览', 'url' => '/dashboard'], ['label' => '声音库']]">
 <div class="mx-auto max-w-5xl p-6">
         <p class="mt-0.5 text-sm text-slate-400">上传参考音频克隆专属音色，支持多个男声 / 女声，出片时可自由选择。克隆后的音色仅你本租户可用，并会原样保留你录音里的口音 / 方言——无需单独选方言。</p>
         <p class="mt-2 flex flex-wrap gap-3">
@@ -9,12 +9,7 @@
         </p>
     </header>
 
-    @if(session('success'))
-        <div class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-700">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{{ session('error') }}</div>
-    @endif
+    @include('components.flash')
 
     <!-- 录音注意事项 -->
     <section class="mb-4 rounded-xl border border-amber-200 bg-amber-50/70 p-5">
@@ -43,16 +38,16 @@
             <div class="lg:col-span-3">
                 <label class="mb-1 block text-sm font-medium text-slate-600">参考音频（wav/mp3/m4a，≤30MB，建议 10–30s 清晰人声）</label>
                 <input type="file" name="file" accept="audio/*" required
-                    class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                    class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
             </div>
             <div>
                 <label class="mb-1 block text-sm font-medium text-slate-600">声音名称</label>
                 <input type="text" name="name" maxlength="60" placeholder="如：主播男声·沉稳 / 客服女声·亲切"
-                    class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                    class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
             </div>
             <div>
                 <label class="mb-1 block text-sm font-medium text-slate-600">声线性别</label>
-                <select name="gender" class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                <select name="gender" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                     <option value="male">男声</option>
                     <option value="female">女声</option>
                 </select>
@@ -67,7 +62,7 @@
     <section class="mt-4">
         <h3 class="mb-3 text-sm font-semibold text-slate-700">声音库（男声 {{ $maleCount }} · 女声 {{ $femaleCount }}）</h3>
         @if($voices->isEmpty())
-            <p class="rounded-lg bg-slate-50 p-4 text-sm text-slate-400">还没有克隆任何声音，上传一段参考音频开始克隆吧。</p>
+            <p class="rounded-lg studio-card studio-card-sm text-sm text-slate-400">还没有克隆任何声音，上传一段参考音频开始克隆吧。</p>
         @else
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach($voices as $v)
@@ -91,9 +86,9 @@
                                     <button type="submit" class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50">设为默认</button>
                                 </form>
                             @endif
-                            <form action="{{ route('studio.voices.destroy', $v) }}" method="POST" onsubmit="return confirm('确定删除该声音？');" class="flex-1">
+                            <form action="{{ route('studio.voices.destroy', $v) }}" method="POST" class="flex-1">
                                 @csrf @method('DELETE')
-                                <button type="submit" class="w-full rounded-lg border border-red-200 bg-white px-2 py-1.5 text-xs text-red-600 hover:bg-red-50">删除</button>
+                                <button type="button" onclick="hgtDel(this)" data-msg="确定删除该声音？删除后不可恢复。" class="w-full rounded-lg border border-red-200 bg-white px-2 py-1.5 text-xs text-red-600 hover:bg-red-50">删除</button>
                             </form>
                         </div>
                     </div>

@@ -35,7 +35,7 @@ class AuthController extends Controller
         }
 
         return back()->withErrors([
-            'login' => '账号或密码不正确。',
+            'login' => '邮箱或手机号与密码不匹配。',
         ])->onlyInput('login');
     }
 
@@ -99,8 +99,9 @@ class AuthController extends Controller
             'trial_ends_at' => now()->addDays((int) env('TRIAL_DAYS', 7)),
             'quota_monthly' => (int) env('TRIAL_VIDEO_QUOTA', 10),
             'default_avatar' => 'BGZSP20260721_t18_silent.mp4',
-            'default_male_voice' => 'cosyvoice-v3-plus-zhangc2-28a7c3541e1c45518a03046c11baeb1d',
-            'default_female_voice' => 'cosyvoice-v3-plus-jiangnv3-991b204c1d564ac7a60f0cb9a8fd78bd',
+            // 新租户初始无自带声音：default_male_voice/default_female_voice 留 NULL，
+            // 必须由租户自行克隆或选择公开模板后显式传入（遵循通用行业平台铁律，禁止把特定克隆音当通用音分发）。
+            // 运营者 huigentang 租户的声音由其专属 DatabaseSeeder 预设，不受此影响。
         ]);
 
         $user = User::create([
@@ -131,5 +132,45 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
 
         return redirect('/login');
+    }
+
+    // 账号安全：改密码页
+    public function showChangePassword()
+    {
+        return view('settings.password');
+    }
+
+    // 账号安全：执行改密码（需校验当前密码 + 新密码规则）
+    public function changePassword(Request $request)
+    {
+        $user = $request->user();
+
+        $request->validate([
+            'current_password' => ['required'],
+            'password' => [
+                'required', 'confirmed', 'string', 'min:6',
+                function ($attribute, $value, $fail) {
+                    $hasMixedCase = preg_match('/^(?=.*[a-z])(?=.*[A-Z]).*$/', $value);
+                    $hasNumSymbol = preg_match('/^(?=.*\d)(?=.*[^A-Za-z0-9]).*$/', $value);
+                    if (! ($hasMixedCase || $hasNumSymbol)) {
+                        $fail('密码需含大小写字母，或数字与特殊字符组合。');
+                    }
+                },
+            ],
+        ], [
+            'current_password.required' => '请填写当前密码。',
+            'password.required' => '请设置新密码。',
+            'password.confirmed' => '两次输入的密码不一致。',
+            'password.min' => '密码至少 6 位。',
+            'password.regex' => '密码需含大小写字母，或数字与特殊字符组合。',
+        ]);
+
+        if (! Hash::check($request->current_password, $user->password)) {
+            return back()->withErrors(['current_password' => '当前密码不正确。'])->withInput();
+        }
+
+        $user->update(['password' => Hash::make($request->password)]);
+
+        return back()->with('success', '密码已更新成功，下次登录请使用新密码。');
     }
 }

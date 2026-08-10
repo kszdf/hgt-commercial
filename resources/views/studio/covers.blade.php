@@ -1,5 +1,5 @@
-<x-app-layout>
-<x-workspace-layout title="封面素材库">
+﻿<x-app-layout>
+<x-workspace-layout title="封面素材库" :breadcrumbs="[['label' => '工作台总览', 'url' => '/dashboard'], ['label' => '封面素材库']]">
 <div class="mx-auto max-w-5xl p-6">
         <p class="mt-0.5 text-sm text-slate-400">上传视频封面图（jpg/png/webp，≤10MB）。发布到视频号 / 抖音 / 小红书 时可指定封面。系统自动记录尺寸与大小，租户隔离。</p>
         <p class="mt-2 flex flex-wrap gap-3">
@@ -8,12 +8,7 @@
         </p>
     </header>
 
-    @if(session('success'))
-        <div class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-700">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{{ session('error') }}</div>
-    @endif
+    @include('components.flash')
 
     <section class="luxury-glass p-5">
         <h3 class="mb-3 text-sm font-semibold text-slate-700">上传新封面</h3>
@@ -22,17 +17,17 @@
             <div class="lg:col-span-2">
                 <label class="mb-1 block text-sm font-medium text-slate-600">封面图片（jpg/png/webp，≤10MB，建议 1080×1920 竖版 或 1280×720 横版）</label>
                 <input type="file" name="file" accept="image/*" required
-                    class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                    class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
             </div>
             <div>
                 <label class="mb-1 block text-sm font-medium text-slate-600">封面名称</label>
                 <input type="text" name="name" maxlength="60" placeholder="如：新品发布钩子图"
-                    class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                    class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
             </div>
             <div>
                 <label class="mb-1 block text-sm font-medium text-slate-600">场景标签</label>
                 <input type="text" name="scene" maxlength="40" placeholder="如：行业科普 / 产品讲解"
-                    class="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                    class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
             </div>
             <div class="lg:col-span-2">
                 <button type="submit" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-600">上传封面</button>
@@ -84,7 +79,7 @@
     <section class="mt-4">
         <h3 class="mb-3 text-sm font-semibold text-slate-700">已上传封面（{{ $assets->count() }}）</h3>
         @if($assets->isEmpty())
-            <p class="rounded-lg bg-slate-50 p-4 text-sm text-slate-400">还没有上传任何封面，先上传一张试试。</p>
+            <p class="rounded-lg studio-card studio-card-sm text-sm text-slate-400">还没有上传任何封面，先上传一张试试。</p>
         @else
             <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                 @foreach($assets as $a)
@@ -105,9 +100,9 @@
                                 <input type="file" name="file" accept="image/*" class="hidden" onchange="this.form.submit()">
                                 <button type="button" onclick="this.previousElementSibling.click()" class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50">重传</button>
                             </form>
-                            <form action="{{ route('studio.covers.destroy', $a) }}" method="POST" onsubmit="return confirm('确定删除该封面？');" class="flex-1">
+                            <form action="{{ route('studio.covers.destroy', $a) }}" method="POST" class="flex-1">
                                 @csrf @method('DELETE')
-                                <button type="submit" class="w-full rounded-lg border border-red-200 bg-white px-2 py-1.5 text-xs text-red-600 hover:bg-red-50">删除</button>
+                                <button type="button" onclick="hgtDel(this)" data-msg="确定删除该封面？删除后不可恢复。" class="w-full rounded-lg border border-red-200 bg-white px-2 py-1.5 text-xs text-red-600 hover:bg-red-50">删除</button>
                             </form>
                         </div>
                     </div>

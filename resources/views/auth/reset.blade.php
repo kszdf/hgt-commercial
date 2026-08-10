@@ -28,8 +28,15 @@
 
         <form class="space-y-4" method="POST" action="/reset-password">
             @csrf
-            <flux:input label="手机号" name="phone" type="tel" placeholder="注册时填写的手机号" required value="{{ old('phone', $phone ?? '') }}" />
-            <flux:input label="短信验证码" name="code" type="text" inputmode="numeric" placeholder="6 位数字验证码" required value="{{ old('code') }}" />
+            <input type="hidden" name="channel" value="{{ $channel }}">
+
+            @if ($channel === 'email')
+                <flux:input label="邮箱" name="account" type="email" placeholder="注册时填写的邮箱" required value="{{ old('account', $account ?? '') }}" />
+            @else
+                <flux:input label="手机号" name="account" type="tel" placeholder="注册时填写的手机号" required value="{{ old('account', $account ?? '') }}" />
+            @endif
+
+            <flux:input label="验证码" name="code" type="text" inputmode="numeric" placeholder="6 位数字验证码" required value="{{ old('code') }}" />
             <flux:input label="新密码" name="password" type="password" placeholder="••••••••" required />
             <p class="text-xs text-slate-400 -mt-2">至少 6 位；需含大小写字母，或数字与特殊字符组合。</p>
             <flux:input label="确认新密码" name="password_confirmation" type="password" placeholder="••••••••" required />

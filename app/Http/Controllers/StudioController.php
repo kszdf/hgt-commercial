@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exceptions\PipelineUnavailableException;
 use App\Models\QcReport;
 use App\Models\QcRule;
+use App\Models\UserActivity;
 use App\Models\VideoJob;
 use App\Services\PipelineClient;
 use App\Services\PlatformRegistry;
@@ -39,6 +40,12 @@ class StudioController extends Controller
         return view('studio.rewrite');
     }
 
+    /** 原始稿二创：与选题上下文隔离的独立入口。 */
+    public function rewriteOriginal()
+    {
+        return view('studio.rewrite-original');
+    }
+
     public function qc()
     {
         $tenant = request()->user()->tenant;
@@ -59,9 +66,10 @@ class StudioController extends Controller
 
         $data = $request->validate([
             // 行业非必填：通用平台，行业由用户输入（不预置特定行业），不强填
-            'industry' => ['sometimes', 'string', 'max:40'],
+            // 所有选填字段均接受空字符串 / null / undefined，后端会自动跳过或回退为默认值
+            'industry' => ['sometimes', 'nullable', 'string', 'max:40'],
             'keywords' => ['nullable', 'string', 'max:120'],
-            'count'    => ['sometimes', 'integer', 'between:3,12'],
+            'count'    => ['sometimes', 'integer', 'between:1,10'],
             // 平台兼容 key（如 shipinhao）与中文 label（如 视频号），「不限」传空/null 视为未选
             'platform' => ['sometimes', 'nullable', 'string', 'in:' . implode(',', $validPlatforms)],
             'hotness'  => ['sometimes', 'nullable', 'string', 'max:20'],
@@ -75,8 +83,13 @@ class StudioController extends Controller
             $data['platform'] = $label ?: $data['platform'];
         }
 
+        // 空字符串 / null / undefined 一律视为未选，从下发参数中剔除，由 8500 使用默认值
+        $sendData = array_filter($data, fn ($v) => $v !== null && $v !== '');
+        // count 缺省回退为 5，保证 8500 始终拿到有效数量
+        $sendData['count'] = (int) ($sendData['count'] ?? 5);
+
         try {
-            $resp = app(PipelineClient::class)->post('/topic', $data, 120);
+            $resp = app(PipelineClient::class)->post('/topic', $sendData, 120);
         } catch (PipelineUnavailableException $e) {
             return response()->json(['error' => '选题服务暂时不可用，请稍后重试'], 503);
         }
@@ -89,10 +102,18 @@ class StudioController extends Controller
     public function rewriteGenerate(Request $request)
     {
         $data = $request->validate([
-            'text'  => ['required', 'string'],
-            'mode'  => ['sometimes', 'in:single,dual,script'],
-            'focus' => ['nullable', 'string', 'max:100'],
+            'text'              => ['required', 'string'],
+            'mode'              => ['sometimes', 'in:single,dual,script'],
+            'focus'             => ['nullable', 'string', 'max:100'],
+            'target_duration'   => ['nullable', 'integer', 'min:10', 'max:600'],
+            'preserve'          => ['nullable', 'string', 'max:500'],
+            'role_mode'         => ['sometimes', 'nullable', 'string', 'max:40'],
+            'role_note'         => ['nullable', 'string', 'max:500'],
+            'keep_manual_roles' => ['sometimes', 'nullable', 'boolean'],
         ]);
+
+        // 空值过滤，避免把无效字段透传到 8500；布尔真值保留
+        $data = array_filter($data, fn ($v) => $v !== null && $v !== '');
 
         try {
             $resp = app(PipelineClient::class)->post('/rewrite', $data, 120);
@@ -175,5 +196,80 @@ class StudioController extends Controller
             }
         }
         return $out;
+    }
+
+    /** 外观设置页：展示预设方案 + 当前租户已保存的 DIY 覆盖。 */
+    public function appearance()
+    {
+        $tenant = request()->user()->tenant;
+        $preset = in_array($tenant->theme_preset, ['indigo', 'warm', 'teal'], true) ? $tenant->theme_preset : 'indigo';
+        $ov = is_array($tenant->theme_overrides) ? $tenant->theme_overrides : (json_decode($tenant->theme_overrides ?? '{}', true) ?: []);
+        $density = in_array($ov['density'] ?? null, ['comfortable', 'compact'], true) ? $ov['density'] : 'comfortable';
+
+        $presets = [
+            'indigo' => ['label' => '靛蓝商务', 'desc' => '经典科技靛蓝，专业稳重', 'accent' => '#4f46e5', 'page' => '#ffffff'],
+            'warm'   => ['label' => '暖阳亲和', 'desc' => '暖橙底色，温暖亲切', 'accent' => '#d97706', 'page' => '#fdfaf5'],
+            'teal'   => ['label' => '青翠清新', 'desc' => '清新青绿，轻快自然', 'accent' => '#0d9488', 'page' => '#f0fdfa'],
+        ];
+
+        return view('studio.settings-appearance', [
+            'preset'   => $preset,
+            'density'  => $density,
+            'accent'   => $ov['accent'] ?? '',
+            'pageTint' => $ov['page_tint'] ?? '',
+            'presets'  => $presets,
+        ]);
+    }
+
+    /** 保存外观设置：预设 + 可选 DIY 覆盖（强调色 / 页面底色 / 密度）。 */
+    public function appearanceUpdate(Request $request)
+    {
+        $tenant = request()->user()->tenant;
+
+        $data = $request->validate([
+            'theme_preset' => ['required', 'string', 'in:indigo,warm,teal'],
+            'accent'       => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'page_tint'    => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'density'      => ['required', 'string', 'in:comfortable,compact'],
+        ]);
+
+        $overrides = ['density' => $data['density']];
+        if (! empty($data['accent'])) {
+            $overrides['accent'] = $data['accent'];
+        }
+        if (! empty($data['page_tint'])) {
+            $overrides['page_tint'] = $data['page_tint'];
+        }
+
+        $tenant->update([
+            'theme_preset'    => $data['theme_preset'],
+            'theme_overrides' => $overrides,
+        ]);
+
+        return redirect()->route('studio.settings.appearance')
+            ->with('success', '外观设置已保存');
+    }
+
+    /**
+     * 活动心跳上报：前端每 20s 上报当前所处环节（topic/rewrite/video），
+     * 覆盖式写入 user_activities（同用户仅一条），并刷新 users.last_seen_at。
+     * 全局管理员不计入（其 tenant_id 为 null）。数据供超级管理员实时监控大盘使用。
+     */
+    public function activityPing(Request $request)
+    {
+        $user = $request->user();
+        if ($user->isGlobalAdmin()) {
+            return response()->json(['ok' => true, 'skipped' => true]);
+        }
+
+        $data = $request->validate([
+            'action' => ['required', 'string', 'in:topic,rewrite,video,studio'],
+            'detail' => ['sometimes', 'nullable', 'array'],
+        ]);
+
+        UserActivity::upsertFor($user, $data['action'], $data['detail'] ?? null);
+        $user->touchSeen();
+
+        return response()->json(['ok' => true]);
     }
 }

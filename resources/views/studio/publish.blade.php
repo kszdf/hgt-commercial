@@ -1,19 +1,14 @@
-<x-app-layout>
+﻿<x-app-layout>
 <x-workspace-layout title="批量外发">
 <div class="mx-auto max-w-6xl p-6">
 
-    @if(session('success'))
-        <div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{{ session('error') }}</div>
-    @endif
+    @include('components.flash')
 
     <!-- 发布渠道说明（常显） -->
     <div class="mb-5 rounded-xl border border-slate-200 bg-white px-4 py-3">
         <div class="text-sm font-semibold text-slate-700">发布渠道说明</div>
         <ul class="mt-1 space-y-1 text-sm text-slate-500">
-            <li>· 自动分发：抖音、小红书（完成平台授权后一键发布）</li>
+            <li>· 抖音、小红书：订阅专业版 / 企业版并完成平台授权后，支持一键分发</li>
             <li>· 手动发布：视频号（微信暂未开放发布接口，请在「视频号助手」App 手动上传）</li>
         </ul>
     </div>
@@ -25,7 +20,14 @@
             <a href="{{ route('admin.billing') }}" class="mt-3 inline-block rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-amber-600">前往升级 →</a>
         </div>
     @elseif($videos->isEmpty())
-        <div class="luxury-glass p-10 text-center text-slate-400">暂无待发布视频。请先在「人工审核」中通过视频。</div>
+        <div class="luxury-glass p-10 text-center">
+            <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            </div>
+            <div class="text-sm font-medium text-slate-600">暂无待发布视频</div>
+            <p class="mt-1 text-sm text-slate-400">批量外发仅针对已通过「人工审核」的视频。请先在人工审核中通过出片，再来发布。</p>
+            <a href="/studio/review" class="mt-4 inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700">前往人工审核 →</a>
+        </div>
     @else
         <form method="POST" action="{{ route('studio.publish.do') }}" class="space-y-5">
             @csrf
@@ -36,7 +38,7 @@
                 <div class="flex flex-col gap-3">
                     @foreach($platforms as $key => $label)
                         @php $authorized = $authStatus[$key] ?? false; @endphp
-                        <div class="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                        <div class="flex flex-wrap items-center gap-2 rounded-lg studio-card studio-card-sm">
                             <label class="flex cursor-pointer items-center gap-2">
                                 <input type="checkbox" name="platforms[]" value="{{ $key }}" class="accent-brand-600" {{ $authorized ? 'checked' : '' }}>
                                 <span class="font-medium text-slate-700">{{ $label }}</span>
@@ -56,7 +58,7 @@
                         </div>
                     @endforeach
                 </div>
-                <p class="mt-2 text-xs text-slate-400">抖音 / 小红书需点「授权」在弹窗内完成平台授权（授权后本页自动刷新为「已授权」）。</p>
+                <p class="mt-2 text-xs text-slate-400">抖音 / 小红书需先订阅专业版 / 企业版并完成平台授权，方可一键分发。</p>
             </div>
 
             {{-- 待发视频 --}}
@@ -77,7 +79,7 @@
             </div>
 
             <div class="flex justify-end">
-                <button class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700">批量发布</button>
+                <button class="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-700">批量发布</button>
             </div>
         </form>
     @endif
