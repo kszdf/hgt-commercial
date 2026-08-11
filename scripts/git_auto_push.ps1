@@ -12,6 +12,20 @@ function Log($line) {
 
 Set-Location $repo
 
+# 0) Snapshot key runtime logs into tracked runtime-logs/ (overwrite daily) so they get backed up too.
+#    (storage/logs/*, python-pipeline server log and auto_push.log are gitignored, so we copy a daily
+#     snapshot into a tracked dir instead of un-ignoring the live rotating logs.)
+$logDir = Join-Path $repo "runtime-logs"
+if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
+$snaps = @(
+    @{src = Join-Path $repo "storage\logs\laravel.log";       dst = "laravel.log" },
+    @{src = Join-Path $repo "python-pipeline\server_8500.log"; dst = "8500-server.log" },
+    @{src = $log;                                              dst = "auto_push.log" }
+)
+foreach ($s in $snaps) {
+    if (Test-Path $s.src) { Copy-Item -Path $s.src -Destination (Join-Path $logDir $s.dst) -Force -ErrorAction SilentlyContinue }
+}
+
 # 1) Commit any pending working-tree changes.
 $st = & $git status --porcelain
 $committedNow = $false

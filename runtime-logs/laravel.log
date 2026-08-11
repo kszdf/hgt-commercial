@@ -1,0 +1,826 @@
+[2026-08-06 05:10:21] local.ERROR: Method Illuminate\Validation\Rule::regex does not exist. {"exception":"[object] (BadMethodCallException(code: 0): Method Illuminate\\Validation\\Rule::regex does not exist. at /var/www/vendor/laravel/framework/src/Illuminate/Macroable/Traits/Macroable.php:89)
+[stacktrace]
+#0 /var/www/app/Http/Controllers/AuthController.php(51): Illuminate\\Validation\\Rule::__callStatic('regex', Array)
+#1 /var/www/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(47): App\\Http\\Controllers\\AuthController->register(Object(Illuminate\\Http\\Request))
+#2 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Route.php(266): Illuminate\\Routing\\ControllerDispatcher->dispatch(Object(Illuminate\\Routing\\Route), Object(App\\Http\\Controllers\\AuthController), 'register')
+#3 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Route.php(212): Illuminate\\Routing\\Route->runController()
+#4 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(808): Illuminate\\Routing\\Route->run()
+#5 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(170): Illuminate\\Routing\\Router->{closure:Illuminate\\Routing\\Router::runRouteWithinStack():807}(Object(Illuminate\\Http\\Request))
+#6 /var/www/vendor/laravel/framework/src/Illuminate/Auth/Middleware/RedirectIfAuthenticated.php(35): Illuminate\\Pipeline\\Pipeline->{closure:Illuminate\\Pipeline\\Pipeline::prepareDestination():168}(Object(Illuminate\\Http\\Request))
+#7 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Auth\\Middleware\\RedirectIfAuthenticated->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#8 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(51): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#9 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#10 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/VerifyCsrfToken.php(88): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#11 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\VerifyCsrfToken->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#12 /var/www/vendor/laravel/framework/src/Illuminate/View/Middleware/ShareErrorsFromSession.php(49): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#13 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\View\\Middleware\\ShareErrorsFromSession->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#14 /var/www/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(121): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#15 /var/www/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(64): Illuminate\\Session\\Middleware\\StartSession->handleStatefulRequest(Object(Illuminate\\Http\\Request), Object(Illuminate\\Session\\Store), Object(Closure))
+#16 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Session\\Middleware\\StartSession->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#17 /var/www/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/AddQueuedCookiesToResponse.php(37): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#18 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Cookie\\Middleware\\AddQueuedCookiesToResponse->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#19 /var/www/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/EncryptCookies.php(75): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#20 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Cookie\\Middleware\\EncryptCookies->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#21 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(127): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#22 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(807): Illuminate\\Pipeline\\Pipeline->then(Object(Closure))
+#23 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(786): Illuminate\\Routing\\Router->runRouteWithinStack(Object(Illuminate\\Routing\\Route), Object(Illuminate\\Http\\Request))
+#24 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(750): Illuminate\\Routing\\Router->runRoute(Object(Illuminate\\Http\\Request), Object(Illuminate\\Routing\\Route))
+#25 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(739): Illuminate\\Routing\\Router->dispatchToRoute(Object(Illuminate\\Http\\Request))
+#26 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(201): Illuminate\\Routing\\Router->dispatch(Object(Illuminate\\Http\\Request))
+#27 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(170): Illuminate\\Foundation\\Http\\Kernel->{closure:Illuminate\\Foundation\\Http\\Kernel::dispatchToRouter():198}(Object(Illuminate\\Http\\Request))
+#28 /var/www/vendor/livewire/livewire/src/Features/SupportDisablingBackButtonCache/DisableBackButtonCacheMiddleware.php(19): Illuminate\\Pipeline\\Pipeline->{closure:Illuminate\\Pipeline\\Pipeline::prepareDestination():168}(Object(Illuminate\\Http\\Request))
+#29 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Livewire\\Features\\SupportDisablingBackButtonCache\\DisableBackButtonCacheMiddleware->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#30 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#31 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#32 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#33 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#34 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php(51): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#35 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#36 /var/www/vendor/laravel/framework/src/Illuminate/Http/Middleware/ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#37 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Http\\Middleware\\ValidatePostSize->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#38 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/PreventRequestsDuringMaintenance.php(110): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#39 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#40 /var/www/vendor/laravel/framework/src/Illuminate/Http/Middleware/HandleCors.php(49): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#41 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Http\\Middleware\\HandleCors->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#42 /var/www/vendor/laravel/framework/src/Illuminate/Http/Middleware/TrustProxies.php(58): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#43 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Http\\Middleware\\TrustProxies->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#44 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/InvokeDeferredCallbacks.php(22): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#45 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\InvokeDeferredCallbacks->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#46 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(127): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#47 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(176): Illuminate\\Pipeline\\Pipeline->then(Object(Closure))
+#48 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(145): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter(Object(Illuminate\\Http\\Request))
+#49 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1220): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#50 /var/www/public/index.php(17): Illuminate\\Foundation\\Application->handleRequest(Object(Illuminate\\Http\\Request))
+#51 {main}
+"} 
+[2026-08-07 05:59:11] production.ERROR: The "--columns" option does not exist. {"exception":"[object] (Symfony\\Component\\Console\\Exception\\RuntimeException(code: 0): The \"--columns\" option does not exist. at /var/www/vendor/symfony/console/Input/ArgvInput.php:226)
+[stacktrace]
+#0 /var/www/vendor/symfony/console/Input/ArgvInput.php(153): Symfony\\Component\\Console\\Input\\ArgvInput->addLongOption('columns', 'method,uri,midd...')
+#1 /var/www/vendor/symfony/console/Input/ArgvInput.php(88): Symfony\\Component\\Console\\Input\\ArgvInput->parseLongOption('--columns=metho...')
+#2 /var/www/vendor/symfony/console/Input/ArgvInput.php(77): Symfony\\Component\\Console\\Input\\ArgvInput->parseToken('--columns=metho...', true)
+#3 /var/www/vendor/symfony/console/Input/Input.php(53): Symfony\\Component\\Console\\Input\\ArgvInput->parse()
+#4 /var/www/vendor/symfony/console/Command/Command.php(295): Symfony\\Component\\Console\\Input\\Input->bind(Object(Symfony\\Component\\Console\\Input\\InputDefinition))
+#5 /var/www/vendor/laravel/framework/src/Illuminate/Console/Command.php(182): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#6 /var/www/vendor/symfony/console/Application.php(1117): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#7 /var/www/vendor/symfony/console/Application.php(356): Symfony\\Component\\Console\\Application->doRunCommand(Object(Illuminate\\Foundation\\Console\\RouteListCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#8 /var/www/vendor/symfony/console/Application.php(195): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#9 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(198): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#10 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1235): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#11 /var/www/artisan(13): Illuminate\\Foundation\\Application->handleCommand(Object(Symfony\\Component\\Console\\Input\\ArgvInput))
+#12 {main}
+"} 
+[2026-08-07 13:43:51] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: 3669372043@qq.com
+Subject: =?utf-8?Q?=E6=AC=A2=E8=BF=8E=E4=BD=BF=E7=94=A8?=
+ =?utf-8?Q?=E8=BF=BD=E6=A2=A6=E7=9F=AD=E8=A7=86?=
+ =?utf-8?Q?=E9=A2=91=E6=99=BA=E8=83=BD=E7=94=9F?=
+ =?utf-8?Q?=E4=BA=A7=E5=B9=B3=E5=8F=B0?=
+MIME-Version: 1.0
+Date: Fri, 07 Aug 2026 13:43:51 +0000
+Message-ID: <c3bd345e71dae511c307f3584d49372a@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>欢迎使用追梦</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:22px;font-weight:700;color:#0f172a;">欢迎加入追梦 👋</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「追梦科技」已成功开通，当前处于
+        <strong style="color:#2563eb;">7 天免费试用</strong>期，可立即体验短视频智能生产全流程。
+      </p>
+      <ul style="font-size:14px;line-height:1.9;color:#475569;padding-left:20px;">
+        <li>智能选题 / 二次改写（规避违禁词）</li>
+        <li>数字人出镜 / 滚动字幕卡一键出片</li>
+        <li>智能质检 + 多平台发布跟踪</li>
+      </ul>
+      <a href="https://zmgen.cn/dashboard"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        进入工作台
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-08 05:29:51] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: test1786166986@example.com
+Subject: =?utf-8?Q?=E6=AC=A2=E8=BF=8E=E4=BD=BF=E7=94=A8?=
+ =?utf-8?Q?=E8=BF=BD=E6=A2=A6=E7=9F=AD=E8=A7=86?=
+ =?utf-8?Q?=E9=A2=91=E6=99=BA=E8=83=BD=E7=94=9F?=
+ =?utf-8?Q?=E4=BA=A7=E5=B9=B3=E5=8F=B0?=
+MIME-Version: 1.0
+Date: Sat, 08 Aug 2026 05:29:51 +0000
+Message-ID: <8127b662f2bdf3c9da2889de4f788ba9@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>欢迎使用追梦</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:22px;font-weight:700;color:#0f172a;">欢迎加入追梦 👋</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「TestTenant166986」已成功开通，当前处于
+        <strong style="color:#2563eb;">7 天免费试用</strong>期，可立即体验短视频智能生产全流程。
+      </p>
+      <ul style="font-size:14px;line-height:1.9;color:#475569;padding-left:20px;">
+        <li>智能选题 / 二次改写（规避违禁词）</li>
+        <li>数字人出镜 / 滚动字幕卡一键出片</li>
+        <li>智能质检 + 多平台发布跟踪</li>
+      </ul>
+      <a href="https://zmgen.cn/dashboard"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        进入工作台
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-08 05:30:29] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: test1786167026@example.com
+Subject: =?utf-8?Q?=E6=AC=A2=E8=BF=8E=E4=BD=BF=E7=94=A8?=
+ =?utf-8?Q?=E8=BF=BD=E6=A2=A6=E7=9F=AD=E8=A7=86?=
+ =?utf-8?Q?=E9=A2=91=E6=99=BA=E8=83=BD=E7=94=9F?=
+ =?utf-8?Q?=E4=BA=A7=E5=B9=B3=E5=8F=B0?=
+MIME-Version: 1.0
+Date: Sat, 08 Aug 2026 05:30:28 +0000
+Message-ID: <752a744f305cbb1b222b52a5ec7c3e65@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>欢迎使用追梦</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:22px;font-weight:700;color:#0f172a;">欢迎加入追梦 👋</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「TestTenant167026」已成功开通，当前处于
+        <strong style="color:#2563eb;">7 天免费试用</strong>期，可立即体验短视频智能生产全流程。
+      </p>
+      <ul style="font-size:14px;line-height:1.9;color:#475569;padding-left:20px;">
+        <li>智能选题 / 二次改写（规避违禁词）</li>
+        <li>数字人出镜 / 滚动字幕卡一键出片</li>
+        <li>智能质检 + 多平台发布跟踪</li>
+      </ul>
+      <a href="https://zmgen.cn/dashboard"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        进入工作台
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-09 11:41:21] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: 2023752719@qq.com
+Subject: =?utf-8?Q?=E6=AC=A2=E8=BF=8E=E4=BD=BF=E7=94=A8?=
+ =?utf-8?Q?=E8=BF=BD=E6=A2=A6=E7=9F=AD=E8=A7=86?=
+ =?utf-8?Q?=E9=A2=91=E6=99=BA=E8=83=BD=E7=94=9F?=
+ =?utf-8?Q?=E4=BA=A7=E5=B9=B3=E5=8F=B0?=
+MIME-Version: 1.0
+Date: Sun, 09 Aug 2026 11:41:20 +0000
+Message-ID: <213500c5d2462603715277d020882472@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>欢迎使用追梦</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:22px;font-weight:700;color:#0f172a;">欢迎加入追梦 👋</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「112233」已成功开通，当前处于
+        <strong style="color:#2563eb;">7 天免费试用</strong>期，可立即体验短视频智能生产全流程。
+      </p>
+      <ul style="font-size:14px;line-height:1.9;color:#475569;padding-left:20px;">
+        <li>智能选题 / 二次改写（规避违禁词）</li>
+        <li>数字人出镜 / 滚动字幕卡一键出片</li>
+        <li>智能质检 + 多平台发布跟踪</li>
+      </ul>
+      <a href="https://zmgen.cn/dashboard"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        进入工作台
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-09 13:00:24] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: 2864225@qq.com
+Subject: =?utf-8?Q?=E3=80=90=E8=BF=BD=E6=A2=A6=E3=80=91?=
+ =?utf-8?Q?=E6=82=A8=E7=9A=84=E5=AF=86=E7=A0=81?=
+ =?utf-8?Q?=E9=87=8D=E7=BD=AE=E9=AA=8C=E8=AF=81=E7=A0=81?=
+MIME-Version: 1.0
+Date: Sun, 09 Aug 2026 13:00:24 +0000
+Message-ID: <039d1c0297108583dda49ec47946bbad@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>密码重置验证码</title>
+</head>
+<body style="margin:0;padding:24px;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#0f172a;">
+    <div style="max-width:460px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px;box-shadow:0 8px 24px rgba(15,23,42,.08);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+            <div style="width:36px;height:36px;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;font-size:18px;display:flex;align-items:center;justify-content:center;">追</div>
+            <span style="font-size:18px;font-weight:700;color:#0f172a;">追梦 · 短视频智能生产平台</span>
+        </div>
+        <p style="font-size:15px;line-height:1.6;color:#334155;margin:0 0 16px;">您好，我们收到了您的密码重置请求。请使用以下 6 位验证码完成重置（5 分钟内有效）：</p>
+        <div style="text-align:center;font-size:32px;font-weight:800;letter-spacing:8px;color:#4f46e5;background:#eef2ff;border-radius:12px;padding:18px 0;margin:0 0 16px;">485566</div>
+        <p style="font-size:13px;line-height:1.6;color:#94a3b8;margin:0;">若非本人操作，请忽略本邮件，您的密码不会变更。</p>
+    </div>
+</body>
+</html>
+  
+[2026-08-09 13:01:28] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: 2864225@qq.com
+Subject: =?utf-8?Q?=E3=80=90=E8=BF=BD=E6=A2=A6=E3=80=91?=
+ =?utf-8?Q?=E6=82=A8=E7=9A=84=E5=AF=86=E7=A0=81?=
+ =?utf-8?Q?=E9=87=8D=E7=BD=AE=E9=AA=8C=E8=AF=81=E7=A0=81?=
+MIME-Version: 1.0
+Date: Sun, 09 Aug 2026 13:01:28 +0000
+Message-ID: <80e7aa773ffeae8d969dd811e168e283@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>密码重置验证码</title>
+</head>
+<body style="margin:0;padding:24px;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#0f172a;">
+    <div style="max-width:460px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px;box-shadow:0 8px 24px rgba(15,23,42,.08);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+            <div style="width:36px;height:36px;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;font-size:18px;display:flex;align-items:center;justify-content:center;">追</div>
+            <span style="font-size:18px;font-weight:700;color:#0f172a;">追梦 · 短视频智能生产平台</span>
+        </div>
+        <p style="font-size:15px;line-height:1.6;color:#334155;margin:0 0 16px;">您好，我们收到了您的密码重置请求。请使用以下 6 位验证码完成重置（5 分钟内有效）：</p>
+        <div style="text-align:center;font-size:32px;font-weight:800;letter-spacing:8px;color:#4f46e5;background:#eef2ff;border-radius:12px;padding:18px 0;margin:0 0 16px;">600618</div>
+        <p style="font-size:13px;line-height:1.6;color:#94a3b8;margin:0;">若非本人操作，请忽略本邮件，您的密码不会变更。</p>
+    </div>
+</body>
+</html>
+  
+[2026-08-09 13:02:43] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: 2864225@qq.com
+Subject: =?utf-8?Q?=E3=80=90=E8=BF=BD=E6=A2=A6=E3=80=91?=
+ =?utf-8?Q?=E6=82=A8=E7=9A=84=E5=AF=86=E7=A0=81?=
+ =?utf-8?Q?=E9=87=8D=E7=BD=AE=E9=AA=8C=E8=AF=81=E7=A0=81?=
+MIME-Version: 1.0
+Date: Sun, 09 Aug 2026 13:02:43 +0000
+Message-ID: <32f759d43e3bff4bdd6a0ce42dde81e3@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>密码重置验证码</title>
+</head>
+<body style="margin:0;padding:24px;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#0f172a;">
+    <div style="max-width:460px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px;box-shadow:0 8px 24px rgba(15,23,42,.08);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+            <div style="width:36px;height:36px;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;font-size:18px;display:flex;align-items:center;justify-content:center;">追</div>
+            <span style="font-size:18px;font-weight:700;color:#0f172a;">追梦 · 短视频智能生产平台</span>
+        </div>
+        <p style="font-size:15px;line-height:1.6;color:#334155;margin:0 0 16px;">您好，我们收到了您的密码重置请求。请使用以下 6 位验证码完成重置（5 分钟内有效）：</p>
+        <div style="text-align:center;font-size:32px;font-weight:800;letter-spacing:8px;color:#4f46e5;background:#eef2ff;border-radius:12px;padding:18px 0;margin:0 0 16px;">392201</div>
+        <p style="font-size:13px;line-height:1.6;color:#94a3b8;margin:0;">若非本人操作，请忽略本邮件，您的密码不会变更。</p>
+    </div>
+</body>
+</html>
+  
+[2026-08-09 13:04:12] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: 2864225@qq.com
+Subject: =?utf-8?Q?=E3=80=90=E8=BF=BD=E6=A2=A6=E3=80=91?=
+ =?utf-8?Q?=E6=82=A8=E7=9A=84=E5=AF=86=E7=A0=81?=
+ =?utf-8?Q?=E9=87=8D=E7=BD=AE=E9=AA=8C=E8=AF=81=E7=A0=81?=
+MIME-Version: 1.0
+Date: Sun, 09 Aug 2026 13:04:12 +0000
+Message-ID: <ccc69c33c73a130d5bff1171490a9030@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>密码重置验证码</title>
+</head>
+<body style="margin:0;padding:24px;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#0f172a;">
+    <div style="max-width:460px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px;box-shadow:0 8px 24px rgba(15,23,42,.08);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+            <div style="width:36px;height:36px;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;font-size:18px;display:flex;align-items:center;justify-content:center;">追</div>
+            <span style="font-size:18px;font-weight:700;color:#0f172a;">追梦 · 短视频智能生产平台</span>
+        </div>
+        <p style="font-size:15px;line-height:1.6;color:#334155;margin:0 0 16px;">您好，我们收到了您的密码重置请求。请使用以下 6 位验证码完成重置（5 分钟内有效）：</p>
+        <div style="text-align:center;font-size:32px;font-weight:800;letter-spacing:8px;color:#4f46e5;background:#eef2ff;border-radius:12px;padding:18px 0;margin:0 0 16px;">713275</div>
+        <p style="font-size:13px;line-height:1.6;color:#94a3b8;margin:0;">若非本人操作，请忽略本邮件，您的密码不会变更。</p>
+    </div>
+</body>
+</html>
+  
+[2026-08-10 02:55:50] production.ERROR: Unexpected end of input {"exception":"[object] (InvalidArgumentException(code: 0): Unexpected end of input at /var/www/vendor/psy/psysh/src/Shell.php:1516)
+[stacktrace]
+#0 /var/www/vendor/psy/psysh/src/Shell.php(2215): Psy\\Shell->setCode('$us=\\\\App\\\\Models...', true)
+#1 /var/www/vendor/laravel/tinker/src/Console/TinkerCommand.php(77): Psy\\Shell->execute('$us=\\\\App\\\\Models...')
+#2 /var/www/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#3 /var/www/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate\\Container\\BoundMethod::{closure:Illuminate\\Container\\BoundMethod::call():35}()
+#4 /var/www/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(95): Illuminate\\Container\\Util::unwrapIfClosure(Object(Closure))
+#5 /var/www/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod(Object(Illuminate\\Foundation\\Application), Array, Object(Closure))
+#6 /var/www/vendor/laravel/framework/src/Illuminate/Container/Container.php(696): Illuminate\\Container\\BoundMethod::call(Object(Illuminate\\Foundation\\Application), Array, Array, NULL)
+#7 /var/www/vendor/laravel/framework/src/Illuminate/Console/Command.php(213): Illuminate\\Container\\Container->call(Array)
+#8 /var/www/vendor/symfony/console/Command/Command.php(341): Illuminate\\Console\\Command->execute(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#9 /var/www/vendor/laravel/framework/src/Illuminate/Console/Command.php(182): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#10 /var/www/vendor/symfony/console/Application.php(1117): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#11 /var/www/vendor/symfony/console/Application.php(356): Symfony\\Component\\Console\\Application->doRunCommand(Object(Laravel\\Tinker\\Console\\TinkerCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#12 /var/www/vendor/symfony/console/Application.php(195): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#13 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(198): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#14 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1235): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#15 /var/www/artisan(13): Illuminate\\Foundation\\Application->handleCommand(Object(Symfony\\Component\\Console\\Input\\ArgvInput))
+#16 {main}
+"} 
+[2026-08-10 03:15:06] production.ERROR: Undefined array key "job_id" {"userId":1,"exception":"[object] (ErrorException(code: 0): Undefined array key \"job_id\" at /var/www/app/Http/Controllers/VideoController.php:420)
+[stacktrace]
+#0 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(258): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleError(2, 'Undefined array...', '/var/www/app/Ht...', 420)
+#1 /var/www/app/Http/Controllers/VideoController.php(420): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->{closure:Illuminate\\Foundation\\Bootstrap\\HandleExceptions::forwardsTo():257}(2, 'Undefined array...', '/var/www/app/Ht...', 420)
+#2 /var/www/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(47): App\\Http\\Controllers\\VideoController->batchProgress(Object(Illuminate\\Http\\Request), '00763b34-a820-4...')
+#3 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Route.php(266): Illuminate\\Routing\\ControllerDispatcher->dispatch(Object(Illuminate\\Routing\\Route), Object(App\\Http\\Controllers\\VideoController), 'batchProgress')
+#4 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Route.php(212): Illuminate\\Routing\\Route->runController()
+#5 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(808): Illuminate\\Routing\\Route->run()
+#6 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(170): Illuminate\\Routing\\Router->{closure:Illuminate\\Routing\\Router::runRouteWithinStack():807}(Object(Illuminate\\Http\\Request))
+#7 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(51): Illuminate\\Pipeline\\Pipeline->{closure:Illuminate\\Pipeline\\Pipeline::prepareDestination():168}(Object(Illuminate\\Http\\Request))
+#8 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#9 /var/www/vendor/laravel/framework/src/Illuminate/Auth/Middleware/Authenticate.php(64): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#10 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Auth\\Middleware\\Authenticate->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#11 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/VerifyCsrfToken.php(88): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#12 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\VerifyCsrfToken->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#13 /var/www/vendor/laravel/framework/src/Illuminate/View/Middleware/ShareErrorsFromSession.php(49): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#14 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\View\\Middleware\\ShareErrorsFromSession->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#15 /var/www/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(121): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#16 /var/www/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(64): Illuminate\\Session\\Middleware\\StartSession->handleStatefulRequest(Object(Illuminate\\Http\\Request), Object(Illuminate\\Session\\Store), Object(Closure))
+#17 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Session\\Middleware\\StartSession->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#18 /var/www/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/AddQueuedCookiesToResponse.php(37): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#19 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Cookie\\Middleware\\AddQueuedCookiesToResponse->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#20 /var/www/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/EncryptCookies.php(75): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#21 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Cookie\\Middleware\\EncryptCookies->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#22 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(127): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#23 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(807): Illuminate\\Pipeline\\Pipeline->then(Object(Closure))
+#24 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(786): Illuminate\\Routing\\Router->runRouteWithinStack(Object(Illuminate\\Routing\\Route), Object(Illuminate\\Http\\Request))
+#25 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(750): Illuminate\\Routing\\Router->runRoute(Object(Illuminate\\Http\\Request), Object(Illuminate\\Routing\\Route))
+#26 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(739): Illuminate\\Routing\\Router->dispatchToRoute(Object(Illuminate\\Http\\Request))
+#27 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(201): Illuminate\\Routing\\Router->dispatch(Object(Illuminate\\Http\\Request))
+#28 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(170): Illuminate\\Foundation\\Http\\Kernel->{closure:Illuminate\\Foundation\\Http\\Kernel::dispatchToRouter():198}(Object(Illuminate\\Http\\Request))
+#29 /var/www/vendor/livewire/livewire/src/Features/SupportDisablingBackButtonCache/DisableBackButtonCacheMiddleware.php(19): Illuminate\\Pipeline\\Pipeline->{closure:Illuminate\\Pipeline\\Pipeline::prepareDestination():168}(Object(Illuminate\\Http\\Request))
+#30 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Livewire\\Features\\SupportDisablingBackButtonCache\\DisableBackButtonCacheMiddleware->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#31 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#32 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#33 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#34 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#35 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php(51): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#36 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#37 /var/www/vendor/laravel/framework/src/Illuminate/Http/Middleware/ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#38 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Http\\Middleware\\ValidatePostSize->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#39 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/PreventRequestsDuringMaintenance.php(110): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#40 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#41 /var/www/vendor/laravel/framework/src/Illuminate/Http/Middleware/HandleCors.php(49): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#42 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Http\\Middleware\\HandleCors->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#43 /var/www/vendor/laravel/framework/src/Illuminate/Http/Middleware/TrustProxies.php(58): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#44 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Http\\Middleware\\TrustProxies->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#45 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/InvokeDeferredCallbacks.php(22): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#46 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\InvokeDeferredCallbacks->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#47 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(127): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#48 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(176): Illuminate\\Pipeline\\Pipeline->then(Object(Closure))
+#49 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(145): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter(Object(Illuminate\\Http\\Request))
+#50 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1220): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#51 /var/www/public/index.php(17): Illuminate\\Foundation\\Application->handleRequest(Object(Illuminate\\Http\\Request))
+#52 {main}
+"} 
+[2026-08-10 03:15:11] production.ERROR: Undefined array key "job_id" {"userId":1,"exception":"[object] (ErrorException(code: 0): Undefined array key \"job_id\" at /var/www/app/Http/Controllers/VideoController.php:420)
+[stacktrace]
+#0 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(258): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleError(2, 'Undefined array...', '/var/www/app/Ht...', 420)
+#1 /var/www/app/Http/Controllers/VideoController.php(420): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->{closure:Illuminate\\Foundation\\Bootstrap\\HandleExceptions::forwardsTo():257}(2, 'Undefined array...', '/var/www/app/Ht...', 420)
+#2 /var/www/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(47): App\\Http\\Controllers\\VideoController->batchProgress(Object(Illuminate\\Http\\Request), '00763b34-a820-4...')
+#3 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Route.php(266): Illuminate\\Routing\\ControllerDispatcher->dispatch(Object(Illuminate\\Routing\\Route), Object(App\\Http\\Controllers\\VideoController), 'batchProgress')
+#4 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Route.php(212): Illuminate\\Routing\\Route->runController()
+#5 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(808): Illuminate\\Routing\\Route->run()
+#6 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(170): Illuminate\\Routing\\Router->{closure:Illuminate\\Routing\\Router::runRouteWithinStack():807}(Object(Illuminate\\Http\\Request))
+#7 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(51): Illuminate\\Pipeline\\Pipeline->{closure:Illuminate\\Pipeline\\Pipeline::prepareDestination():168}(Object(Illuminate\\Http\\Request))
+#8 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#9 /var/www/vendor/laravel/framework/src/Illuminate/Auth/Middleware/Authenticate.php(64): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#10 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Auth\\Middleware\\Authenticate->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#11 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/VerifyCsrfToken.php(88): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#12 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\VerifyCsrfToken->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#13 /var/www/vendor/laravel/framework/src/Illuminate/View/Middleware/ShareErrorsFromSession.php(49): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#14 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\View\\Middleware\\ShareErrorsFromSession->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#15 /var/www/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(121): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#16 /var/www/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(64): Illuminate\\Session\\Middleware\\StartSession->handleStatefulRequest(Object(Illuminate\\Http\\Request), Object(Illuminate\\Session\\Store), Object(Closure))
+#17 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Session\\Middleware\\StartSession->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#18 /var/www/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/AddQueuedCookiesToResponse.php(37): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#19 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Cookie\\Middleware\\AddQueuedCookiesToResponse->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#20 /var/www/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/EncryptCookies.php(75): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#21 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Cookie\\Middleware\\EncryptCookies->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#22 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(127): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#23 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(807): Illuminate\\Pipeline\\Pipeline->then(Object(Closure))
+#24 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(786): Illuminate\\Routing\\Router->runRouteWithinStack(Object(Illuminate\\Routing\\Route), Object(Illuminate\\Http\\Request))
+#25 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(750): Illuminate\\Routing\\Router->runRoute(Object(Illuminate\\Http\\Request), Object(Illuminate\\Routing\\Route))
+#26 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(739): Illuminate\\Routing\\Router->dispatchToRoute(Object(Illuminate\\Http\\Request))
+#27 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(201): Illuminate\\Routing\\Router->dispatch(Object(Illuminate\\Http\\Request))
+#28 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(170): Illuminate\\Foundation\\Http\\Kernel->{closure:Illuminate\\Foundation\\Http\\Kernel::dispatchToRouter():198}(Object(Illuminate\\Http\\Request))
+#29 /var/www/vendor/livewire/livewire/src/Features/SupportDisablingBackButtonCache/DisableBackButtonCacheMiddleware.php(19): Illuminate\\Pipeline\\Pipeline->{closure:Illuminate\\Pipeline\\Pipeline::prepareDestination():168}(Object(Illuminate\\Http\\Request))
+#30 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Livewire\\Features\\SupportDisablingBackButtonCache\\DisableBackButtonCacheMiddleware->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#31 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#32 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#33 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#34 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#35 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php(51): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#36 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#37 /var/www/vendor/laravel/framework/src/Illuminate/Http/Middleware/ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#38 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Http\\Middleware\\ValidatePostSize->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#39 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/PreventRequestsDuringMaintenance.php(110): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#40 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#41 /var/www/vendor/laravel/framework/src/Illuminate/Http/Middleware/HandleCors.php(49): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#42 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Http\\Middleware\\HandleCors->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#43 /var/www/vendor/laravel/framework/src/Illuminate/Http/Middleware/TrustProxies.php(58): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#44 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Http\\Middleware\\TrustProxies->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#45 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/InvokeDeferredCallbacks.php(22): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#46 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\InvokeDeferredCallbacks->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#47 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(127): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#48 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(176): Illuminate\\Pipeline\\Pipeline->then(Object(Closure))
+#49 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(145): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter(Object(Illuminate\\Http\\Request))
+#50 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1220): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#51 /var/www/public/index.php(17): Illuminate\\Foundation\\Application->handleRequest(Object(Illuminate\\Http\\Request))
+#52 {main}
+"} 
+[2026-08-10 03:27:40] production.ERROR: Undefined array key "job_id" {"userId":1,"exception":"[object] (ErrorException(code: 0): Undefined array key \"job_id\" at /var/www/app/Http/Controllers/VideoController.php:420)
+[stacktrace]
+#0 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(258): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleError(2, 'Undefined array...', '/var/www/app/Ht...', 420)
+#1 /var/www/app/Http/Controllers/VideoController.php(420): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->{closure:Illuminate\\Foundation\\Bootstrap\\HandleExceptions::forwardsTo():257}(2, 'Undefined array...', '/var/www/app/Ht...', 420)
+#2 /var/www/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(47): App\\Http\\Controllers\\VideoController->batchProgress(Object(Illuminate\\Http\\Request), 'fe9ab075-7036-4...')
+#3 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Route.php(266): Illuminate\\Routing\\ControllerDispatcher->dispatch(Object(Illuminate\\Routing\\Route), Object(App\\Http\\Controllers\\VideoController), 'batchProgress')
+#4 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Route.php(212): Illuminate\\Routing\\Route->runController()
+#5 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(808): Illuminate\\Routing\\Route->run()
+#6 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(170): Illuminate\\Routing\\Router->{closure:Illuminate\\Routing\\Router::runRouteWithinStack():807}(Object(Illuminate\\Http\\Request))
+#7 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(51): Illuminate\\Pipeline\\Pipeline->{closure:Illuminate\\Pipeline\\Pipeline::prepareDestination():168}(Object(Illuminate\\Http\\Request))
+#8 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#9 /var/www/vendor/laravel/framework/src/Illuminate/Auth/Middleware/Authenticate.php(64): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#10 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Auth\\Middleware\\Authenticate->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#11 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/VerifyCsrfToken.php(88): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#12 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\VerifyCsrfToken->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#13 /var/www/vendor/laravel/framework/src/Illuminate/View/Middleware/ShareErrorsFromSession.php(49): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#14 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\View\\Middleware\\ShareErrorsFromSession->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#15 /var/www/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(121): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#16 /var/www/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(64): Illuminate\\Session\\Middleware\\StartSession->handleStatefulRequest(Object(Illuminate\\Http\\Request), Object(Illuminate\\Session\\Store), Object(Closure))
+#17 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Session\\Middleware\\StartSession->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#18 /var/www/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/AddQueuedCookiesToResponse.php(37): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#19 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Cookie\\Middleware\\AddQueuedCookiesToResponse->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#20 /var/www/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/EncryptCookies.php(75): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#21 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Cookie\\Middleware\\EncryptCookies->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#22 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(127): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#23 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(807): Illuminate\\Pipeline\\Pipeline->then(Object(Closure))
+#24 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(786): Illuminate\\Routing\\Router->runRouteWithinStack(Object(Illuminate\\Routing\\Route), Object(Illuminate\\Http\\Request))
+#25 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(750): Illuminate\\Routing\\Router->runRoute(Object(Illuminate\\Http\\Request), Object(Illuminate\\Routing\\Route))
+#26 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(739): Illuminate\\Routing\\Router->dispatchToRoute(Object(Illuminate\\Http\\Request))
+#27 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(201): Illuminate\\Routing\\Router->dispatch(Object(Illuminate\\Http\\Request))
+#28 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(170): Illuminate\\Foundation\\Http\\Kernel->{closure:Illuminate\\Foundation\\Http\\Kernel::dispatchToRouter():198}(Object(Illuminate\\Http\\Request))
+#29 /var/www/vendor/livewire/livewire/src/Features/SupportDisablingBackButtonCache/DisableBackButtonCacheMiddleware.php(19): Illuminate\\Pipeline\\Pipeline->{closure:Illuminate\\Pipeline\\Pipeline::prepareDestination():168}(Object(Illuminate\\Http\\Request))
+#30 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Livewire\\Features\\SupportDisablingBackButtonCache\\DisableBackButtonCacheMiddleware->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#31 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#32 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#33 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#34 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#35 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php(51): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#36 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#37 /var/www/vendor/laravel/framework/src/Illuminate/Http/Middleware/ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#38 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Http\\Middleware\\ValidatePostSize->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#39 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/PreventRequestsDuringMaintenance.php(110): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#40 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#41 /var/www/vendor/laravel/framework/src/Illuminate/Http/Middleware/HandleCors.php(49): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#42 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Http\\Middleware\\HandleCors->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#43 /var/www/vendor/laravel/framework/src/Illuminate/Http/Middleware/TrustProxies.php(58): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#44 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Http\\Middleware\\TrustProxies->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#45 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/InvokeDeferredCallbacks.php(22): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#46 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\InvokeDeferredCallbacks->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#47 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(127): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#48 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(176): Illuminate\\Pipeline\\Pipeline->then(Object(Closure))
+#49 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(145): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter(Object(Illuminate\\Http\\Request))
+#50 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1220): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#51 /var/www/public/index.php(17): Illuminate\\Foundation\\Application->handleRequest(Object(Illuminate\\Http\\Request))
+#52 {main}
+"} 
+[2026-08-10 03:27:48] production.ERROR: Undefined array key "job_id" {"userId":1,"exception":"[object] (ErrorException(code: 0): Undefined array key \"job_id\" at /var/www/app/Http/Controllers/VideoController.php:420)
+[stacktrace]
+#0 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(258): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleError(2, 'Undefined array...', '/var/www/app/Ht...', 420)
+#1 /var/www/app/Http/Controllers/VideoController.php(420): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->{closure:Illuminate\\Foundation\\Bootstrap\\HandleExceptions::forwardsTo():257}(2, 'Undefined array...', '/var/www/app/Ht...', 420)
+#2 /var/www/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(47): App\\Http\\Controllers\\VideoController->batchProgress(Object(Illuminate\\Http\\Request), 'fe9ab075-7036-4...')
+#3 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Route.php(266): Illuminate\\Routing\\ControllerDispatcher->dispatch(Object(Illuminate\\Routing\\Route), Object(App\\Http\\Controllers\\VideoController), 'batchProgress')
+#4 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Route.php(212): Illuminate\\Routing\\Route->runController()
+#5 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(808): Illuminate\\Routing\\Route->run()
+#6 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(170): Illuminate\\Routing\\Router->{closure:Illuminate\\Routing\\Router::runRouteWithinStack():807}(Object(Illuminate\\Http\\Request))
+#7 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(51): Illuminate\\Pipeline\\Pipeline->{closure:Illuminate\\Pipeline\\Pipeline::prepareDestination():168}(Object(Illuminate\\Http\\Request))
+#8 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#9 /var/www/vendor/laravel/framework/src/Illuminate/Auth/Middleware/Authenticate.php(64): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#10 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Auth\\Middleware\\Authenticate->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#11 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/VerifyCsrfToken.php(88): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#12 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\VerifyCsrfToken->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#13 /var/www/vendor/laravel/framework/src/Illuminate/View/Middleware/ShareErrorsFromSession.php(49): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#14 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\View\\Middleware\\ShareErrorsFromSession->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#15 /var/www/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(121): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#16 /var/www/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(64): Illuminate\\Session\\Middleware\\StartSession->handleStatefulRequest(Object(Illuminate\\Http\\Request), Object(Illuminate\\Session\\Store), Object(Closure))
+#17 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Session\\Middleware\\StartSession->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#18 /var/www/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/AddQueuedCookiesToResponse.php(37): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#19 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Cookie\\Middleware\\AddQueuedCookiesToResponse->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#20 /var/www/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/EncryptCookies.php(75): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#21 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Cookie\\Middleware\\EncryptCookies->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#22 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(127): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#23 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(807): Illuminate\\Pipeline\\Pipeline->then(Object(Closure))
+#24 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(786): Illuminate\\Routing\\Router->runRouteWithinStack(Object(Illuminate\\Routing\\Route), Object(Illuminate\\Http\\Request))
+#25 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(750): Illuminate\\Routing\\Router->runRoute(Object(Illuminate\\Http\\Request), Object(Illuminate\\Routing\\Route))
+#26 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(739): Illuminate\\Routing\\Router->dispatchToRoute(Object(Illuminate\\Http\\Request))
+#27 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(201): Illuminate\\Routing\\Router->dispatch(Object(Illuminate\\Http\\Request))
+#28 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(170): Illuminate\\Foundation\\Http\\Kernel->{closure:Illuminate\\Foundation\\Http\\Kernel::dispatchToRouter():198}(Object(Illuminate\\Http\\Request))
+#29 /var/www/vendor/livewire/livewire/src/Features/SupportDisablingBackButtonCache/DisableBackButtonCacheMiddleware.php(19): Illuminate\\Pipeline\\Pipeline->{closure:Illuminate\\Pipeline\\Pipeline::prepareDestination():168}(Object(Illuminate\\Http\\Request))
+#30 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Livewire\\Features\\SupportDisablingBackButtonCache\\DisableBackButtonCacheMiddleware->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#31 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#32 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#33 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#34 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#35 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php(51): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#36 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#37 /var/www/vendor/laravel/framework/src/Illuminate/Http/Middleware/ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#38 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Http\\Middleware\\ValidatePostSize->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#39 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/PreventRequestsDuringMaintenance.php(110): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#40 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#41 /var/www/vendor/laravel/framework/src/Illuminate/Http/Middleware/HandleCors.php(49): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#42 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Http\\Middleware\\HandleCors->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#43 /var/www/vendor/laravel/framework/src/Illuminate/Http/Middleware/TrustProxies.php(58): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#44 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Http\\Middleware\\TrustProxies->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#45 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/InvokeDeferredCallbacks.php(22): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#46 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(209): Illuminate\\Foundation\\Http\\Middleware\\InvokeDeferredCallbacks->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#47 /var/www/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(127): Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():184}:185}(Object(Illuminate\\Http\\Request))
+#48 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(176): Illuminate\\Pipeline\\Pipeline->then(Object(Closure))
+#49 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(145): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter(Object(Illuminate\\Http\\Request))
+#50 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1220): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#51 /var/www/public/index.php(17): Illuminate\\Foundation\\Application->handleRequest(Object(Illuminate\\Http\\Request))
+#52 {main}
+"} 
+[2026-08-10 03:58:00] production.ERROR: syntax error, unexpected token "=", expecting "->" or "?->" or "[" {"exception":"[object] (ParseError(code: 0): syntax error, unexpected token \"=\", expecting \"->\" or \"?->\" or \"[\" at /var/www/app/Console/Commands/SyncVideoJobs.php:94)
+[stacktrace]
+#0 /var/www/vendor/composer/ClassLoader.php(427): {closure:Composer\\Autoload\\ClassLoader::initializeIncludeClosure():575}('/var/www/vendor...')
+#1 [internal function]: Composer\\Autoload\\ClassLoader->loadClass('App\\\\Console\\\\Com...')
+#2 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(373): is_subclass_of('App\\\\Console\\\\Com...', 'Illuminate\\\\Cons...')
+#3 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(498): Illuminate\\Foundation\\Console\\Kernel->load(Array)
+#4 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(483): Illuminate\\Foundation\\Console\\Kernel->discoverCommands()
+#5 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(196): Illuminate\\Foundation\\Console\\Kernel->bootstrap()
+#6 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1235): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#7 /var/www/artisan(13): Illuminate\\Foundation\\Application->handleCommand(Object(Symfony\\Component\\Console\\Input\\ArgvInput))
+#8 {main}
+"} 
+[2026-08-10 04:00:07] production.ERROR: syntax error, unexpected token "=", expecting "->" or "?->" or "[" {"exception":"[object] (ParseError(code: 0): syntax error, unexpected token \"=\", expecting \"->\" or \"?->\" or \"[\" at /var/www/app/Console/Commands/SyncVideoJobs.php:94)
+[stacktrace]
+#0 /var/www/vendor/composer/ClassLoader.php(427): {closure:Composer\\Autoload\\ClassLoader::initializeIncludeClosure():575}('/var/www/vendor...')
+#1 [internal function]: Composer\\Autoload\\ClassLoader->loadClass('App\\\\Console\\\\Com...')
+#2 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(373): is_subclass_of('App\\\\Console\\\\Com...', 'Illuminate\\\\Cons...')
+#3 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(498): Illuminate\\Foundation\\Console\\Kernel->load(Array)
+#4 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(483): Illuminate\\Foundation\\Console\\Kernel->discoverCommands()
+#5 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(196): Illuminate\\Foundation\\Console\\Kernel->bootstrap()
+#6 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1235): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#7 /var/www/artisan(13): Illuminate\\Foundation\\Application->handleCommand(Object(Symfony\\Component\\Console\\Input\\ArgvInput))
+#8 {main}
+"} 
+[2026-08-10 04:00:15] production.ERROR: syntax error, unexpected token "=", expecting "->" or "?->" or "[" {"exception":"[object] (ParseError(code: 0): syntax error, unexpected token \"=\", expecting \"->\" or \"?->\" or \"[\" at /var/www/app/Console/Commands/SyncVideoJobs.php:94)
+[stacktrace]
+#0 /var/www/vendor/composer/ClassLoader.php(427): {closure:Composer\\Autoload\\ClassLoader::initializeIncludeClosure():575}('/var/www/vendor...')
+#1 [internal function]: Composer\\Autoload\\ClassLoader->loadClass('App\\\\Console\\\\Com...')
+#2 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(373): is_subclass_of('App\\\\Console\\\\Com...', 'Illuminate\\\\Cons...')
+#3 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(498): Illuminate\\Foundation\\Console\\Kernel->load(Array)
+#4 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(483): Illuminate\\Foundation\\Console\\Kernel->discoverCommands()
+#5 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(196): Illuminate\\Foundation\\Console\\Kernel->bootstrap()
+#6 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1235): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#7 /var/www/artisan(13): Illuminate\\Foundation\\Application->handleCommand(Object(Symfony\\Component\\Console\\Input\\ArgvInput))
+#8 {main}
+"} 
+[2026-08-11 01:00:25] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: tt-1785990143@t.com
+Subject: =?utf-8?Q?=E6=82=A8=E7=9A=84=E8=BF=BD=E6=A2=A6?=
+ =?utf-8?Q?=E5=85=8D=E8=B4=B9=E8=AF=95=E7=94=A8?=
+ =?utf-8?Q?=E5=8D=B3=E5=B0=86=E7=BB=93=E6=9D=9F?=
+MIME-Version: 1.0
+Date: Tue, 11 Aug 2026 01:00:24 +0000
+Message-ID: <485c7bb498e8fa4a649e1e173baf716b@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>试用即将结束</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:20px;font-weight:700;color:#0f172a;">免费试用即将结束</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「tinkertest」的免费试用还剩
+        <strong style="color:#d97706;">2 天</strong>，
+        将于 <strong style="color:#0f172a;">2026年8月13日 12:22（北京时间）</strong> 正式结束。
+        试用期结束后若未升级，将无法继续生成视频。
+      </p>
+      <p style="font-size:14px;line-height:1.7;color:#475569;">
+        升级专业版 / 企业版即可解锁更高额度与不限量出片能力，支撑您的短视频矩阵持续产出。
+      </p>
+      <a href="https://zmgen.cn/admin/billing"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        立即升级
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-11 01:00:26] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: zhuitest888@test.com
+Subject: =?utf-8?Q?=E6=82=A8=E7=9A=84=E8=BF=BD=E6=A2=A6?=
+ =?utf-8?Q?=E5=85=8D=E8=B4=B9=E8=AF=95=E7=94=A8?=
+ =?utf-8?Q?=E5=8D=B3=E5=B0=86=E7=BB=93=E6=9D=9F?=
+MIME-Version: 1.0
+Date: Tue, 11 Aug 2026 01:00:26 +0000
+Message-ID: <8682cf30902671b33d694d140064fcf4@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>试用即将结束</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:20px;font-weight:700;color:#0f172a;">免费试用即将结束</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「追梦科技」的免费试用还剩
+        <strong style="color:#d97706;">2 天</strong>，
+        将于 <strong style="color:#0f172a;">2026年8月13日 12:28（北京时间）</strong> 正式结束。
+        试用期结束后若未升级，将无法继续生成视频。
+      </p>
+      <p style="font-size:14px;line-height:1.7;color:#475569;">
+        升级专业版 / 企业版即可解锁更高额度与不限量出片能力，支撑您的短视频矩阵持续产出。
+      </p>
+      <a href="https://zmgen.cn/admin/billing"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        立即升级
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-11 01:00:26] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: newtenant1785990666@test.com
+Subject: =?utf-8?Q?=E6=82=A8=E7=9A=84=E8=BF=BD=E6=A2=A6?=
+ =?utf-8?Q?=E5=85=8D=E8=B4=B9=E8=AF=95=E7=94=A8?=
+ =?utf-8?Q?=E5=8D=B3=E5=B0=86=E7=BB=93=E6=9D=9F?=
+MIME-Version: 1.0
+Date: Tue, 11 Aug 2026 01:00:26 +0000
+Message-ID: <01b214aecb393bac5854ccafbe2c7d5b@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>试用即将结束</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:20px;font-weight:700;color:#0f172a;">免费试用即将结束</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「追梦科技」的免费试用还剩
+        <strong style="color:#d97706;">2 天</strong>，
+        将于 <strong style="color:#0f172a;">2026年8月13日 12:31（北京时间）</strong> 正式结束。
+        试用期结束后若未升级，将无法继续生成视频。
+      </p>
+      <p style="font-size:14px;line-height:1.7;color:#475569;">
+        升级专业版 / 企业版即可解锁更高额度与不限量出片能力，支撑您的短视频矩阵持续产出。
+      </p>
+      <a href="https://zmgen.cn/admin/billing"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        立即升级
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-11 01:00:26] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: newtenant1785990700@test.com
+Subject: =?utf-8?Q?=E6=82=A8=E7=9A=84=E8=BF=BD=E6=A2=A6?=
+ =?utf-8?Q?=E5=85=8D=E8=B4=B9=E8=AF=95=E7=94=A8?=
+ =?utf-8?Q?=E5=8D=B3=E5=B0=86=E7=BB=93=E6=9D=9F?=
+MIME-Version: 1.0
+Date: Tue, 11 Aug 2026 01:00:26 +0000
+Message-ID: <de59da95b05cfb934876a55a7589aeac@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>试用即将结束</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:20px;font-weight:700;color:#0f172a;">免费试用即将结束</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「追梦科技」的免费试用还剩
+        <strong style="color:#d97706;">2 天</strong>，
+        将于 <strong style="color:#0f172a;">2026年8月13日 12:31（北京时间）</strong> 正式结束。
+        试用期结束后若未升级，将无法继续生成视频。
+      </p>
+      <p style="font-size:14px;line-height:1.7;color:#475569;">
+        升级专业版 / 企业版即可解锁更高额度与不限量出片能力，支撑您的短视频矩阵持续产出。
+      </p>
+      <a href="https://zmgen.cn/admin/billing"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        立即升级
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-11 01:00:26] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: 28642235@qq.com
+Subject: =?utf-8?Q?=E6=82=A8=E7=9A=84=E8=BF=BD=E6=A2=A6?=
+ =?utf-8?Q?=E5=85=8D=E8=B4=B9=E8=AF=95=E7=94=A8?=
+ =?utf-8?Q?=E5=8D=B3=E5=B0=86=E7=BB=93=E6=9D=9F?=
+MIME-Version: 1.0
+Date: Tue, 11 Aug 2026 01:00:26 +0000
+Message-ID: <f2a46e09e07677dd32131b94bdc5adcf@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>试用即将结束</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:20px;font-weight:700;color:#0f172a;">免费试用即将结束</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「追梦科技」的免费试用还剩
+        <strong style="color:#d97706;">2 天</strong>，
+        将于 <strong style="color:#0f172a;">2026年8月13日 12:55（北京时间）</strong> 正式结束。
+        试用期结束后若未升级，将无法继续生成视频。
+      </p>
+      <p style="font-size:14px;line-height:1.7;color:#475569;">
+        升级专业版 / 企业版即可解锁更高额度与不限量出片能力，支撑您的短视频矩阵持续产出。
+      </p>
+      <a href="https://zmgen.cn/admin/billing"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        立即升级
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
