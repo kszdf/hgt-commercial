@@ -824,3 +824,237 @@ Content-Transfer-Encoding: quoted-printable
 </body>
 </html>
   
+[2026-08-12 01:00:20] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: tt-1785990143@t.com
+Subject: =?utf-8?Q?=E6=82=A8=E7=9A=84=E8=BF=BD=E6=A2=A6?=
+ =?utf-8?Q?=E5=85=8D=E8=B4=B9=E8=AF=95=E7=94=A8?=
+ =?utf-8?Q?=E5=8D=B3=E5=B0=86=E7=BB=93=E6=9D=9F?=
+MIME-Version: 1.0
+Date: Wed, 12 Aug 2026 01:00:20 +0000
+Message-ID: <b2098eb902185d840d9c94a31ba03369@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>试用即将结束</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:20px;font-weight:700;color:#0f172a;">免费试用即将结束</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「tinkertest」的免费试用还剩
+        <strong style="color:#d97706;">1 天</strong>，
+        将于 <strong style="color:#0f172a;">2026年8月13日 12:22（北京时间）</strong> 正式结束。
+        试用期结束后若未升级，将无法继续生成视频。
+      </p>
+      <p style="font-size:14px;line-height:1.7;color:#475569;">
+        升级专业版 / 企业版即可解锁更高额度与不限量出片能力，支撑您的短视频矩阵持续产出。
+      </p>
+      <a href="https://zmgen.cn/admin/billing"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        立即升级
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-12 01:00:21] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: zhuitest888@test.com
+Subject: =?utf-8?Q?=E6=82=A8=E7=9A=84=E8=BF=BD=E6=A2=A6?=
+ =?utf-8?Q?=E5=85=8D=E8=B4=B9=E8=AF=95=E7=94=A8?=
+ =?utf-8?Q?=E5=8D=B3=E5=B0=86=E7=BB=93=E6=9D=9F?=
+MIME-Version: 1.0
+Date: Wed, 12 Aug 2026 01:00:21 +0000
+Message-ID: <6a5a13a855c98aa3e83dcc6aa46ab2f8@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>试用即将结束</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:20px;font-weight:700;color:#0f172a;">免费试用即将结束</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「追梦科技」的免费试用还剩
+        <strong style="color:#d97706;">1 天</strong>，
+        将于 <strong style="color:#0f172a;">2026年8月13日 12:28（北京时间）</strong> 正式结束。
+        试用期结束后若未升级，将无法继续生成视频。
+      </p>
+      <p style="font-size:14px;line-height:1.7;color:#475569;">
+        升级专业版 / 企业版即可解锁更高额度与不限量出片能力，支撑您的短视频矩阵持续产出。
+      </p>
+      <a href="https://zmgen.cn/admin/billing"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        立即升级
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-12 01:00:21] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: newtenant1785990666@test.com
+Subject: =?utf-8?Q?=E6=82=A8=E7=9A=84=E8=BF=BD=E6=A2=A6?=
+ =?utf-8?Q?=E5=85=8D=E8=B4=B9=E8=AF=95=E7=94=A8?=
+ =?utf-8?Q?=E5=8D=B3=E5=B0=86=E7=BB=93=E6=9D=9F?=
+MIME-Version: 1.0
+Date: Wed, 12 Aug 2026 01:00:21 +0000
+Message-ID: <d7ecba21c8fccd26792aa141689131a8@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>试用即将结束</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:20px;font-weight:700;color:#0f172a;">免费试用即将结束</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「追梦科技」的免费试用还剩
+        <strong style="color:#d97706;">1 天</strong>，
+        将于 <strong style="color:#0f172a;">2026年8月13日 12:31（北京时间）</strong> 正式结束。
+        试用期结束后若未升级，将无法继续生成视频。
+      </p>
+      <p style="font-size:14px;line-height:1.7;color:#475569;">
+        升级专业版 / 企业版即可解锁更高额度与不限量出片能力，支撑您的短视频矩阵持续产出。
+      </p>
+      <a href="https://zmgen.cn/admin/billing"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        立即升级
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-12 01:00:21] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: newtenant1785990700@test.com
+Subject: =?utf-8?Q?=E6=82=A8=E7=9A=84=E8=BF=BD=E6=A2=A6?=
+ =?utf-8?Q?=E5=85=8D=E8=B4=B9=E8=AF=95=E7=94=A8?=
+ =?utf-8?Q?=E5=8D=B3=E5=B0=86=E7=BB=93=E6=9D=9F?=
+MIME-Version: 1.0
+Date: Wed, 12 Aug 2026 01:00:21 +0000
+Message-ID: <9269acaee50278737c45b3d0fee3487b@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>试用即将结束</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:20px;font-weight:700;color:#0f172a;">免费试用即将结束</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「追梦科技」的免费试用还剩
+        <strong style="color:#d97706;">1 天</strong>，
+        将于 <strong style="color:#0f172a;">2026年8月13日 12:31（北京时间）</strong> 正式结束。
+        试用期结束后若未升级，将无法继续生成视频。
+      </p>
+      <p style="font-size:14px;line-height:1.7;color:#475569;">
+        升级专业版 / 企业版即可解锁更高额度与不限量出片能力，支撑您的短视频矩阵持续产出。
+      </p>
+      <a href="https://zmgen.cn/admin/billing"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        立即升级
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-12 01:00:21] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: 28642235@qq.com
+Subject: =?utf-8?Q?=E6=82=A8=E7=9A=84=E8=BF=BD=E6=A2=A6?=
+ =?utf-8?Q?=E5=85=8D=E8=B4=B9=E8=AF=95=E7=94=A8?=
+ =?utf-8?Q?=E5=8D=B3=E5=B0=86=E7=BB=93=E6=9D=9F?=
+MIME-Version: 1.0
+Date: Wed, 12 Aug 2026 01:00:21 +0000
+Message-ID: <05f241ea2fc68e889e0c26fdab7f1488@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>试用即将结束</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:20px;font-weight:700;color:#0f172a;">免费试用即将结束</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「追梦科技」的免费试用还剩
+        <strong style="color:#d97706;">1 天</strong>，
+        将于 <strong style="color:#0f172a;">2026年8月13日 12:55（北京时间）</strong> 正式结束。
+        试用期结束后若未升级，将无法继续生成视频。
+      </p>
+      <p style="font-size:14px;line-height:1.7;color:#475569;">
+        升级专业版 / 企业版即可解锁更高额度与不限量出片能力，支撑您的短视频矩阵持续产出。
+      </p>
+      <a href="https://zmgen.cn/admin/billing"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        立即升级
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-12 01:00:21] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: 3669372043@qq.com
+Subject: =?utf-8?Q?=E6=82=A8=E7=9A=84=E8=BF=BD=E6=A2=A6?=
+ =?utf-8?Q?=E5=85=8D=E8=B4=B9=E8=AF=95=E7=94=A8?=
+ =?utf-8?Q?=E5=8D=B3=E5=B0=86=E7=BB=93=E6=9D=9F?=
+MIME-Version: 1.0
+Date: Wed, 12 Aug 2026 01:00:21 +0000
+Message-ID: <0f6c77e688610e55ed01e8ffb5061b83@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>试用即将结束</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:20px;font-weight:700;color:#0f172a;">免费试用即将结束</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「追梦科技」的免费试用还剩
+        <strong style="color:#d97706;">2 天</strong>，
+        将于 <strong style="color:#0f172a;">2026年8月14日 21:43（北京时间）</strong> 正式结束。
+        试用期结束后若未升级，将无法继续生成视频。
+      </p>
+      <p style="font-size:14px;line-height:1.7;color:#475569;">
+        升级专业版 / 企业版即可解锁更高额度与不限量出片能力，支撑您的短视频矩阵持续产出。
+      </p>
+      <a href="https://zmgen.cn/admin/billing"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        立即升级
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  

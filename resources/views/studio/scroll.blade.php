@@ -1,4 +1,4 @@
-﻿<x-app-layout>
+<x-app-layout>
 <x-workspace-layout title="视频出片工作台">
 <div class="mx-auto max-w-5xl p-6">
 
@@ -24,7 +24,7 @@
                         </span>
                         <span id="formatHint" class="text-[11px] font-normal"></span>
                     </label>
-                    <textarea id="dialogue" name="dialogue" rows="11" required
+                    <textarea id="dialogue" name="dialogue" rows="11"
                         class="w-full rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100"
                         placeholder="粘贴你的口播稿 / 文案 / 改写稿…&#10;男女对话格式：每行以「女：」「男：」开头&#10;单人独白：直接写正文即可"></textarea>
                     <p id="formatWarning" class="mt-1 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700"></p>
@@ -242,7 +242,7 @@
                 <p class="flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
                     <span>⏱</span><span>真实配音约需 <b>5–10 分钟</b>（逐句克隆音 + 字幕卡合成）。提交后本页自动刷新状态，您也可先去其他页面，回来会自动续接进度。</span>
                 </p>
-                <button type="submit" id="genBtn"
+                <button type="button" id="genBtn" onclick="handleGenerate(event)"
                     class="w-full rounded-lg bg-brand-500 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed">
                     生成视频
                 </button>
@@ -269,6 +269,8 @@ let currentMode = 'scroll';
 let titleDirty = false;       // 用户是否已手动编辑过标题
 let subtitleDirty = false;    // 用户是否已手动编辑过副标题
 let jobSubmitted = false;     // 是否已成功提交出片任务（提交后冻结队列提示，避免被定时刷新误报为超限）
+let voiceFormManual = false;  // 用户是否手动点过声线形式按钮；手动后不再自动推断
+let voiceForm = 'dialogue';   // 当前声线形式（必须在任何 IIFE/setMode 调用前初始化）
 
 // 统一控制生成按钮的加载态（增强状态反馈，避免用户以为没反应）
 function setBtnLoading(isLoading, text) {
@@ -465,8 +467,6 @@ function setMode(m) {
 }
 
 // 声线形式切换（滚动字幕模式）：男女对话 / 男声独白 / 女声独白
-let voiceFormManual = false; // 用户是否手动点过声线形式按钮；手动后不再自动推断
-let voiceForm = 'dialogue';
 
 // 根据文稿内容自动推断合适的声线形式
 function detectVoiceForm(text) {
@@ -796,16 +796,26 @@ function updateSubPreview() {
     }
 }
 
-document.getElementById('genForm').addEventListener('submit', async function (e) {
-    e.preventDefault();
+async function handleGenerate(e) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
     const msg = document.getElementById('formMsg');
     const badge = document.getElementById('statusBadge');
     const result = document.getElementById('result');
     const errBox = document.getElementById('errorBox');
+    if (!msg || !badge || !result || !errBox) {
+        alert('页面初始化异常：缺少必要元素。请刷新页面（Ctrl+F5）后再试。');
+        return;
+    }
     msg.textContent = ''; errBox.classList.add('hidden');
 
     // 本地预校验：文稿为空时拦截
-    const dialogue = document.getElementById('dialogue').value.trim();
+    const dialogueEl = document.getElementById('dialogue');
+    if (!dialogueEl) {
+        errBox.textContent = '未找到文稿输入框，请刷新页面后再试。';
+        errBox.classList.remove('hidden');
+        return;
+    }
+    const dialogue = dialogueEl.value.trim();
     if (!dialogue) {
         msg.textContent = '⚠ 请输入文稿内容（必填）。单声口播直接写文案；双声对话每行以「女：」「男：」开头。';
         errBox.innerHTML = '<strong>提交失败：文稿为空</strong><br><span class="text-xs mt-1 block text-red-400">「文稿内容」是必填项，请先撰写或从「二创」（选题二创 / 原始稿二创）带入改写稿后再提交出片。</span>';
@@ -904,9 +914,10 @@ document.getElementById('genForm').addEventListener('submit', async function (e)
     } catch (err) {
         setBtnLoading(false);
         badge.textContent = '失败'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
-        errBox.textContent = err.message; errBox.classList.remove('hidden');
+        errBox.textContent = err.message || '未知错误'; errBox.classList.remove('hidden');
     }
-});
+}
+document.getElementById('genForm').addEventListener('submit', handleGenerate);
 
 async function pollStatus(jobId) {
     const badge = document.getElementById('statusBadge');

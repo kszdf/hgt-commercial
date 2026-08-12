@@ -199,7 +199,7 @@ class VideoController extends Controller
             'female_voice' => $request->input('female_voice') ?: $tenant->default_female_voice,
             'voice_form' => $request->input('voice_form', 'dialogue'),
             'natural' => (bool) $request->input('natural', false),
-            'model' => $request->input('model'),   // 仅数字人模式使用；字幕卡模式为 null，微服务自动跳过
+            'model' => $modelInput,   // 仅数字人模式使用；已解析 User:{id}->containerPath，否则透传场景名；字幕卡模式为 null，微服务自动跳过
             'scene' => $request->input('scene'),   // 数字人出镜场景（office_a / office_b）
             'tenant_id' => (string) $tenant->id,   // 透传给 8500 做并发护栏（无租户上下文则无法区分）
         ];
