@@ -66,6 +66,13 @@
                         </label>
                         <input id="subtitle" name="subtitle" maxlength="40"
                             class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+                        <div class="mt-2 flex flex-wrap items-center gap-2">
+                            <button type="button" id="aiTitleBtn"
+                                class="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-3 py-1.5 text-[12px] font-medium text-white hover:from-brand-600 hover:to-brand-700">
+                                ✨ AI 智能生成标题+副标题
+                            </button>
+                            <span id="aiTitleHint" class="text-[11px] text-slate-400">基于文稿内容，生成科学、有吸引力的标题与副标题</span>
+                        </div>
                         <p id="subtitleHint" class="mt-1 hidden text-[11px] text-slate-400"></p>
                     </div>
                 </div>
@@ -186,6 +193,15 @@
                                 <option value="center">居中</option>
                             </select>
                         </div>
+                        <div class="space-y-1 sm:col-span-2">
+                            <label class="block text-xs text-slate-500">字幕风格</label>
+                            <select id="subtitle_style" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700" onchange="updateSubPreview()">
+                                <option value="dynamic" selected>逐字高亮（卡拉OK式·推荐）</option>
+                                <option value="minimal">纯净白字（无高亮）</option>
+                                <option value="bubble">气泡底衬（高反差场景）</option>
+                            </select>
+                            <p class="text-[11px] text-slate-400">逐字高亮会让读到的字变金色，字幕跟着配音走；数字人出镜与滚动字幕卡均支持。</p>
+                        </div>
                     </div>
                     <div class="mt-3 flex justify-center">
                         <canvas id="subPreview" width="270" height="480" class="rounded-lg border border-slate-200 bg-slate-900 shadow-sm"></canvas>
@@ -271,6 +287,9 @@ let subtitleDirty = false;    // 用户是否已手动编辑过副标题
 let jobSubmitted = false;     // 是否已成功提交出片任务（提交后冻结队列提示，避免被定时刷新误报为超限）
 let voiceFormManual = false;  // 用户是否手动点过声线形式按钮；手动后不再自动推断
 let voiceForm = 'dialogue';   // 当前声线形式（必须在任何 IIFE/setMode 调用前初始化）
+let titleStyle = 'smart';     // 标题生成策略（autoSuggest 在 IIFE 中即被调用，必须前置声明避免 TDZ）
+let _suggestTimer = null;     // 文稿输入去抖定时器（事件回调引用，前置声明避免 TDZ）
+let modeInitializedByUrl = false;  // IIFE 已根据 URL 参数设定初始模式时为 true，防止底部 setMode('scroll') 回退覆盖
 
 // 统一控制生成按钮的加载态（增强状态反馈，避免用户以为没反应）
 function setBtnLoading(isLoading, text) {
@@ -278,10 +297,12 @@ function setBtnLoading(isLoading, text) {
     if (!btn) return;
     if (isLoading) {
         btn.disabled = true;
+        btn.classList.add('zw-btn-loading');
         // 用内联 style 避免 Tailwind 扫描不到 JS 字符串中的任意值类
         btn.innerHTML = '<span class="inline-block h-4 w-4 animate-spin rounded-full" style="margin-right:.25rem;vertical-align:-2px;border:2px solid rgba(255,255,255,0.45);border-top-color:#fff;"></span> ' + (text || '生成中…');
     } else {
         btn.disabled = false;
+        btn.classList.remove('zw-btn-loading');
         btn.innerHTML = '生成视频';
     }
 }
@@ -331,6 +352,7 @@ function setBtnLoading(isLoading, text) {
             recommendedMode = displayModeMap[mode].mode;
             reason = '已在「' + srcInfo.label + '」选择「' + displayModeMap[mode].label + '」，已自动匹配出片模式';
             setMode(recommendedMode);
+            modeInitializedByUrl = true;
             if (recommendedMode === 'scroll' && displayModeMap[mode].voiceForm) {
                 setVoiceForm(displayModeMap[mode].voiceForm);
             }
@@ -351,6 +373,7 @@ function setBtnLoading(isLoading, text) {
                 reason = '单声口播模式，适合「数字人出镜」（单人独白）';
             }
             setMode(recommendedMode);
+            modeInitializedByUrl = true;
             applyVoiceFormAuto(cleaned);
         }
 
@@ -576,7 +599,6 @@ document.getElementById('dialogue')?.addEventListener('input', function () {
 function stripRolePrefix(line) {
     return line.replace(/^(女|男|旁白|解说|主播|画外音|独白|配音)[:：]\s*/, '');
 }
-let titleStyle = 'smart';   // 标题生成策略：smart(智能提取) / full(首句完整) / suspense(悬念式)
 function suggestTitleSmart(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     if (!lines.length) return '';
@@ -616,6 +638,43 @@ function suggestSubtitle(text) {
     body = body.replace(/[\s，。！？!?；;、…\.,]+/g, ' ').trim();
     return body.slice(0, 40);
 }
+
+// AI 智能生成标题+副标题：调用后端 /studio/scroll/suggest-title（代理到 8500）
+async function aiSuggestTitle() {
+    const btn = document.getElementById('aiTitleBtn');
+    const hint = document.getElementById('aiTitleHint');
+    const text = document.getElementById('dialogue').value.trim();
+    if (!text) {
+        if (hint) { hint.textContent = '请先在上方填写文稿，再生成标题'; hint.className = 'text-[11px] text-red-500'; }
+        return;
+    }
+    zwSetLoading(btn, { loading: true, text: '⏳ AI 生成中…' });
+    if (hint) { hint.textContent = 'AI 正在根据文稿构思标题与副标题…'; hint.className = 'text-[11px] text-brand-600'; }
+    try {
+        const resp = await fetch('/studio/scroll/suggest-title', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({ dialogue: text })
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.error) {
+            throw new Error(data.error || ('生成失败（HTTP ' + resp.status + '）'));
+        }
+        if (data.title) { document.getElementById('title').value = data.title; titleDirty = true; }
+        if (data.subtitle) { document.getElementById('subtitle').value = data.subtitle; subtitleDirty = true; }
+        autoSuggest();
+        if (hint) { hint.textContent = '✓ AI 已生成，可直接修改'; hint.className = 'text-[11px] text-emerald-600'; }
+    } catch (err) {
+        if (hint) { hint.textContent = '生成失败：' + (err.message || '未知错误'); hint.className = 'text-[11px] text-red-500'; }
+    } finally {
+        zwSetLoading(btn, { loading: false });
+    }
+}
+document.getElementById('aiTitleBtn')?.addEventListener('click', aiSuggestTitle);
 function autoSuggest() {
     const text = document.getElementById('dialogue').value;
     const titleEl = document.getElementById('title');
@@ -674,7 +733,6 @@ document.querySelectorAll('.title-style-btn').forEach(btn => {
     });
 });
 // 文稿变化时（去抖 300ms）自动生成建议
-let _suggestTimer = null;
 document.getElementById('dialogue')?.addEventListener('input', () => {
     clearTimeout(_suggestTimer);
     _suggestTimer = setTimeout(autoSuggest, 300);
@@ -732,7 +790,7 @@ async function fetchQueueEstimate() {
         }
     } catch (e) { /* 静默：队列提示非关键路径 */ }
 }
-setMode('scroll');
+if (!modeInitializedByUrl) setMode('scroll');   // URL 已指定模式时不再回退为 scroll
 updateDurationHint();
 autoSuggest();
 applyVoiceFormAuto(document.getElementById('dialogue').value);
@@ -764,6 +822,7 @@ function updateSubPreview() {
     const linesN = parseInt(document.getElementById('subtitle_lines').value, 10);
     const outline = parseInt(document.getElementById('subtitle_outline').value, 10);
     const position = document.getElementById('subtitle_position').value;
+    const subStyle = document.getElementById('subtitle_style')?.value || 'dynamic';
     const fontPx = Math.max(8, Math.round(size * sx));
     ctx.font = '700 ' + fontPx + 'px "Microsoft YaHei", SimHei, sans-serif';
     ctx.textBaseline = 'middle';
@@ -784,16 +843,54 @@ function updateSubPreview() {
         startY = H - 120 * sx - (lines.length - 1) * gap;
     }
     ctx.lineJoin = 'round';
+    // 计算每行像素宽度，供 bubble 底衬使用
+    function lineWidthPx(ln) {
+        if (outline > 0) {
+            ctx.lineWidth = Math.max(1, Math.round(outline * sx * (size / 92)));
+            return ctx.measureText(ln).width + ctx.lineWidth * 2;
+        }
+        return ctx.measureText(ln).width;
+    }
     for (let i = 0; i < lines.length; i++) {
         const y = startY + i * gap;
+        const lw = lineWidthPx(lines[i]);
+        // bubble 风格：半透明圆角底衬
+        if (subStyle === 'bubble') {
+            const padX = 16 * sx, padY = 10 * sx;
+            try {
+                ctx.fillStyle = 'rgba(0,0,0,0.55)';
+                roundRect(ctx, x - padX, y - fontPx * 0.62 - padY, lw + padX * 2, fontPx + padY * 2, 14 * sx);
+                ctx.fill();
+            } catch (e) { /* 旧浏览器回退 */ }
+        }
         if (outline > 0) {
             ctx.lineWidth = Math.max(1, Math.round(outline * sx * (size / 92)));
             ctx.strokeStyle = 'rgba(0,0,0,0.9)';
             ctx.strokeText(lines[i], x, y);
         }
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(lines[i], x, y);
+        // dynamic：前半句金色高亮示意「逐字跟随」；其余白
+        if (subStyle === 'dynamic') {
+            const hl = Math.floor(lines[i].length * 0.45);
+            ctx.fillStyle = '#FFD400';
+            ctx.fillText(lines[i].slice(0, hl), x, y);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(lines[i].slice(hl), x + ctx.measureText(lines[i].slice(0, hl)).width, y);
+        } else {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(lines[i], x, y);
+        }
     }
+}
+// canvas 圆角矩形兼容 helper
+function roundRect(ctx, x, y, w, h, r) {
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
 }
 
 async function handleGenerate(e) {
@@ -870,6 +967,7 @@ async function handleGenerate(e) {
                 subtitle_lines: parseInt(document.getElementById('subtitle_lines').value, 10),
                 subtitle_outline: parseInt(document.getElementById('subtitle_outline').value, 10),
                 subtitle_position: document.getElementById('subtitle_position').value,
+                subtitle_style: document.getElementById('subtitle_style').value,
             })
         });
         // 防护：后端可能返回HTML异常页而非JSON
@@ -922,7 +1020,7 @@ document.getElementById('genForm').addEventListener('submit', handleGenerate);
 async function pollStatus(jobId) {
     const badge = document.getElementById('statusBadge');
     const result = document.getElementById('result');
-    for (let i = 0; i < 300; i++) {  // 最多 10 分钟轮询（真实配音约 5–10 分钟）
+    for (let i = 0; i < 1800; i++) {  // 最多 60 分钟轮询（数字人视频含重渲染可能 20–40 分钟）
         await new Promise(r => setTimeout(r, 2000));
         try {
             const statusResp = await fetch('/studio/scroll/status/' + jobId, {
@@ -960,11 +1058,28 @@ async function pollStatus(jobId) {
             } else {
                 badge.textContent = '出片中'; badge.className = 'rounded-full bg-brand-100 px-3 py-1 text-xs text-brand-600';
                 const sec = i * 2;
+                const step = data.step || 'rendering';
+                const qpos = data.queue_pos || 0;
+                let title, hint;
+                if (step === 'queued') {
+                    title = qpos > 0 ? ('排队中…（前面还有 ' + qpos + ' 个视频在渲染）') : '排队中…（等待渲染资源）';
+                    hint = '数字人出片较慢，请耐心等待；可先去其他页面，回来会自动续接';
+                } else if (step === 'rerender') {
+                    title = '检测到音频瑕疵，正在重新渲染修复…（预计再需几分钟）';
+                    hint = '为保质量平台自动重渲染一次，无需任何操作';
+                } else {
+                    title = '数字人视频渲染中…';
+                    hint = '数字人出片较慢，约 5–15 分钟；可先去其他页面';
+                }
+                let longWait = '';
+                if (sec > 1200) {
+                    longWait = '<div class="mt-1 text-xs" style="color:#d97706">已等待较久（' + Math.round(sec / 60) + ' 分钟）。数字人视频正常 5–15 分钟，重渲染会更久；若超 40 分钟仍无进展，请刷新页面或联系我们。</div>';
+                }
                 result.innerHTML = '<div class="text-center text-slate-400">' +
                     '<div class="mb-2 text-3xl">⏳</div>' +
-                    '<div class="font-medium text-slate-600">真实配音合成中…</div>' +
-                    '<div class="mt-1 text-xs">已等待 ' + sec + ' 秒 · 预计 5–10 分钟</div>' +
-                    '<div class="mt-1 text-xs text-brand-500">可先去其他页面，回来会自动续接</div></div>';
+                    '<div class="font-medium text-slate-600">' + title + '</div>' +
+                    '<div class="mt-1 text-xs">已等待 ' + sec + ' 秒</div>' +
+                    '<div class="mt-1 text-xs text-brand-500">' + hint + '</div>' + longWait + '</div>';
             }
         } catch (e) { /* 网络抖动，继续轮询 */ }
     }

@@ -85,6 +85,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/qc/generate', [StudioController::class, 'qcGenerate']);
     Route::post('/studio/qc/video/{jobId}', [StudioController::class, 'qcVideo']);
 
+    // AI 智能生成标题/副标题（根据文稿内容，代理到 8500 的 /suggest-title）
+    Route::post('/studio/scroll/suggest-title', [StudioController::class, 'suggestTitle']);
+
     // 用户自传模特素材管理（上传 / 列表 / 预览 / 删除 / 重新上传）
     Route::get('/studio/models', [ModelAssetController::class, 'index'])->name('studio.models');
     Route::post('/studio/models', [ModelAssetController::class, 'store']);

@@ -509,7 +509,7 @@ def probe_video(path):
     try:
         out = subprocess.run(
             [FFPROBE, "-v", "error", "-show_format", "-show_streams", "-of", "json", path],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
         ).stdout
         return json.loads(out)
     except Exception:  # noqa: BLE001
@@ -543,7 +543,7 @@ def _detect_mid_silence(path, min_dur=2.5, noise="-35dB"):
         proc = subprocess.run(
             [FFMPEG, "-hide_banner", "-i", path,
              "-af", f"silencedetect=noise={noise}:d={min_dur}", "-f", "null", "-"],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
         )
         txt = (proc.stderr or "")
     except Exception:  # noqa: BLE001
@@ -553,7 +553,7 @@ def _detect_mid_silence(path, min_dur=2.5, noise="-35dB"):
         p2 = subprocess.run(
             [FFPROBE, "-v", "error", "-show_entries", "format=duration",
              "-of", "default=nw=1:nk=1", path],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
         )
         dur = float((p2.stdout or "").strip() or 0)
     except Exception:  # noqa: BLE001
@@ -675,7 +675,7 @@ def process_asset(raw_path, tenant_id):
         "-c:a", "aac", "-shortest", "-movflags", "+faststart",
         render_path,
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
     if proc.returncode != 0 or not os.path.exists(render_path):
         tail = (proc.stderr or proc.stdout or "")[-2000:]
         raise RuntimeError("转码失败：" + tail)
@@ -703,6 +703,7 @@ MAX_DURATION_SEC = int(os.environ.get("PIPELINE_MAX_DURATION_SEC", "1800"))  # �
 
 jobs = {}          # job_id -> {"status","out","error","tenant_id","start_ts","step"}
 lock = threading.Lock()
+render_lock = threading.Lock()   # HEYGEM 单 GPU 串行渲染锁：同一时刻仅一个视频在渲染，杜绝多任务抢 GPU 互相拖慢
 active_total = 0              # 全局在跑任务数（用于并发护栏）
 active_by_tenant = {}         # tenant_id -> 在跑任务数
 
@@ -848,7 +849,7 @@ def watchdog_loop():
             with lock:
                 snapshot = list(jobs.items())
             for jid, j in snapshot:
-                if j.get("status") == "rendering":
+                if j.get("status") == "rendering" and j.get("step") != "queued":
                     st = j.get("start_ts") or 0
                     if now - st > HARD_TIMEOUT + 120:
                         with lock:
@@ -902,7 +903,7 @@ def run_with_timeout(args, cwd, timeout, log_path=None):
         # 杀整个进程树（taskkill /T 递归），避免 PY310→ffmpeg 链变僵尸
         try:
             subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
-                           capture_output=True, text=True, timeout=10)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10)
         except Exception:  # noqa: BLE001
             try:
                 proc.kill()
@@ -1007,6 +1008,16 @@ def _post_process(job_id, payload, out_path, job_dir, edit_style):
     return out_path
 
 
+def _render_with_lock(job_id, args, log_path):
+    """串行占用 HEYGEM 渲染锁执行一次渲染，期间更新 step。
+    锁在调用最开始获取：若锁被其他任务占用，本线程会阻塞在获取锁处，
+    此时 step 仍为 'queued'，前端可据此显示"排队中"。拿到锁后才切到 'rendering'。"""
+    with render_lock:
+        _set_job(job_id, step="rendering")
+        rc, _, err = run_with_timeout(args, GPT_SOVITS, HARD_TIMEOUT, log_path=log_path)
+    return rc, err
+
+
 def run_job(job_id, payload):
     tenant_id = payload.get("tenant_id") or "default"
     edit_style = payload.get("edit_style") or None  # 嵌套自动剪辑：scroll/avatar 成片之上的后处理风格
@@ -1055,6 +1066,9 @@ def run_job(job_id, payload):
                     model if model.startswith("/code/data/") else DEFAULT_AVATAR_MODEL,
                 )
                 args += ["--model", model]
+            # 字幕风格（minimal/bubble/dynamic；可选，不传则脚本默认 dynamic）
+            if payload.get("subtitle_style"):
+                args += ["--subtitle-style", str(payload["subtitle_style"])]
         else:  # scroll
             args = [PY310, SCRIPT_SCROLL, "--dialogue", dlg_path, "--out", out_path]
             if payload.get("title"):
@@ -1119,8 +1133,10 @@ def run_job(job_id, payload):
             # 嵌套自动剪辑：在 scroll 成片之上做剪辑风格后处理（fast/artistic/vlog）
             # edit_style 已在 run_job 顶部统一捕获，此处无需重复
 
-        _set_job(job_id, status="rendering", step="rendering", start_ts=time.time())
-        rc, _, err = run_with_timeout(args, GPT_SOVITS, HARD_TIMEOUT, log_path=log_path)
+        # 准入已完成（/generate 已占并发槽）。HEYGEM 为单 GPU 串行渲染：
+        # 先以 step="queued" 告知前端"正在等待渲染资源"，抢到渲染锁后由 _render_with_lock 切到 "rendering"。
+        _set_job(job_id, status="rendering", step="queued", start_ts=time.time())
+        rc, err = _render_with_lock(job_id, args, log_path)
         if rc == 0 and os.path.exists(out_path):
             # 专业级后处理 + 质量门禁：剪辑（真实标题烧入）→ 智能封面（QC 门禁）
             out_path = _post_process(job_id, payload, out_path, job_dir, edit_style)
@@ -1134,7 +1150,7 @@ def run_job(job_id, payload):
                 payload["_regen"] = True
                 _set_job(job_id, step="rerender",
                          warning="终检检出音频缺陷（缺失/中段静音），触发上游重渲染一次")
-                rc2, _, err2 = run_with_timeout(args, GPT_SOVITS, HARD_TIMEOUT, log_path=log_path)
+                rc2, err2 = _render_with_lock(job_id, args, log_path)
                 if rc2 == 0 and os.path.exists(out_path):
                     out_path = _post_process(job_id, payload, out_path, job_dir, edit_style)
                     qc2 = ai_qc_video(out_path)
@@ -1212,12 +1228,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
             jid = p.path.rsplit("/", 1)[-1]
             with lock:
                 j = jobs.get(jid)
+                snap = list(jobs.items())
             if not j:
                 return self._send(404, {"error": "not found"})
+            queue_pos = 0
+            if j.get("step") == "queued":
+                me_ts = j.get("start_ts") or 0
+                queue_pos = 1 + sum(1 for oid, oj in snap
+                                    if oid != jid and oj.get("step") == "queued"
+                                    and (oj.get("start_ts") or 0) < me_ts)
             return self._send(200, {
                 "job_id": jid,
                 "status": j["status"],
                 "step": j.get("step"),
+                "queue_pos": queue_pos,
                 "result": f"/download/{jid}" if j["status"] == "done" else None,
                 "cover": j.get("cover"),
                 "qc_video": j.get("qc_video"),
@@ -1372,6 +1396,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_strategist(data)
         if p.path == "/deai":
             return self._handle_deai(data)
+        if p.path == "/suggest-title":
+            return self._handle_suggest_title(data)
         return self._send(404, {"error": "not found"})
 
     # ---- 自动发布：调 publishers 适配器把成片分发到指定平台 ----
@@ -1529,6 +1555,56 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._send(200, ai_deai(text))
         except Exception as e:  # noqa: BLE001
             return self._send(200, {"ok": False, "error": str(e)})
+
+    # ---- AI 智能生成标题 / 副标题（根据文稿内容，科学、有吸引力）----
+    def _handle_suggest_title(self, data):
+        dialogue = (data.get("dialogue") or "").strip()
+        if not dialogue:
+            return self._send(400, {"error": "dialogue required"})
+        industry = (data.get("industry") or "").strip()
+        # 仅取前 800 字送模型，控制 token 与时延；去角色前缀让标题更聚焦内容
+        trimmed = re.sub(r'^\s*(?:女|男|旁白|解说|主播|画外音|独白|配音)[:：]\s*', '', dialogue, flags=re.M)
+        trimmed = "\n".join(l.strip() for l in trimmed.splitlines() if l.strip())[:800]
+        ind_hint = f"（内容行业：{industry}）" if industry else ""
+        prompt = (
+            "你是资深短视频选题与文案专家，擅长把专业财税/经营内容改写成老板一眼想看的标题。\n"
+            f"下面是一段口播文稿{ind_hint}，请据此生成一对「标题 + 副标题」：\n"
+            "要求：\n"
+            "1) 标题：≤30字，科学严谨、不夸大、不触碰违禁词（如虚开/偷税等用合规表述），"
+            "要有吸引力（戳痛点或给明确价值），面向企业老板/B端决策者；\n"
+            "2) 副标题：≤40字，承接标题，给出一句具体可感知的利益点或警示，引发继续看的欲望；\n"
+            '3) 严格只输出一个 JSON 对象：{"title":"...","subtitle":"..."}，'
+            "不要任何解释或代码块标记。"
+        )
+        try:
+            cfg = get_text_config()
+            raw = deepseek_chat(prompt + "\n\n【文稿】\n" + trimmed, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=60)
+        except Exception as e:  # noqa: BLE001
+            return self._send(200, {"ok": False, "error": "AI 标题生成失败：" + str(e)[:200]})
+        if isinstance(raw, dict):
+            raw = raw.get("content") or json.dumps(raw, ensure_ascii=False)
+        content = (raw or "").strip()
+        if content.startswith("```"):
+            content = content.strip("`")
+            if content[:4].lower() == "json":
+                content = content[4:]
+            content = content.strip()
+        # 提取首个 JSON 对象
+        obj = None
+        try:
+            obj = json.loads(content)
+        except Exception:  # noqa: BLE001
+            m = re.search(r'\{[^{}]*"title"[^{}]*\}', content, re.S)
+            if m:
+                try:
+                    obj = json.loads(m.group(0))
+                except Exception:  # noqa: BLE001
+                    obj = None
+        if not isinstance(obj, dict) or not obj.get("title"):
+            return self._send(200, {"ok": False, "error": "AI 返回解析失败", "raw": content[:200]})
+        title = str(obj.get("title", "")).strip()[:30]
+        subtitle = str(obj.get("subtitle", "")).strip()[:40]
+        return self._send(200, {"ok": True, "title": title, "subtitle": subtitle})
 
     # ---- 声音克隆（租户上传参考音频 → CosyVoice 克隆 → voice_id）----
     def _handle_clone_voice(self, data):

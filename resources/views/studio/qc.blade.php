@@ -91,7 +91,7 @@ document.getElementById('qcForm').addEventListener('submit', async function (e) 
     const result = document.getElementById('result');
     const errBox = document.getElementById('errorBox');
     msg.textContent = ''; errBox.classList.add('hidden');
-    btn.disabled = true; btn.textContent = '检测中…';
+    zwSetLoading(btn, {loading: true, text: '检测中…'});
     badge.textContent = '检测中'; badge.className = 'rounded-full bg-brand-100 px-3 py-1 text-xs text-brand-600';
     try {
         const resp = await fetch('/studio/qc/generate', {
@@ -130,9 +130,9 @@ document.getElementById('qcForm').addEventListener('submit', async function (e) 
         }
         html += '</div>';
         result.innerHTML = html;
-        btn.disabled = false; btn.textContent = '开始质检';
+        zwSetLoading(btn, {loading: false});
     } catch (err) {
-        btn.disabled = false; btn.textContent = '开始质检';
+        zwSetLoading(btn, {loading: false});
         badge.textContent = '失败'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
         errBox.textContent = err.message; errBox.classList.remove('hidden');
     }
@@ -146,7 +146,7 @@ document.querySelectorAll('.run-qc').forEach(btn => {
         const jobId = btn.dataset.job;
         const row = btn.closest('[data-job]');
         const statusEl = row.querySelector('.qc-status');
-        btn.disabled = true; btn.textContent = '质检中…';
+        btn.disabled = true; btn.classList.add('zw-btn-loading'); btn.textContent = '质检中…';
         try {
             const resp = await fetch('/studio/qc/video/' + jobId, {
                 method: 'POST',
@@ -167,7 +167,7 @@ document.querySelectorAll('.run-qc').forEach(btn => {
             statusEl.textContent = '失败：' + e.message;
             btn.textContent = '重试';
         }
-        btn.disabled = false;
+        btn.classList.remove('zw-btn-loading'); btn.disabled = false;
     });
 });
 </script>

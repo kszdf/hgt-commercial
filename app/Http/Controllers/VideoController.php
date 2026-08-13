@@ -74,6 +74,7 @@ class VideoController extends Controller
             'subtitle_lines' => ['sometimes', 'integer', 'in:1,2,3'],
             'subtitle_outline' => ['sometimes', 'integer', 'between:0,10'],
             'subtitle_position' => ['sometimes', 'string', 'in:bottom,center'],
+            'subtitle_style' => ['sometimes', 'string', 'in:dynamic,minimal,bubble'],
             'natural' => ['sometimes', 'boolean'],
             'model' => ['nullable', 'string', 'max:120'],
             'scene' => ['nullable', 'string', 'max:40', 'in:office_a,office_b'],
@@ -211,7 +212,7 @@ class VideoController extends Controller
             }
         }
         // 字幕样式可调：仅当页面传了才透传（不传则脚本用默认值）
-        foreach (['subtitle_size', 'subtitle_lines', 'subtitle_outline', 'subtitle_position'] as $k) {
+        foreach (['subtitle_size', 'subtitle_lines', 'subtitle_outline', 'subtitle_position', 'subtitle_style'] as $k) {
             if ($request->has($k)) {
                 $payload[$k] = $request->input($k);
             }

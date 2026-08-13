@@ -343,6 +343,30 @@
         box-shadow: 4px 0 24px rgba(0,0,0,0.1);
     }
 }
+
+/* ===== 长任务按钮加载态：凹陷 + 等待光标，明确提示「处理中，请勿重复点击」 ===== */
+.zw-btn-loading {
+    position: relative;
+    cursor: progress !important;
+    opacity: 0.92;
+    filter: brightness(0.96);
+    box-shadow: inset 0 3px 6px rgba(15, 23, 42, 0.22), inset 0 1px 2px rgba(15, 23, 42, 0.16) !important;
+    transform: translateY(1px);
+    transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+}
+.zw-btn-loading * { pointer-events: none; }
+.zw-spinner {
+    display: inline-block;
+    width: 1em; height: 1em;
+    margin-right: 0.5em;
+    vertical-align: -0.125em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: zw-spin 0.7s linear infinite;
+    opacity: 0.95;
+}
+@keyframes zw-spin { to { transform: rotate(360deg); } }
 </style>
 
 <script>
@@ -471,6 +495,31 @@ function hgtDel(btn) {
         onConfirm: function () { form.submit(); }
     });
 }
+
+// 统一的长任务按钮加载态：按钮凹陷 + 旋转图标 + 文案提示；自动禁用，杜绝重复点击
+// 用法：zwSetLoading(btn, {loading:true, text:'AI 改写中…'})  /  zwSetLoading(btn, {loading:false})
+window.zwSetLoading = function (btn, opts) {
+    if (!btn) return;
+    opts = opts || {};
+    if (opts.loading) {
+        if (btn.dataset.zwOrig === undefined) {
+            btn.dataset.zwOrig = btn.innerHTML;
+            btn.dataset.zwOrigDisabled = btn.disabled ? '1' : '0';
+        }
+        btn.disabled = true;
+        btn.classList.add('zw-btn-loading');
+        var label = opts.text || '处理中…';
+        btn.innerHTML = '<span class="zw-spinner" aria-hidden="true"></span>' + label;
+    } else {
+        btn.classList.remove('zw-btn-loading');
+        if (btn.dataset.zwOrig !== undefined) {
+            btn.innerHTML = btn.dataset.zwOrig;
+            btn.disabled = btn.dataset.zwOrigDisabled === '1';
+            delete btn.dataset.zwOrig;
+            delete btn.dataset.zwOrigDisabled;
+        }
+    }
+};
 
 // 服务端 flash（success/error）自动转为 Toast
 document.addEventListener('DOMContentLoaded', function () {

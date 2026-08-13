@@ -377,7 +377,7 @@ async function runSingleRewrite() {
     msg.textContent = ''; errBox.classList.add('hidden');
     metaBar.classList.add('hidden'); actionBar.classList.add('hidden');
     result.classList.add('hidden'); result.innerHTML = '';
-    btn.disabled = true; btn.textContent = '⏳ AI 改写中…';
+    zwSetLoading(btn, {loading: true, text: 'AI 改写中…'});
     badge.textContent = '改写中'; badge.className = 'rounded-full bg-brand-100 px-3 py-1 text-xs text-brand-600';
 
     try {
@@ -396,9 +396,9 @@ async function runSingleRewrite() {
         renderSingleResult(data);
         badge.textContent = '完成';
         badge.className = 'rounded-full bg-green-100 px-3 py-1 text-xs text-green-700';
-        btn.disabled = false; btn.textContent = '智能改写';
+        zwSetLoading(btn, {loading: false});
     } catch (err) {
-        btn.disabled = false; btn.textContent = '智能改写';
+        zwSetLoading(btn, {loading: false});
         badge.textContent = '失败'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
         errBox.textContent = err.message; errBox.classList.remove('hidden');
     }

@@ -203,8 +203,7 @@ document.getElementById('topicForm').addEventListener('submit', async function (
     actionBar.classList.add('hidden');
 
     // 所有筛选项均为选填：空值会由 AI 回退为通用方向继续生成
-    btn.disabled = true;
-    btn.textContent = '⏳ AI 思考中…';
+    zwSetLoading(btn, {loading: true, text: 'AI 思考中…'});
     badge.textContent = '生成中';
     badge.className = 'rounded-full bg-brand-100 px-3 py-1 text-xs text-brand-600';
     result.innerHTML = buildLoadingHtml();
@@ -250,13 +249,11 @@ document.getElementById('topicForm').addEventListener('submit', async function (
                 form: document.getElementById('form').value,
             }));
         } catch(e) {}
-        btn.disabled = false;
-        btn.textContent = '生成选题';
+        zwSetLoading(btn, {loading: false});
         msg.textContent = '';
 
     } catch (err) {
-        btn.disabled = false;
-        btn.textContent = '生成选题';
+        zwSetLoading(btn, {loading: false});
         badge.textContent = '失败';
         badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
 

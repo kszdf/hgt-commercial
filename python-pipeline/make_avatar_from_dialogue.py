@@ -23,6 +23,7 @@
       --male-voice <男声voice_id> --female-voice <女声voice_id>
 """
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -121,6 +122,31 @@ def synth_concat(segs, male_voice, female_voice, tmpdir, gap=0.25):
     return total, timed
 
 
+def build_karaoke(timed, style):
+    """根据每句配音时长，按比例把每个可见字符摊到时间轴，产出逐字高亮所需 sidecar。
+    结构：{"style":..., "events":[{"start","end","lines":[[{c,s,e}...]...]}]}。
+    lines 与 ASS 文本按 \\n 对齐，finalize 按帧时间 t 判定已读到字符 -> 高亮（金）。"""
+    events = []
+    for start, end, display in timed:
+        chars = list(display)
+        n = max(1, len(chars))
+        dur = max(0.01, end - start)
+        per = dur / n
+        lines, cur = [], []
+        for i, ch in enumerate(chars):
+            cs = round(start + i * per, 3)
+            ce = round(start + (i + 1) * per, 3)
+            if ch == "\n":
+                lines.append(cur)
+                cur = []
+            else:
+                cur.append({"c": ch, "s": cs, "e": ce})
+        if cur:
+            lines.append(cur)
+        events.append({"start": round(start, 2), "end": round(end, 2), "lines": lines})
+    return {"style": style, "events": events}
+
+
 def write_ass(timed, path):
     """写 ASS，时间轴与配音对齐。
     注意：finalize_v2_pil.parse_ass 用 float(parts[1]) 解析 Start/End，
@@ -159,6 +185,9 @@ def main():
     ap.add_argument("--female-voice", default=DEFAULT_FEMALE_VOICE,
                     help="女声配音音色 voice_id（对话中 女： 行使用）")
     ap.add_argument("--model", default=DEFAULT_MODEL, help="容器内模特视频路径")
+    ap.add_argument("--subtitle-style", default="dynamic",
+                    choices=["dynamic", "minimal", "bubble"],
+                    help="字幕风格：dynamic=逐字高亮（卡拉OK式）/ minimal=纯净白字 / bubble=气泡底衬")
     args = ap.parse_args()
 
     with open(args.dialogue, encoding="utf-8-sig") as f:
@@ -170,15 +199,19 @@ def main():
     audio_wav, timed = synth_concat(segs, args.male_voice, args.female_voice, tmp)
     ass_path = os.path.join(tmp, "sub.ass")
     write_ass(timed, ass_path)
-    print(f"[avatar] 配音 {len(segs)} 句，总时长 {timed[-1][1]:.1f}s，字幕已生成")
+    # 逐字高亮 sidecar（仅 dynamic 真正使用，其他风格忽略）
+    karaoke_path = os.path.join(tmp, "sub.ass.karaoke.json")
+    with open(karaoke_path, "w", encoding="utf-8") as kf:
+        json.dump(build_karaoke(timed, args.subtitle_style), kf, ensure_ascii=False)
+    print(f"[avatar] 配音 {len(segs)} 句，总时长 {timed[-1][1]:.1f}s，字幕已生成（风格={args.subtitle_style}）")
 
     out = os.path.abspath(args.out)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     tag = "hgt_" + uuid.uuid4().hex[:6]
-    r = subprocess.run(
-        [PY310, MAKE_AVATAR, "--audio", audio_wav, "--ass", ass_path,
-         "--model", args.model, "--out", out, "--name", tag],
-        cwd=GPT_SOVITS, capture_output=True, text=True)
+    cmd = [PY310, MAKE_AVATAR, "--audio", audio_wav, "--ass", ass_path,
+           "--model", args.model, "--out", out, "--name", tag,
+           "--subtitle-style", args.subtitle_style, "--karaoke", karaoke_path]
+    r = subprocess.run(cmd, cwd=GPT_SOVITS, capture_output=True, text=True)
     if r.returncode != 0:
         sys.stderr.write(r.stdout + "\n" + r.stderr)
         sys.exit(f"make_avatar_video 失败 (rc={r.returncode})")

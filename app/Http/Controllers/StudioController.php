@@ -186,6 +186,36 @@ class StudioController extends Controller
         return response()->json(['ok' => true, 'qc' => $r, 'report_id' => $report->id]);
     }
 
+    /** AI 智能生成标题/副标题：代理到 8500 的 /suggest-title。 */
+    public function suggestTitle(Request $request)
+    {
+        $data = $request->validate([
+            'dialogue' => ['required', 'string', 'max:4000'],
+            'industry' => ['sometimes', 'nullable', 'string', 'max:40'],
+        ]);
+        $send = array_filter([
+            'dialogue' => $data['dialogue'],
+            'industry' => $data['industry'] ?? null,
+        ], fn ($v) => $v !== null && $v !== '');
+        try {
+            $resp = app(PipelineClient::class)->post('/suggest-title', $send, 90);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '标题生成服务暂时不可用，请稍后重试'], 503);
+        }
+        if (! $resp->successful()) {
+            return response()->json(['error' => '标题生成服务暂不可用，请确认微服务已启动'], 502);
+        }
+        $r = $resp->json();
+        // 8500 可能返回 {ok:false, error}（模型异常），原样透传错误信息
+        if (! empty($r['ok']) && $r['ok'] === false) {
+            return response()->json(['error' => $r['error'] ?? 'AI 标题生成失败'], 200);
+        }
+        return response()->json([
+            'title'    => $r['title'] ?? '',
+            'subtitle' => $r['subtitle'] ?? '',
+        ]);
+    }
+
     /** 汇总启用规则的阈值参数，传给 8500 引擎。 */
     private function collectRuleParams(): array
     {

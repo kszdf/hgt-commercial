@@ -9,7 +9,6 @@
         </div>
         <div class="flex gap-2">
             <a href="/studio/recycle" class="rounded-lg studio-card studio-card-sm text-sm font-medium text-slate-600 hover:bg-slate-50">回收站</a>
-            <a href="/studio/scroll" class="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700">去出片</a>
         </div>
     </div>
 

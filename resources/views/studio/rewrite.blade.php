@@ -675,7 +675,7 @@ async function runSingleRewrite() {
     metaBar.classList.add('hidden'); actionBar.classList.add('hidden');
     batchResult.classList.add('hidden'); batchResult.innerHTML = '';
     result.classList.add('hidden'); result.innerHTML = '';
-    btn.disabled = true; btn.textContent = '⏳ AI 改写中…';
+    zwSetLoading(btn, {loading: true, text: 'AI 改写中…'});
     badge.textContent = '改写中'; badge.className = 'rounded-full bg-brand-100 px-3 py-1 text-xs text-brand-600';
 
     try {
@@ -694,9 +694,9 @@ async function runSingleRewrite() {
         renderSingleResult(data);
         badge.textContent = '完成';
         badge.className = 'rounded-full bg-green-100 px-3 py-1 text-xs text-green-700';
-        btn.disabled = false; btn.textContent = '智能改写';
+        zwSetLoading(btn, {loading: false});
     } catch (err) {
-        btn.disabled = false; btn.textContent = '智能改写';
+        zwSetLoading(btn, {loading: false});
         badge.textContent = '失败'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
         errBox.textContent = err.message; errBox.classList.remove('hidden');
     }
@@ -860,7 +860,7 @@ async function runBatchRewrite() {
     batchResult.classList.remove('hidden');
     emptyState.classList.add('hidden');
 
-    btn.disabled = true;
+    btn.disabled = true; btn.classList.add('zw-btn-loading');
     btn.textContent = '批量改写中 0/' + currentTopics.length;
     genBtn.disabled = true;
     badge.textContent = '批量改写中';
@@ -895,7 +895,7 @@ async function runBatchRewrite() {
         if (i < currentTopics.length - 1) await sleep(400);
     }
 
-    btn.disabled = false;
+    btn.classList.remove('zw-btn-loading'); btn.disabled = false;
     btn.textContent = '全部二创';
     genBtn.disabled = false;
     badge.textContent = '完成 ' + batchResults.filter(r => r.ok).length + '/' + currentTopics.length;
