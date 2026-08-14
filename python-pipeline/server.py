@@ -1254,6 +1254,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "global_max": GLOBAL_MAX_JOBS,
                 "tenant_max": TENANT_MAX_JOBS,
                 "hard_timeout": HARD_TIMEOUT,
+                "regen_timeout": REGEN_TIMEOUT,
                 "jobs_dir": JOBS_DIR,
             })
 
