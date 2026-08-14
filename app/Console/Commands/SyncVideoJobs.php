@@ -65,6 +65,11 @@ class SyncVideoJobs extends Command
         // 注意：阈值仅决定「何时开始判定」，是否真回收仍由 8500 真实状态把关，
         // 绝不会仅凭前端心跳断开就误杀正在渲染的任务。
         $staleSec = (int) env('VIDEO_STALE_TIMEOUT_SEC', 300);
+
+        // 渲染卡死回收阈值（秒）：8500 长期返回 rendering/rerender 但任务总耗时超过该值，
+        // 视为渲染进程假死/丢失，自动标 failed 释放并发槽。默认 1800s（30 分钟），
+        // 数字人重渲染场景可配置为 1200–1800s；滚动字幕卡可配更短。
+        $renderStuckSec = (int) env('VIDEO_RENDER_STUCK_TIMEOUT_SEC', 1800);
         $limit = (int) $this->option('limit');
 
         try {
@@ -101,7 +106,29 @@ class SyncVideoJobs extends Command
                     $this->warn("job {$job->job_id} 状态查询失败 http={$resp->status()}，跳过");
                     continue;
                 }
-                if ($job->applyPipelineStatus($resp->json())) {
+                $json = $resp->json();
+
+                // —— 渲染卡死兜底：8500 长期停留在 rendering/rerender 且任务总耗时超限 ——
+                // 典型场景：8500 的自动重渲染只记日志不真正执行，状态卡成"幽灵渲染"；
+                // 前端用户会看到一个永远不动的"视频渲染中"。到达本阈值后强制回收，
+                // 避免并发槽被无限占用、用户无限等待。
+                $remoteStatus = $json['status'] ?? null;
+                $remoteStep   = $json['step'] ?? $remoteStatus;
+                if (in_array($remoteStatus, ['rendering', 'rerender'], true)
+                    && in_array($remoteStep, ['rendering', 'rerender'], true)
+                    && $job->created_at->copy()->addSeconds($renderStuckSec)->isPast()
+                ) {
+                    $job->update([
+                        'status' => 'failed',
+                        'review_note' => ($job->review_note ? $job->review_note . '；' : '')
+                            . "[系统]8500 持续 {$remoteStatus}/{$remoteStep} 超过 {$renderStuckSec} 秒无终态，判定渲染卡死并回收",
+                    ]);
+                    $synced++;
+                    $this->info("job {$job->job_id} 渲染卡死 -> failed（{$remoteStatus} 超 {$renderStuckSec} 秒）");
+                    continue;
+                }
+
+                if ($job->applyPipelineStatus($json)) {
                     $synced++;
                     $this->info("job {$job->job_id} -> {$job->status}");
                 }

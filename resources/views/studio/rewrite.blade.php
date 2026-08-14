@@ -1148,6 +1148,9 @@ function renderBatchVideoBoard(batchId, scripts) {
 
 // 每张卡的轮询起始时间戳（用于"已等待"精确计时，可追溯）
 const bvStartTimes = {};
+// 每张卡当前 step 及进入时间，用于卡死感知
+const bvLastStep = {};
+const bvLastStepMs = {};
 
 // 批量看板进度渲染：进度条 + 四段分步高亮 + 已等待 + 预计剩余
 // data 来自 /studio/scroll/status/{jobId}（含后端的 step_label/progress/eta_sec 增强字段）
@@ -1207,8 +1210,15 @@ function setBvProgress(index, data) {
                 eta = '｜预计还需数分钟';
             }
             const label = (data && data.step_label) ? data.step_label : (status === 'queued' ? '排队等待渲染资源' : '渲染中');
+            // 同阶段卡死感知
+            if (step !== bvLastStep[index]) { bvLastStep[index] = step; bvLastStepMs[index] = Date.now(); }
+            const stageSec = Math.floor((Date.now() - (bvLastStepMs[index] || Date.now())) / 1000);
+            const sm = Math.floor(stageSec / 60), ss = stageSec % 60;
+            const stuckText = stageSec >= 300
+                ? '（⚠ 当前阶段已 ' + sm + ' 分 ' + ss + ' 秒 未推进，可能卡住，建议刷新或重试）'
+                : '';
             info.className = 'bv-info mt-1 text-[10px] text-slate-400';
-            info.textContent = label + '｜已等待 ' + em + ' 分 ' + es + ' 秒' + eta;
+            info.textContent = label + '｜已等待 ' + em + ' 分 ' + es + ' 秒' + eta + stuckText;
         }
     }
 

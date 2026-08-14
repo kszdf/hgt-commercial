@@ -81,11 +81,11 @@ class VideoJob extends Model
 
     /**
      * 按 8500 返回的状态 JSON 推进本地记录（纯函数，不发起网络请求）。
-     * 仅当本地仍为 queued 且远端为 done/failed 时才更新，避免回退或重复写入。
+     * 本地已到终态时不回退；远端为 done/failed 时更新本地，避免重复写入。
      */
     public function applyPipelineStatus(array $json): bool
     {
-        if ($this->status !== 'queued') {
+        if ($this->isTerminal()) {
             return false;
         }
         $remote = $json['status'] ?? null;

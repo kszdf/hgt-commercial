@@ -300,6 +300,7 @@
 <script>
 let currentMode = 'scroll';
 let currentJobId = null;      // 当前出片任务 job_id，供「进度记录」弹窗读取
+window.__hgt_pollNow = false; // visibilitychange/手动刷新打断轮询 sleep 的标志
 let titleDirty = false;       // 用户是否已手动编辑过标题
 let subtitleDirty = false;    // 用户是否已手动编辑过副标题
 let jobSubmitted = false;     // 是否已成功提交出片任务（提交后冻结队列提示，避免被定时刷新误报为超限）
@@ -1042,8 +1043,15 @@ async function pollStatus(jobId) {
     const badge = document.getElementById('statusBadge');
     const result = document.getElementById('result');
     const startMs = Date.now();  // 轮询起始时间戳，用于精确计算「已等待」
+    let lastStep = null;         // 最近一次 8500 返回的 step
+    let lastStepMs = Date.now(); // 进入当前 step 的时间戳，用于卡死感知
     for (let i = 0; i < 1800; i++) {  // 最多 60 分钟轮询（数字人视频含重渲染可能 20–40 分钟）
-        await new Promise(r => setTimeout(r, 2000));
+        // 可被 visibilitychange / 手动刷新打断的分段 sleep（2 秒一组，100ms 检查一次标志）
+        for (let s = 0; s < 20; s++) {
+            if (window.__hgt_pollNow) break;
+            await new Promise(r => setTimeout(r, 100));
+        }
+        window.__hgt_pollNow = false;
         try {
             const statusResp = await fetch('/studio/scroll/status/' + jobId, {
                 headers: {
@@ -1118,6 +1126,17 @@ async function pollStatus(jobId) {
                     ? ('前面约 ' + data.queue_pos + ' 个排队')
                     : '预计还需数分钟';
 
+                // 同阶段超时感知：某阶段持续不推进超过阈值，提示用户可能卡住并可手动刷新
+                const STAGE_STUCK_SEC = 300;   // 5 分钟同阶段无推进即提示"可能卡住"
+                const TOTAL_STUCK_SEC = 900;   // 15 分钟总等待即建议刷新/重试
+                if (step !== lastStep) { lastStep = step; lastStepMs = Date.now(); }
+                const stageStuckSec = Math.floor((Date.now() - lastStepMs) / 1000);
+                const stuckHint = stageStuckSec >= STAGE_STUCK_SEC
+                    ? ('<div class="mt-2 text-xs" style="color:#d97706">⚠ 当前阶段已持续 ' + fmt(stageStuckSec) + ' 未推进，可能已经卡住。<button type="button" onclick="window.__hgt_pollNow=true" class="ml-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-amber-700 hover:bg-amber-100">立即刷新</button></div>')
+                    : (elapsedSec >= TOTAL_STUCK_SEC
+                        ? ('<div class="mt-2 text-xs" style="color:#d97706">已等待较久（' + fmt(elapsedSec) + '）。数字人视频正常 5–15 分钟，重渲染会更久；若仍无进展请刷新页面或重试。</div>')
+                        : '');
+
                 // 四段分步条：提交成功 → 配音字幕合成 → 视频渲染 → 出片完成
                 const STAGES = ['提交成功', '配音字幕合成', '视频渲染', '出片完成'];
                 let stepsHtml = '';
@@ -1137,22 +1156,18 @@ async function pollStatus(jobId) {
                     }
                 }
 
-                const longWait = elapsedSec > 2400
-                    ? '<div class="mt-2 text-xs" style="color:#d97706">已等待较久（' + fmt(elapsedSec) + '）。数字人视频正常 5–15 分钟，重渲染会更久；若超 40 分钟仍无进展，请刷新页面或联系我们。</div>'
-                    : '';
-
                 result.innerHTML =
                     '<div class="mx-auto w-full max-w-md rounded-xl border border-slate-100 bg-white p-5 shadow-sm">' +
                     '  <div class="mb-3 text-center">' +
                     '    <div class="mb-1 text-sm font-medium text-slate-700">' + title + '</div>' +
-                    '    <div class="text-xs text-slate-400">已等待 ' + fmt(elapsedSec) + '　·　预计剩余 ' + etaText + '</div>' +
+                    '    <div class="text-xs text-slate-400">已等待 ' + fmt(elapsedSec) + '　·　' + etaText + '</div>' +
                     '  </div>' +
                     '  <div class="mb-4 flex items-center justify-between gap-1">' + stepsHtml + '</div>' +
                     '  <div class="h-2 w-full overflow-hidden rounded-full bg-slate-100">' +
                     '    <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width:' + percent + '%"></div>' +
                     '  </div>' +
                     '  <div class="mt-1 flex items-center justify-between text-[11px] text-slate-400"><span>' + percent + '%</span><span>' + hint + '</span></div>' +
-                    longWait +
+                    stuckHint +
                     '</div>';
             }
         } catch (e) { /* 网络抖动，继续轮询 */ }
@@ -1172,6 +1187,13 @@ async function pollStatus(jobId) {
         pollStatus(jobId);
     }
 })();
+
+// 切回页面立即拉一次状态（浏览器后台标签会节流 setInterval，避免用户回来还看旧状态）
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        window.__hgt_pollNow = true;
+    }
+});
 
 // ===== 出片进度记录弹窗（读取后端 /studio/scroll/job-log/{jobId}） =====
 function escHtml(s) {
