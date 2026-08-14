@@ -714,6 +714,7 @@ def process_asset(raw_path, tenant_id):
 GLOBAL_MAX_JOBS = int(os.environ.get("PIPELINE_GLOBAL_MAX_JOBS", "3"))       # 全局同时渲染上限
 TENANT_MAX_JOBS = int(os.environ.get("PIPELINE_TENANT_MAX_JOBS", "2"))       # 单租户同时渲染上限
 HARD_TIMEOUT = int(os.environ.get("PIPELINE_HARD_TIMEOUT", "2100"))          # 单任务硬超时 35 分钟（防僵尸）
+REGEN_TIMEOUT = int(os.environ.get("PIPELINE_REGEN_TIMEOUT", "900"))           # 自动重渲染硬超时 15 分钟（兜底重试，远短于主渲染 35 分钟，避免 QC 重试卡死数十分钟）
 MAX_DURATION_SEC = int(os.environ.get("PIPELINE_MAX_DURATION_SEC", "1800"))  # 单次生成时长上限 30 分钟
 
 jobs = {}          # job_id -> {"status","out","error","tenant_id","start_ts","step"}
@@ -1023,13 +1024,16 @@ def _post_process(job_id, payload, out_path, job_dir, edit_style):
     return out_path
 
 
-def _render_with_lock(job_id, args, log_path):
+def _render_with_lock(job_id, args, log_path, timeout=HARD_TIMEOUT, step=None):
     """串行占用 HEYGEM 渲染锁执行一次渲染，期间更新 step。
     锁在调用最开始获取：若锁被其他任务占用，本线程会阻塞在获取锁处，
-    此时 step 仍为 'queued'，前端可据此显示"排队中"。拿到锁后才切到 'rendering'。"""
+    此时 step 仍为 'queued'，前端可据此显示"排队中"。拿到锁后才切到 'rendering'。
+    timeout: 单次渲染硬超时（秒）；主渲染用 HARD_TIMEOUT，重渲染传 REGEN_TIMEOUT 明显更短。
+    step: 可选，显式指定写入的 step（如重渲染保持 'rerender'，避免被覆盖成 'rendering'
+          导致前端无法区分「自动重试」与「普通渲染」，用户误以为卡死）。"""
     with render_lock:
-        _set_job(job_id, step="rendering")
-        rc, _, err = run_with_timeout(args, GPT_SOVITS, HARD_TIMEOUT, log_path=log_path)
+        _set_job(job_id, step=(step if step is not None else "rendering"))
+        rc, _, err = run_with_timeout(args, GPT_SOVITS, timeout, log_path=log_path)
     return rc, err
 
 
@@ -1169,17 +1173,25 @@ def run_job(job_id, payload):
             needs_regen = any(i.get("code") in regen_codes for i in qc.get("issues", []))
             if needs_regen and not payload.get("_regen"):
                 payload["_regen"] = True
-                _set_job(job_id, step="rerender",
-                         warning="终检检出音频缺陷（缺失/中段静音），触发上游重渲染一次")
-                rc2, err2 = _render_with_lock(job_id, args, log_path)
+                payload["regen_attempts"] = payload.get("regen_attempts", 0) + 1
+                # 重渲染为「同步兜底重试」：用独立 REGEN_TIMEOUT（默认 15 分钟，远短于主渲染 35 分钟），
+                # 避免 QC 兜底重试把任务卡死数十分钟；step 保持 'rerender' 不变，前端可明确提示"自动重试中"，
+                # 与普通渲染区分，用户不再误以为卡死。
+                _set_job(job_id, step="rerender", regen_attempted=True,
+                         warning="终检检出音频缺陷（缺失/中段静音），正在自动重试修复（至多约 15 分钟）…")
+                rc2, err2 = _render_with_lock(job_id, args, log_path,
+                                              timeout=REGEN_TIMEOUT, step="rerender")
                 if rc2 == 0 and os.path.exists(out_path):
                     out_path = _post_process(job_id, payload, out_path, job_dir, edit_style)
                     qc2 = ai_qc_video(out_path)
-                    _set_job(job_id, qc_video=qc2, warning="已重渲染重试，终检更新")
+                    _set_job(job_id, qc_video=qc2, regen_failed=False,
+                             warning="已重渲染重试，终检更新")
                     _append_version(job_id, out_path, payload, tag="重渲染修复")
                 else:
-                    _set_job(job_id, error=(jobs.get(job_id, {}).get("error") or "")
-                             + " | 重渲染失败：" + ((err2 or "")[:300]))
+                    # 重试失败：不掩盖、不静默交付次品。初始成片仍可用（status 保持 done 以便下载），
+                    # 但通过 regen_failed + 持久 warning 透明告知缺陷，由用户决定是否重做。
+                    _set_job(job_id, regen_failed=True,
+                             warning="⚠ 自动修复未成功（成片可能含短暂静音/音频缺口），建议重新生成或联系我们。")
             _set_job(job_id, status="done", step="done", out=out_path)
             if not payload.get("_regen"):
                 _append_version(job_id, out_path, payload, tag="初始版本")
@@ -1270,6 +1282,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "versions": j.get("versions"),
                 "warning": j.get("warning"),
                 "error": j.get("error"),
+                "regen_attempted": j.get("regen_attempted", False),
+                "regen_failed": j.get("regen_failed", False),
             })
 
         if p.path.startswith("/download/"):

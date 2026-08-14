@@ -1194,7 +1194,7 @@ function setBvProgress(index, data) {
     if (info) {
         if (status === 'done') {
             info.className = 'bv-info mt-1 text-[10px] text-green-600';
-            info.textContent = '已完成';
+            info.textContent = (data && data.regen_failed) ? '已完成（自动修复未成功，可能含短暂静音）' : '已完成';
         } else if (status === 'failed') {
             info.className = 'bv-info mt-1 text-[10px] text-red-600';
             info.textContent = '失败：' + ((data && (data.error || data.step_label)) || '请重试');
@@ -1209,12 +1209,15 @@ function setBvProgress(index, data) {
             } else if (status !== 'queued' && status !== 'done' && status !== 'failed') {
                 eta = '｜预计还需数分钟';
             }
-            const label = (data && data.step_label) ? data.step_label : (status === 'queued' ? '排队等待渲染资源' : '渲染中');
-            // 同阶段卡死感知
+            const label = (data && data.step_label) ? data.step_label
+                : (status === 'rerender' ? '自动重渲染修复中'
+                : (status === 'queued' ? '排队等待渲染资源' : '渲染中'));
+            // 同阶段卡死感知（重渲染期阈值翻倍避免误报）
             if (step !== bvLastStep[index]) { bvLastStep[index] = step; bvLastStepMs[index] = Date.now(); }
             const stageSec = Math.floor((Date.now() - (bvLastStepMs[index] || Date.now())) / 1000);
             const sm = Math.floor(stageSec / 60), ss = stageSec % 60;
-            const stuckText = stageSec >= 300
+            const stuckTh = (data && data.regen_attempted) ? 600 : 300;
+            const stuckText = stageSec >= stuckTh
                 ? '（⚠ 当前阶段已 ' + sm + ' 分 ' + ss + ' 秒 未推进，可能卡住，建议刷新或重试）'
                 : '';
             info.className = 'bv-info mt-1 text-[10px] text-slate-400';
@@ -1228,7 +1231,9 @@ function setBvProgress(index, data) {
         if (status === 'done') { st2.textContent = '完成'; st2.className = 'bv-status shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700'; }
         else if (status === 'failed') { st2.textContent = '失败'; st2.className = 'bv-status shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-[10px] text-red-600'; }
         else {
-            const lbl = (data && data.step_label) ? data.step_label : (status === 'queued' ? '排队中' : '渲染中');
+            const lbl = (data && data.step_label) ? data.step_label
+                : (status === 'rerender' ? '自动重渲染修复中'
+                : (status === 'queued' ? '排队中' : '渲染中'));
             st2.textContent = lbl; st2.className = 'bv-status shrink-0 rounded bg-brand-100 px-1.5 py-0.5 text-[10px] text-brand-600';
         }
     }

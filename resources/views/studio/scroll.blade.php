@@ -1065,8 +1065,12 @@ async function pollStatus(jobId) {
             if (data.status === 'done') {
                 sessionStorage.removeItem('hgt_active_job');
                 badge.textContent = '完成'; badge.className = 'rounded-full bg-green-100 px-3 py-1 text-xs text-green-700';
+                const regenWarn = data.regen_failed
+                    ? '<div class="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">⚠ 本次自动修复未成功，成片可能含短暂静音/音频缺口，请试听确认；如需更干净可重新生成。</div>'
+                    : '';
                 result.innerHTML =
                     '<div class="w-full">' +
+                    regenWarn +
                     '  <div class="mb-2 flex items-center gap-2 text-sm font-medium text-green-700">出片完成（真实配音短视频）</div>' +
                     '  <video src="/studio/scroll/download/' + jobId + '" controls class="max-h-[55vh] w-full rounded-lg bg-black"></video>' +
                     '  <div class="mt-3 flex flex-wrap gap-2">' +
@@ -1127,8 +1131,9 @@ async function pollStatus(jobId) {
                     : '预计还需数分钟';
 
                 // 同阶段超时感知：某阶段持续不推进超过阈值，提示用户可能卡住并可手动刷新
-                const STAGE_STUCK_SEC = 300;   // 5 分钟同阶段无推进即提示"可能卡住"
-                const TOTAL_STUCK_SEC = 900;   // 15 分钟总等待即建议刷新/重试
+                const isRegen = !!data.regen_attempted;  // 处于 QC 自动重试阶段，阈值放宽避免误报"卡住"
+                const STAGE_STUCK_SEC = isRegen ? 600 : 300;   // 重渲染期同阶段无推进阈值翻倍（10 分钟）
+                const TOTAL_STUCK_SEC = isRegen ? 1500 : 900;  // 重渲染期总等待阈值放宽（25 分钟）
                 if (step !== lastStep) { lastStep = step; lastStepMs = Date.now(); }
                 const stageStuckSec = Math.floor((Date.now() - lastStepMs) / 1000);
                 const stuckHint = stageStuckSec >= STAGE_STUCK_SEC
