@@ -95,6 +95,20 @@ SCRIPT_SCROLL = os.path.join(GPT_SOVITS, "make_scroll_video.py")
 SCRIPT_EDIT = os.path.join(GPT_SOVITS, "auto_edit.py")
 SCRIPT_COVER = os.path.join(GPT_SOVITS, "make_cover.py")
 SCRIPT_AVATAR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "make_avatar_from_dialogue.py")
+
+# 字幕字体：前端传 key，映射为 Windows 系统字体路径（渲染脚本跑在本机，可直接读取）
+FONT_MAP = {
+    "hei": r"C:/Windows/Fonts/simhei.ttf",
+    "yahei": r"C:/Windows/Fonts/msyh.ttc",
+    "kaiti": r"C:/Windows/Fonts/kaiti.ttf",
+    "song": r"C:/Windows/Fonts/simsun.ttc",
+    "fangsong": r"C:/Windows/Fonts/simfang.ttf",
+}
+def resolve_font(key):
+    p = FONT_MAP.get(key)
+    if p and os.path.exists(p):
+        return p
+    return FONT_MAP["hei"]
 JOBS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jobs")
 os.makedirs(JOBS_DIR, exist_ok=True)
 
@@ -336,7 +350,7 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
     if focus and isinstance(focus, str) and focus.strip():
         focus_hint = f"\n【用户指定的重点方向】：{focus.strip()} — 请在改写中特别强化这个方向的内容比重与表达力度。\n"
 
-    # 目标时长约束
+    # 目标时长约束：130–160 字/分 ≈ 2.17–2.67 字/秒；预估按 2.4 字/秒
     dur_hint = ""
     if target_duration is not None:
         try:
@@ -344,9 +358,10 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
             if secs > 0:
                 chars_low = max(30, round(secs * 130 / 60))   # 慢速约 130字/分
                 chars_high = round(secs * 160 / 60)             # 快速约 160字/分
-                dur_hint = (f"\n【目标时长约束】：用户要求改写稿适合 {secs} 秒的视频"
-                            f"（约 {chars_low}–{chars_high} 字）。请严格控制输出长度在此范围内，"
-                            f"过长则精简、过短则适当展开，但不要注水凑字数。\n")
+                dur_hint = (f"\n【目标时长约束】：用户要求改写稿严格控制在 {secs} 秒的视频长度，"
+                            f"字数必须落在 {chars_low}–{chars_high} 字之间（按中文口播 130–160 字/分钟）。"
+                            f"这是硬性要求：若初稿超过 {chars_high} 字必须删减冗余、精简表达；"
+                            f"若不足 {chars_low} 字必须补充细节或案例；绝不允许超出该范围。\n")
         except (ValueError, TypeError):
             pass
 
@@ -376,10 +391,10 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
     hits = forbidden_words.scan(rewritten)
     cleaned = forbidden_words.clean_script(rewritten)
 
-    # 元数据：字数 + 预估时长（中文约 4.5 字/秒，含自然停顿）
+    # 元数据：字数 + 预估时长（中文约 2.4 字/秒 ≈ 145 字/分钟，含自然停顿；与目标时长 130–160 字/分对齐）
     orig_chars = len(text.replace(" ", "").replace("\n", ""))
     clean_chars = len(cleaned.replace(" ", "").replace("\n", ""))
-    est_sec = max(1, round(clean_chars / 4.5))
+    est_sec = max(1, round(clean_chars / 2.4))
 
     return {
         "ok": True,
@@ -402,7 +417,7 @@ def ai_qc(text, platform=None):
     """智能质检：违禁词扫描 + 时长预估 + 风险等级。返回 dict。"""
     hits = forbidden_words.scan(text, platform)
     chars = len(text)
-    est_sec = max(1, round(chars / 4.5))  # 中文约 4.5 字/秒（含停顿）
+    est_sec = max(1, round(chars / 2.4))  # 中文约 2.4 字/秒 ≈ 145 字/分钟（含停顿）
     high = [h for h in hits if h.get("level") == "high"]
     risk = "high" if high else ("medium" if hits else "low")
     return {
@@ -1069,6 +1084,9 @@ def run_job(job_id, payload):
             # 字幕风格（minimal/bubble/dynamic；可选，不传则脚本默认 dynamic）
             if payload.get("subtitle_style"):
                 args += ["--subtitle-style", str(payload["subtitle_style"])]
+            # 字幕字体（hei/yahei/kaiti/song/fangsong；可选，不传则脚本默认黑体）
+            if payload.get("subtitle_font"):
+                args += ["--font", resolve_font(payload["subtitle_font"])]
         else:  # scroll
             args = [PY310, SCRIPT_SCROLL, "--dialogue", dlg_path, "--out", out_path]
             if payload.get("title"):
@@ -1130,6 +1148,9 @@ def run_job(job_id, payload):
             # 字幕风格（minimal/bubble/dynamic；可选，不传则脚本默认 dynamic）
             if payload.get("subtitle_style"):
                 args += ["--subtitle-style", str(payload["subtitle_style"])]
+            # 字幕字体（hei/yahei/kaiti/song/fangsong；可选，不传则脚本默认黑体）
+            if payload.get("subtitle_font"):
+                args += ["--font", resolve_font(payload["subtitle_font"])]
             # 嵌套自动剪辑：在 scroll 成片之上做剪辑风格后处理（fast/artistic/vlog）
             # edit_style 已在 run_job 顶部统一捕获，此处无需重复
 
@@ -1567,14 +1588,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
         trimmed = "\n".join(l.strip() for l in trimmed.splitlines() if l.strip())[:800]
         ind_hint = f"（内容行业：{industry}）" if industry else ""
         prompt = (
-            "你是资深短视频选题与文案专家，擅长把专业财税/经营内容改写成老板一眼想看的标题。\n"
-            f"下面是一段口播文稿{ind_hint}，请据此生成一对「标题 + 副标题」：\n"
-            "要求：\n"
-            "1) 标题：≤30字，科学严谨、不夸大、不触碰违禁词（如虚开/偷税等用合规表述），"
-            "要有吸引力（戳痛点或给明确价值），面向企业老板/B端决策者；\n"
-            "2) 副标题：≤40字，承接标题，给出一句具体可感知的利益点或警示，引发继续看的欲望；\n"
-            '3) 严格只输出一个 JSON 对象：{"title":"...","subtitle":"..."}，'
-            "不要任何解释或代码块标记。"
+            "你是一位短视频文案专家，擅长为抖音、视频号、小红书生成高点击的封面标题和副标题。\n"
+            f"请根据以下文稿内容{ind_hint}，生成 1 组标题 + 副标题：\n"
+            "【要求】\n"
+            "1. 主标题 6–12 字，硬上限 15 字；必须包含核心关键词（人群/痛点/利益点），"
+            "前 5 个字就要让人知道这条视频讲什么。\n"
+            "2. 副标题 15–25 字，硬上限 30 字；补充主标题，说明"
+            "\"这是什么内容、谁该看、能得到什么\"，不能与主标题重复。\n"
+            "3. 风格适配财税/商业短视频：真实、有警示感、不恐吓、不带违禁词。\n"
+            "4. 优先使用以下爆款公式之一：数字法、悬念法、痛点法、反差法、地域法。\n"
+            "5. 禁用词汇：最、第一、国家级、根治、必看、不看后悔、暴富、躺赚、必死、全网第一。\n"
+            "6. 标题党绝对不行，必须能从文稿中找到事实依据。\n"
+            '7. 严格只输出一个 JSON 对象：{"title":"...","subtitle":"..."}，'
+            "不要返回任何多余内容（不要解释、不要代码块标记）。"
         )
         try:
             cfg = get_text_config()
@@ -1602,8 +1628,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     obj = None
         if not isinstance(obj, dict) or not obj.get("title"):
             return self._send(200, {"ok": False, "error": "AI 返回解析失败", "raw": content[:200]})
-        title = str(obj.get("title", "")).strip()[:30]
-        subtitle = str(obj.get("subtitle", "")).strip()[:40]
+        title = str(obj.get("title", "")).strip()[:15]
+        subtitle = str(obj.get("subtitle", "")).strip()[:30]
         return self._send(200, {"ok": True, "title": title, "subtitle": subtitle})
 
     # ---- 声音克隆（租户上传参考音频 → CosyVoice 克隆 → voice_id）----

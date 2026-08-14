@@ -100,7 +100,7 @@
                         <input type="number" id="durationCustom" name="duration_custom" min="10" max="600"
                             placeholder="秒数，如 90"
                             class="hidden w-28 rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
-                        <span id="durationHint" class="text-xs text-slate-400">约 130–160 字/分钟</span>
+                        <span id="durationHint" class="text-xs text-slate-400">约 130–160 字/分钟（预估按 145 字/分钟）</span>
                     </div>
                     <input type="hidden" id="targetDuration" name="target_duration" value="">
                 </div>

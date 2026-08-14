@@ -81,7 +81,7 @@ def wav_duration(path):
     r = subprocess.run(
         [FFPROBE, "-v", "error", "-show_entries", "format=duration",
          "-of", "default=noprint_wrappers=1:nokey=1", path],
-        capture_output=True, text=True, check=True)
+        capture_output=True, text=True, encoding="utf-8", errors="ignore", check=True)
     return float(r.stdout.strip())
 
 
@@ -188,6 +188,7 @@ def main():
     ap.add_argument("--subtitle-style", default="dynamic",
                     choices=["dynamic", "minimal", "bubble"],
                     help="字幕风格：dynamic=逐字高亮（卡拉OK式）/ minimal=纯净白字 / bubble=气泡底衬")
+    ap.add_argument("--font", default=None, help="字幕主字体路径（透传 make_avatar_video）")
     args = ap.parse_args()
 
     with open(args.dialogue, encoding="utf-8-sig") as f:
@@ -211,9 +212,12 @@ def main():
     cmd = [PY310, MAKE_AVATAR, "--audio", audio_wav, "--ass", ass_path,
            "--model", args.model, "--out", out, "--name", tag,
            "--subtitle-style", args.subtitle_style, "--karaoke", karaoke_path]
-    r = subprocess.run(cmd, cwd=GPT_SOVITS, capture_output=True, text=True)
+    if args.font:
+        cmd += ["--font", args.font]
+    r = subprocess.run(cmd, cwd=GPT_SOVITS, capture_output=True, text=True,
+                       encoding="utf-8", errors="ignore")
     if r.returncode != 0:
-        sys.stderr.write(r.stdout + "\n" + r.stderr)
+        sys.stderr.write((r.stdout or "") + "\n" + (r.stderr or ""))
         sys.exit(f"make_avatar_video 失败 (rc={r.returncode})")
     if not os.path.exists(out):
         sys.exit("成品未生成")

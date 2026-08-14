@@ -75,6 +75,7 @@ class VideoController extends Controller
             'subtitle_outline' => ['sometimes', 'integer', 'between:0,10'],
             'subtitle_position' => ['sometimes', 'string', 'in:bottom,center'],
             'subtitle_style' => ['sometimes', 'string', 'in:dynamic,minimal,bubble'],
+            'subtitle_font' => ['sometimes', 'string', 'in:hei,yahei,kaiti,song,fangsong'],
             'natural' => ['sometimes', 'boolean'],
             'model' => ['nullable', 'string', 'max:120'],
             'scene' => ['nullable', 'string', 'max:40', 'in:office_a,office_b'],
@@ -212,7 +213,7 @@ class VideoController extends Controller
             }
         }
         // 字幕样式可调：仅当页面传了才透传（不传则脚本用默认值）
-        foreach (['subtitle_size', 'subtitle_lines', 'subtitle_outline', 'subtitle_position', 'subtitle_style'] as $k) {
+        foreach (['subtitle_size', 'subtitle_lines', 'subtitle_outline', 'subtitle_position', 'subtitle_style', 'subtitle_font'] as $k) {
             if ($request->has($k)) {
                 $payload[$k] = $request->input($k);
             }
@@ -242,8 +243,8 @@ class VideoController extends Controller
     }
 
     /**
-     * 从对话稿粗略估算 TTS 时长（中文约 4.5 字/秒，去除 女：/男： 前缀）。
-     * 与 8500 server.py estimate_duration_sec 算法保持一致。
+     * 从对话稿粗略估算 TTS 时长（中文约 2.4 字/秒 ≈ 145 字/分钟，去除 女：/男： 前缀）。
+     * 与 8500 server.py 及前端 estimateDuration 算法保持一致。
      */
     private function estimateDurationSec(string $dialogue): int
     {
@@ -259,7 +260,7 @@ class VideoController extends Controller
             }
             $chars += mb_strlen(str_replace(' ', '', $line));
         }
-        return max(1, (int) round($chars / 4.5));
+        return max(1, (int) round($chars / 2.4));
     }
 
     public function status(string $jobId)
@@ -280,7 +281,139 @@ class VideoController extends Controller
             // 客户端轮询即代表「仍在线」，刷新心跳（孤儿回收的判定依据）
             $job->touchHeartbeat();
         }
+        // 增补租户端进度字段（中文分步 / 百分比 / 预计剩余）+ 按 job_id 时间戳落盘日志
+        $json = $this->enrichPipelineStatus($json);
+        $this->logJobProgress($jobId, $json);
         return response()->json($json);
+    }
+
+    /**
+     * 把 8500 原始状态 enriched 成租户端友好的进度结构：
+     * 中文分步文案 + 百分比 + 预计剩余秒。纯映射，不动 8500。
+     */
+    private function enrichPipelineStatus(array $json): array
+    {
+        $step   = $json['step'] ?? null;
+        $status = $json['status'] ?? null;
+
+        // 流水线分步（顺序即阶段推进）：提交 → 配音字幕 → 视频渲染 → 完成
+        $stepMap = [
+            'queued'    => ['label' => '排队等待渲染资源', 'percent' => 8],
+            'editing'   => ['label' => '智能配音与字幕合成', 'percent' => 40],
+            'rendering' => ['label' => '视频 / 数字人渲染中', 'percent' => 75],
+            'rerender'  => ['label' => '画面精修（自动重渲染）', 'percent' => 92],
+            'done'      => ['label' => '已完成', 'percent' => 100],
+            'failed'    => ['label' => '出片失败', 'percent' => 100],
+        ];
+
+        // 单条平均渲染秒，与队列预估（queueEstimate）同源 env('AVG_RENDER_MIN')
+        $avgRenderSec = (int) env('AVG_RENDER_MIN', 10) * 60;
+
+        $info = $stepMap[$step] ?? ($status === 'done' ? $stepMap['done']
+            : ($status === 'failed' ? $stepMap['failed'] : ['label' => '出片处理中', 'percent' => 50]));
+
+        // 预计剩余：排队按前面任务数估算；渲染中按剩余百分比估算
+        $etaSec = 0;
+        if ($status === 'queued' || $step === 'queued') {
+            $queuePos = (int) ($json['queue_pos'] ?? 0);
+            $etaSec = ($queuePos + 1) * $avgRenderSec;
+        } elseif ($status !== 'done' && $status !== 'failed') {
+            $etaSec = (int) round(((100 - $info['percent']) / 100) * $avgRenderSec);
+        }
+
+        $json['step_label']      = $info['label'];
+        $json['progress']        = $info['percent'];
+        $json['eta_sec']         = $etaSec;
+        $json['avg_render_sec']  = $avgRenderSec;
+
+        return $json;
+    }
+
+    /**
+     * 按 job_id 写时间戳进度日志，仅在 step/status 切换或首次/终态时追加一行，
+     * 便于出片问题追溯（路径：storage/logs/video-jobs/{job_id}.log）。
+     * 写入失败绝不影响主流程。
+     */
+    private function logJobProgress(string $jobId, array $json): void
+    {
+        try {
+            $dir = storage_path('logs/video-jobs');
+            if (! is_dir($dir)) {
+                @mkdir($dir, 0755, true);
+            }
+            $file = $dir . '/' . $jobId . '.log';
+
+            $prevKey = null;
+            if (is_file($file)) {
+                $lines = @file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+                if (! empty($lines)) {
+                    if (preg_match('/step=(\S+)\s+status=(\S+)/', end($lines), $m)) {
+                        $prevKey = $m[1] . '|' . $m[2];
+                    }
+                }
+            }
+
+            $curKey = ($json['step'] ?? '?') . '|' . ($json['status'] ?? '?');
+            if ($curKey === $prevKey) {
+                return; // 无切换，不重复写
+            }
+
+            $ts   = date('Y-m-d H:i:s');
+            $line = sprintf(
+                "[%s] step=%s status=%s label=%s progress=%d%% eta=%ds\n",
+                $ts,
+                $json['step'] ?? '-',
+                $json['status'] ?? '-',
+                $json['step_label'] ?? '-',
+                $json['progress'] ?? 0,
+                $json['eta_sec'] ?? 0
+            );
+            @file_put_contents($file, $line, FILE_APPEND);
+        } catch (\Throwable $e) {
+            // 日志异常静默吞掉，不阻断出片状态查询
+        }
+    }
+
+    /**
+     * 租户前台查看某任务的出片进度记录（时间戳日志）。
+     * 安全：jobId 仅允许安全字符（防路径穿越）；仅允许查看「本人租户」的任务，杜绝跨租户偷看。
+     * 日志路径：storage/logs/video-jobs/{job_id}.log（由 logJobProgress 写入）。
+     */
+    public function jobLog(string $jobId)
+    {
+        if (! preg_match('/^[A-Za-z0-9_-]{8,128}$/', $jobId)) {
+            abort(404);
+        }
+        $job = VideoJob::where('job_id', $jobId)->first();
+        if (! $job) {
+            abort(404);
+        }
+        $this->authorizeTenant($job);   // 非本租户 → 403
+
+        $file = storage_path('logs/video-jobs/' . $jobId . '.log');
+        if (! is_file($file)) {
+            return response()->json(['exists' => false, 'entries' => []]);
+        }
+
+        $raw = @file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $entries = [];
+        if (! empty($raw)) {
+            foreach ($raw as $ln) {
+                if (preg_match(
+                    '/^\[([^\]]+)\]\s+step=(\S+)\s+status=(\S+)\s+label=(.+?)\s+progress=(\d+)%\s+eta=(\d+)s$/',
+                    $ln, $m)) {
+                    $entries[] = [
+                        'time'     => $m[1],
+                        'step'     => $m[2],
+                        'status'   => $m[3],
+                        'label'    => $m[4],
+                        'progress' => (int) $m[5],
+                        'eta'      => (int) $m[6],
+                    ];
+                }
+            }
+        }
+        return response()->json(['exists' => true, 'entries' => $entries]);
     }
 
     /**

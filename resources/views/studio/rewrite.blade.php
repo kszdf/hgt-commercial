@@ -1,6 +1,13 @@
 ﻿<x-app-layout>
 <x-workspace-layout title="选题二创">
-<div class="mx-auto max-w-5xl p-6">
+    <div class="mx-auto max-w-5xl p-6">
+
+    <style>
+        /* 批量出片进度看板：进度条与分步指示器（纯 CSS，避开 Tailwind 扫描） */
+        .bv-bar { transition: width .5s ease; }
+        .bv-step { transition: color .3s ease; }
+        .bv-dot { transition: background-color .3s ease; }
+    </style>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <!-- ===== 左侧：选题改写输入区 ===== -->
@@ -136,7 +143,7 @@
                         <input type="number" id="durationCustom" name="duration_custom" min="10" max="600"
                             placeholder="秒数，如 90"
                             class="hidden w-28 rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
-                        <span id="durationHint" class="text-xs text-slate-400">约 130–160 字/分钟</span>
+                        <span id="durationHint" class="text-xs text-slate-400">约 130–160 字/分钟（预估按 145 字/分钟）</span>
                     </div>
                     <input type="hidden" id="targetDuration" name="target_duration" value="">
                 </div>
@@ -271,6 +278,17 @@
             </div>
         </section>
     </div>
+</div>
+
+<!-- 出片进度记录弹窗（纯 inline 样式，避开 Tailwind 扫描静默失效） -->
+<div id="jobLogModal" style="position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45)">
+  <div style="width:100%;max-width:28rem;margin:0 1rem;background:#fff;border-radius:.75rem;box-shadow:0 20px 25px -5px rgba(0,0,0,.15);overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-bottom:1px solid #f1f5f9">
+      <h4 style="font-size:.875rem;font-weight:600;color:#334155">出片进度记录</h4>
+      <button type="button" onclick="closeJobLog()" style="border:none;background:#f8fafc;border-radius:.375rem;padding:.25rem .55rem;color:#94a3b8;cursor:pointer;font-size:.875rem">✕</button>
+    </div>
+    <div id="jobLogBody" style="max-height:60vh;overflow-y:auto;padding:1rem;font-size:.75rem;color:#475569">加载中…</div>
+  </div>
 </div>
 
 <script>
@@ -1105,9 +1123,21 @@ function renderBatchVideoBoard(batchId, scripts) {
     let html = '<div class="mb-2 flex items-center justify-between"><h4 class="text-sm font-semibold text-slate-700">批量出片进度</h4><span id="bvSummary" class="text-xs text-slate-500">0 / '+scripts.length+'</span></div><div id="bvCards" class="space-y-2">';
     scripts.forEach((s, i) => {
         html += '<div class="rounded-lg border border-slate-200 bg-white p-3 text-xs" data-bv="'+i+'">'
-            + '<div class="flex items-center justify-between"><span class="font-medium text-slate-700 truncate">'+escapeHtml(s.title||('第'+(i+1)+'条'))+'</span>'
-            + '<span class="bv-status rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">排队中</span></div>'
+            + '<div class="flex items-center justify-between gap-2"><span class="font-medium text-slate-700 truncate">'+escapeHtml(s.title||('第'+(i+1)+'条'))+'</span>'
+            + '<span class="bv-status shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">排队中</span></div>'
+            // 进度条（动态宽度用 inline style，避开 Tailwind 扫描）
+            + '<div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100"><div class="bv-bar h-full rounded-full bg-brand-500" style="width:0%"></div></div>'
+            // 四段分步指示器
+            + '<div class="bv-steps mt-2 flex items-center justify-between">'
+            +   '<span class="bv-step flex items-center gap-1 text-slate-400" data-step="0"><span class="bv-dot inline-block h-1.5 w-1.5 rounded-full bg-slate-300"></span>提交成功</span>'
+            +   '<span class="bv-step flex items-center gap-1 text-slate-400" data-step="1"><span class="bv-dot inline-block h-1.5 w-1.5 rounded-full bg-slate-300"></span>配音字幕</span>'
+            +   '<span class="bv-step flex items-center gap-1 text-slate-400" data-step="2"><span class="bv-dot inline-block h-1.5 w-1.5 rounded-full bg-slate-300"></span>视频渲染</span>'
+            +   '<span class="bv-step flex items-center gap-1 text-slate-400" data-step="3"><span class="bv-dot inline-block h-1.5 w-1.5 rounded-full bg-slate-300"></span>出片完成</span>'
+            + '</div>'
+            // 信息行：分步文案 + 已等待 + 预计剩余
+            + '<div class="bv-info mt-1 text-[10px] text-slate-400">等待开始…</div>'
             + '<div class="bv-actions mt-1 flex gap-2 items-center">'
+            + '<button class="bv-log hidden rounded border border-slate-200 bg-white px-2 py-1 text-slate-500" type="button">进度</button>'
             + '<a class="bv-dl hidden rounded bg-brand-500 px-2 py-1 text-white" target="_blank">下载</a>'
             + '<button class="bv-retry hidden rounded border border-slate-200 bg-white px-2 py-1 text-slate-600" type="button">重试</button>'
             + '</div></div>';
@@ -1116,19 +1146,89 @@ function renderBatchVideoBoard(batchId, scripts) {
     board.innerHTML = html;
 }
 
-function setBvCard(index, status, label) {
+// 每张卡的轮询起始时间戳（用于"已等待"精确计时，可追溯）
+const bvStartTimes = {};
+
+// 批量看板进度渲染：进度条 + 四段分步高亮 + 已等待 + 预计剩余
+// data 来自 /studio/scroll/status/{jobId}（含后端的 step_label/progress/eta_sec 增强字段）
+function setBvProgress(index, data) {
     const card = document.querySelector('#bvCards [data-bv="'+index+'"]');
     if (!card) return;
-    const st = card.querySelector('.bv-status');
-    const map = {
-        submitted:['提交中','bg-brand-100 text-brand-600'],
-        rendering:['渲染中','bg-brand-100 text-brand-600'],
-        done:['完成','bg-green-100 text-green-700'],
-        failed:['失败','bg-red-100 text-red-600'],
-        pending:['排队中','bg-slate-100 text-slate-500']
-    };
-    const m = map[status] || map.pending;
-    if (st) { st.textContent = label || m[0]; st.className = 'bv-status rounded px-1.5 py-0.5 text-[10px] '+m[1]; }
+    const status = (data && data.status) || 'queued';
+    const step = (data && data.step) || (status === 'done' ? 'done' : status === 'failed' ? 'failed' : 'queued');
+
+    // 1) 进度条百分比：优先用后端 progress，缺失时按 step 兜底
+    let pct = (data && typeof data.progress === 'number') ? data.progress : null;
+    if (pct === null) {
+        const m = { queued:8, editing:40, rendering:75, rerender:92, done:100, failed:100 };
+        pct = (m[step] !== undefined) ? m[step] : 8;
+    }
+    const bar = card.querySelector('.bv-bar');
+    if (bar) bar.style.width = pct + '%';
+
+    // 2) 四段分步高亮：提交成功 → 配音字幕 → 视频渲染 → 出片完成
+    const phaseMap = { queued:0, editing:1, rendering:2, rerender:2, done:3, failed:-1 };
+    const cur = (phaseMap[step] !== undefined) ? phaseMap[step] : 0;
+    card.querySelectorAll('.bv-step').forEach(el => {
+        const s = parseInt(el.getAttribute('data-step'), 10);
+        const dot = el.querySelector('.bv-dot');
+        el.classList.remove('text-slate-400','text-brand-600','text-green-600','text-red-600','font-medium');
+        if (dot) dot.classList.remove('bg-slate-300','bg-brand-500','bg-green-500','bg-red-500');
+        if (status === 'failed') {
+            el.classList.add(s === cur ? 'text-red-600' : 'text-slate-300');
+            if (dot) dot.classList.add(s === cur ? 'bg-red-500' : 'bg-slate-200');
+        } else if (s < cur) {
+            el.classList.add('text-green-600'); if (dot) dot.classList.add('bg-green-500');
+        } else if (s === cur) {
+            el.classList.add('text-brand-600','font-medium'); if (dot) dot.classList.add('bg-brand-500');
+        } else {
+            el.classList.add('text-slate-400'); if (dot) dot.classList.add('bg-slate-300');
+        }
+    });
+
+    // 3) 信息行：分步文案 + 已等待 + 预计剩余（ETA）
+    const info = card.querySelector('.bv-info');
+    if (info) {
+        if (status === 'done') {
+            info.className = 'bv-info mt-1 text-[10px] text-green-600';
+            info.textContent = '已完成';
+        } else if (status === 'failed') {
+            info.className = 'bv-info mt-1 text-[10px] text-red-600';
+            info.textContent = '失败：' + ((data && (data.error || data.step_label)) || '请重试');
+        } else {
+            const st = bvStartTimes[index] || Date.now();
+            const elapsed = Math.max(0, Math.floor((Date.now() - st) / 1000));
+            const em = Math.floor(elapsed / 60), es = elapsed % 60;
+            let eta = '';
+            if (data && typeof data.eta_sec === 'number' && data.eta_sec > 0) {
+                eta = '｜预计剩余约 ' + Math.max(1, Math.round(data.eta_sec / 60)) + ' 分钟';
+            }
+            const label = (data && data.step_label) ? data.step_label : (status === 'queued' ? '排队等待渲染资源' : '渲染中');
+            info.className = 'bv-info mt-1 text-[10px] text-slate-400';
+            info.textContent = label + '｜已等待 ' + em + ' 分 ' + es + ' 秒' + eta;
+        }
+    }
+
+    // 4) 状态徽章同步
+    const st2 = card.querySelector('.bv-status');
+    if (st2) {
+        if (status === 'done') { st2.textContent = '完成'; st2.className = 'bv-status shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700'; }
+        else if (status === 'failed') { st2.textContent = '失败'; st2.className = 'bv-status shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-[10px] text-red-600'; }
+        else {
+            const lbl = (data && data.step_label) ? data.step_label : (status === 'queued' ? '排队中' : '渲染中');
+            st2.textContent = lbl; st2.className = 'bv-status shrink-0 rounded bg-brand-100 px-1.5 py-0.5 text-[10px] text-brand-600';
+        }
+    }
+}
+
+// 兼容旧调用：用合成 data 委托给 setBvProgress（提交中/排队中/终态无实时数据时）
+function setBvCard(index, status, label) {
+    setBvProgress(index, {
+        status: status,
+        step: (status === 'done' ? 'done' : status === 'failed' ? 'failed' : 'queued'),
+        step_label: label || '',
+        progress: (status === 'done' ? 100 : status === 'failed' ? 100 : 0)
+    });
 }
 
 async function postBvProgress(batchId, index, status, jobId) {
@@ -1175,22 +1275,29 @@ async function submitOneBatchVideo(batchId, config, index, script) {
 }
 
 async function pollBvJob(batchId, index, jobId) {
-    setBvCard(index, 'rendering', '渲染中');
+    bvStartTimes[index] = Date.now();  // 记录起始时间戳，用于"已等待"精确计时
+    // 显示并绑定本卡「进度」按钮，点击查看时间戳进度记录
+    const card0 = document.querySelector('#bvCards [data-bv="'+index+'"]');
+    if (card0) {
+        const logBtn = card0.querySelector('.bv-log');
+        if (logBtn) { logBtn.classList.remove('hidden'); logBtn.onclick = () => openJobLog(jobId); }
+    }
     for (let i=0;i<300;i++){
         await sleep(2000);
         try {
             const resp = await fetch('/studio/scroll/status/'+jobId, { headers:{'Accept':'application/json','X-CSRF-TOKEN':csrf()} });
             const data = await resp.json().catch(()=>({}));
+            setBvProgress(index, data);  // 实时刷新进度条/分步/已等待/ETA
             if (data.status === 'done') {
                 await postBvProgress(batchId, index, 'done', jobId);
-                setBvCard(index, 'done', '完成');
+                setBvProgress(index, data);
                 const card = document.querySelector('#bvCards [data-bv="'+index+'"]');
                 if (card) { const dl = card.querySelector('.bv-dl'); if (dl) { dl.classList.remove('hidden'); dl.href = '/studio/scroll/download/'+jobId; } }
                 updateBvSummary();
                 return;
             } else if (data.status === 'failed') {
                 await postBvProgress(batchId, index, 'failed', jobId);
-                setBvCard(index, 'failed', '渲染失败');
+                setBvProgress(index, data);
                 const card = document.querySelector('#bvCards [data-bv="'+index+'"]');
                 if (card) card.querySelector('.bv-retry')?.classList.remove('hidden');
                 updateBvSummary();
@@ -1321,6 +1428,49 @@ async function resumeBatchVideo(batchId) {
 
 // 初始化字数
 updateCharCount();
+
+// ===== 出片进度记录弹窗（读取后端 /studio/scroll/job-log/{jobId}，与单条出片共用接口） =====
+function escHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function openJobLog(jobId) {
+    const modal = document.getElementById('jobLogModal');
+    const body = document.getElementById('jobLogBody');
+    if (!modal || !body) return;
+    if (!jobId) { body.innerHTML = '<div style="color:#94a3b8">暂无进度记录</div>'; modal.style.display = 'flex'; return; }
+    body.innerHTML = '<div style="color:#94a3b8">加载中…</div>';
+    fetch('/studio/scroll/job-log/' + jobId, {
+        headers: { 'Accept':'application/json', 'X-CSRF-TOKEN': csrf() }
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (!d.exists || !d.entries || !d.entries.length) {
+            body.innerHTML = '<div style="color:#94a3b8">暂无进度记录（任务刚提交或已结束且无阶段切换）</div>';
+            return;
+        }
+        let html = '';
+        d.entries.forEach(e => {
+            const st = e.status;
+            const c = st === 'done' ? '#16a34a' : (st === 'failed' ? '#dc2626' : '#2563eb');
+            html += '<div style="display:flex;gap:.5rem;padding:.4rem 0;border-bottom:1px solid #f1f5f9;align-items:baseline;flex-wrap:wrap">'
+                + '<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#64748b;flex-shrink:0">' + escHtml(e.time) + '</span>'
+                + '<span style="color:' + c + ';font-weight:600;flex-shrink:0">' + escHtml(e.label) + '</span>'
+                + '<span style="color:#94a3b8">进度 ' + (e.progress||0) + '%</span>'
+                + (typeof e.eta === 'number' && e.eta > 0 && st !== 'done' && st !== 'failed' ? '<span style="color:#94a3b8">预计剩余 ' + e.eta + 's</span>' : '')
+                + '</div>';
+        });
+        body.innerHTML = html;
+    })
+    .catch(() => { body.innerHTML = '<div style="color:#dc2626">读取失败，请稍后重试</div>'; });
+    modal.style.display = 'flex';
+}
+function closeJobLog() {
+    const modal = document.getElementById('jobLogModal');
+    if (modal) modal.style.display = 'none';
+}
+document.getElementById('jobLogModal')?.addEventListener('click', function(ev) {
+    if (ev.target === this) closeJobLog();
+});
 </script>
 </x-workspace-layout>
 </x-app-layout>

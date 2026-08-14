@@ -30,24 +30,15 @@
                     <p id="formatWarning" class="mt-1 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700"></p>
                 </div>
 
-                <!-- 数字人场景选择（仅avatar模式显示） -->
-                <div id="sceneSelectWrap" class="hidden rounded-lg studio-card studio-card-sm">
-                    <label class="mb-1.5 block text-sm font-medium text-slate-600">出镜场景</label>
-                    <select id="scene" name="scene" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
-                        <option value="office_a">办公桌前·正面（推荐）</option>
-                        <option value="office_b">办公桌前·侧面</option>
-                    </select>
-                    <p class="mt-1.5 text-xs text-slate-400">数字人将合成到所选场景视频中。滚动字幕卡模式无需选择。</p>
-                </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="mb-1 flex items-center justify-between">
                             <span class="text-sm font-medium text-slate-700">
-                                标题（≤10字）
+                                标题（≤15字）
                                 <span id="titleAutoTag" class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500">选填</span>
                             </span>
                         </label>
-                        <input id="title" name="title" maxlength="30"
+                        <input id="title" name="title" maxlength="15"
                             class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                         <div class="mt-2 flex flex-wrap items-center gap-1.5">
                             <span class="text-[11px] text-slate-400">标题风格</span>
@@ -64,7 +55,7 @@
                                 <span id="subtitleAutoTag" class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500">选填</span>
                             </span>
                         </label>
-                        <input id="subtitle" name="subtitle" maxlength="40"
+                        <input id="subtitle" name="subtitle" maxlength="30"
                             class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                         <div class="mt-2 flex flex-wrap items-center gap-2">
                             <button type="button" id="aiTitleBtn"
@@ -84,12 +75,13 @@
                 <div id="modelSelectWrap" class="hidden rounded-lg studio-card studio-card-sm">
                     <label class="mb-1.5 block text-sm font-medium text-slate-600">选择数字人模特</label>
                     <select id="model" name="model" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
-                        <option value="BGZSP20260721_t18_silent.mp4">张老师·稳重主力（推荐）</option>
+                        <option value="BGZSP20260721_t18_silent.mp4">张老师·办公桌前正面（推荐）</option>
+                        <option value="yxszr1">张老师·办公桌前侧面</option>
                         <option value="szrsp">自然略晃·备选</option>
                         <optgroup label="我的模特" id="userModelsGroup"></optgroup>
                     </select>
                     <p class="mt-1.5 flex items-center justify-between text-xs text-slate-400">
-                        <span>数字人出镜模式需指定模特；滚动字幕卡模式此步自动跳过。</span>
+                        <span>数字人模特已含出镜场景，配合您的克隆声线合成口播；滚动字幕卡模式此步自动跳过。</span>
                         <a href="/studio/models" class="text-brand-600 hover:underline">管理我的模特 →</a>
                     </p>
                 </div>
@@ -202,6 +194,17 @@
                             </select>
                             <p class="text-[11px] text-slate-400">逐字高亮会让读到的字变金色，字幕跟着配音走；数字人出镜与滚动字幕卡均支持。</p>
                         </div>
+                        <div class="space-y-1 sm:col-span-2">
+                            <label class="block text-xs text-slate-500">字幕字体</label>
+                            <select id="subtitle_font" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700" onchange="updateSubPreview()">
+                                <option value="hei" selected>黑体（默认·稳重）</option>
+                                <option value="yahei">微软雅黑（现代·清晰）</option>
+                                <option value="kaiti">楷体（手写·亲和）</option>
+                                <option value="song">宋体（正式·传统）</option>
+                                <option value="fangsong">仿宋（公文·规整）</option>
+                            </select>
+                            <p class="text-[11px] text-slate-400">像剪映一样选字幕字体；数字人出镜与滚动字幕卡均支持。</p>
+                        </div>
                     </div>
                     <div class="mt-3 flex justify-center">
                         <canvas id="subPreview" width="270" height="480" class="rounded-lg border border-slate-200 bg-slate-900 shadow-sm"></canvas>
@@ -270,7 +273,10 @@
         <section class="luxury-glass p-5">
             <div class="mb-3 flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-slate-700">出片状态</h3>
-                <span id="statusBadge" class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500">待生成</span>
+                <div class="flex items-center gap-2">
+                    <button id="jobLogBtn" type="button" onclick="openJobLog(currentJobId)" class="hidden rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-500 hover:bg-slate-50">📋 进度记录</button>
+                    <span id="statusBadge" class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500">待生成</span>
+                </div>
             </div>
             <div id="result" class="flex min-h-[320px] items-center justify-center rounded-lg bg-slate-50 text-sm text-slate-400">
                 生成后的视频将显示在这里
@@ -280,8 +286,20 @@
     </div>
 </div>
 
+<!-- 出片进度记录弹窗（纯 inline 样式，避开 Tailwind 扫描静默失效） -->
+<div id="jobLogModal" style="position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45)">
+  <div style="width:100%;max-width:28rem;margin:0 1rem;background:#fff;border-radius:.75rem;box-shadow:0 20px 25px -5px rgba(0,0,0,.15);overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-bottom:1px solid #f1f5f9">
+      <h4 style="font-size:.875rem;font-weight:600;color:#334155">出片进度记录</h4>
+      <button type="button" onclick="closeJobLog()" style="border:none;background:#f8fafc;border-radius:.375rem;padding:.25rem .55rem;color:#94a3b8;cursor:pointer;font-size:.875rem">✕</button>
+    </div>
+    <div id="jobLogBody" style="max-height:60vh;overflow-y:auto;padding:1rem;font-size:.75rem;color:#475569">加载中…</div>
+  </div>
+</div>
+
 <script>
 let currentMode = 'scroll';
+let currentJobId = null;      // 当前出片任务 job_id，供「进度记录」弹窗读取
 let titleDirty = false;       // 用户是否已手动编辑过标题
 let subtitleDirty = false;    // 用户是否已手动编辑过副标题
 let jobSubmitted = false;     // 是否已成功提交出片任务（提交后冻结队列提示，避免被定时刷新误报为超限）
@@ -452,10 +470,9 @@ function setMode(m) {
     s.className = m === 'scroll' ? on : off;
     a.className = m === 'avatar' ? on : off;
 
-    // 模特/场景区域切换
+    // 模特区域切换
     document.getElementById('modelHint').classList.toggle('hidden', m !== 'scroll');
     document.getElementById('modelSelectWrap').classList.toggle('hidden', m !== 'avatar');
-    document.getElementById('sceneSelectWrap').classList.toggle('hidden', m !== 'avatar');
     // 声线形式控件：仅滚动字幕模式显示；数字人模式隐藏（单人独白）
     document.getElementById('voiceFormWrap').classList.toggle('hidden', m !== 'scroll');
     // 声线选择：数字人=单声线下拉；滚动字幕=由 setVoiceForm 决定（对话双下拉 / 独白单下拉 / 单声线）
@@ -738,7 +755,7 @@ document.getElementById('dialogue')?.addEventListener('input', () => {
     _suggestTimer = setTimeout(autoSuggest, 300);
 });
 
-// 实时预估视频时长（与后端 estimateDurationSec 算法一致）
+// 实时预估视频时长（与后端 estimateDurationSec 算法一致：2.4 字/秒 ≈ 145 字/分钟）
 function estimateDuration() {
     const text = document.getElementById('dialogue').value;
     let chars = 0;
@@ -748,7 +765,7 @@ function estimateDuration() {
         if (/^(女|男)[:：]/.test(line)) line = line.slice(2);
         chars += line.replace(/\s/g, '').length;
     });
-    return Math.max(1, Math.round(chars / 4.5));
+    return Math.max(1, Math.round(chars / 2.4));
 }
 function updateDurationHint() {
     const el = document.getElementById('durationHint');
@@ -823,8 +840,10 @@ function updateSubPreview() {
     const outline = parseInt(document.getElementById('subtitle_outline').value, 10);
     const position = document.getElementById('subtitle_position').value;
     const subStyle = document.getElementById('subtitle_style')?.value || 'dynamic';
+    const fontKey = document.getElementById('subtitle_font')?.value || 'hei';
+    const FONT_CSS = {hei:'SimHei', yahei:'Microsoft YaHei', kaiti:'KaiTi', song:'SimSun', fangsong:'FangSong'};
     const fontPx = Math.max(8, Math.round(size * sx));
-    ctx.font = '700 ' + fontPx + 'px "Microsoft YaHei", SimHei, sans-serif';
+    ctx.font = '700 ' + fontPx + 'px "' + (FONT_CSS[fontKey] || 'SimHei') + '", sans-serif';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
 
@@ -961,13 +980,13 @@ async function handleGenerate(e) {
                     : (document.getElementById('femaleVoice').value || null),
                 voice_form: currentMode === 'avatar' ? null : voiceForm,
                 model: currentMode === 'avatar' ? (document.getElementById('model').value || null) : null,
-                scene: currentMode === 'avatar' ? (document.getElementById('scene')?.value || null) : null,
                 cover_id: document.getElementById('coverId').value ? parseInt(document.getElementById('coverId').value, 10) : null,
                 subtitle_size: parseInt(document.getElementById('subtitle_size').value, 10),
                 subtitle_lines: parseInt(document.getElementById('subtitle_lines').value, 10),
                 subtitle_outline: parseInt(document.getElementById('subtitle_outline').value, 10),
                 subtitle_position: document.getElementById('subtitle_position').value,
                 subtitle_style: document.getElementById('subtitle_style').value,
+                subtitle_font: document.getElementById('subtitle_font')?.value || 'hei',
             })
         });
         // 防护：后端可能返回HTML异常页而非JSON
@@ -1001,6 +1020,8 @@ async function handleGenerate(e) {
         }
         // 持久化当前任务，用户离开页面后回来可自动续接进度
         sessionStorage.setItem('hgt_active_job', data.job_id);
+        currentJobId = data.job_id;
+        document.getElementById('jobLogBtn')?.classList.remove('hidden');
         jobSubmitted = true;
         const qh = document.getElementById('queueHint');
         if (qh) { qh.className = 'mt-2 text-xs text-emerald-600'; qh.textContent = '✓ 任务已提交，已进入出片队列，系统将按顺序渲染。'; }
@@ -1020,6 +1041,7 @@ document.getElementById('genForm').addEventListener('submit', handleGenerate);
 async function pollStatus(jobId) {
     const badge = document.getElementById('statusBadge');
     const result = document.getElementById('result');
+    const startMs = Date.now();  // 轮询起始时间戳，用于精确计算「已等待」
     for (let i = 0; i < 1800; i++) {  // 最多 60 分钟轮询（数字人视频含重渲染可能 20–40 分钟）
         await new Promise(r => setTimeout(r, 2000));
         try {
@@ -1057,29 +1079,80 @@ async function pollStatus(jobId) {
                 return;
             } else {
                 badge.textContent = '出片中'; badge.className = 'rounded-full bg-brand-100 px-3 py-1 text-xs text-brand-600';
-                const sec = i * 2;
                 const step = data.step || 'rendering';
                 const qpos = data.queue_pos || 0;
+                // 后端 enriched 字段优先；缺失时本地兜底映射（兼容旧版 8500 / 缓存）
+                const STEP_MAP = {
+                    queued:    { label: '排队等待渲染资源', percent: 8,  stage: 0 },
+                    editing:   { label: '智能配音与字幕合成', percent: 40, stage: 1 },
+                    rendering: { label: '视频 / 数字人渲染中', percent: 75, stage: 2 },
+                    rerender:  { label: '画面精修（自动重渲染）', percent: 92, stage: 2 },
+                    done:      { label: '已完成', percent: 100, stage: 3 },
+                    failed:    { label: '出片失败', percent: 100, stage: 3 },
+                };
+                const info = STEP_MAP[step] || { label: '出片处理中', percent: 50, stage: 1 };
+                const percent = (typeof data.progress === 'number') ? data.progress : info.percent;
+
+                const elapsedSec = Math.max(0, Math.round((Date.now() - startMs) / 1000));
+                const etaSec = (typeof data.eta_sec === 'number') ? data.eta_sec : null;
+
                 let title, hint;
                 if (step === 'queued') {
-                    title = qpos > 0 ? ('排队中…（前面还有 ' + qpos + ' 个视频在渲染）') : '排队中…（等待渲染资源）';
+                    title = qpos > 0 ? ('排队中（前面还有 ' + qpos + ' 个视频在渲染）') : '排队中（等待渲染资源）';
                     hint = '数字人出片较慢，请耐心等待；可先去其他页面，回来会自动续接';
                 } else if (step === 'rerender') {
-                    title = '检测到音频瑕疵，正在重新渲染修复…（预计再需几分钟）';
+                    title = '检测到音频瑕疵，正在自动重渲染修复（预计再需几分钟）';
                     hint = '为保质量平台自动重渲染一次，无需任何操作';
                 } else {
-                    title = '数字人视频渲染中…';
-                    hint = '数字人出片较慢，约 5–15 分钟；可先去其他页面';
+                    title = info.label;
+                    hint = '数字人出片较慢，约 5–15 分钟；可先去其他页面，回来会自动续接';
                 }
-                let longWait = '';
-                if (sec > 1200) {
-                    longWait = '<div class="mt-1 text-xs" style="color:#d97706">已等待较久（' + Math.round(sec / 60) + ' 分钟）。数字人视频正常 5–15 分钟，重渲染会更久；若超 40 分钟仍无进展，请刷新页面或联系我们。</div>';
+
+                const fmt = (s) => {
+                    s = Math.max(0, Math.round(s));
+                    const m = Math.floor(s / 60); const r = s % 60;
+                    return m > 0 ? (m + ' 分 ' + (r > 0 ? (r + ' 秒') : '')) : (r + ' 秒');
+                };
+                const etaText = etaSec != null
+                    ? ('约 ' + (etaSec >= 60 ? Math.ceil(etaSec / 60) + ' 分钟' : etaSec + ' 秒'))
+                    : '计算中…';
+
+                // 四段分步条：提交成功 → 配音字幕合成 → 视频渲染 → 出片完成
+                const STAGES = ['提交成功', '配音字幕合成', '视频渲染', '出片完成'];
+                let stepsHtml = '';
+                for (let k = 0; k < STAGES.length; k++) {
+                    const reached = k <= info.stage;
+                    const current = k === info.stage && step !== 'done' && step !== 'failed';
+                    const dotCls = reached
+                        ? (current ? 'bg-brand-500 text-white' : 'bg-brand-100 text-brand-700')
+                        : 'bg-slate-100 text-slate-400';
+                    stepsHtml += '<div class="flex flex-col items-center gap-1">' +
+                        '<div class="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold ' + dotCls + '">' +
+                        (reached ? (k < info.stage ? '✓' : (k + 1)) : (k + 1)) + '</div>' +
+                        '<div class="text-[10px] ' + (current ? 'font-medium text-brand-700' : 'text-slate-400') + '">' + STAGES[k] + '</div>' +
+                        '</div>';
+                    if (k < STAGES.length - 1) {
+                        stepsHtml += '<div class="mt-3 h-0.5 flex-1 ' + (k < info.stage ? 'bg-brand-300' : 'bg-slate-200') + '"></div>';
+                    }
                 }
-                result.innerHTML = '<div class="text-center text-slate-400">' +
-                    '<div class="mb-2 text-3xl">⏳</div>' +
-                    '<div class="font-medium text-slate-600">' + title + '</div>' +
-                    '<div class="mt-1 text-xs">已等待 ' + sec + ' 秒</div>' +
-                    '<div class="mt-1 text-xs text-brand-500">' + hint + '</div>' + longWait + '</div>';
+
+                const longWait = elapsedSec > 2400
+                    ? '<div class="mt-2 text-xs" style="color:#d97706">已等待较久（' + fmt(elapsedSec) + '）。数字人视频正常 5–15 分钟，重渲染会更久；若超 40 分钟仍无进展，请刷新页面或联系我们。</div>'
+                    : '';
+
+                result.innerHTML =
+                    '<div class="mx-auto w-full max-w-md rounded-xl border border-slate-100 bg-white p-5 shadow-sm">' +
+                    '  <div class="mb-3 text-center">' +
+                    '    <div class="mb-1 text-sm font-medium text-slate-700">' + title + '</div>' +
+                    '    <div class="text-xs text-slate-400">已等待 ' + fmt(elapsedSec) + '　·　预计剩余 ' + etaText + '</div>' +
+                    '  </div>' +
+                    '  <div class="mb-4 flex items-center justify-between gap-1">' + stepsHtml + '</div>' +
+                    '  <div class="h-2 w-full overflow-hidden rounded-full bg-slate-100">' +
+                    '    <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width:' + percent + '%"></div>' +
+                    '  </div>' +
+                    '  <div class="mt-1 flex items-center justify-between text-[11px] text-slate-400"><span>' + percent + '%</span><span>' + hint + '</span></div>' +
+                    longWait +
+                    '</div>';
             }
         } catch (e) { /* 网络抖动，继续轮询 */ }
     }
@@ -1092,10 +1165,55 @@ async function pollStatus(jobId) {
     const jobId = sessionStorage.getItem('hgt_active_job');
     if (jobId) {
         jobSubmitted = true;
+        currentJobId = jobId;
+        document.getElementById('jobLogBtn')?.classList.remove('hidden');
         setBtnLoading(true, '出片中…');
         pollStatus(jobId);
     }
 })();
+
+// ===== 出片进度记录弹窗（读取后端 /studio/scroll/job-log/{jobId}） =====
+function escHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function openJobLog(jobId) {
+    const modal = document.getElementById('jobLogModal');
+    const body = document.getElementById('jobLogBody');
+    if (!modal || !body) return;
+    if (!jobId) { body.innerHTML = '<div style="color:#94a3b8">暂无进度记录</div>'; modal.style.display = 'flex'; return; }
+    body.innerHTML = '<div style="color:#94a3b8">加载中…</div>';
+    fetch('/studio/scroll/job-log/' + jobId, {
+        headers: { 'Accept':'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' }
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (!d.exists || !d.entries || !d.entries.length) {
+            body.innerHTML = '<div style="color:#94a3b8">暂无进度记录（任务刚提交或已结束且无阶段切换）</div>';
+            return;
+        }
+        let html = '';
+        d.entries.forEach(e => {
+            const st = e.status;
+            const c = st === 'done' ? '#16a34a' : (st === 'failed' ? '#dc2626' : '#2563eb');
+            html += '<div style="display:flex;gap:.5rem;padding:.4rem 0;border-bottom:1px solid #f1f5f9;align-items:baseline;flex-wrap:wrap">'
+                + '<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#64748b;flex-shrink:0">' + escHtml(e.time) + '</span>'
+                + '<span style="color:' + c + ';font-weight:600;flex-shrink:0">' + escHtml(e.label) + '</span>'
+                + '<span style="color:#94a3b8">进度 ' + (e.progress||0) + '%</span>'
+                + (typeof e.eta === 'number' && e.eta > 0 && st !== 'done' && st !== 'failed' ? '<span style="color:#94a3b8">预计剩余 ' + e.eta + 's</span>' : '')
+                + '</div>';
+        });
+        body.innerHTML = html;
+    })
+    .catch(() => { body.innerHTML = '<div style="color:#dc2626">读取失败，请稍后重试</div>'; });
+    modal.style.display = 'flex';
+}
+function closeJobLog() {
+    const modal = document.getElementById('jobLogModal');
+    if (modal) modal.style.display = 'none';
+}
+document.getElementById('jobLogModal')?.addEventListener('click', function(ev) {
+    if (ev.target === this) closeJobLog();
+});
 </script>
 </x-workspace-layout>
 </x-app-layout>
