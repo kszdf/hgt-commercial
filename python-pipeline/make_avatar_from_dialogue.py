@@ -28,6 +28,15 @@ import os
 import subprocess
 import sys
 import tempfile
+
+from pathlib import Path
+
+# 字幕预处理换行依赖 PIL（py310 环境已装）
+try:
+    from PIL import Image, ImageDraw, ImageFont
+    HAS_PIL = True
+except Exception:
+    HAS_PIL = False
 import uuid
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -122,6 +131,69 @@ def synth_concat(segs, male_voice, female_voice, tmpdir, gap=0.25):
     return total, timed
 
 
+# 目标视频为竖屏 720x1280；finalize_v2_pil 里 SUB_SIZE=42，左右各留 40px 安全边距
+SUBTITLE_VIDEO_W = 720
+SUBTITLE_FONT_SIZE = 42
+SUBTITLE_HMARGIN = 40
+SUBTITLE_MAX_W = SUBTITLE_VIDEO_W - SUBTITLE_HMARGIN * 2   # 640px
+
+
+def _load_sub_font(path, size):
+    p = Path(path)
+    if p.exists():
+        try:
+            return ImageFont.truetype(str(p), size)
+        except Exception:
+            return None
+    return None
+
+
+def _char_pixel_width(draw, ch, fonts, fallback_size=SUBTITLE_FONT_SIZE):
+    """用 PIL 测量单个字符在指定字体下的像素宽度。"""
+    for f in fonts:
+        if f is None:
+            continue
+        try:
+            if f.getmask(ch).getbbox() is not None:
+                return draw.textlength(ch, font=f)
+        except Exception:
+            pass
+    # 兜底：按字体大小的一半估算
+    return fallback_size * 0.5
+
+
+def _wrap_display_by_count(display, max_chars):
+    lines = []
+    for raw_line in display.split("\n"):
+        for i in range(0, len(raw_line), max_chars):
+            lines.append(raw_line[i:i + max_chars])
+    return "\n".join(lines)
+
+
+def _wrap_display_by_width(display, fonts, max_width=SUBTITLE_MAX_W):
+    """按像素宽度对一句字幕自动换行，保证 finalize 阶段不会溢出屏幕。
+    保持字符顺序，不影响 karaoke 逐字高亮同步。"""
+    if not HAS_PIL:
+        # 无 PIL 时保守按字符数截断（每行最多 12 个汉字）
+        return _wrap_display_by_count(display, 12)
+    tmp = Image.new("RGB", (1, 1))
+    draw = ImageDraw.Draw(tmp)
+    out_lines = []
+    for raw_line in display.split("\n"):
+        chars, w = [], 0.0
+        for ch in raw_line:
+            cw = _char_pixel_width(draw, ch, fonts)
+            if w + cw > max_width and chars:
+                out_lines.append("".join(chars))
+                chars, w = [ch], cw
+            else:
+                chars.append(ch)
+                w += cw
+        if chars:
+            out_lines.append("".join(chars))
+    return "\n".join(out_lines)
+
+
 def build_karaoke(timed, style):
     """根据每句配音时长，按比例把每个可见字符摊到时间轴，产出逐字高亮所需 sidecar。
     结构：{"style":..., "events":[{"start","end","lines":[[{c,s,e}...]...]}]}。
@@ -198,6 +270,18 @@ def main():
 
     tmp = tempfile.mkdtemp(prefix="avatar_")
     audio_wav, timed = synth_concat(segs, args.male_voice, args.female_voice, tmp)
+
+    # 预处理字幕：按目标视频宽度自动换行，从源头避免溢出；保持 karaoke 同步
+    base = Path(GPT_SOVITS)
+    font_main = _load_sub_font(args.font, SUBTITLE_FONT_SIZE) if args.font else None
+    font_fallback = _load_sub_font(str(base / "fonts/simhei.ttf"), SUBTITLE_FONT_SIZE)
+    fonts = [font_main, font_fallback]
+    wrapped = []
+    for start, end, display in timed:
+        txt = _wrap_display_by_width(display, fonts)
+        wrapped.append((start, end, txt))
+    timed = wrapped
+
     ass_path = os.path.join(tmp, "sub.ass")
     write_ass(timed, ass_path)
     # 逐字高亮 sidecar（仅 dynamic 真正使用，其他风格忽略）
