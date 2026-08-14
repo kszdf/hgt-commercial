@@ -1199,9 +1199,12 @@ function setBvProgress(index, data) {
             const st = bvStartTimes[index] || Date.now();
             const elapsed = Math.max(0, Math.floor((Date.now() - st) / 1000));
             const em = Math.floor(elapsed / 60), es = elapsed % 60;
+            // 数字人/视频渲染波动大，精确 ETA 容易钉死造成误导，故使用柔性文案
             let eta = '';
-            if (data && typeof data.eta_sec === 'number' && data.eta_sec > 0) {
-                eta = '｜预计剩余约 ' + Math.max(1, Math.round(data.eta_sec / 60)) + ' 分钟';
+            if (status === 'queued' && data && data.queue_pos > 0) {
+                eta = '｜前面约 ' + data.queue_pos + ' 个排队';
+            } else if (status !== 'queued' && status !== 'done' && status !== 'failed') {
+                eta = '｜预计还需数分钟';
             }
             const label = (data && data.step_label) ? data.step_label : (status === 'queued' ? '排队等待渲染资源' : '渲染中');
             info.className = 'bv-info mt-1 text-[10px] text-slate-400';

@@ -1113,9 +1113,10 @@ async function pollStatus(jobId) {
                     const m = Math.floor(s / 60); const r = s % 60;
                     return m > 0 ? (m + ' 分 ' + (r > 0 ? (r + ' 秒') : '')) : (r + ' 秒');
                 };
-                const etaText = etaSec != null
-                    ? ('约 ' + (etaSec >= 60 ? Math.ceil(etaSec / 60) + ' 分钟' : etaSec + ' 秒'))
-                    : '计算中…';
+                // 数字人/视频渲染波动大，精确 ETA 容易钉死造成误导，故使用柔性文案
+                const etaText = (step === 'queued' && data.queue_pos > 0)
+                    ? ('前面约 ' + data.queue_pos + ' 个排队')
+                    : '预计还需数分钟';
 
                 // 四段分步条：提交成功 → 配音字幕合成 → 视频渲染 → 出片完成
                 const STAGES = ['提交成功', '配音字幕合成', '视频渲染', '出片完成'];
