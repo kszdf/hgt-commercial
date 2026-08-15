@@ -99,6 +99,39 @@ class StudioController extends Controller
         return response()->json($resp->json());
     }
 
+    /**
+     * 全网财税热点选题：代理到宿主 8500 微服务的 /hotspot 端点。
+     * 8500 复用 gpt_sovits.model_providers 的 tavily_search（有 TAVILY_API_KEY 时真实时）
+     * + deepseek_chat 生成创作角度建议；无 key 时降级为非实时（realtime=false）。
+     */
+    public function hotspotTopics(Request $request)
+    {
+        $data = $request->validate([
+            'days'       => ['sometimes', 'integer', 'in:1,3,7,30'],
+            'subfields'  => ['sometimes', 'nullable', 'array'],
+            'subfields.*' => ['string', 'max:20'],
+        ]);
+
+        $payload = [];
+        $payload['days'] = (int) ($data['days'] ?? 7);
+        if (!empty($data['subfields']) && is_array($data['subfields'])) {
+            $payload['subfields'] = array_values(array_filter(
+                $data['subfields'],
+                fn ($v) => is_string($v) && $v !== ''
+            ));
+        }
+
+        try {
+            $resp = app(PipelineClient::class)->post('/hotspot', $payload, 90);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '热点服务暂时不可用，请稍后重试'], 503);
+        }
+        if (! $resp->successful()) {
+            return response()->json(['error' => '热点服务暂不可用，请确认微服务已启动'], 502);
+        }
+        return response()->json($resp->json());
+    }
+
     public function rewriteGenerate(Request $request)
     {
         $data = $request->validate([

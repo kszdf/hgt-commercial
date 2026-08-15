@@ -2,7 +2,8 @@
 <x-workspace-layout title="智能选题">
 <div class="mx-auto max-w-5xl p-6">
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <!-- ===== 输入区 ===== -->
+        <!-- ===== 左侧：配置 / 输入区 ===== -->
+        <div class="space-y-4">
         <section class="luxury-glass p-5">
             <form id="topicForm" class="space-y-4">
                 <!-- 行业选择：下拉框（15个常见行业） -->
@@ -120,11 +121,47 @@
             </form>
         </section>
 
+        <!-- ===== 全网财税热点 配置面板 ===== -->
+        <section class="luxury-glass p-5">
+            <form id="hotspotForm" class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-slate-700">全网财税热点</h3>
+                    <span class="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-600">实时</span>
+                </div>
+
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-slate-700">时间段</label>
+                    <div class="flex flex-wrap gap-2" id="hsDays">
+                        <button type="button" data-days="1" class="hs-day rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:border-brand-300">今日</button>
+                        <button type="button" data-days="3" class="hs-day rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:border-brand-300">近3天</button>
+                        <button type="button" data-days="7" class="hs-day rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:border-brand-300 bg-brand-500 text-white">近7天</button>
+                        <button type="button" data-days="30" class="hs-day rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:border-brand-300">近30天</button>
+                    </div>
+                    <input type="hidden" id="hsDaysVal" value="7">
+                </div>
+
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-slate-700">财税子领域 <span class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500">可多选，默认全选</span></label>
+                    <div class="flex flex-wrap gap-2" id="hsSubs"></div>
+                </div>
+
+                <button type="submit" id="hsBtn" class="w-full rounded-lg bg-brand-500 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed">获取财税热点</button>
+                <p class="text-xs text-slate-400">热点来源为公开财税资讯聚合，建议结合自身解读二次创作。</p>
+            </form>
+        </section>
+        </div><!-- /左侧空间 -->
+
         <!-- ===== 结果区 ===== -->
         <section class="luxury-glass p-5">
-            <div class="mb-3 flex items-center justify-between">
+            <div id="topicHeader" class="mb-3 flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-slate-700">选题建议</h3>
                 <span id="statusBadge" class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500">待生成</span>
+            </div>
+
+            <!-- Tab 切换：AI 选题建议 / 全网财税热点 -->
+            <div class="mb-3 flex gap-2" id="resultTabs">
+                <button type="button" id="tabTopic" class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white transition">AI 选题建议</button>
+                <button type="button" id="tabHotspot" class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-200">全网财税热点</button>
             </div>
 
             <div id="result" class="space-y-3">
@@ -133,6 +170,19 @@
                         <svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                     </div>
                     <p class="text-sm text-slate-400">生成的选题将显示在这里<br><span class="text-xs text-slate-300">选用后可直接进入「选题二创」改写</span></p>
+                </div>
+            </div>
+
+            <!-- 全网财税热点结果区 -->
+            <div id="hotspotResult" class="space-y-3 hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-slate-500">共 <strong id="hsCount">0</strong> 条热点<span id="hsRealtime" class="ml-1 hidden rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-400">非实时</span></span>
+                    <button type="button" id="hsRefresh" class="text-xs text-brand-600 hover:underline">刷新</button>
+                </div>
+                <div id="hsList" class="space-y-3">
+                    <div class="rounded-lg studio-card text-center">
+                        <p class="text-sm text-slate-400">点击左侧「获取财税热点」<br><span class="text-xs text-slate-300">实时聚合全网财税资讯，生成可二创的选题与角度</span></p>
+                    </div>
                 </div>
             </div>
 
@@ -163,6 +213,15 @@ let lastTopics = [];
 let topicCount = 5;
 const MIN_COUNT = 1;
 const MAX_COUNT = 10;
+const formLabelMap = {
+    'avatar': '数字人出镜',
+    'scroll_male': '男声幕后音',
+    'scroll_female': '女声幕后音',
+    'scroll_dual': '男女对话幕后音',
+    '单声口播': '单声口播',
+    '幕后音口播_双人': '幕后音·双人',
+    '幕后音口播_单人': '幕后音·单人'
+};
 
 function updateCount(delta) {
     topicCount = Math.max(MIN_COUNT, Math.min(MAX_COUNT, topicCount + delta));
@@ -291,15 +350,6 @@ function renderTopics(topics) {
     lastTopics.forEach((t, i) => {
         const el = document.createElement('div');
         el.className = 'group relative rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-brand-300 hover:shadow-md';
-        const formLabelMap = {
-            'avatar': '数字人出镜',
-            'scroll_male': '男声幕后音',
-            'scroll_female': '女声幕后音',
-            'scroll_dual': '男女对话幕后音',
-            '单声口播': '单声口播',
-            '幕后音口播_双人': '幕后音·双人',
-            '幕后音口播_单人': '幕后音·单人'
-        };
         let formLabel = formLabelMap[t.form] || (t.form || '短视频');
         el.innerHTML =
             '<div class="mb-2 flex items-start justify-between gap-2">' +
@@ -359,4 +409,198 @@ function renderTopics(topics) {
         }
     } catch(e) {}
 })();
+
+// ===== 全网财税热点模块 =====
+const HS_SUBS = ['增值税','企业所得税','个人所得税','发票管理','税务稽查','金税四期','社保公积金','税收优惠政策','汇算清缴','跨境税收'];
+
+// 渲染子领域胶囊（默认全选）
+(function () {
+    const box = document.getElementById('hsSubs');
+    if (!box) return;
+    HS_SUBS.forEach(s => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'hs-sub active rounded-full border border-brand-300 bg-brand-50 px-2.5 py-1 text-[11px] text-brand-700 transition';
+        b.dataset.sub = s;
+        b.textContent = s;
+        b.addEventListener('click', () => {
+            const on = b.classList.toggle('active');
+            if (on) {
+                b.classList.add('bg-brand-50','border-brand-300','text-brand-700');
+                b.classList.remove('bg-slate-100','border-slate-200','text-slate-500');
+            } else {
+                b.classList.remove('bg-brand-50','border-brand-300','text-brand-700');
+                b.classList.add('bg-slate-100','border-slate-200','text-slate-500');
+            }
+        });
+        box.appendChild(b);
+    });
+})();
+
+// 时间段胶囊单选
+document.querySelectorAll('#hsDays .hs-day').forEach(b => {
+    b.addEventListener('click', () => {
+        document.querySelectorAll('#hsDays .hs-day').forEach(x => {
+            x.classList.remove('bg-brand-500','text-white');
+            x.classList.add('border-slate-200','text-slate-600');
+        });
+        b.classList.add('bg-brand-500','text-white');
+        b.classList.remove('border-slate-200','text-slate-600');
+        document.getElementById('hsDaysVal').value = b.dataset.days;
+    });
+});
+
+// 结果区 Tab 切换
+function switchTab(tab) {
+    const topic = tab === 'topic';
+    document.getElementById('tabTopic').className = 'rounded-lg px-3 py-1.5 text-xs font-medium transition ' + (topic ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200');
+    document.getElementById('tabHotspot').className = 'rounded-lg px-3 py-1.5 text-xs font-medium transition ' + (topic ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-brand-500 text-white');
+    document.getElementById('topicHeader').classList.toggle('hidden', !topic);
+    document.getElementById('result').classList.toggle('hidden', !topic);
+    document.getElementById('actionBar').classList.toggle('hidden', !topic);
+    document.getElementById('errorBox').classList.toggle('hidden', !topic);
+    document.getElementById('hotspotResult').classList.toggle('hidden', topic);
+}
+document.getElementById('tabTopic').addEventListener('click', () => switchTab('topic'));
+document.getElementById('tabHotspot').addEventListener('click', () => switchTab('hotspot'));
+
+function buildHsLoadingHtml() {
+    return '<div class="rounded-lg bg-slate-50 p-6 text-center">' +
+        '<div class="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-brand-100">' +
+            '<svg class="h-5 w-5 animate-spin text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>' +
+        '</div>' +
+        '<p class="text-sm font-medium text-slate-600">正在抓取全网财税热点…</p>' +
+        '<p class="mt-1 text-xs text-slate-400">实时检索 → 角度分析，预计 10–30 秒</p>' +
+    '</div>';
+}
+
+// 渲染热点卡片列表
+function renderHotspots(list) {
+    const hsList = document.getElementById('hsList');
+    const hsCount = document.getElementById('hsCount');
+    hsList.innerHTML = '';
+    hsCount.textContent = list.length;
+    if (!list.length) {
+        hsList.innerHTML = '<div class="rounded-lg studio-card text-center"><p class="text-sm text-slate-400">暂无命中热点，试试放宽时间段或子领域。</p></div>';
+        return;
+    }
+    list.forEach((h, i) => {
+        const card = document.createElement('div');
+        card.className = 'hs-card rounded-xl border border-slate-200 bg-white p-4 shadow-sm';
+        const heat = (h.heat_score != null) ? h.heat_score : '';
+        const date = h.published_at || '';
+        const tags = (h.tags || []).map(t => '<span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">#'+escapeHtml(t)+'</span>').join(' ');
+        const angles = h.angles || [];
+        let anglesHtml = '';
+        angles.forEach((a, ai) => {
+            const fLabel = formLabelMap[a.form] || (a.form || '短视频');
+            anglesHtml +=
+                '<div class="flex gap-2 rounded-lg bg-slate-50 p-2">' +
+                    '<span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[10px] font-semibold text-white">'+ (ai+1) +'</span>' +
+                    '<div class="min-w-0">' +
+                        '<p class="text-xs font-semibold text-slate-700">'+ escapeHtml(a.name || '') +'</p>' +
+                        '<p class="mt-0.5 text-xs leading-relaxed text-slate-500">'+ escapeHtml(a.suggestion || '') +'</p>' +
+                        '<span class="mt-1 inline-block rounded bg-brand-50 px-1.5 py-0.5 text-[10px] text-brand-600">形式建议：'+ fLabel +'</span>' +
+                    '</div>' +
+                '</div>';
+        });
+        const defaultSug = (angles[0] && angles[0].suggestion) ? angles[0].suggestion : '';
+        const defaultForm = (angles[0] && angles[0].form) ? angles[0].form : '';
+        card.dataset.default = defaultSug;
+        card.dataset.form = defaultForm;
+        card.innerHTML =
+            '<div class="mb-2 flex items-center justify-between text-[11px] text-slate-400">' +
+                '<span>🔥 热度 '+ escapeHtml(String(heat)) +'　'+ escapeHtml(date) +'</span>' +
+                '<span class="flex flex-wrap justify-end gap-1">'+ tags +'</span>' +
+            '</div>' +
+            '<h4 class="text-sm font-semibold text-slate-800">'+ escapeHtml(h.title || '') +'</h4>' +
+            '<p class="mt-1 text-xs leading-relaxed text-slate-500">'+ escapeHtml(h.summary || '') +'</p>' +
+            (angles.length ? '<button type="button" class="hs-angle-toggle mt-2 text-xs font-medium text-brand-600">▶ 创作角度建议（'+ angles.length +' 个）</button>' : '') +
+            '<div class="hs-angles hidden mt-2 space-y-2">'+ anglesHtml +'</div>' +
+            '<div class="mt-3 border-t border-slate-100 pt-3">' +
+                '<button type="button" class="hs-edit-toggle text-xs text-slate-500 hover:text-brand-600">编辑建议</button>' +
+                '<div class="hs-edit hidden mt-2">' +
+                    '<textarea class="hs-edit-area w-full rounded-lg border border-slate-200 p-2 text-xs leading-relaxed text-slate-700 outline-none focus:border-brand-400" rows="3">'+ escapeHtml(defaultSug) +'</textarea>' +
+                    '<div class="mt-1 flex items-center justify-between">' +
+                        '<button type="button" class="hs-restore text-[11px] text-slate-400 hover:underline">恢复默认</button>' +
+                        '<button type="button" class="hs-go rounded-md bg-brand-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-brand-600" data-idx="'+ i +'">去二创 →</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+
+        hsList.appendChild(card);
+    });
+
+    hsList.querySelectorAll('.hs-card').forEach(card => {
+        const toggle = card.querySelector('.hs-angle-toggle');
+        const anglesBox = card.querySelector('.hs-angles');
+        if (toggle && anglesBox) {
+            toggle.addEventListener('click', () => {
+                const willShow = anglesBox.classList.contains('hidden');
+                anglesBox.classList.toggle('hidden');
+                const n = card.querySelectorAll('.hs-angles > div').length || 0;
+                toggle.textContent = (willShow ? '▼' : '▶') + ' 创作角度建议（'+ n +' 个）';
+            });
+        }
+        const editToggle = card.querySelector('.hs-edit-toggle');
+        const editBox = card.querySelector('.hs-edit');
+        if (editToggle && editBox) editToggle.addEventListener('click', () => editBox.classList.toggle('hidden'));
+        const restoreBtn = card.querySelector('.hs-restore');
+        const area = card.querySelector('.hs-edit-area');
+        if (restoreBtn && area) restoreBtn.addEventListener('click', () => { area.value = card.dataset.default || ''; });
+        const goBtn = card.querySelector('.hs-go');
+        if (goBtn) goBtn.addEventListener('click', () => {
+            const idx = parseInt(goBtn.dataset.idx, 10);
+            const h = list[idx];
+            if (!h) return;
+            const edited = (area && area.value.trim()) ? area.value.trim() : (card.dataset.default || '');
+            const form = card.dataset.form || '';
+            sessionStorage.setItem('hgt_topic_title', h.title || '');
+            sessionStorage.setItem('hgt_topic_summary', h.summary || '');
+            sessionStorage.setItem('hgt_topic_angle', edited);
+            sessionStorage.setItem('hgt_topic_hook', h.hook || '');
+            sessionStorage.setItem('hgt_topic_form', form);
+            sessionStorage.setItem('hgt_topic_from', 'hotspot');
+            window.location.href = '/studio/rewrite?from=hotspot';
+        });
+    });
+}
+
+// 获取热点（真实数据，后端代理 8500 /hotspot）
+async function fetchHotspots() {
+    const btn = document.getElementById('hsBtn');
+    const days = parseInt(document.getElementById('hsDaysVal').value, 10) || 7;
+    const subs = Array.from(document.querySelectorAll('#hsSubs .hs-sub.active')).map(b => b.dataset.sub);
+    switchTab('hotspot');
+    document.getElementById('hsList').innerHTML = buildHsLoadingHtml();
+    document.getElementById('hsRealtime').classList.add('hidden');
+    zwSetLoading(btn, {loading: true, text: '抓取热点中…'});
+    try {
+        const resp = await fetch('/studio/topic/hotspots', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({ days: days, subfields: subs })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || ('请求失败（HTTP ' + resp.status + '）'));
+        if (!data.ok) throw new Error(data.error || '获取失败');
+        const topics = data.topics || [];
+        renderHotspots(topics);
+        if (data.realtime === false) document.getElementById('hsRealtime').classList.remove('hidden');
+    } catch (err) {
+        document.getElementById('hsList').innerHTML = '<div class="rounded-lg border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">'+ escapeHtml(err.message || '未知错误') +'<br><span class="mt-1 block text-xs text-red-400">请检查网络或稍后重试。</span></div>';
+    } finally {
+        zwSetLoading(btn, {loading: false});
+    }
+}
+
+document.getElementById('hotspotForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    fetchHotspots();
+});
+document.getElementById('hsRefresh')?.addEventListener('click', fetchHotspots);
 </script>

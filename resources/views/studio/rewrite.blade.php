@@ -338,6 +338,9 @@ function showSourceBanner(type, count) {
     if (type === 'topic') {
         title.textContent = '基于单条选题二创';
         desc.innerHTML = '已从「智能选题」带入 1 条选题，可直接改写';
+    } else if (type === 'hotspot') {
+        title.textContent = '来自全网财税热点';
+        desc.innerHTML = '已从「全网财税热点」带入 1 条热点选题与创作角度，可直接改写';
     } else {
         title.textContent = '基于批量选题二创';
         cnt.textContent = count || 0;
@@ -346,9 +349,11 @@ function showSourceBanner(type, count) {
 function hideSourceBanner() {
     document.getElementById('sourceBanner')?.classList.add('hidden');
 }
-function setTextFromTopic(title, hook, mode) {
+function setTextFromTopic(title, hook, mode, angle) {
     const ta = document.getElementById('text');
-    ta.value = title + (hook ? '\n\n（钩子方向：' + hook + '）' : '');
+    let body = title || '';
+    if (angle) body += '\n\n' + angle;
+    ta.value = body + (hook ? '\n\n（钩子方向：' + hook + '）' : '');
     updateCharCount();
     document.getElementById('textLabel').textContent = '选题原始稿';
     document.getElementById('textHint').classList.remove('hidden');
@@ -426,6 +431,28 @@ function getFormLabel(form) {
             document.getElementById('noSourceBox')?.classList.remove('hidden');
         }
         sessionStorage.removeItem('hgt_batch_topics');
+        return;
+    }
+
+    // 1c. 热点选题跳转（从「全网财税热点」卡片"去二创"过来）
+    if (fromTopic === 'hotspot') {
+        const title = sessionStorage.getItem('hgt_topic_title') || '';
+        const summary = sessionStorage.getItem('hgt_topic_summary') || '';
+        const angle = sessionStorage.getItem('hgt_topic_angle') || '';
+        const hook = sessionStorage.getItem('hgt_topic_hook') || '';
+        const form = sessionStorage.getItem('hgt_topic_form') || '';
+        if (title || angle) {
+            setTextFromTopic(title, hook, mapTopicFormToMode(form), angle || summary);
+            showSourceBanner('hotspot', 1);
+            sessionStorage.removeItem('hgt_topic_title');
+            sessionStorage.removeItem('hgt_topic_summary');
+            sessionStorage.removeItem('hgt_topic_angle');
+            sessionStorage.removeItem('hgt_topic_hook');
+            sessionStorage.removeItem('hgt_topic_form');
+            sessionStorage.removeItem('hgt_topic_from');
+        } else {
+            document.getElementById('noSourceBox')?.classList.remove('hidden');
+        }
         return;
     }
 

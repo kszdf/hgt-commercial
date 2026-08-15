@@ -68,7 +68,7 @@ from urllib.parse import urlparse
 GPT_SOVITS = r"D:/heygem_data/gpt_sovits"
 # 复用 gpt_sovits 侧已验证的 DeepSeek 写稿封装与违禁词库（key 不进 Laravel，仅本机 model_keys.env）
 sys.path.insert(0, GPT_SOVITS)
-from model_providers import get_text_config, deepseek_chat, ensure_env  # noqa: E402
+from model_providers import get_text_config, deepseek_chat, ensure_env, tavily_search, get_key  # noqa: E402
 import forbidden_words  # noqa: E402
 # 自动发布模块：平台适配器（抖音/视频号/小红书优先，B站/YouTube 顺延）
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -211,6 +211,96 @@ def _extract_json_array(text):
                     pass
                 return None
     return None
+
+
+# ---- 全网财税热点选题（复用 tavily_search 真实时 + deepseek_chat 生成角度）----
+HOTSPOT_PROMPT = """你是一位资深的财税短视频选题策划，服务对象是中小企业老板与企业主。
+任务：基于提供的财税热点，产出可直接用于短视频创作的选题卡片。
+输出严格的 JSON 数组，每个元素形如：
+{
+  "title": "热点选题标题（口语化、抓老板痛点，15字内最佳）",
+  "summary": "话题摘要（2-3句，点出老板为何关心、风险或机会）",
+  "tags": ["财税子领域标签1", "标签2"],
+  "heat_score": 数值(1-1000的整数，代表热度指数，可估算),
+  "published_at": "该热点的大致时间或'近期'",
+  "angles": [
+    {
+      "name": "创作角度名称（如：老板视角/案例警示/政策解读）",
+      "suggestion": "针对该角度的具体拍摄建议（1-2句，写清钩子与核心信息）",
+      "form": "呈现形式，取值必须为以下之一：avatar(单人数字人出镜) / scroll_male(男声幕后音) / scroll_female(女声幕后音) / scroll_dual(男女对话幕后音)"
+    }
+  ]
+}
+要求：
+- 每个热点给 2-3 个创作角度，角度须差异化（如一个严肃解读、一个案例警示、一个留资钩子）。
+- form 必须且只能是上述四个枚举值之一，不要自创。
+- 合规底线：只做政策解读与风险提示，不得教人逃税或违规。
+- 只输出 JSON 数组，不要任何额外解释文字。
+"""
+
+
+def ai_hotspot(days, subfields):
+    """抓取真实财税热点 + 生成创作角度建议。
+
+    有 TAVILY_API_KEY：tavily_search(topic=finance, days=N) 抓真实财税热点；
+    无 key（或检索失败）：降级为 deepseek_chat 基于模型知识生成（realtime=False）。
+    返回 {"realtime": bool, "topics": [ ... ]}。
+    """
+    ensure_env()
+    subs = subfields or []
+    query = ("财税 税务 政策 热点 " + " ".join(subs)) if subs else "财税 税务 政策 稽查 优惠 热点"
+    realtime = False
+    raw_items = []
+    tavily_key = get_key("TAVILY_API_KEY")
+    if tavily_key:
+        try:
+            sr = tavily_search(query, tavily_key, topic="finance", days=days, max_results=10)
+            raw_items = sr.get("results") or []
+            realtime = True
+        except Exception:  # noqa: BLE001
+            traceback.print_exc()
+            raw_items = []
+            realtime = False
+
+    if realtime and raw_items:
+        items_text = "\n".join(
+            f"- 标题：{it.get('title', '')}\n  摘要：{(it.get('content', '') or '')[:300]}\n  时间：{it.get('published_date', '')}"
+            for it in raw_items[:10]
+        )
+        prompt = HOTSPOT_PROMPT + f"\n\n【检索到的真实财税热点（近 {days} 天）】\n" + items_text + \
+                 f"\n\n请基于以上 {len(raw_items)} 条真实热点，产出 5-8 个选题卡片（JSON 数组）。"
+    else:
+        prompt = HOTSPOT_PROMPT + f"\n\n未启用实时检索（无 TAVILY_API_KEY 或检索失败）。请基于你的财税知识，生成截至近 {days} 天的 5-8 个财税热点选题卡片（JSON 数组，non-realtime，published_at 标'近期'）。"
+
+    cfg = get_text_config()
+    content = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
+    obj = _extract_json_array(content)
+    topics = obj if isinstance(obj, list) else []
+    out = []
+    for t in topics:
+        if not isinstance(t, dict):
+            continue
+        angles = []
+        for a in (t.get("angles") or []):
+            if not isinstance(a, dict):
+                continue
+            f = a.get("form") or ""
+            if f not in ("avatar", "scroll_male", "scroll_female", "scroll_dual"):
+                f = "scroll_male"
+            angles.append({
+                "name": str(a.get("name") or ""),
+                "suggestion": str(a.get("suggestion") or ""),
+                "form": f,
+            })
+        out.append({
+            "title": str(t.get("title") or ""),
+            "summary": str(t.get("summary") or ""),
+            "tags": [str(x) for x in (t.get("tags") or []) if str(x).strip()][:6],
+            "heat_score": t.get("heat_score") if isinstance(t.get("heat_score"), (int, float)) else "",
+            "published_at": str(t.get("published_at") or ""),
+            "angles": angles,
+        })
+    return {"realtime": realtime, "topics": out}
 
 
 def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, form=None):
@@ -1434,6 +1524,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_deai(data)
         if p.path == "/suggest-title":
             return self._handle_suggest_title(data)
+        if p.path == "/hotspot":
+            return self._handle_hotspot(data)
         return self._send(404, {"error": "not found"})
 
     # ---- 自动发布：调 publishers 适配器把成片分发到指定平台 ----
@@ -1782,6 +1874,24 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 form=data.get("form") or None,
             )
             return self._send(200, {"ok": True, "topics": result})
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            return self._send(200, {"ok": False, "error": str(e)})
+
+    # ---- 全网财税热点选题（代理到 ai_hotspot：tavily 真实时 + deepseek 角度）----
+    def _handle_hotspot(self, data):
+        try:
+            if not isinstance(data, dict):
+                return self._send(400, {"ok": False, "error": "invalid request body: expected JSON object"})
+            days = int(data.get("days", 7) or 7)
+            if days not in (1, 3, 7, 30):
+                days = 7
+            subs = data.get("subfields") or []
+            if not isinstance(subs, list):
+                subs = []
+            subs = [str(s).strip() for s in subs if str(s).strip()][:10]
+            result = ai_hotspot(days, subs)
+            return self._send(200, {"ok": True, "realtime": result.get("realtime", False), "topics": result.get("topics", [])})
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
             return self._send(200, {"ok": False, "error": str(e)})

@@ -72,6 +72,7 @@ Route::middleware('auth')->group(function () {
     // 智能选题 / 智能二创（AI 文本，代理到 8500 的 /topic /rewrite）
     Route::get('/studio/topic', [StudioController::class, 'topic'])->name('studio.topic');
     Route::post('/studio/topic/generate', [StudioController::class, 'topicGenerate']);
+    Route::post('/studio/topic/hotspots', [StudioController::class, 'hotspotTopics']);
     // 选题二创：仅承接从「智能选题」选中的选题，不处理自由原始稿
     Route::get('/studio/rewrite', [StudioController::class, 'rewrite'])->name('studio.rewrite');
     // 原始稿二创：用户自有文案/口播稿的自由改写入口，与选题上下文隔离
