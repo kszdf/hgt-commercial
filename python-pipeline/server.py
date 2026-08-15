@@ -236,19 +236,38 @@ HOTSPOT_PROMPT = """你是一位资深的财税短视频选题策划，服务对
 - form 必须且只能是上述四个枚举值之一，不要自创。
 - 合规底线：只做政策解读与风险提示，不得教人逃税或违规。
 - 只输出 JSON 数组，不要任何额外解释文字。
-- **强相关性约束**：本次用户关注的财税子领域为 {{SUBFIELDS}}。每个选题的 tags 必须至少包含其中一个子领域（允许同义词，如"税务稽查"可对应"稽查"）。与这些子领域无关的外贸、国际税收、出海等内容一律不要输出，即使检索结果里出现了也不要采纳。
+- **强相关性约束**：本次用户关注的财税子领域为 {{SUBFIELDS}}。每个选题的 tags 必须至少包含其中一个子领域（允许同义词，如"税务稽查"可对应"稽查"）。与这些子领域无关的外贸、国际税收、出海、股市反弹、宏观经济等内容一律不要输出，即使检索结果里出现了也不要采纳。
+- **禁止硬编**：如果检索结果中确实没有与所选子领域直接相关的热点，请诚实减少输出数量（甚至可以输出空数组 []），严禁把无关热点（如股市反弹、政策红包、外贸出海）强行包装成该领域热点。质量优先于数量。
 """
 
 
-def _topic_tags_match(topic_subs, selected_subs):
-    """判断选题 tags 是否与所选子领域有交集（允许同义词/子串匹配）。"""
+def _topic_match(topic, selected_subs):
+    """判断选题是否与所选子领域强相关：检查 title/summary/tags。
+    允许同义词/子串匹配；若 selected 为空则放行。
+    """
     if not selected_subs:
         return True
     selected = [str(s).lower().strip() for s in selected_subs if str(s).strip()]
-    tags = [str(t).lower().strip() for t in (topic_subs or []) if str(t).strip()]
+    title = str(topic.get("title") or "").lower()
+    summary = str(topic.get("summary") or "").lower()
+    tags = [str(t).lower().strip() for t in (topic.get("tags") or []) if str(t).strip()]
+    # 通用负面词：命中这些说明模型在硬编无关热点
+    negative = ["股市反弹", "政策红包", "市场反弹", "反弹来了", "政策主题", "宏观经济", "出海", "外贸", "国际税收", "楼市", "房价", "股市"]
+    text = title + " " + summary + " " + " ".join(tags)
+    for neg in negative:
+        if neg in text:
+            return False
     for sel in selected:
         for tag in tags:
             if sel in tag or tag in sel:
+                return True
+        # title 或 summary 必须直接出现子领域或其核心简称
+        short = sel.replace("税务", "").replace("税收", "").strip()
+        checks = [sel]
+        if short and len(short) >= 2:
+            checks.append(short)
+        for c in checks:
+            if c in title or c in summary:
                 return True
     return False
 
@@ -330,8 +349,8 @@ def ai_hotspot(days, subfields):
                 "form": f,
             })
         tags = [str(x) for x in (t.get("tags") or []) if str(x).strip()][:6]
-        # 强过滤：与所选子领域无关的选题不要返回
-        if subs and not _topic_tags_match(tags, subs):
+        # 强过滤：与所选子领域无关的选题不要返回（检查 title/summary/tags，并拦截硬编）
+        if subs and not _topic_match(t, subs):
             continue
         out.append({
             "title": str(t.get("title") or ""),
@@ -341,8 +360,9 @@ def ai_hotspot(days, subfields):
             "published_at": str(t.get("published_at") or ""),
             "angles": angles,
         })
-    # 如果过滤后过少且是实时模式，补充说明给前端
-    if realtime and not out and topics:
+    # 如果过滤后不足 3 条且是实时模式，视为检索结果与所选子领域关联度不够，
+    # 不硬凑，直接返回 filtered 提示给前端。
+    if realtime and len(out) < 3:
         return {"realtime": realtime, "topics": [], "filtered": True}
     return {"realtime": realtime, "topics": out}
 
