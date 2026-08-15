@@ -141,8 +141,15 @@
                 </div>
 
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-slate-700">财税子领域 <span class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500">可多选，默认全选</span></label>
+                    <div class="mb-1 flex items-center justify-between">
+                        <label class="block text-sm font-medium text-slate-700">财税子领域 <span class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500">可多选</span></label>
+                        <div class="flex gap-2">
+                            <button type="button" id="hsSelectAll" class="text-[11px] text-brand-600 hover:underline">全选</button>
+                            <button type="button" id="hsClearAll" class="text-[11px] text-slate-400 hover:text-slate-600 hover:underline">清空</button>
+                        </div>
+                    </div>
                     <div class="flex flex-wrap gap-2" id="hsSubs"></div>
+                    <p id="hsSubHint" class="mt-1 text-xs text-slate-400">已选 <strong class="text-brand-600" id="hsSubCount">10</strong> 个子领域</p>
                 </div>
 
                 <button type="submit" id="hsBtn" class="w-full rounded-lg bg-brand-500 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed">获取财税热点</button>
@@ -413,6 +420,22 @@ function renderTopics(topics) {
 // ===== 全网财税热点模块 =====
 const HS_SUBS = ['增值税','企业所得税','个人所得税','发票管理','税务稽查','金税四期','社保公积金','税收优惠政策','汇算清缴','跨境税收'];
 
+function updateHsSubHint() {
+    const n = document.querySelectorAll('#hsSubs .hs-sub.active').length;
+    const el = document.getElementById('hsSubCount');
+    if (el) el.textContent = n;
+}
+
+function setHsSubActive(b, active) {
+    if (active) {
+        b.classList.add('active', 'bg-brand-500', 'border-brand-500', 'text-white');
+        b.classList.remove('bg-white', 'border-slate-200', 'text-slate-600');
+    } else {
+        b.classList.remove('active', 'bg-brand-500', 'border-brand-500', 'text-white');
+        b.classList.add('bg-white', 'border-slate-200', 'text-slate-600');
+    }
+}
+
 // 渲染子领域胶囊（默认全选）
 (function () {
     const box = document.getElementById('hsSubs');
@@ -420,22 +443,27 @@ const HS_SUBS = ['增值税','企业所得税','个人所得税','发票管理',
     HS_SUBS.forEach(s => {
         const b = document.createElement('button');
         b.type = 'button';
-        b.className = 'hs-sub active rounded-full border border-brand-300 bg-brand-50 px-2.5 py-1 text-[11px] text-brand-700 transition';
+        b.className = 'hs-sub active rounded-full border px-2.5 py-1 text-[11px] font-medium transition hover:opacity-90 active:scale-95 bg-brand-500 border-brand-500 text-white';
         b.dataset.sub = s;
         b.textContent = s;
         b.addEventListener('click', () => {
-            const on = b.classList.toggle('active');
-            if (on) {
-                b.classList.add('bg-brand-50','border-brand-300','text-brand-700');
-                b.classList.remove('bg-slate-100','border-slate-200','text-slate-500');
-            } else {
-                b.classList.remove('bg-brand-50','border-brand-300','text-brand-700');
-                b.classList.add('bg-slate-100','border-slate-200','text-slate-500');
-            }
+            const on = !b.classList.contains('active');
+            setHsSubActive(b, on);
+            updateHsSubHint();
         });
         box.appendChild(b);
     });
+    updateHsSubHint();
 })();
+
+document.getElementById('hsSelectAll')?.addEventListener('click', () => {
+    document.querySelectorAll('#hsSubs .hs-sub').forEach(b => setHsSubActive(b, true));
+    updateHsSubHint();
+});
+document.getElementById('hsClearAll')?.addEventListener('click', () => {
+    document.querySelectorAll('#hsSubs .hs-sub').forEach(b => setHsSubActive(b, false));
+    updateHsSubHint();
+});
 
 // 时间段胶囊单选
 document.querySelectorAll('#hsDays .hs-day').forEach(b => {
@@ -571,6 +599,11 @@ async function fetchHotspots() {
     const btn = document.getElementById('hsBtn');
     const days = parseInt(document.getElementById('hsDaysVal').value, 10) || 7;
     const subs = Array.from(document.querySelectorAll('#hsSubs .hs-sub.active')).map(b => b.dataset.sub);
+    if (!subs.length) {
+        switchTab('hotspot');
+        document.getElementById('hsList').innerHTML = '<div class="rounded-lg border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">请至少选择一个财税子领域，或点「全选」。</div>';
+        return;
+    }
     switchTab('hotspot');
     document.getElementById('hsList').innerHTML = buildHsLoadingHtml();
     document.getElementById('hsRealtime').classList.add('hidden');
@@ -589,7 +622,11 @@ async function fetchHotspots() {
         if (!resp.ok) throw new Error(data.error || ('请求失败（HTTP ' + resp.status + '）'));
         if (!data.ok) throw new Error(data.error || '获取失败');
         const topics = data.topics || [];
-        renderHotspots(topics);
+        if (!topics.length && data.filtered) {
+            document.getElementById('hsList').innerHTML = '<div class="rounded-lg border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">检索到的内容与所选子领域关联度不足，已自动过滤。请尝试：①换个子领域 ②放宽时间段 ③减少同时选择的子领域数量。</div>';
+        } else {
+            renderHotspots(topics);
+        }
         if (data.realtime === false) document.getElementById('hsRealtime').classList.remove('hidden');
     } catch (err) {
         document.getElementById('hsList').innerHTML = '<div class="rounded-lg border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">'+ escapeHtml(err.message || '未知错误') +'<br><span class="mt-1 block text-xs text-red-400">请检查网络或稍后重试。</span></div>';

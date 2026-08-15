@@ -236,41 +236,78 @@ HOTSPOT_PROMPT = """你是一位资深的财税短视频选题策划，服务对
 - form 必须且只能是上述四个枚举值之一，不要自创。
 - 合规底线：只做政策解读与风险提示，不得教人逃税或违规。
 - 只输出 JSON 数组，不要任何额外解释文字。
+- **强相关性约束**：本次用户关注的财税子领域为 {{SUBFIELDS}}。每个选题的 tags 必须至少包含其中一个子领域（允许同义词，如"税务稽查"可对应"稽查"）。与这些子领域无关的外贸、国际税收、出海等内容一律不要输出，即使检索结果里出现了也不要采纳。
 """
+
+
+def _topic_tags_match(topic_subs, selected_subs):
+    """判断选题 tags 是否与所选子领域有交集（允许同义词/子串匹配）。"""
+    if not selected_subs:
+        return True
+    selected = [str(s).lower().strip() for s in selected_subs if str(s).strip()]
+    tags = [str(t).lower().strip() for t in (topic_subs or []) if str(t).strip()]
+    for sel in selected:
+        for tag in tags:
+            if sel in tag or tag in sel:
+                return True
+    return False
 
 
 def ai_hotspot(days, subfields):
     """抓取真实财税热点 + 生成创作角度建议。
 
-    有 TAVILY_API_KEY：tavily_search(topic=finance, days=N) 抓真实财税热点；
+    有 TAVILY_API_KEY：按所选子领域分别检索 Tavily，合并去重后生成选题；
     无 key（或检索失败）：降级为 deepseek_chat 基于模型知识生成（realtime=False）。
     返回 {"realtime": bool, "topics": [ ... ]}。
     """
     ensure_env()
     subs = subfields or []
-    query = ("财税 税务 政策 热点 " + " ".join(subs)) if subs else "财税 税务 政策 稽查 优惠 热点"
     realtime = False
     raw_items = []
     tavily_key = get_key("TAVILY_API_KEY")
     if tavily_key:
         try:
-            sr = tavily_search(query, tavily_key, topic="finance", days=days, max_results=10)
-            raw_items = sr.get("results") or []
+            # 按每个子领域分别检索，避免一个宽泛 query 被 Tavily 带偏到近期热门但无关领域
+            seen_urls = set()
+            candidates = []
+            queries = []
+            if subs:
+                for s in subs:
+                    queries.append(f"{s} 税务 政策 热点 案例")
+            else:
+                queries.append("财税 税务 政策 稽查 优惠 热点")
+            for q in queries:
+                sr = tavily_search(q, tavily_key, topic="finance", days=days, max_results=8)
+                for it in (sr.get("results") or []):
+                    url = it.get("url") or it.get("link") or ""
+                    if not url or url in seen_urls:
+                        continue
+                    seen_urls.add(url)
+                    candidates.append(it)
+            # 按时间倒排，保留前 12 条
+            raw_items = sorted(
+                candidates,
+                key=lambda x: str(x.get("published_date") or ""),
+                reverse=True,
+            )[:12]
             realtime = True
         except Exception:  # noqa: BLE001
             traceback.print_exc()
             raw_items = []
             realtime = False
 
+    subfields_text = "、".join(subs) if subs else "不限（通用财税热点）"
+    prompt_base = HOTSPOT_PROMPT.replace("{{SUBFIELDS}}", subfields_text)
+
     if realtime and raw_items:
         items_text = "\n".join(
             f"- 标题：{it.get('title', '')}\n  摘要：{(it.get('content', '') or '')[:300]}\n  时间：{it.get('published_date', '')}"
-            for it in raw_items[:10]
+            for it in raw_items[:12]
         )
-        prompt = HOTSPOT_PROMPT + f"\n\n【检索到的真实财税热点（近 {days} 天）】\n" + items_text + \
+        prompt = prompt_base + f"\n\n【检索到的真实财税热点（近 {days} 天）】\n" + items_text + \
                  f"\n\n请基于以上 {len(raw_items)} 条真实热点，产出 5-8 个选题卡片（JSON 数组）。"
     else:
-        prompt = HOTSPOT_PROMPT + f"\n\n未启用实时检索（无 TAVILY_API_KEY 或检索失败）。请基于你的财税知识，生成截至近 {days} 天的 5-8 个财税热点选题卡片（JSON 数组，non-realtime，published_at 标'近期'）。"
+        prompt = prompt_base + f"\n\n未启用实时检索（无 TAVILY_API_KEY 或检索失败）。请基于你的财税知识，生成截至近 {days} 天的 5-8 个财税热点选题卡片（JSON 数组，non-realtime，published_at 标'近期'）。"
 
     cfg = get_text_config()
     content = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
@@ -292,14 +329,21 @@ def ai_hotspot(days, subfields):
                 "suggestion": str(a.get("suggestion") or ""),
                 "form": f,
             })
+        tags = [str(x) for x in (t.get("tags") or []) if str(x).strip()][:6]
+        # 强过滤：与所选子领域无关的选题不要返回
+        if subs and not _topic_tags_match(tags, subs):
+            continue
         out.append({
             "title": str(t.get("title") or ""),
             "summary": str(t.get("summary") or ""),
-            "tags": [str(x) for x in (t.get("tags") or []) if str(x).strip()][:6],
+            "tags": tags,
             "heat_score": t.get("heat_score") if isinstance(t.get("heat_score"), (int, float)) else "",
             "published_at": str(t.get("published_at") or ""),
             "angles": angles,
         })
+    # 如果过滤后过少且是实时模式，补充说明给前端
+    if realtime and not out and topics:
+        return {"realtime": realtime, "topics": [], "filtered": True}
     return {"realtime": realtime, "topics": out}
 
 
