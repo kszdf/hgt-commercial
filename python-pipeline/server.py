@@ -296,13 +296,19 @@ def ai_hotspot(days, subfields):
             else:
                 queries.append("财税 税务 政策 稽查 优惠 热点")
             for q in queries:
-                sr = tavily_search(q, tavily_key, topic="finance", days=days, max_results=8)
-                for it in (sr.get("results") or []):
-                    url = it.get("url") or it.get("link") or ""
-                    if not url or url in seen_urls:
+                # 混合检索：finance 精准 + general 覆盖中文财税热点更多
+                for topic in ("finance", "general"):
+                    try:
+                        sr = tavily_search(q, tavily_key, topic=topic, days=days, max_results=6)
+                    except Exception:  # noqa: BLE001
+                        traceback.print_exc()
                         continue
-                    seen_urls.add(url)
-                    candidates.append(it)
+                    for it in (sr.get("results") or []):
+                        url = it.get("url") or it.get("link") or ""
+                        if not url or url in seen_urls:
+                            continue
+                        seen_urls.add(url)
+                        candidates.append(it)
             # 按时间倒排，保留前 12 条
             raw_items = sorted(
                 candidates,
