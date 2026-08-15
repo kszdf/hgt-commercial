@@ -1955,7 +1955,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 subs = []
             subs = [str(s).strip() for s in subs if str(s).strip()][:10]
             result = ai_hotspot(days, subs)
-            return self._send(200, {"ok": True, "realtime": result.get("realtime", False), "topics": result.get("topics", [])})
+            return self._send(200, {
+                "ok": True,
+                "realtime": result.get("realtime", False),
+                "topics": result.get("topics", []),
+                "filtered": result.get("filtered", False),
+            })
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
             return self._send(200, {"ok": False, "error": str(e)})
