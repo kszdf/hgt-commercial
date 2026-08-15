@@ -236,39 +236,57 @@ HOTSPOT_PROMPT = """你是一位资深的财税短视频选题策划，服务对
 - form 必须且只能是上述四个枚举值之一，不要自创。
 - 合规底线：只做政策解读与风险提示，不得教人逃税或违规。
 - 只输出 JSON 数组，不要任何额外解释文字。
-- **强相关性约束**：本次用户关注的财税子领域为 {{SUBFIELDS}}。每个选题的 tags 必须至少包含其中一个子领域（允许同义词，如"税务稽查"可对应"稽查"）。与这些子领域无关的外贸、国际税收、出海、股市反弹、宏观经济等内容一律不要输出，即使检索结果里出现了也不要采纳。
-- **禁止硬编**：如果检索结果中确实没有与所选子领域直接相关的热点，请诚实减少输出数量（甚至可以输出空数组 []），严禁把无关热点（如股市反弹、政策红包、外贸出海）强行包装成该领域热点。质量优先于数量。
+- **强相关性约束**：本次用户关注的财税子领域为 {{SUBFIELDS}}。每个选题必须紧扣这些子领域：
+  - title 必须直接或间接点题（如"税务稽查"可用"稽查/税务检查/涉税检查/税务执法"；"个人所得税"可用"个税/个人所得税汇算/个税申报"）。
+  - tags 第一项必须是当前子领域或其同义词。
+  - 与这些子领域无关的外贸、国际税收、出海、股市反弹、宏观经济、楼市、房价等内容一律不要输出，即使检索结果里出现了也不要采纳。
+- **禁止硬编**：如果检索结果中确实没有与所选子领域直接相关的热点，请诚实减少输出数量（甚至可以输出空数组 []），严禁把无关热点强行包装成该领域热点。质量优先于数量。
 """
+
+
+# 财税子领域同义词表（小写）
+HOTSPOT_SUBFIELD_SYNONYMS = {
+    "税务稽查": ["税务稽查", "稽查", "税务检查", "涉税检查", "税收检查", "税务执法", "税务查处", "税务审计", "税务核查", "查税"],
+    "税务合规": ["税务合规", "合规", "税务风险", "税收风险", "涉税风险", "税务自查"],
+    "税务筹划": ["税务筹划", "税收筹划", "节税", "合理避税", "税务优化", "税负优化"],
+    "个人所得税": ["个人所得税", "个税", "个税汇算", "个税申报", "个税退税", "综合所得"],
+    "企业所得税": ["企业所得税", "企税", "所得税汇算", "企业所得税申报"],
+    "增值税": ["增值税", "增值税发票", "进项抵扣", "销项税额", "留抵退税"],
+    "发票管理": ["发票管理", "发票", "虚开发票", "电子发票", "全电发票", "发票风险"],
+    "税收优惠": ["税收优惠", "税收减免", "减税降费", "税费优惠", "税收红利", "退税", "免税"],
+    "社保公积金": ["社保", "公积金", "五险一金", "社保缴费", "社保合规"],
+    "公转私": ["公转私", "公私转账", "股东借款", "分红个税"],
+}
 
 
 def _topic_match(topic, selected_subs):
     """判断选题是否与所选子领域强相关：检查 title/summary/tags。
-    允许同义词/子串匹配；若 selected 为空则放行。
+    支持同义词表匹配；若 selected 为空则放行。
     """
     if not selected_subs:
         return True
-    selected = [str(s).lower().strip() for s in selected_subs if str(s).strip()]
+    selected = [str(s).strip() for s in selected_subs if str(s).strip()]
     title = str(topic.get("title") or "").lower()
     summary = str(topic.get("summary") or "").lower()
     tags = [str(t).lower().strip() for t in (topic.get("tags") or []) if str(t).strip()]
+    text = title + " " + summary + " " + " ".join(tags)
+
     # 通用负面词：命中这些说明模型在硬编无关热点
     negative = ["股市反弹", "政策红包", "市场反弹", "反弹来了", "政策主题", "宏观经济", "出海", "外贸", "国际税收", "楼市", "房价", "股市"]
-    text = title + " " + summary + " " + " ".join(tags)
     for neg in negative:
         if neg in text:
             return False
+
+    # 命中任一子领域的同义词即通过
     for sel in selected:
-        for tag in tags:
-            if sel in tag or tag in sel:
+        synonyms = HOTSPOT_SUBFIELD_SYNONYMS.get(sel, [sel.lower()])
+        for syn in synonyms:
+            if syn in text:
                 return True
-        # title 或 summary 必须直接出现子领域或其核心简称
-        short = sel.replace("税务", "").replace("税收", "").strip()
-        checks = [sel]
-        if short and len(short) >= 2:
-            checks.append(short)
-        for c in checks:
-            if c in title or c in summary:
-                return True
+        # 兜底：原词或其去"税务/税收"后的核心词直接出现
+        core = sel.lower().replace("税务", "").replace("税收", "").strip()
+        if core and len(core) >= 2 and (core in title or core in summary or any(core in t for t in tags)):
+            return True
     return False
 
 
