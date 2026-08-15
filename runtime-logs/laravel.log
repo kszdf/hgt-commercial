@@ -1082,3 +1082,209 @@ Content-Transfer-Encoding: quoted-printable
 #19 /var/www/artisan(13): Illuminate\\Foundation\\Application->handleCommand(Object(Symfony\\Component\\Console\\Input\\ArgvInput))
 #20 {main}
 "} 
+[2026-08-14 01:00:24] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: 3669372043@qq.com
+Subject: =?utf-8?Q?=E6=82=A8=E7=9A=84=E8=BF=BD=E6=A2=A6?=
+ =?utf-8?Q?=E5=85=8D=E8=B4=B9=E8=AF=95=E7=94=A8?=
+ =?utf-8?Q?=E5=8D=B3=E5=B0=86=E7=BB=93=E6=9D=9F?=
+MIME-Version: 1.0
+Date: Fri, 14 Aug 2026 01:00:23 +0000
+Message-ID: <bb21077413affccdb91f2cc9bedca6db@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>试用即将结束</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:20px;font-weight:700;color:#0f172a;">免费试用即将结束</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「追梦科技」的免费试用还剩
+        <strong style="color:#d97706;">0 天</strong>，
+        将于 <strong style="color:#0f172a;">2026年8月14日 21:43（北京时间）</strong> 正式结束。
+        试用期结束后若未升级，将无法继续生成视频。
+      </p>
+      <p style="font-size:14px;line-height:1.7;color:#475569;">
+        升级专业版 / 企业版即可解锁更高额度与不限量出片能力，支撑您的短视频矩阵持续产出。
+      </p>
+      <a href="https://zmgen.cn/admin/billing"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        立即升级
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-14 01:00:24] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: test1786166986@example.com
+Subject: =?utf-8?Q?=E6=82=A8=E7=9A=84=E8=BF=BD=E6=A2=A6?=
+ =?utf-8?Q?=E5=85=8D=E8=B4=B9=E8=AF=95=E7=94=A8?=
+ =?utf-8?Q?=E5=8D=B3=E5=B0=86=E7=BB=93=E6=9D=9F?=
+MIME-Version: 1.0
+Date: Fri, 14 Aug 2026 01:00:24 +0000
+Message-ID: <4037cba4b7da6cdc57be8d626fddb0aa@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>试用即将结束</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:20px;font-weight:700;color:#0f172a;">免费试用即将结束</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「TestTenant166986」的免费试用还剩
+        <strong style="color:#d97706;">1 天</strong>，
+        将于 <strong style="color:#0f172a;">2026年8月15日 13:29（北京时间）</strong> 正式结束。
+        试用期结束后若未升级，将无法继续生成视频。
+      </p>
+      <p style="font-size:14px;line-height:1.7;color:#475569;">
+        升级专业版 / 企业版即可解锁更高额度与不限量出片能力，支撑您的短视频矩阵持续产出。
+      </p>
+      <a href="https://zmgen.cn/admin/billing"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        立即升级
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-14 01:00:24] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: test1786167026@example.com
+Subject: =?utf-8?Q?=E6=82=A8=E7=9A=84=E8=BF=BD=E6=A2=A6?=
+ =?utf-8?Q?=E5=85=8D=E8=B4=B9=E8=AF=95=E7=94=A8?=
+ =?utf-8?Q?=E5=8D=B3=E5=B0=86=E7=BB=93=E6=9D=9F?=
+MIME-Version: 1.0
+Date: Fri, 14 Aug 2026 01:00:24 +0000
+Message-ID: <cb10a29aa458e1fd89960849b4d794b2@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>试用即将结束</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:20px;font-weight:700;color:#0f172a;">免费试用即将结束</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「TestTenant167026」的免费试用还剩
+        <strong style="color:#d97706;">1 天</strong>，
+        将于 <strong style="color:#0f172a;">2026年8月15日 13:30（北京时间）</strong> 正式结束。
+        试用期结束后若未升级，将无法继续生成视频。
+      </p>
+      <p style="font-size:14px;line-height:1.7;color:#475569;">
+        升级专业版 / 企业版即可解锁更高额度与不限量出片能力，支撑您的短视频矩阵持续产出。
+      </p>
+      <a href="https://zmgen.cn/admin/billing"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        立即升级
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-14 01:00:24] production.DEBUG: From: =?utf-8?Q?=E8=BF=BD=E6=A2=A6?= <hello@example.com>
+To: 2023752719@qq.com
+Subject: =?utf-8?Q?=E6=82=A8=E7=9A=84=E8=BF=BD=E6=A2=A6?=
+ =?utf-8?Q?=E5=85=8D=E8=B4=B9=E8=AF=95=E7=94=A8?=
+ =?utf-8?Q?=E5=8D=B3=E5=B0=86=E7=BB=93=E6=9D=9F?=
+MIME-Version: 1.0
+Date: Fri, 14 Aug 2026 01:00:24 +0000
+Message-ID: <ac06ad6ef7593d5cab5704f6840f1b41@example.com>
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>试用即将结束</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#ffffff;border-radius:16px;padding:32px 28px;box-shadow:0 4px 20px rgba(15,23,42,.06);">
+      <div style="font-size:20px;font-weight:700;color:#0f172a;">免费试用即将结束</div>
+      <p style="font-size:15px;line-height:1.7;color:#475569;">
+        您好，您的企业租户「112233」的免费试用还剩
+        <strong style="color:#d97706;">2 天</strong>，
+        将于 <strong style="color:#0f172a;">2026年8月16日 19:41（北京时间）</strong> 正式结束。
+        试用期结束后若未升级，将无法继续生成视频。
+      </p>
+      <p style="font-size:14px;line-height:1.7;color:#475569;">
+        升级专业版 / 企业版即可解锁更高额度与不限量出片能力，支撑您的短视频矩阵持续产出。
+      </p>
+      <a href="https://zmgen.cn/admin/billing"
+         style="display:inline-block;margin-top:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;">
+        立即升级
+      </a>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        追梦 · 短视频智能生产平台 · 本邮件由系统自动发送，无需回复。
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  
+[2026-08-14 09:20:01] production.ERROR: PHP Parse error: Syntax error, unexpected T_STRING, expecting ')' on line 1 {"exception":"[object] (Psy\\Exception\\ParseErrorException(code: 0): PHP Parse error: Syntax error, unexpected T_STRING, expecting ')' on line 1 at /var/www/vendor/psy/psysh/src/Exception/ParseErrorException.php:44)
+[stacktrace]
+#0 /var/www/vendor/psy/psysh/src/CodeCleaner.php(657): Psy\\Exception\\ParseErrorException::fromParseError(Object(PhpParser\\Error))
+#1 /var/www/vendor/psy/psysh/src/CodeCleaner.php(273): Psy\\CodeCleaner->parse('<?php echo \\\\App...', false)
+#2 /var/www/vendor/psy/psysh/src/Shell.php(1399): Psy\\CodeCleaner->clean(Array, false)
+#3 /var/www/vendor/psy/psysh/src/Shell.php(1506): Psy\\Shell->appendCode('echo \\\\App\\\\Model...', true, false)
+#4 /var/www/vendor/psy/psysh/src/Shell.php(2215): Psy\\Shell->setCode('echo \\\\App\\\\Model...', true)
+#5 /var/www/vendor/laravel/tinker/src/Console/TinkerCommand.php(77): Psy\\Shell->execute('echo \\\\App\\\\Model...')
+#6 /var/www/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#7 /var/www/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate\\Container\\BoundMethod::{closure:Illuminate\\Container\\BoundMethod::call():35}()
+#8 /var/www/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(95): Illuminate\\Container\\Util::unwrapIfClosure(Object(Closure))
+#9 /var/www/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod(Object(Illuminate\\Foundation\\Application), Array, Object(Closure))
+#10 /var/www/vendor/laravel/framework/src/Illuminate/Container/Container.php(696): Illuminate\\Container\\BoundMethod::call(Object(Illuminate\\Foundation\\Application), Array, Array, NULL)
+#11 /var/www/vendor/laravel/framework/src/Illuminate/Console/Command.php(213): Illuminate\\Container\\Container->call(Array)
+#12 /var/www/vendor/symfony/console/Command/Command.php(341): Illuminate\\Console\\Command->execute(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#13 /var/www/vendor/laravel/framework/src/Illuminate/Console/Command.php(182): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#14 /var/www/vendor/symfony/console/Application.php(1117): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#15 /var/www/vendor/symfony/console/Application.php(356): Symfony\\Component\\Console\\Application->doRunCommand(Object(Laravel\\Tinker\\Console\\TinkerCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#16 /var/www/vendor/symfony/console/Application.php(195): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#17 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(198): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#18 /var/www/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1235): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#19 /var/www/artisan(13): Illuminate\\Foundation\\Application->handleCommand(Object(Symfony\\Component\\Console\\Input\\ArgvInput))
+#20 {main}
+"} 
+[2026-08-14 09:24:38] production.ERROR: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'step' in 'field list' (Connection: mysql, SQL: update `video_jobs` set `status` = done, `publish_status` = draft, `step` = done, `video_jobs`.`updated_at` = 2026-08-14 09:24:38 where `id` = 63) {"exception":"[object] (Illuminate\\Database\\QueryException(code: 42S22): SQLSTATE[42S22]: Column not found: 1054 Unknown column 'step' in 'field list' (Connection: mysql, SQL: update `video_jobs` set `status` = done, `publish_status` = draft, `step` = done, `video_jobs`.`updated_at` = 2026-08-14 09:24:38 where `id` = 63) at /var/www/vendor/laravel/framework/src/Illuminate/Database/Connection.php:825)
+[stacktrace]
+#0 /var/www/vendor/laravel/framework/src/Illuminate/Database/Connection.php(779): Illuminate\\Database\\Connection->runQueryCallback('update `video_j...', Array, Object(Closure))
+#1 /var/www/vendor/laravel/framework/src/Illuminate/Database/Connection.php(584): Illuminate\\Database\\Connection->run('update `video_j...', Array, Object(Closure))
+#2 /var/www/vendor/laravel/framework/src/Illuminate/Database/Connection.php(536): Illuminate\\Database\\Connection->affectingStatement('update `video_j...', Array)
+#3 /var/www/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(3830): Illuminate\\Database\\Connection->update('update `video_j...', Array)
+#4 /var/www/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Builder.php(1175): Illuminate\\Database\\Query\\Builder->update(Object(Illuminate\\Support\\Collection))
+#5 /var/www/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(1239): Illuminate\\Database\\Eloquent\\Builder->update(Array)
+#6 /var/www/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(1156): Illuminate\\Database\\Eloquent\\Model->performUpdate(Object(Illuminate\\Database\\Eloquent\\Builder))
+#7 /var/www/_fix_job.php(12): Illuminate\\Database\\Eloquent\\Model->save()
+#8 {main}
+
+[previous exception] [object] (PDOException(code: 42S22): SQLSTATE[42S22]: Column not found: 1054 Unknown column 'step' in 'field list' at /var/www/vendor/laravel/framework/src/Illuminate/Database/Connection.php:592)
+[stacktrace]
+#0 /var/www/vendor/laravel/framework/src/Illuminate/Database/Connection.php(592): PDO->prepare('update `video_j...')
+#1 /var/www/vendor/laravel/framework/src/Illuminate/Database/Connection.php(812): Illuminate\\Database\\Connection->{closure:Illuminate\\Database\\Connection::affectingStatement():584}('update `video_j...', Array)
+#2 /var/www/vendor/laravel/framework/src/Illuminate/Database/Connection.php(779): Illuminate\\Database\\Connection->runQueryCallback('update `video_j...', Array, Object(Closure))
+#3 /var/www/vendor/laravel/framework/src/Illuminate/Database/Connection.php(584): Illuminate\\Database\\Connection->run('update `video_j...', Array, Object(Closure))
+#4 /var/www/vendor/laravel/framework/src/Illuminate/Database/Connection.php(536): Illuminate\\Database\\Connection->affectingStatement('update `video_j...', Array)
+#5 /var/www/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(3830): Illuminate\\Database\\Connection->update('update `video_j...', Array)
+#6 /var/www/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Builder.php(1175): Illuminate\\Database\\Query\\Builder->update(Object(Illuminate\\Support\\Collection))
+#7 /var/www/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(1239): Illuminate\\Database\\Eloquent\\Builder->update(Array)
+#8 /var/www/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(1156): Illuminate\\Database\\Eloquent\\Model->performUpdate(Object(Illuminate\\Database\\Eloquent\\Builder))
+#9 /var/www/_fix_job.php(12): Illuminate\\Database\\Eloquent\\Model->save()
+#10 {main}
+"} 

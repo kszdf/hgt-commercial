@@ -1585,3 +1585,4 @@
 [2026-08-13 23:20:08] heygem-gen-video 未运行 -> 维护时段跳过拉起（尊重22:00资源清理），22:00后自动唤醒
 [2026-08-13 23:21:08] heygem-gen-video 未运行 -> 维护时段跳过拉起（尊重22:00资源清理），22:00后自动唤醒
 [2026-08-13 23:49:13] [警告] heygem-tts 容器在跑但 :18180 无响应，下次探活复核
+[2026-08-14 17:45:07] 探活 heygem-gen-video 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-gen-video']' timed out after 15 seconds
