@@ -333,6 +333,7 @@ function setBtnLoading(isLoading, text) {
     const srcMap = {
         topic:    { label: '选题二创', back: '/studio/rewrite' },
         original: { label: '原始稿二创', back: '/studio/rewrite-original' },
+        dissect:  { label: '爆款拆解', back: '/studio/dissect' },
     };
     const srcInfo = srcMap[src] || srcMap.original;
     // 批量二创来源：返回时回到批量二创面板（保留已改写的批量进度）
@@ -348,6 +349,9 @@ function setBtnLoading(isLoading, text) {
     }
     if (!cleaned && params.get('from') === 'rewrite') {
         cleaned = sessionStorage.getItem('hgt_rewrite_cleaned') || '';
+    }
+    if (!cleaned && src === 'dissect') {
+        cleaned = sessionStorage.getItem('hgt_dissect_text') || '';
     }
     const mode = params.get('mode') || sessionStorage.getItem('hgt_rewrite_mode') || '';
 

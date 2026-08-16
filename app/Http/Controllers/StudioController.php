@@ -335,4 +335,118 @@ class StudioController extends Controller
 
         return response()->json(['ok' => true]);
     }
+
+    /**
+     * 爆款拆解页：渲染输入/结果双栏页面。
+     */
+    public function dissect()
+    {
+        $tenant = request()->user()->tenant;
+        return view('studio.dissect', [
+            'tenantName'     => $tenant->name,
+            'industryHint'   => $tenant->settings['industry'] ?? '',
+            'topicPlatforms' => PlatformRegistry::topicList(),
+        ]);
+    }
+
+    /**
+     * 爆款拆解主流程：串联 /transcribe → /dissect → /strategist（长任务）。
+     * 输入：input_mode(paste/upload/link) + 文案/视频/链接；输出结构化拆解 + 潜力评分。
+     */
+    public function dissectAnalyze(Request $request)
+    {
+        $data = $request->validate([
+            'input_mode' => ['required', 'in:paste,upload,link'],
+            'text'       => ['nullable', 'string', 'max:20000'],
+            'video_b64'  => ['nullable', 'string'],
+            'video_url'  => ['nullable', 'string', 'url'],
+            'language'   => ['sometimes', 'nullable', 'string', 'max:10'],
+            'platform'   => ['sometimes', 'nullable', 'string', 'max:20'],
+            'industry'   => ['sometimes', 'nullable', 'string', 'max:40'],
+            'title'      => ['sometimes', 'nullable', 'string', 'max:60'],
+        ]);
+
+        try {
+            $client = app(PipelineClient::class);
+
+            // ① 视频输入先转文字（上传 / 链接）
+            $text = trim((string) ($data['text'] ?? ''));
+            if (($data['input_mode'] ?? '') === 'upload' && !empty($data['video_b64'])) {
+                $tr = $client->post('/transcribe',
+                    ['video_b64' => $data['video_b64'], 'language' => $data['language'] ?? 'zh'], 120);
+                if (! $tr->successful() || empty($tr->json()['ok'])) {
+                    return response()->json(['error' => '视频转写失败：' . ($tr->json()['error'] ?? '服务异常')], 502);
+                }
+                $text = $tr->json()['text'] ?? '';
+            } elseif (($data['input_mode'] ?? '') === 'link' && !empty($data['video_url'])) {
+                // 二期为主；MVP 先尝试直链下载，失败给友好提示
+                $tr = $client->post('/transcribe', ['video_url' => $data['video_url'], 'language' => $data['language'] ?? 'zh'], 120);
+                if (! $tr->successful() || empty($tr->json()['ok'])) {
+                    return response()->json(['error' => '链接解析失败（抖音/视频号反爬，二期支持）'], 422);
+                }
+                $text = $tr->json()['text'] ?? '';
+            }
+            if (! $text) {
+                return response()->json(['error' => '未获取到可拆解文案'], 422);
+            }
+
+            // ② 结构拆解
+            $dissect = $client->post('/dissect',
+                array_filter([
+                    'text'     => $text,
+                    'platform' => $data['platform'] ?? null,
+                    'industry' => $data['industry'] ?? null,
+                ]), 120);
+            if (! $dissect->successful()) {
+                return response()->json(['error' => '拆解服务暂不可用'], 502);
+            }
+
+            // ③ 潜力评估（唤醒沉睡的 /strategist）
+            $strategist = $client->post('/strategist',
+                array_filter([
+                    'title'    => $data['title'] ?? '',
+                    'script'   => $text,
+                    'industry' => $data['industry'] ?? null,
+                    'platform' => $data['platform'] ?? null,
+                ]), 90);
+
+            return response()->json([
+                'ok'         => true,
+                'text'       => $text,
+                'dissect'    => $dissect->json(),
+                'strategist' => $strategist->successful() ? $strategist->json() : null,
+            ]);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '拆解服务暂时不可用，请稍后重试'], 503);
+        }
+    }
+
+    /** 去AI痕迹（唤醒沉睡的 /deai 端点）。 */
+    public function deai(Request $request)
+    {
+        $data = $request->validate(['text' => ['required', 'string', 'max:20000']]);
+        try {
+            $resp = app(PipelineClient::class)->post('/deai', ['text' => $data['text']], 120);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '去AI痕迹服务暂不可用'], 503);
+        }
+        return response()->json($resp->json());
+    }
+
+    /** 获客军师 / 潜力评估（唤醒沉睡的 /strategist 端点，供页面单独调用）。 */
+    public function suggestStrategist(Request $request)
+    {
+        $data = $request->validate([
+            'title'    => ['sometimes', 'nullable', 'string', 'max:60'],
+            'script'   => ['required', 'string'],
+            'industry' => ['sometimes', 'nullable', 'string', 'max:40'],
+            'platform' => ['sometimes', 'nullable', 'string', 'max:20'],
+        ]);
+        try {
+            $resp = app(PipelineClient::class)->post('/strategist', $data, 90);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '潜力评估服务暂不可用'], 503);
+        }
+        return response()->json($resp->json());
+    }
 }

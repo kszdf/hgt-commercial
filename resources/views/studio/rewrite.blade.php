@@ -341,6 +341,9 @@ function showSourceBanner(type, count) {
     } else if (type === 'hotspot') {
         title.textContent = '来自全网财税热点';
         desc.innerHTML = '已从「全网财税热点」带入 1 条热点选题与创作角度，可直接改写';
+    } else if (type === 'dissect') {
+        title.textContent = '来自爆款拆解';
+        desc.innerHTML = '已从「爆款拆解」带入完整文案与可复刻结构，可直接改写（请替换为你的行业案例与数字人）';
     } else {
         title.textContent = '基于批量选题二创';
         cnt.textContent = count || 0;
@@ -450,6 +453,29 @@ function getFormLabel(form) {
             sessionStorage.removeItem('hgt_topic_hook');
             sessionStorage.removeItem('hgt_topic_form');
             sessionStorage.removeItem('hgt_topic_from');
+        } else {
+            document.getElementById('noSourceBox')?.classList.remove('hidden');
+        }
+        return;
+    }
+
+    // 1d. 爆款拆解跳转（从「爆款拆解」页"去二创"过来）
+    if (fromTopic === 'dissect') {
+        const title = sessionStorage.getItem('hgt_dissect_title') || '';
+        const text = sessionStorage.getItem('hgt_dissect_text') || '';
+        const hook = sessionStorage.getItem('hgt_dissect_hook') || '';
+        const form = sessionStorage.getItem('hgt_dissect_form') || '';
+        const angle = sessionStorage.getItem('hgt_dissect_angle') || '';
+        if (text || title || angle) {
+            // 完整文案作正文（setTextFromTopic 的 title 参数即 textarea 主体），标题/角度作补充
+            const body = (title ? '【原视频】' + title + '\n' : '') + (angle || '');
+            setTextFromTopic(text || title, hook, mapTopicFormToMode(form), body);
+            showSourceBanner('dissect', 1);
+            sessionStorage.removeItem('hgt_dissect_title');
+            sessionStorage.removeItem('hgt_dissect_text');
+            sessionStorage.removeItem('hgt_dissect_hook');
+            sessionStorage.removeItem('hgt_dissect_form');
+            sessionStorage.removeItem('hgt_dissect_angle');
         } else {
             document.getElementById('noSourceBox')?.classList.remove('hidden');
         }

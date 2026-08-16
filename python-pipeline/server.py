@@ -72,6 +72,13 @@ GPT_SOVITS = r"D:/heygem_data/gpt_sovits"
 sys.path.insert(0, GPT_SOVITS)
 from model_providers import get_text_config, deepseek_chat, ensure_env, tavily_search, get_key  # noqa: E402
 import forbidden_words  # noqa: E402
+# 本地 ASR（FunASR）：tools/asr 无 __init__.py，用 sys.path 注入目录后直接 import；
+# 模型缺失时 only_asr=None，仅 /transcribe 受影响，不拖垮其它端点。
+sys.path.insert(0, os.path.join(GPT_SOVITS, "tools", "asr"))
+try:
+    from funasr_asr import only_asr  # noqa: E402
+except Exception:  # noqa: BLE001
+    only_asr = None
 # 自动发布模块：平台适配器（抖音/视频号/小红书优先，B站/YouTube 顺延）
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from publishers.registry import get_publisher, supported_platforms  # noqa: E402
@@ -459,6 +466,130 @@ def ai_hotspot(days, subfields):
     # - 即使只剩 1-2 条也返回，不再强制清空，避免误杀相关选题
     filtered = bool(subs) and len(topics) > 0 and len(out) < len(topics)
     return {"realtime": realtime, "topics": out, "filtered": filtered}
+
+
+# ---- 视频/音频转文字（本地 FunASR，封装 ffmpeg 抽音轨）----
+def ai_transcribe(source, language="zh"):
+    """视频/音频转文字：ffmpeg 抽音轨 → FunASR only_asr。
+    source: dict，含 video_b64 / video_url / file_path 之一。
+    返回 {ok, text, duration_sec, mode, chars} 或 {ok:False, error}。
+    """
+    global only_asr
+    if only_asr is None:
+        return {"ok": False, "error": "ASR 模型未加载（funasr_asr 不可用），请联系运维"}
+    import base64
+    tmp_dir = JOBS_DIR
+    os.makedirs(tmp_dir, exist_ok=True)
+    video_path = None
+    wav_path = None
+    try:
+        if source.get("video_b64"):
+            video_path = os.path.join(tmp_dir, "transcribe_%s.mp4" % uuid.uuid4().hex)
+            with open(video_path, "wb") as _f:
+                _f.write(base64.b64decode(source["video_b64"]))
+        elif source.get("video_url"):
+            video_path = os.path.join(tmp_dir, "transcribe_%s.mp4" % uuid.uuid4().hex)
+            resp = requests.get(source["video_url"], timeout=60)
+            resp.raise_for_status()
+            with open(video_path, "wb") as _f:
+                _f.write(resp.content)
+        elif source.get("file_path"):
+            video_path = source["file_path"]
+        else:
+            return {"ok": False, "error": "video_b64 / video_url / file_path 至少一项"}
+        if not os.path.exists(video_path):
+            return {"ok": False, "error": "视频文件不存在"}
+        # 抽单声道 16k 音轨
+        wav_path = os.path.join(tmp_dir, "transcribe_%s.wav" % uuid.uuid4().hex)
+        subprocess.run(
+            [FFMPEG, "-y", "-i", video_path, "-vn", "-ac", "1", "-ar", "16000", "-f", "wav", wav_path],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+        )
+        if not os.path.exists(wav_path):
+            return {"ok": False, "error": "音轨提取失败"}
+        # 时长
+        duration_sec = 0.0
+        try:
+            prob = subprocess.run(
+                [FFPROBE, "-v", "error", "-show_entries", "format=duration", "-of", "json", video_path],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
+            duration_sec = float(json.loads(prob.stdout).get("format", {}).get("duration", 0) or 0)
+        except Exception:  # noqa: BLE001
+            pass
+        text = (only_asr(wav_path, language) or "").strip()
+        return {"ok": True, "text": text, "duration_sec": duration_sec, "mode": "fun-asr-nano", "chars": len(text)}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)}
+    finally:
+        for p in (video_path, wav_path):
+            try:
+                if p and p.startswith(tmp_dir) and os.path.exists(p):
+                    os.remove(p)
+            except Exception:  # noqa: BLE001
+                pass
+
+
+# ---- 爆款结构拆解（纯文案结构分析，DeepSeek，不依赖视频视觉理解）----
+DISSECT_PROMPT = """你是一位资深短视频内容拆解师，同时是财税行业顾问。
+任务：把一段爆款短视频的逐字稿，拆解出可复用的内容结构骨架，供创作者学习其「结构、节奏、选题角度」，从而产出自己的原创版本。
+严格输出 JSON：
+{
+  "hook_type": "痛点直击 | 悬念提问 | 反常识 | 身份共鸣 | 数据冲击 | 利益承诺",
+  "pain_points": ["命中的老板/用户痛点1", "..."],
+  "case_evidence": ["用到的案例或数据证据1", "..."],
+  "emotion_rhythm": [{"sec":0,"emotion":"紧张/焦虑","note":"开头抛风险"}],
+  "structure": [{"sec":0,"content":"该时间段对应的文案要点","emotion":"焦虑","camera_hint":"近景怼脸/字幕强调风险点（仅作运镜建议）"}],
+  "reusable_parts": ["可学习的结构部分1", "..."],
+  "must_replace": ["原视频人物/肖像", "原配音声线", "原客户具体名称与隐私数据", "原平台水印/logo"],
+  "rewrite_suggestions": ["二创方向建议1", "..."]
+}
+要求：
+- 只输出 JSON，不要任何解释文字。
+- sec 为相对视频起点的秒数估算（按语速≈4-5字/秒粗算，允许区间）。
+- camera_hint 一律表述为「运镜/景别/字幕建议」，不承诺动作 1:1 像素复制。
+- must_replace 必须包含「人物/肖像、配音声线、具体客户名称与隐私数据、平台水印/logo」四类，作为合规硬约束。
+- 合规底线：仅做结构学习参考，不鼓励照搬原视频画面、声音或具体客户隐私。
+"""
+
+
+def ai_dissect(text, platform=None, industry=None):
+    """爆款结构拆解：纯文案结构分析（DeepSeek），不依赖视频视觉理解。
+    返回结构化 dict（见 DISSECT_PROMPT）。无 key 时降级 rule_dry。"""
+    cfg = get_text_config()
+    text = (text or "").strip()
+    # 规则降级（无 LLM key）
+    if not cfg.get("key"):
+        return {
+            "ok": True, "mode": "rule_dry",
+            "hook_type": "待分析", "pain_points": [], "case_evidence": [],
+            "emotion_rhythm": [], "structure": [],
+            "reusable_parts": ["开头钩子结构", "痛点→解法→案例→留资的叙事节奏"],
+            "must_replace": ["原视频人物/肖像", "原配音声线", "原客户具体名称与隐私数据", "原平台水印/logo"],
+            "rewrite_suggestions": ["用你的行业案例替换原案例", "保留结构、换成本行业痛点", "结尾留资话术本地化"],
+        }
+    prompt = DISSECT_PROMPT
+    if industry:
+        prompt += f"\n行业背景：{industry}。\n"
+    if platform:
+        prompt += f"发布平台：{platform}。\n"
+    prompt += f"\n【待拆解逐字稿】\n{text}\n\n请基于以上逐字稿输出拆解 JSON。"
+    try:
+        content = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
+        content = content.strip()
+        if content.startswith("```"):
+            content = content.split("```")[1]
+        obj = json.loads(content)
+        obj["ok"] = True
+        obj["mode"] = "llm"
+        for k in ("hook_type", "pain_points", "case_evidence", "emotion_rhythm",
+                  "structure", "reusable_parts", "must_replace", "rewrite_suggestions"):
+            obj.setdefault(k, "" if k == "hook_type" else [])
+        return obj
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "mode": "rule_fallback", "error": str(e),
+                "hook_type": "待分析", "pain_points": [], "case_evidence": [],
+                "emotion_rhythm": [], "structure": [],
+                "reusable_parts": [], "must_replace": [], "rewrite_suggestions": []}
 
 
 def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, form=None):
@@ -1684,6 +1815,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_suggest_title(data)
         if p.path == "/hotspot":
             return self._handle_hotspot(data)
+        if p.path == "/transcribe":
+            return self._handle_transcribe(data)
+        if p.path == "/dissect":
+            return self._handle_dissect(data)
         return self._send(404, {"error": "not found"})
 
     # ---- 自动发布：调 publishers 适配器把成片分发到指定平台 ----
@@ -2061,6 +2196,34 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "topics": result.get("topics", []),
                 "filtered": result.get("filtered", False),
             })
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            return self._send(200, {"ok": False, "error": str(e)})
+
+    # ---- 视频/音频转文字（本地 FunASR）----
+    def _handle_transcribe(self, data):
+        try:
+            if not isinstance(data, dict):
+                return self._send(400, {"ok": False, "error": "invalid request body"})
+            src = data.get("video_b64") or data.get("video_url") or data.get("file_path")
+            if not src:
+                return self._send(400, {"ok": False, "error": "video_b64 / video_url / file_path 至少一项"})
+            result = ai_transcribe(data, data.get("language", "zh"))
+            return self._send(200, result)
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            return self._send(200, {"ok": False, "error": str(e)})
+
+    # ---- 爆款结构拆解（纯文案分析）----
+    def _handle_dissect(self, data):
+        try:
+            if not isinstance(data, dict):
+                return self._send(400, {"ok": False, "error": "invalid request body"})
+            text = (data.get("text") or "").strip()
+            if not text:
+                return self._send(400, {"ok": False, "error": "text required"})
+            result = ai_dissect(text, data.get("platform"), data.get("industry"))
+            return self._send(200, result)
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
             return self._send(200, {"ok": False, "error": str(e)})

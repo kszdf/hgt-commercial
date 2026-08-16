@@ -79,6 +79,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/studio/rewrite-original', [StudioController::class, 'rewriteOriginal'])->name('studio.rewrite-original');
     Route::post('/studio/rewrite/generate', [StudioController::class, 'rewriteGenerate']);
 
+    // 爆款拆解（输入→提取文案→结构拆解→潜力评估→去二创→数字人出片）
+    Route::get('/studio/dissect', [StudioController::class, 'dissect'])->name('studio.dissect');
+    Route::post('/studio/dissect/analyze', [StudioController::class, 'dissectAnalyze']);
+    // 唤醒沉睡端点：去AI痕迹 / 获客军师（潜力评估）
+    Route::post('/studio/deai', [StudioController::class, 'deai']);
+    Route::post('/studio/strategist', [StudioController::class, 'suggestStrategist']);
+
     // 实时活动心跳上报（选题 / 二创 / 出片在线态，供超级管理员监控大盘）
     Route::post('/studio/activity', [StudioController::class, 'activityPing']);
 
