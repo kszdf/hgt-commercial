@@ -280,6 +280,7 @@ function renderResult(data) {
         + '<button onclick="goRewrite()" class="zw-btn rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">去二创</button>'
         + '<button onclick="goDeai()" class="zw-btn rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">去 AI 痕迹</button>'
         + '<button onclick="goScroll()" class="zw-btn rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">直接出片</button>'
+        + '<button onclick="goScrollWith(\'scroll_female\',\'jiang\')" class="zw-btn rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700">江老师·女声出片</button>'
         + '</div>';
 
     // 去 AI 痕迹结果容器
@@ -322,11 +323,15 @@ function goRewrite() {
 
 // ---------- 联动：直接出片 ----------
 function goScroll() {
+    // 默认出口：按用户所选呈现形式 + 默认声线（女声幕后用江老师，其余用老张）
+    goScrollWith(null, null);
+}
+function goScrollWith(forceForm, forceVoice) {
     if (!currentText) return;
     sessionStorage.setItem('hgt_dissect_text', currentText);
-    const form = document.getElementById('form').value || 'avatar';
-    // 默认用老张真声；女声幕后形式用江老师克隆声
-    const voice = (form === 'scroll_female') ? 'jiang' : 'zhang';
+    const form = forceForm || (document.getElementById('form').value || 'avatar');
+    let voice = forceVoice;
+    if (!voice) voice = (form === 'scroll_female') ? 'jiang' : 'zhang';
     location.href = '/studio/scroll?src=dissect&mode=' + form + '&voice=' + voice;
 }
 
