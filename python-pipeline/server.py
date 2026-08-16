@@ -64,7 +64,7 @@ import threading
 import time
 import traceback
 import uuid
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 from urllib.parse import urlparse
 
 GPT_SOVITS = r"D:/heygem_data/gpt_sovits"
@@ -344,10 +344,11 @@ def ai_hotspot(days, subfields):
             except Exception as e:  # noqa: BLE001
                 return (q, False, [], str(e))
 
-        # 并发检索，整体最多等 15 秒（含线程调度）
+        # 并发检索，整体最多等 20 秒；超时也保留已完成结果，不整批丢弃
         with ThreadPoolExecutor(max_workers=min(len(queries), 4)) as executor:
             future_to_q = {executor.submit(_fetch_one, q): q for q in queries}
-            for future in as_completed(future_to_q, timeout=15):
+            done, not_done = wait(future_to_q, timeout=20)
+            for future in done:
                 q, ok, results, err = future.result()
                 if ok:
                     dbg.append("tavily ok query=%s results=%s" % (q, len(results)))
@@ -359,6 +360,8 @@ def ai_hotspot(days, subfields):
                         candidates.append(it)
                 else:
                     dbg.append("tavily fail query=%s err=%s" % (q, err))
+            if not_done:
+                dbg.append("tavily timeout unfinished=%s (kept completed=%s)" % (len(not_done), len(done)))
         # 按时间倒排，保留前 8 条（控制 prompt 长度，降低 DeepSeek 超时概率）
         raw_items = sorted(
             candidates,
