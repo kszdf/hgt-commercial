@@ -64,6 +64,7 @@ import threading
 import time
 import traceback
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse
 
 GPT_SOVITS = r"D:/heygem_data/gpt_sovits"
@@ -291,54 +292,75 @@ def _topic_match(topic, selected_subs):
     return False, "no match"
 
 
+def _hotspot_debug(lines):
+    """把调试信息追加写到 server.py 同目录的 hotspot_debug.txt（不影响主逻辑）。"""
+    try:
+        dbg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hotspot_debug.txt")
+        with open(dbg_path, "a", encoding="utf-8") as _f:
+            _f.write("\n".join(lines) + "\n")
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def ai_hotspot(days, subfields):
     """抓取真实财税热点 + 生成创作角度建议。
 
     有 TAVILY_API_KEY：按所选子领域分别检索 Tavily，合并去重后生成选题；
     无 key（或检索失败）：降级为 deepseek_chat 基于模型知识生成（realtime=False）。
-    返回 {"realtime": bool, "topics": [ ... ]}。
+    返回 {"realtime": bool, "topics": [ ... ], "filtered": bool}。
     """
     ensure_env()
     subs = subfields or []
+    dbg = ["=== %s days=%s subs=%s ===" % (str(datetime.datetime.now()), days, subs)]
     realtime = False
     raw_items = []
     tavily_key = get_key("TAVILY_API_KEY")
+    dbg.append("tavily_key_present=%s" % bool(tavily_key))
     if tavily_key:
-        try:
-            # 按每个子领域分别检索，避免一个宽泛 query 被 Tavily 带偏到近期热门但无关领域
-            seen_urls = set()
-            candidates = []
-            queries = []
-            if subs:
-                for s in subs:
-                    queries.append(f"{s} 税务 政策 热点 案例")
-            else:
-                queries.append("财税 税务 政策 稽查 优惠 热点")
-            for q in queries:
-                # 混合检索：finance 精准 + general 覆盖中文财税热点更多
-                for topic in ("finance", "general"):
-                    try:
-                        sr = tavily_search(q, tavily_key, topic=topic, days=days, max_results=6)
-                    except Exception:  # noqa: BLE001
-                        traceback.print_exc()
-                        continue
-                    for it in (sr.get("results") or []):
+        # 按每个子领域分别检索，避免一个宽泛 query 被 Tavily 带偏到近期热门但无关领域
+        seen_urls = set()
+        candidates = []
+        queries = []
+        if subs:
+            # 限制活跃子领域数，避免调用过多导致响应过慢
+            active_subs = subs[:5]
+            for s in active_subs:
+                queries.append(f"{s} 税务 政策 热点 案例")
+        else:
+            queries.append("财税 税务 政策 稽查 优惠 热点")
+
+        def _fetch_one(q):
+            try:
+                # 只用 general，中文财税热点召回率最高；timeout 10s 防止网络 hang 住
+                sr = tavily_search(q, tavily_key, topic="general", days=days, max_results=6, timeout=10)
+                return (q, True, sr.get("results") or [], None)
+            except Exception as e:  # noqa: BLE001
+                return (q, False, [], str(e))
+
+        # 并发检索，整体最多等 15 秒（含线程调度）
+        with ThreadPoolExecutor(max_workers=min(len(queries), 4)) as executor:
+            future_to_q = {executor.submit(_fetch_one, q): q for q in queries}
+            for future in as_completed(future_to_q, timeout=15):
+                q, ok, results, err = future.result()
+                if ok:
+                    dbg.append("tavily ok query=%s results=%s" % (q, len(results)))
+                    for it in results:
                         url = it.get("url") or it.get("link") or ""
                         if not url or url in seen_urls:
                             continue
                         seen_urls.add(url)
                         candidates.append(it)
-            # 按时间倒排，保留前 12 条
-            raw_items = sorted(
-                candidates,
-                key=lambda x: str(x.get("published_date") or ""),
-                reverse=True,
-            )[:12]
-            realtime = True
-        except Exception:  # noqa: BLE001
-            traceback.print_exc()
-            raw_items = []
-            realtime = False
+                else:
+                    dbg.append("tavily fail query=%s err=%s" % (q, err))
+        # 按时间倒排，保留前 12 条
+        raw_items = sorted(
+            candidates,
+            key=lambda x: str(x.get("published_date") or ""),
+            reverse=True,
+        )[:12]
+        realtime = len(raw_items) > 0
+
+    _hotspot_debug(dbg + ["after tavily: realtime=%s raw_items=%s" % (realtime, len(raw_items))])
 
     subfields_text = "、".join(subs) if subs else "不限（通用财税热点）"
     prompt_base = HOTSPOT_PROMPT.replace("{{SUBFIELDS}}", subfields_text)
@@ -354,7 +376,14 @@ def ai_hotspot(days, subfields):
         prompt = prompt_base + f"\n\n未启用实时检索（无 TAVILY_API_KEY 或检索失败）。请基于你的财税知识，生成截至近 {days} 天的 5-8 个财税热点选题卡片（JSON 数组，non-realtime，published_at 标'近期'）。"
 
     cfg = get_text_config()
-    content = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
+    _hotspot_debug(dbg + ["before deepseek prompt_len=%s" % len(prompt)])
+    try:
+        content = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=45)
+        _hotspot_debug(["deepseek ok content_len=%s" % len(content)])
+    except Exception as e:  # noqa: BLE001
+        _hotspot_debug(["deepseek fail: " + str(e)])
+        # DeepSeek 失败时降级为非实时生成（避免完全无返回）
+        content = ""
     obj = _extract_json_array(content)
     topics = obj if isinstance(obj, list) else []
     out = []
