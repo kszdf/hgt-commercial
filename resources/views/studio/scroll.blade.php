@@ -115,6 +115,12 @@
                 <!-- 声音选择 -->
                 <div class="rounded-lg studio-card studio-card-sm">
                     <label id="voiceLabel" class="mb-1.5 block text-sm font-medium text-slate-600">配音声线</label>
+                    <!-- 常用声线快捷切换（老张本人真声 / 江老师克隆声） -->
+                    <div class="mb-2 flex flex-wrap items-center gap-2">
+                        <span class="text-xs text-slate-400">快捷：</span>
+                        <button type="button" id="quickVoiceZhang" class="quick-voice-btn rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:border-brand-300">老张（本人真声）</button>
+                        <button type="button" id="quickVoiceJiang" class="quick-voice-btn rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:border-brand-300">江老师（克隆声）</button>
+                    </div>
                     <!-- dualVoiceWrap：滚动字幕模式下男/女双声线下拉容器（数字人模式隐藏）；独白时由 setVoiceForm 控制单声线显隐 -->
                     <div id="dualVoiceWrap" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
@@ -827,7 +833,43 @@ if (!modeInitializedByUrl) setMode('scroll');   // URL 已指定模式时不再�
     for (const opt of sv.options) {
         if (opt.value.includes(needle)) { sv.value = opt.value; break; }
     }
+    highlightQuickVoice(voiceParam === 'zhang' ? 'zhang' : (voiceParam === 'jiang' ? 'jiang' : null));
 })();
+
+// 常用声线快捷切换按钮：老张（本人真声）/ 江老师（克隆声）
+function highlightQuickVoice(which) {
+    document.querySelectorAll('.quick-voice-btn').forEach(b => {
+        b.className = 'quick-voice-btn rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:border-brand-300';
+    });
+    if (which === 'zhang') {
+        const b = document.getElementById('quickVoiceZhang');
+        if (b) b.className = 'quick-voice-btn rounded-lg border border-brand-400 bg-brand-500 px-3 py-1 text-xs font-medium text-white';
+    } else if (which === 'jiang') {
+        const b = document.getElementById('quickVoiceJiang');
+        if (b) b.className = 'quick-voice-btn rounded-lg border border-brand-400 bg-brand-500 px-3 py-1 text-xs font-medium text-white';
+    }
+}
+function applyQuickVoice(needle, which, btn) {
+    const sv = document.getElementById('singleVoice');
+    if (!sv) return;
+    // 双声线对话模式下点击快捷声线，自动切到单人独白以便立即可见
+    if (currentMode === 'scroll' && voiceForm === 'dialogue') setVoiceForm('mono');
+    let hit = false;
+    for (const opt of sv.options) {
+        if (opt.value.includes(needle)) { sv.value = opt.value; hit = true; break; }
+    }
+    if (hit) highlightQuickVoice(which);
+}
+document.getElementById('quickVoiceZhang').addEventListener('click', e => applyQuickVoice('zhangc2', 'zhang', e.currentTarget));
+document.getElementById('quickVoiceJiang').addEventListener('click', e => applyQuickVoice('jiangnv3', 'jiang', e.currentTarget));
+// 手动改单人声线下拉时同步高亮
+document.getElementById('singleVoice').addEventListener('change', () => {
+    const v = document.getElementById('singleVoice').value;
+    if (v.includes('zhangc2')) highlightQuickVoice('zhang');
+    else if (v.includes('jiangnv3')) highlightQuickVoice('jiang');
+    else highlightQuickVoice(null);
+});
+
 updateDurationHint();
 autoSuggest();
 applyVoiceFormAuto(document.getElementById('dialogue').value);
