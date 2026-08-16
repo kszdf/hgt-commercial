@@ -10,6 +10,14 @@
         <button type="button" data-form="dialogue" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('dialogue')">男女对话幕后音</button>
     </div>
 
+    <!-- 常用预设档：点一个按钮整组套用「出片形式 + 配音声线」 -->
+    <div class="mb-4 flex flex-wrap items-center gap-2">
+        <span class="text-xs text-slate-400">常用预设：</span>
+        <button type="button" data-preset="zhang_avatar" class="preset-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300" onclick="applyPreset('zhang_avatar')">老张·单人出镜</button>
+        <button type="button" data-preset="jiang_female" class="preset-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300" onclick="applyPreset('jiang_female')">江老师·女声幕后</button>
+        <button type="button" data-preset="zhang_male" class="preset-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300" onclick="applyPreset('zhang_male')">老张·男声幕后</button>
+    </div>
+
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <!-- 输入区 -->
         <section class="luxury-glass p-5">
@@ -866,6 +874,33 @@ function highlightQuickVoice(which) {
         const b = document.getElementById('quickVoiceJiang');
         if (b) b.className = 'quick-voice-btn rounded-lg border border-brand-400 bg-brand-500 px-3 py-1 text-xs font-medium text-white';
     }
+}
+
+// 常用预设档：整组套用「出片形式 + 配音声线」，一步到位
+const PRESETS = {
+    zhang_avatar:  { form: 'avatar',      voice: 'zhangc2', who: 'zhang' },  // 老张·单人数字人出镜
+    jiang_female:  { form: 'female_mono', voice: 'jiangnv3', who: 'jiang' },  // 江老师·女声幕后音
+    zhang_male:    { form: 'male_mono',   voice: 'zhangc2', who: 'zhang' },  // 老张·男声幕后音
+};
+function applyPreset(key) {
+    const p = PRESETS[key];
+    if (!p) return;
+    selectForm(p.form);   // 设出片形式 + 声线形式并高亮
+    const sv = document.getElementById('singleVoice');
+    if (sv) {
+        for (const opt of sv.options) {
+            if (opt.value.includes(p.voice)) { sv.value = opt.value; break; }
+        }
+    }
+    highlightQuickVoice(p.who);
+    highlightPreset(key);
+}
+function highlightPreset(key) {
+    document.querySelectorAll('.preset-btn').forEach(b => {
+        const on = b.dataset.preset === key;
+        b.className = 'preset-btn rounded-lg border px-3 py-1.5 text-xs font-medium transition ' +
+            (on ? 'border-brand-400 bg-brand-500 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300');
+    });
 }
 function applyQuickVoice(needle, which, btn) {
     const sv = document.getElementById('singleVoice');
