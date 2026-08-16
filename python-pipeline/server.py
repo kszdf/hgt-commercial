@@ -352,12 +352,12 @@ def ai_hotspot(days, subfields):
                         candidates.append(it)
                 else:
                     dbg.append("tavily fail query=%s err=%s" % (q, err))
-        # 按时间倒排，保留前 12 条
+        # 按时间倒排，保留前 8 条（控制 prompt 长度，降低 DeepSeek 超时概率）
         raw_items = sorted(
             candidates,
             key=lambda x: str(x.get("published_date") or ""),
             reverse=True,
-        )[:12]
+        )[:8]
         realtime = len(raw_items) > 0
 
     _hotspot_debug(dbg + ["after tavily: realtime=%s raw_items=%s" % (realtime, len(raw_items))])
@@ -367,25 +367,49 @@ def ai_hotspot(days, subfields):
 
     if realtime and raw_items:
         items_text = "\n".join(
-            f"- 标题：{it.get('title', '')}\n  摘要：{(it.get('content', '') or '')[:300]}\n  时间：{it.get('published_date', '')}"
-            for it in raw_items[:12]
+            f"- 标题：{it.get('title', '')}\n  摘要：{(it.get('content', '') or '')[:180]}\n  时间：{it.get('published_date', '')}"
+            for it in raw_items[:8]
         )
         prompt = prompt_base + f"\n\n【检索到的真实财税热点（近 {days} 天）】\n" + items_text + \
-                 f"\n\n请基于以上 {len(raw_items)} 条真实热点，产出 5-8 个选题卡片（JSON 数组）。"
+                 f"\n\n请基于以上 {len(raw_items)} 条真实热点，产出 3-6 个选题卡片（JSON 数组）。"
     else:
-        prompt = prompt_base + f"\n\n未启用实时检索（无 TAVILY_API_KEY 或检索失败）。请基于你的财税知识，生成截至近 {days} 天的 5-8 个财税热点选题卡片（JSON 数组，non-realtime，published_at 标'近期'）。"
+        prompt = prompt_base + f"\n\n未启用实时检索（无 TAVILY_API_KEY 或检索失败）。请基于你的财税知识，生成截至近 {days} 天的 3-6 个财税热点选题卡片（JSON 数组，non-realtime，published_at 标'近期'）。"
 
     cfg = get_text_config()
     _hotspot_debug(dbg + ["before deepseek prompt_len=%s" % len(prompt)])
+    deepseek_failed = False
     try:
         content = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=45)
         _hotspot_debug(["deepseek ok content_len=%s" % len(content)])
     except Exception as e:  # noqa: BLE001
         _hotspot_debug(["deepseek fail: " + str(e)])
-        # DeepSeek 失败时降级为非实时生成（避免完全无返回）
+        deepseek_failed = True
         content = ""
     obj = _extract_json_array(content)
     topics = obj if isinstance(obj, list) else []
+
+    # DeepSeek 调用失败/超时且已有真实检索结果时，直接基于 raw_items 生成兜底选题，
+    # 避免用户长时间等待后得到空结果。
+    if deepseek_failed and realtime and raw_items:
+        fallback_topics = []
+        for idx, it in enumerate(raw_items[:6], 1):
+            title = str(it.get("title") or "").strip()
+            summary = str(it.get("content") or "").strip()[:120]
+            if not title:
+                continue
+            fallback_topics.append({
+                "title": title[:40],
+                "summary": summary or title,
+                "tags": subs[:2] or ["财税热点"],
+                "heat_score": 500,
+                "published_at": str(it.get("published_date") or "近期"),
+                "angles": [
+                    {"name": "政策解读", "suggestion": "从政策背景切入，点明对企业老板的影响与应对建议。", "form": "scroll_male"},
+                    {"name": "案例警示", "suggestion": "结合行业案例，突出风险点与合规动作。", "form": "avatar"},
+                ],
+            })
+        topics = fallback_topics
+        _hotspot_debug(["fallback from raw_items count=%s" % len(topics)])
     out = []
     dbg = []
     dbg.append("=== %s days=%s subs=%s ===" % (str(datetime.datetime.now()), days, subs))
@@ -430,11 +454,11 @@ def ai_hotspot(days, subfields):
             _f.write("\n".join(dbg) + "\n")
     except Exception:  # noqa: BLE001
         pass
-    # 如果过滤后不足 3 条且是实时模式，视为检索结果与所选子领域关联度不够，
-    # 不硬凑，直接返回 filtered 提示给前端。
-    if realtime and len(out) < 3:
-        return {"realtime": realtime, "topics": [], "filtered": True}
-    return {"realtime": realtime, "topics": out}
+    # filtered 仅表示"本次结果经过子领域过滤"：
+    # - 当原始生成数量 > 0 且过滤后数量减少时，标记 filtered=True
+    # - 即使只剩 1-2 条也返回，不再强制清空，避免误杀相关选题
+    filtered = bool(subs) and len(topics) > 0 and len(out) < len(topics)
+    return {"realtime": realtime, "topics": out, "filtered": filtered}
 
 
 def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, form=None):
@@ -2024,6 +2048,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not isinstance(subs, list):
                 subs = []
             subs = [str(s).strip() for s in subs if str(s).strip()][:10]
+            # 编码损坏防御：某些客户端（如 PowerShell 控制台）发送的中文会被编码为 "????"
+            # 此时直接按子领域检索无意义，fallback 到通用财税热点并标记 filtered。
+            encoded_broken = bool(subs) and all(set(s) <= {"?"} for s in subs)
+            if encoded_broken:
+                _hotspot_debug(["WARN subfields encoded broken, fallback to general: %s" % subs])
+                subs = []
             result = ai_hotspot(days, subs)
             return self._send(200, {
                 "ok": True,
