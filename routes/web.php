@@ -21,6 +21,10 @@ Route::get('/', function () {
 Route::view('/privacy', 'legal.privacy')->name('privacy');
 Route::view('/terms', 'legal.terms')->name('terms');
 
+// 8500 微服务心跳探测（前端全局轮询，崩了显示红字预警；独立于登录态，
+// 避免会话过期时 302 跳登录页把预警挡住而看不到服务宕机）
+Route::get('/studio/pipeline-health', [StudioController::class, 'pipelineHealth']);
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     // 登录限流：每 IP 每分钟最多 5 次，防暴力破解
@@ -85,9 +89,6 @@ Route::middleware('auth')->group(function () {
     // 唤醒沉睡端点：去AI痕迹 / 获客军师（潜力评估）
     Route::post('/studio/deai', [StudioController::class, 'deai']);
     Route::post('/studio/strategist', [StudioController::class, 'suggestStrategist']);
-
-    // 8500 微服务心跳探测（前端全局轮询，崩了显示红字预警）
-    Route::get('/studio/pipeline-health', [StudioController::class, 'pipelineHealth']);
 
     // 实时活动心跳上报（选题 / 二创 / 出片在线态，供超级管理员监控大盘）
     Route::post('/studio/activity', [StudioController::class, 'activityPing']);
