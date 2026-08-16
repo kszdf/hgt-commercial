@@ -56,6 +56,7 @@ import http.server
 import json
 import os
 import re
+import datetime
 import shutil
 import subprocess
 import sys
@@ -261,10 +262,10 @@ HOTSPOT_SUBFIELD_SYNONYMS = {
 
 def _topic_match(topic, selected_subs):
     """判断选题是否与所选子领域强相关：检查 title/summary/tags。
-    支持同义词表匹配；若 selected 为空则放行。
+    支持同义词表匹配；若 selected 为空则放行。返回 (matched, reason)。
     """
     if not selected_subs:
-        return True
+        return True, "no subs (pass)"
     selected = [str(s).strip() for s in selected_subs if str(s).strip()]
     title = str(topic.get("title") or "").lower()
     summary = str(topic.get("summary") or "").lower()
@@ -275,19 +276,19 @@ def _topic_match(topic, selected_subs):
     negative = ["股市反弹", "政策红包", "市场反弹", "反弹来了", "政策主题", "宏观经济", "出海", "外贸", "国际税收", "楼市", "房价", "股市"]
     for neg in negative:
         if neg in text:
-            return False
+            return False, f"negative hit: {neg}"
 
     # 命中任一子领域的同义词即通过
     for sel in selected:
         synonyms = HOTSPOT_SUBFIELD_SYNONYMS.get(sel, [sel.lower()])
         for syn in synonyms:
             if syn in text:
-                return True
+                return True, f"syn hit: {syn}"
         # 兜底：原词或其去"税务/税收"后的核心词直接出现
         core = sel.lower().replace("税务", "").replace("税收", "").strip()
         if core and len(core) >= 2 and (core in title or core in summary or any(core in t for t in tags)):
-            return True
-    return False
+            return True, f"core hit: {core}"
+    return False, "no match"
 
 
 def ai_hotspot(days, subfields):
@@ -357,8 +358,15 @@ def ai_hotspot(days, subfields):
     obj = _extract_json_array(content)
     topics = obj if isinstance(obj, list) else []
     out = []
+    dbg = []
+    dbg.append("=== %s days=%s subs=%s ===" % (str(datetime.datetime.now()), days, subs))
+    dbg.append("realtime=%s raw_items_count=%s" % (realtime, len(raw_items)))
+    for it in raw_items:
+        dbg.append("  raw: %s" % str(it.get("title", ""))[:80])
+    dbg.append("deepseek_content_len=%s generated_count=%s" % (len(content), len(topics)))
     for t in topics:
         if not isinstance(t, dict):
+            dbg.append("  SKIP non-dict")
             continue
         angles = []
         for a in (t.get("angles") or []):
@@ -374,7 +382,10 @@ def ai_hotspot(days, subfields):
             })
         tags = [str(x) for x in (t.get("tags") or []) if str(x).strip()][:6]
         # 强过滤：与所选子领域无关的选题不要返回（检查 title/summary/tags，并拦截硬编）
-        if subs and not _topic_match(t, subs):
+        matched, reason = _topic_match(t, subs)
+        dbg.append("  topic matched=%s reason=%s title=%s tags=%s" % (
+            matched, reason, str(t.get("title", ""))[:60], tags[:3]))
+        if subs and not matched:
             continue
         out.append({
             "title": str(t.get("title") or ""),
@@ -384,6 +395,12 @@ def ai_hotspot(days, subfields):
             "published_at": str(t.get("published_at") or ""),
             "angles": angles,
         })
+    # 写调试文件（不影响线上返回）
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "hotspot_debug.txt"), "a", encoding="utf-8") as _f:
+            _f.write("\n".join(dbg) + "\n")
+    except Exception:  # noqa: BLE001
+        pass
     # 如果过滤后不足 3 条且是实时模式，视为检索结果与所选子领域关联度不够，
     # 不硬凑，直接返回 filtered 提示给前端。
     if realtime and len(out) < 3:
