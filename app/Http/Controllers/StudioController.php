@@ -132,6 +132,36 @@ class StudioController extends Controller
         return response()->json($resp->json());
     }
 
+    /**
+     * 8500 微服务心跳探测：GET /health，连接失败/超时/异常返回 {ok:false}。
+     * 供前端全局轮询显示红字预警（出片/拆解/选题等功能依赖 8500）。
+     */
+    public function pipelineHealth()
+    {
+        $checkedAt = now()->toDateTimeString();
+        $resp = null;
+        try {
+            $resp = app(PipelineClient::class)->get('/health', 3);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json([
+                'ok'         => false,
+                'error'      => '出片微服务（8500）无响应，请重启 Windows 服务 HGTCommercial8500：' . $e->getMessage(),
+                'checked_at' => $checkedAt,
+            ]);
+        }
+        if ($resp === null || ! $resp->successful()) {
+            return response()->json([
+                'ok'         => false,
+                'error'      => $resp ? ('出片微服务（8500）返回异常状态 ' . $resp->status()) : '出片微服务（8500）请求超时',
+                'checked_at' => $checkedAt,
+            ]);
+        }
+        return response()->json([
+            'ok'         => true,
+            'checked_at' => $checkedAt,
+        ]);
+    }
+
     public function rewriteGenerate(Request $request)
     {
         $data = $request->validate([

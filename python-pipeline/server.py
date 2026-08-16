@@ -321,6 +321,10 @@ def ai_hotspot(days, subfields):
     dbg = ["=== %s days=%s subs=%s ===" % (str(datetime.datetime.now()), days, subs)]
     realtime = False
     raw_items = []
+    fail_count = 0
+    auth_fail = False
+    tavily_degraded = False
+    tavily_message = ""
     tavily_key = get_key("TAVILY_API_KEY")
     dbg.append("tavily_key_present=%s" % bool(tavily_key))
     if tavily_key:
@@ -340,16 +344,21 @@ def ai_hotspot(days, subfields):
             try:
                 # 只用 general，中文财税热点召回率最高；timeout 10s 防止网络 hang 住
                 sr = tavily_search(q, tavily_key, topic="general", days=days, max_results=6, timeout=10)
-                return (q, True, sr.get("results") or [], None)
+                return (q, True, sr.get("results") or [], None, False)
             except Exception as e:  # noqa: BLE001
-                return (q, False, [], str(e))
+                err = str(e)
+                # 鉴权类错误（401/403/expired/key invalid）强烈提示 key 失效；其余归为网络/接口异常
+                auth = any(k in err.lower() for k in ("401", "403", "unauthor", "api key", "api_key", "expired", "forbidden", "invalid key"))
+                return (q, False, [], err, auth)
 
         # 并发检索，整体最多等 20 秒；超时也保留已完成结果，不整批丢弃
         with ThreadPoolExecutor(max_workers=min(len(queries), 4)) as executor:
             future_to_q = {executor.submit(_fetch_one, q): q for q in queries}
             done, not_done = wait(future_to_q, timeout=20)
+            fail_count = 0
+            auth_fail = False
             for future in done:
-                q, ok, results, err = future.result()
+                q, ok, results, err, auth = future.result()
                 if ok:
                     dbg.append("tavily ok query=%s results=%s" % (q, len(results)))
                     for it in results:
@@ -360,6 +369,9 @@ def ai_hotspot(days, subfields):
                         candidates.append(it)
                 else:
                     dbg.append("tavily fail query=%s err=%s" % (q, err))
+                    fail_count += 1
+                    if auth:
+                        auth_fail = True
             if not_done:
                 dbg.append("tavily timeout unfinished=%s (kept completed=%s)" % (len(not_done), len(done)))
         # 按时间倒排，保留前 8 条（控制 prompt 长度，降低 DeepSeek 超时概率）
@@ -369,6 +381,29 @@ def ai_hotspot(days, subfields):
             reverse=True,
         )[:8]
         realtime = len(raw_items) > 0
+
+        # ---- Tavily 失效降级检测 ----
+        # 有 key 但所有子领域检索均失败 → 标记降级；命中鉴权错误则强烈提示 key 失效。
+        tavily_degraded = bool(tavily_key) and len(raw_items) == 0 and fail_count > 0
+        tavily_auth_error = bool(tavily_key) and auth_fail
+        tavily_message = ""
+        if tavily_degraded:
+            if tavily_auth_error:
+                tavily_message = "Tavily API Key 可能已失效或过期（返回鉴权错误），热点已降级处理。"
+            else:
+                tavily_message = "Tavily 实时检索暂不可用（网络或接口异常），热点已降级处理。"
+            # 回退到上次成功缓存的热点，保证页面不空（同时以红字提示）
+            cached = _load_hotspot_cache()
+            if cached and cached.get("topics"):
+                _hotspot_debug(dbg + ["tavily degraded -> serve cached hotspots count=%s" % len(cached["topics"])])
+                return {
+                    "realtime": True,
+                    "topics": cached["topics"],
+                    "filtered": False,
+                    "tavily_degraded": True,
+                    "tavily_message": tavily_message + "（当前展示的是上次成功获取的缓存热点，可能偏旧）",
+                    "from_cache": True,
+                }
 
     _hotspot_debug(dbg + ["after tavily: realtime=%s raw_items=%s" % (realtime, len(raw_items))])
 
@@ -468,7 +503,44 @@ def ai_hotspot(days, subfields):
     # - 当原始生成数量 > 0 且过滤后数量减少时，标记 filtered=True
     # - 即使只剩 1-2 条也返回，不再强制清空，避免误杀相关选题
     filtered = bool(subs) and len(topics) > 0 and len(out) < len(topics)
-    return {"realtime": realtime, "topics": out, "filtered": filtered}
+
+    # 实时检索成功时缓存一份热点，供 Tavily 失效时回退展示（避免页面空白）
+    if realtime and out:
+        _save_hotspot_cache({
+            "topics": out,
+            "saved_at": str(datetime.datetime.now()),
+            "days": days,
+            "subs": list(subs),
+        })
+
+    return {
+        "realtime": realtime,
+        "topics": out,
+        "filtered": filtered,
+        "tavily_degraded": tavily_degraded,
+        "tavily_message": tavily_message,
+        "from_cache": False,
+    }
+
+
+# ---- 热点缓存（Tavily 失效时回退，避免页面空白）----
+_HOTSPOT_CACHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hotspot_cache.json")
+
+def _save_hotspot_cache(payload):
+    try:
+        with open(_HOTSPOT_CACHE_PATH, "w", encoding="utf-8") as _f:
+            json.dump(payload, _f, ensure_ascii=False)
+    except Exception:  # noqa: BLE001
+        pass
+
+def _load_hotspot_cache():
+    try:
+        if os.path.exists(_HOTSPOT_CACHE_PATH):
+            with open(_HOTSPOT_CACHE_PATH, "r", encoding="utf-8") as _f:
+                return json.load(_f)
+    except Exception:  # noqa: BLE001
+        pass
+    return None
 
 
 # ---- 视频/音频转文字（本地 FunASR，封装 ffmpeg 抽音轨）----
@@ -2198,6 +2270,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "realtime": result.get("realtime", False),
                 "topics": result.get("topics", []),
                 "filtered": result.get("filtered", False),
+                "tavily_degraded": result.get("tavily_degraded", False),
+                "tavily_message": result.get("tavily_message", ""),
+                "from_cache": result.get("from_cache", False),
             })
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()

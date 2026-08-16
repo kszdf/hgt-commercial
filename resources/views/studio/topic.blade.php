@@ -186,6 +186,9 @@
                     <span class="text-xs text-slate-500">共 <strong id="hsCount">0</strong> 条热点<span id="hsRealtime" class="ml-1 hidden rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-400">非实时</span></span>
                     <button type="button" id="hsRefresh" class="text-xs text-brand-600 hover:underline">刷新</button>
                 </div>
+                <div id="hsDegraded" class="hidden mb-3 rounded-lg px-3 py-2 text-sm" style="background:#fef2f2;border:1px solid #fca5a5;color:#b91c1c;">
+                    <span style="font-weight:600;">⚠ 热点服务降级：</span><span id="hsDegradedMsg"></span>
+                </div>
                 <div id="hsList" class="space-y-3">
                     <div class="rounded-lg studio-card text-center">
                         <p class="text-sm text-slate-400">点击左侧「获取财税热点」<br><span class="text-xs text-slate-300">实时聚合全网财税资讯，生成可二创的选题与角度</span></p>
@@ -626,6 +629,14 @@ async function fetchHotspots() {
             document.getElementById('hsList').innerHTML = '<div class="rounded-lg border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">检索到的内容与所选子领域关联度不足，已自动过滤。请尝试：①换个子领域 ②放宽时间段 ③减少同时选择的子领域数量。</div>';
         } else {
             renderHotspots(topics);
+        }
+        // Tavily key 失效 / 检索异常降级红字提示
+        const deg = document.getElementById('hsDegraded');
+        if (data.tavily_degraded) {
+            document.getElementById('hsDegradedMsg').textContent = data.tavily_message || 'Tavily Key 异常，热点已降级处理。';
+            deg.classList.remove('hidden');
+        } else {
+            deg.classList.add('hidden');
         }
         if (data.realtime === false) document.getElementById('hsRealtime').classList.remove('hidden');
     } catch (err) {

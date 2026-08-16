@@ -254,6 +254,11 @@
 <!-- 全局 Toast 容器（z-60，顶部居中） -->
 <div id="hgtToastWrap" class="pointer-events-none fixed left-1/2 top-5 z-[60] flex -translate-x-1/2 flex-col items-center gap-2"></div>
 
+<!-- 8500 微服务宕机红字预警（全局，心跳轮询触发） -->
+<div id="pipelineDownBanner" class="hidden px-4 py-2 text-center text-sm font-medium" style="position:fixed;top:0;left:0;right:0;z-index:70;background:#dc2626;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);">
+    <span>⚠ 出片微服务（8500）无响应，选题 / 二创 / 出片 / 爆款拆解等功能暂不可用。请重启 Windows 服务 <b>HGTCommercial8500</b> 后刷新本页。</span>
+</div>
+
 <!-- 品牌化删除/操作二次确认模态（z-50） -->
 <div id="hgtConfirmModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
     <div class="luxury-glass w-full max-w-sm p-5">
@@ -572,5 +577,30 @@ document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('visibilitychange', function () {
         if (!document.hidden) ping();         // 切回前台补报
     });
+})();
+</script>
+
+<!-- 8500 微服务心跳：进入页面即探测 + 每 60s 轮询，崩了显示红字预警 -->
+<script>
+(function () {
+    var banner = document.getElementById('pipelineDownBanner');
+    if (!banner) return;
+    function check() {
+        fetch('/studio/pipeline-health', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d || d.ok === false) {
+                    banner.classList.remove('hidden');
+                } else {
+                    banner.classList.add('hidden');
+                }
+            })
+            .catch(function () {
+                // 探测请求本身失败（如会话过期/网络抖动）不强制报红，避免误报；
+                // 仅当接口明确返回 ok:false 才显示，防止误伤正常使用。
+            });
+    }
+    check();
+    setInterval(check, 60000);
 })();
 </script>

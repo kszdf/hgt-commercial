@@ -89,7 +89,12 @@ class PipelineClient
         // 还原为正常 Response 返回，交给控制器按 successful()/failed() 处理
         //（例如 8500 返回 400 bad json / 422 校验错误，不应被误判为「服务不可用」）。
         if ($e instanceof RequestException) {
-            return $e->response;
+            // 4xx/5xx 且有响应体：还原为 Response，交给控制器按 successful()/failed() 处理
+            if ($e->response) {
+                return $e->response;
+            }
+            // 超时 / 无响应体（如 Guzzle cURL 28）：视为服务不可用，避免返回 null 导致调用方 500
+            throw new PipelineUnavailableException('出片微服务请求超时或失败：' . $e->getMessage(), 0, $e);
         }
         // ConnectionException（连接失败 / 超时，无响应）→ 降级 503
         throw new PipelineUnavailableException('出片微服务暂时不可达（连接失败/超时）：' . $e->getMessage(), 0, $e);

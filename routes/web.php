@@ -86,6 +86,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/deai', [StudioController::class, 'deai']);
     Route::post('/studio/strategist', [StudioController::class, 'suggestStrategist']);
 
+    // 8500 微服务心跳探测（前端全局轮询，崩了显示红字预警）
+    Route::get('/studio/pipeline-health', [StudioController::class, 'pipelineHealth']);
+
     // 实时活动心跳上报（选题 / 二创 / 出片在线态，供超级管理员监控大盘）
     Route::post('/studio/activity', [StudioController::class, 'activityPing']);
 
