@@ -1588,3 +1588,34 @@
 [2026-08-14 17:45:07] 探活 heygem-gen-video 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-gen-video']' timed out after 15 seconds
 [2026-08-15 16:06:55] 探活 heygem-gen-video 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-gen-video']' timed out after 15 seconds
 [2026-08-16 10:19:30] heygem-gen-video 未运行 -> 工作时段自动拉起: 成功
+[2026-08-16 11:23:08] === HEYGEM 看门狗启动 ===
+[2026-08-16 11:23:08] 监控目标: heygem-gen-video, heygem-tts | 工作时段 7:00-22:00 | 探活间隔 60s
+[2026-08-16 15:00:18] 探活 heygem-gen-video 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-gen-video']' timed out after 15 seconds
+[2026-08-16 15:09:18] 探活 heygem-tts 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-tts']' timed out after 15 seconds
+[2026-08-16 15:17:50] 探活 heygem-gen-video 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-gen-video']' timed out after 15 seconds
+[2026-08-16 15:27:19] 探活 heygem-tts 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-tts']' timed out after 15 seconds
+[2026-08-16 15:37:18] 探活 heygem-gen-video 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-gen-video']' timed out after 15 seconds
+[2026-08-16 15:45:48] 探活 heygem-tts 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-tts']' timed out after 15 seconds
+[2026-08-16 15:55:48] 探活 heygem-gen-video 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-gen-video']' timed out after 15 seconds
+[2026-08-16 16:02:52] 探活 heygem-tts 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-tts']' timed out after 15 seconds
+[2026-08-16 16:02:57] [警告] heygem-tts 容器在跑但 :18180 无响应，下次探活复核
+[2026-08-16 16:12:18] 探活 heygem-gen-video 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-gen-video']' timed out after 15 seconds
+[2026-08-16 16:21:18] 探活 heygem-tts 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-tts']' timed out after 15 seconds
+[2026-08-16 16:31:18] 探活 heygem-gen-video 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-gen-video']' timed out after 15 seconds
+[2026-08-16 16:34:01] 探活 heygem-gen-video 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-gen-video']' timed out after 15 seconds
+[2026-08-16 16:34:06] [警告] heygem-gen-video 容器在跑但 :8383 无响应，下次探活复核
+[2026-08-16 16:34:22] 探活 heygem-tts 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-tts']' timed out after 15 seconds
+[2026-08-16 16:34:27] [警告] heygem-tts 容器在跑但 :18180 无响应，下次探活复核
+[2026-08-16 16:36:55] 探活 heygem-gen-video 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-gen-video']' timed out after 15 seconds
+[2026-08-16 16:37:00] [警告] heygem-gen-video 容器在跑但 :8383 无响应，下次探活复核
+[2026-08-16 16:37:16] 探活 heygem-tts 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-tts']' timed out after 15 seconds
+[2026-08-16 16:41:31] 探活 heygem-gen-video 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-gen-video']' timed out after 15 seconds
+[2026-08-16 16:41:36] [警告] heygem-gen-video 容器在跑但 :8383 无响应，下次探活复核
+[2026-08-16 16:41:53] 探活 heygem-tts 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-tts']' timed out after 15 seconds
+[2026-08-16 16:51:48] 探活 heygem-gen-video 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-gen-video']' timed out after 15 seconds
+[2026-08-16 17:00:48] 探活 heygem-tts 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-tts']' timed out after 15 seconds
+[2026-08-16 17:10:49] 探活 heygem-gen-video 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-gen-video']' timed out after 15 seconds
+[2026-08-16 17:19:48] 探活 heygem-tts 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-tts']' timed out after 15 seconds
+[2026-08-16 17:29:48] 探活 heygem-gen-video 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-gen-video']' timed out after 15 seconds
+[2026-08-16 17:36:47] 探活 heygem-tts 异常: Command '['docker', 'inspect', '-f', '{{.State.Running}}', 'heygem-tts']' timed out after 15 seconds
+[2026-08-16 21:57:42] heygem-gen-video 未运行 -> 工作时段自动拉起: 成功

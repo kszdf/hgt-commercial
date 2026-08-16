@@ -1,0 +1,70 @@
+=== 2026-08-16 21:50:31.780795 days=7 subs=['税务稽查'] ===
+tavily_key_present=True
+tavily ok query=税务稽查 税务 政策 热点 案例 results=6
+after tavily: realtime=True raw_items=6
+=== 2026-08-16 21:50:31.780795 days=7 subs=['税务稽查'] ===
+tavily_key_present=True
+tavily ok query=税务稽查 税务 政策 热点 案例 results=6
+before deepseek prompt_len=2343
+deepseek ok content_len=2749
+=== 2026-08-16 21:51:14.850820 days=7 subs=['税务稽查'] ===
+realtime=True raw_items_count=6
+  raw: 税务稽查案例_税屋——第一时间传递财税政策法规！
+  raw: 2026税务稽查热点年度观察
+  raw: 注意！近期税务稽查重点、热点汇集！ - 尤尼泰振青会计师事务所（特殊普通合伙）
+  raw: 课程信息
+  raw: “老干妈”被税务稽查--税务合规的数据对称之道
+  raw: 2026年税务稽查与征管趋势分析——比较2025年与 ...
+deepseek_content_len=2749 generated_count=4
+  topic matched=True reason=syn hit: 税务稽查 title=阴阳合同被稽查，股权转让重罚 tags=['税务稽查', '股权转让', '阴阳合同']
+  topic matched=True reason=syn hit: 税务稽查 title=口腔医院瞒报收入被查，引以为戒 tags=['税务稽查', '隐匿收入', '口腔医院']
+  topic matched=True reason=syn hit: 税务稽查 title=2026税务稽查，这些行业是重点 tags=['税务稽查', '虚开骗税', '行业重点']
+  topic matched=True reason=syn hit: 税务稽查 title=以数治税下，老干妈也被查？ tags=['税务稽查', '以数治税', '大数据']
+=== 2026-08-16 21:51:14.853214 days=7 subs=['个人所得税'] ===
+tavily_key_present=True
+tavily ok query=个人所得税 税务 政策 热点 案例 results=6
+after tavily: realtime=True raw_items=6
+=== 2026-08-16 21:51:14.853214 days=7 subs=['个人所得税'] ===
+tavily_key_present=True
+tavily ok query=个人所得税 税务 政策 热点 案例 results=6
+before deepseek prompt_len=2331
+deepseek ok content_len=3189
+=== 2026-08-16 21:51:38.949742 days=7 subs=['个人所得税'] ===
+realtime=True raw_items_count=6
+  raw: 2021年税收热点问题之回顾、展望与战略建议 - 金杜律师事务所
+  raw: 国家税务总局上海市税务局
+  raw: 个人所得税
+  raw: 以案说税--2起涉税典型案例曝光
+  raw: 兰迪研究丨被CRS了？收到税局风险提醒后怎么办？——居民个人境外收入个人所得税热点问题分析
+  raw: 国家税务总局政策法规库
+deepseek_content_len=3189 generated_count=5
+  topic matched=True reason=syn hit: 个人所得税 title=个税汇算不申报？小心被查！ tags=['个人所得税', '汇算清缴', '税务稽查']
+  topic matched=True reason=syn hit: 个人所得税 title=文娱行业查税，老板需警惕？ tags=['个人所得税', '文娱行业', '税收整治']
+  topic matched=True reason=syn hit: 个人所得税 title=股权转让不交个税？稽查来了 tags=['个人所得税', '股权转让', '税务稽查']
+  topic matched=True reason=syn hit: 个人所得税 title=境外收入被CRS？个税风险提示 tags=['个人所得税', 'CRS', '境外收入']
+  topic matched=True reason=syn hit: 个人所得税 title=个税改革，老板别踩雷 tags=['个人所得税', '个税改革', '高收入群体']
+=== 2026-08-16 21:51:38.951580 days=7 subs=[] ===
+tavily_key_present=True
+tavily ok query=财税 税务 政策 稽查 优惠 热点 results=6
+after tavily: realtime=True raw_items=6
+=== 2026-08-16 21:51:38.951580 days=7 subs=[] ===
+tavily_key_present=True
+tavily ok query=财税 税务 政策 稽查 优惠 热点 results=6
+before deepseek prompt_len=2383
+deepseek fail: The read operation timed out
+fallback from raw_items count=6
+=== 2026-08-16 21:52:29.844930 days=7 subs=[] ===
+realtime=True raw_items_count=6
+  raw: 2026税务稽查热点年度观察
+  raw: 增值税加计抵减优惠热点问答
+  raw: 以案说税：享受财税优惠政策需关注四大涉税风险-华税HUASHUI
+  raw: 税务稽查来了！7种行为和3个案例，给跨境卖家提个醒，守住自己的钱袋子！|Amz520跨境卖家导航
+  raw: 金税四期下：企业税务稽查生存指南-外贸订单-跨境电商-阿里巴巴国际站中文官网
+  raw: “老干妈”被税务稽查--税务合规的数据对称之道
+deepseek_content_len=0 generated_count=6
+  topic matched=True reason=no subs (pass) title=2026税务稽查热点年度观察 tags=['财税热点']
+  topic matched=True reason=no subs (pass) title=增值税加计抵减优惠热点问答 tags=['财税热点']
+  topic matched=True reason=no subs (pass) title=以案说税：享受财税优惠政策需关注四大涉税风险-华税HUASHUI tags=['财税热点']
+  topic matched=True reason=no subs (pass) title=税务稽查来了！7种行为和3个案例，给跨境卖家提个醒，守住自己的钱袋子！|Amz5 tags=['财税热点']
+  topic matched=True reason=no subs (pass) title=金税四期下：企业税务稽查生存指南-外贸订单-跨境电商-阿里巴巴国际站中文官网 tags=['财税热点']
+  topic matched=True reason=no subs (pass) title=“老干妈”被税务稽查--税务合规的数据对称之道 tags=['财税热点']
