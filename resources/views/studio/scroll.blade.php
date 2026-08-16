@@ -2,14 +2,12 @@
 <x-workspace-layout title="视频出片工作台">
 <div class="mx-auto max-w-5xl p-6">
 
-    <!-- 模式切换 -->
-    <div class="mb-4 flex gap-2">
-        <button type="button" id="modeScroll"
-            class="rounded-lg px-4 py-2 text-sm font-medium border border-brand-500 bg-brand-50 text-brand-700"
-            onclick="setMode('scroll')">滚动字幕卡（不出镜）</button>
-        <button type="button" id="modeAvatar"
-            class="rounded-lg px-4 py-2 text-sm font-medium studio-card studio-card-sm text-slate-500 hover:border-slate-300 hover:text-slate-700"
-            onclick="setMode('avatar')">数字人出镜（本地 HEYGEM）</button>
+    <!-- 出片形式快捷切换 -->
+    <div class="mb-4 flex flex-wrap gap-2">
+        <button type="button" data-form="avatar" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('avatar')">数字人出镜（本地 HEYGEM）</button>
+        <button type="button" data-form="male_mono" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('male_mono')">男声幕后音</button>
+        <button type="button" data-form="female_mono" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('female_mono')">女声幕后音</button>
+        <button type="button" data-form="dialogue" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('dialogue')">男女对话幕后音</button>
     </div>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -474,12 +472,7 @@ function setBtnLoading(isLoading, text) {
 
 function setMode(m) {
     currentMode = m;
-    const s = document.getElementById('modeScroll');
-    const a = document.getElementById('modeAvatar');
-    const on = 'rounded-lg px-4 py-2 text-sm font-medium transition border border-brand-500 bg-brand-50 text-brand-700';
-    const off = 'rounded-lg px-4 py-2 text-sm font-medium transition border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700';
-    s.className = m === 'scroll' ? on : off;
-    a.className = m === 'avatar' ? on : off;
+    highlightForm();
 
     // 模特区域切换
     document.getElementById('modelHint').classList.toggle('hidden', m !== 'scroll');
@@ -515,6 +508,31 @@ function setMode(m) {
         hint.className = 'text-[11px] font-normal text-emerald-600';
         warning.classList.add('hidden');
     }
+}
+
+// 出片形式快捷按钮组：数字人出镜 / 男声幕后 / 女声幕后 / 男女对话
+const FORM_MAP = {
+    avatar:      { mode: 'avatar', vf: null },
+    male_mono:   { mode: 'scroll', vf: 'male_mono' },
+    female_mono: { mode: 'scroll', vf: 'female_mono' },
+    dialogue:    { mode: 'scroll', vf: 'dialogue' },
+};
+function selectForm(form) {
+    const cfg = FORM_MAP[form];
+    if (!cfg) return;
+    setMode(cfg.mode);
+    if (cfg.mode === 'scroll' && cfg.vf) setVoiceForm(cfg.vf);
+    highlightForm();
+}
+function highlightForm() {
+    document.querySelectorAll('.form-btn').forEach(b => {
+        const f = b.dataset.form;
+        const active = (f === 'avatar' && currentMode === 'avatar') ||
+                       (f !== 'avatar' && currentMode === 'scroll' && voiceForm === f);
+        b.className = 'form-btn rounded-lg px-4 py-2 text-sm font-medium transition ' +
+            (active ? 'border border-brand-500 bg-brand-50 text-brand-700'
+                    : 'border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700');
+    });
 }
 
 // 声线形式切换（滚动字幕模式）：男女对话 / 男声独白 / 女声独白
