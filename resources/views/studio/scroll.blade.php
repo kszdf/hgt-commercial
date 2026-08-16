@@ -702,6 +702,14 @@ async function aiSuggestTitle() {
         if (hint) { hint.textContent = '请先在上方填写文稿，再生成标题'; hint.className = 'text-[11px] text-red-500'; }
         return;
     }
+    // 若已有内容，先确认覆盖，避免用户感觉按钮"没反应"
+    const existingTitle = document.getElementById('title').value.trim();
+    const existingSubtitle = document.getElementById('subtitle').value.trim();
+    if ((existingTitle || existingSubtitle) && !confirm('当前已有标题/副标题，重新生成将覆盖现有内容，是否继续？')) {
+        return;
+    }
+    titleDirty = false;
+    subtitleDirty = false;
     zwSetLoading(btn, { loading: true, text: '⏳ AI 生成中…' });
     if (hint) { hint.textContent = 'AI 正在根据文稿构思标题与副标题…'; hint.className = 'text-[11px] text-brand-600'; }
     try {
@@ -712,7 +720,7 @@ async function aiSuggestTitle() {
                 'Accept': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
             },
-            body: JSON.stringify({ dialogue: text })
+            body: JSON.stringify({ dialogue: text, style: titleStyle })
         });
         const data = await resp.json();
         if (!resp.ok || data.error) {
@@ -720,8 +728,8 @@ async function aiSuggestTitle() {
         }
         if (data.title) { document.getElementById('title').value = data.title; titleDirty = true; }
         if (data.subtitle) { document.getElementById('subtitle').value = data.subtitle; subtitleDirty = true; }
-        autoSuggest();
-        if (hint) { hint.textContent = '✓ AI 已生成，可直接修改'; hint.className = 'text-[11px] text-emerald-600'; }
+        // AI 结果优先，不再用本地启发式覆盖
+        if (hint) { hint.textContent = '✓ AI 已生成（' + {smart:'智能提取', full:'首句完整', suspense:'悬念式'}[titleStyle] + '），可直接修改'; hint.className = 'text-[11px] text-emerald-600'; }
     } catch (err) {
         if (hint) { hint.textContent = '生成失败：' + (err.message || '未知错误'); hint.className = 'text-[11px] text-red-500'; }
     } finally {
@@ -783,7 +791,16 @@ document.querySelectorAll('.title-style-btn').forEach(btn => {
             b.className = 'title-style-btn rounded-md border px-2 py-0.5 text-[11px] ' +
                 (on ? 'border-brand-300 bg-brand-50 text-brand-600' : 'border-slate-200 bg-white text-slate-500');
         });
+        // 切换风格时若已有手动/AI内容，先确认覆盖
+        const hasContent = document.getElementById('title').value.trim() || document.getElementById('subtitle').value.trim();
+        if ((titleDirty || subtitleDirty) && hasContent) {
+            if (!confirm('切换风格将按新风格重新生成标题/副标题并覆盖当前内容，是否继续？')) return;
+        }
+        titleDirty = false;
+        subtitleDirty = false;
         autoSuggest();
+        const hint = document.getElementById('aiTitleHint');
+        if (hint) { hint.textContent = '已按「' + {smart:'智能提取', full:'首句完整', suspense:'悬念式'}[titleStyle] + '」风格生成本地建议，可点右侧按钮用 AI 重新生成'; hint.className = 'text-[11px] text-brand-600'; }
     });
 });
 // 文稿变化时（去抖 300ms）自动生成建议

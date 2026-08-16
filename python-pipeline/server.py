@@ -2069,16 +2069,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if not dialogue:
             return self._send(400, {"error": "dialogue required"})
         industry = (data.get("industry") or "").strip()
+        style = (data.get("style") or "").strip()
         # 仅取前 800 字送模型，控制 token 与时延；去角色前缀让标题更聚焦内容
         trimmed = re.sub(r'^\s*(?:女|男|旁白|解说|主播|画外音|独白|配音)[:：]\s*', '', dialogue, flags=re.M)
         trimmed = "\n".join(l.strip() for l in trimmed.splitlines() if l.strip())[:800]
         ind_hint = f"（内容行业：{industry}）" if industry else ""
+        style_hint = {
+            "smart": "标题必须从文稿首句/核心关键词中智能提取，突出关键词，6–10 字为佳。",
+            "full": "标题必须是文稿首句的完整句（保留完整语义），15 字以内。",
+            "suspense": "标题要制造悬念、反差或警示感，可使用‘为什么/真相/陷阱/小心/别再’等钩子。",
+        }.get(style, "标题可智能提取核心关键词，也可保留首句完整语义或制造悬念，任选其一。")
         prompt = (
             "你是一位短视频文案专家，擅长为抖音、视频号、小红书生成高点击的封面标题和副标题。\n"
             f"请根据以下文稿内容{ind_hint}，生成 1 组标题 + 副标题：\n"
             "【要求】\n"
-            "1. 主标题 6–12 字，硬上限 15 字；必须包含核心关键词（人群/痛点/利益点），"
-            "前 5 个字就要让人知道这条视频讲什么。\n"
+            f"1. 主标题 6–12 字，硬上限 15 字；必须包含核心关键词（人群/痛点/利益点），"
+            f"前 5 个字就要让人知道这条视频讲什么。{style_hint}\n"
             "2. 副标题 15–25 字，硬上限 30 字；补充主标题，说明"
             "\"这是什么内容、谁该看、能得到什么\"，不能与主标题重复。\n"
             "3. 风格适配财税/商业短视频：真实、有警示感、不恐吓、不带违禁词。\n"

@@ -255,10 +255,12 @@ class StudioController extends Controller
         $data = $request->validate([
             'dialogue' => ['required', 'string', 'max:4000'],
             'industry' => ['sometimes', 'nullable', 'string', 'max:40'],
+            'style' => ['sometimes', 'nullable', 'string', 'in:smart,full,suspense'],
         ]);
         $send = array_filter([
             'dialogue' => $data['dialogue'],
             'industry' => $data['industry'] ?? null,
+            'style' => $data['style'] ?? null,
         ], fn ($v) => $v !== null && $v !== '');
         try {
             $resp = app(PipelineClient::class)->post('/suggest-title', $send, 90);
