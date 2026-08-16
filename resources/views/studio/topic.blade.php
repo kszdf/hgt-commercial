@@ -183,8 +183,11 @@
             <!-- 全网财税热点结果区 -->
             <div id="hotspotResult" class="space-y-3 hidden">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs text-slate-500">共 <strong id="hsCount">0</strong> 条热点<span id="hsRealtime" class="ml-1 hidden rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-400">非实时</span></span>
-                    <button type="button" id="hsRefresh" class="text-xs text-brand-600 hover:underline">刷新</button>
+                    <span class="text-xs text-slate-500">共 <strong id="hsCount">0</strong> 条热点<span id="hsFilterStat" class="ml-1 hidden rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-400"></span><span id="hsRealtime" class="ml-1 hidden rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-400">非实时</span></span>
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="hsBatchRewrite" class="hidden rounded-md bg-brand-500 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-40">全部去二创 →</button>
+                        <button type="button" id="hsRefresh" class="text-xs text-brand-600 hover:underline">刷新</button>
+                    </div>
                 </div>
                 <div id="hsDegraded" class="hidden mb-3 rounded-lg px-3 py-2 text-sm" style="background:#fef2f2;border:1px solid #fca5a5;color:#b91c1c;">
                     <span style="font-weight:600;">⚠ 热点服务降级：</span><span id="hsDegradedMsg"></span>
@@ -511,6 +514,7 @@ function renderHotspots(list) {
     const hsCount = document.getElementById('hsCount');
     hsList.innerHTML = '';
     hsCount.textContent = list.length;
+    window.hsCurrentList = list;
     if (!list.length) {
         hsList.innerHTML = '<div class="rounded-lg studio-card text-center"><p class="text-sm text-slate-400">暂无命中热点，试试放宽时间段或子领域。</p></div>';
         return;
@@ -539,23 +543,29 @@ function renderHotspots(list) {
         const defaultForm = (angles[0] && angles[0].form) ? angles[0].form : '';
         card.dataset.default = defaultSug;
         card.dataset.form = defaultForm;
+        card.dataset.source = h.source_url || '';
+        card.dataset.sub = h.matched_sub || '';
+        card.dataset.hook = h.hook || '';
+        const subTag = (h.matched_sub ? '<span class="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] text-brand-600">'+ escapeHtml(h.matched_sub) +'</span>' : '');
+        const srcLink = (h.source_url ? '<a href="'+ escapeHtml(h.source_url) +'" target="_blank" rel="noopener" class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500 hover:text-brand-600">看原文 ↗</a>' : '');
         card.innerHTML =
             '<div class="mb-2 flex items-center justify-between text-[11px] text-slate-400">' +
                 '<span>🔥 热度 '+ escapeHtml(String(heat)) +'　'+ escapeHtml(date) +'</span>' +
-                '<span class="flex flex-wrap justify-end gap-1">'+ tags +'</span>' +
+                '<span class="flex flex-wrap items-center justify-end gap-1">'+ tags + subTag + srcLink +'</span>' +
             '</div>' +
             '<h4 class="text-sm font-semibold text-slate-800">'+ escapeHtml(h.title || '') +'</h4>' +
             '<p class="mt-1 text-xs leading-relaxed text-slate-500">'+ escapeHtml(h.summary || '') +'</p>' +
+            (h.hook ? '<p class="mt-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-xs leading-relaxed text-amber-700">留资钩子：'+ escapeHtml(h.hook) +'</p>' : '') +
             (angles.length ? '<button type="button" class="hs-angle-toggle mt-2 text-xs font-medium text-brand-600">▶ 创作角度建议（'+ angles.length +' 个）</button>' : '') +
             '<div class="hs-angles hidden mt-2 space-y-2">'+ anglesHtml +'</div>' +
-            '<div class="mt-3 border-t border-slate-100 pt-3">' +
+            '<div class="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">' +
                 '<button type="button" class="hs-edit-toggle text-xs text-slate-500 hover:text-brand-600">编辑建议</button>' +
-                '<div class="hs-edit hidden mt-2">' +
-                    '<textarea class="hs-edit-area w-full rounded-lg border border-slate-200 p-2 text-xs leading-relaxed text-slate-700 outline-none focus:border-brand-400" rows="3">'+ escapeHtml(defaultSug) +'</textarea>' +
-                    '<div class="mt-1 flex items-center justify-between">' +
-                        '<button type="button" class="hs-restore text-[11px] text-slate-400 hover:underline">恢复默认</button>' +
-                        '<button type="button" class="hs-go rounded-md bg-brand-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-brand-600" data-idx="'+ i +'">去二创 →</button>' +
-                    '</div>' +
+                '<button type="button" class="hs-go inline-flex items-center gap-1 rounded-md bg-brand-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-brand-600" data-idx="'+ i +'">去二创 →</button>' +
+            '</div>' +
+            '<div class="hs-edit hidden mt-2">' +
+                '<textarea class="hs-edit-area w-full rounded-lg border border-slate-200 p-2 text-xs leading-relaxed text-slate-700 outline-none focus:border-brand-400" rows="3">'+ escapeHtml(defaultSug) +'</textarea>' +
+                '<div class="mt-1 flex items-center justify-between">' +
+                    '<button type="button" class="hs-restore text-[11px] text-slate-400 hover:underline">恢复默认</button>' +
                 '</div>' +
             '</div>';
 
@@ -591,6 +601,8 @@ function renderHotspots(list) {
             sessionStorage.setItem('hgt_topic_angle', edited);
             sessionStorage.setItem('hgt_topic_hook', h.hook || '');
             sessionStorage.setItem('hgt_topic_form', form);
+            sessionStorage.setItem('hgt_topic_source_url', card.dataset.source || '');
+            sessionStorage.setItem('hgt_topic_matched_sub', card.dataset.sub || '');
             sessionStorage.setItem('hgt_topic_from', 'hotspot');
             window.location.href = '/studio/rewrite?from=hotspot';
         });
@@ -630,6 +642,16 @@ async function fetchHotspots() {
         } else {
             renderHotspots(topics);
         }
+        // 过滤统计 + 批量入口显隐
+        const hsBatchBtn = document.getElementById('hsBatchRewrite');
+        if (hsBatchBtn) hsBatchBtn.classList.toggle('hidden', !(topics && topics.length));
+        const fs = document.getElementById('hsFilterStat');
+        if (data.filtered && data.total != null && (data.total - (data.returned != null ? data.returned : topics.length)) > 0) {
+            fs.textContent = '（从 ' + data.total + ' 条中过滤掉 ' + (data.total - (data.returned != null ? data.returned : topics.length)) + ' 条）';
+            fs.classList.remove('hidden');
+        } else if (fs) {
+            fs.classList.add('hidden');
+        }
         // Tavily key 失效 / 检索异常降级红字提示
         const deg = document.getElementById('hsDegraded');
         if (data.tavily_degraded) {
@@ -651,4 +673,21 @@ document.getElementById('hotspotForm').addEventListener('submit', function (e) {
     fetchHotspots();
 });
 document.getElementById('hsRefresh')?.addEventListener('click', fetchHotspots);
+
+// 全部去二创（批量丢进改写页，from=hotspot-all）
+document.getElementById('hsBatchRewrite')?.addEventListener('click', function () {
+    const list = window.hsCurrentList || [];
+    if (!list.length) return;
+    const payload = list.map(h => ({
+        title: h.title || '',
+        summary: h.summary || '',
+        angle: (h.angles && h.angles[0] && h.angles[0].suggestion) || '',
+        hook: h.hook || '',
+        form: (h.angles && h.angles[0] && h.angles[0].form) || '',
+        source_url: h.source_url || '',
+        matched_sub: h.matched_sub || ''
+    }));
+    sessionStorage.setItem('hgt_batch_hotspots', JSON.stringify(payload));
+    window.location.href = '/studio/rewrite?from=hotspot-all';
+});
 </script>

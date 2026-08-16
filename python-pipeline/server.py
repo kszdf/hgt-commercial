@@ -232,6 +232,8 @@ HOTSPOT_PROMPT = """你是一位资深的财税短视频选题策划，服务对
   "tags": ["财税子领域标签1", "标签2"],
   "heat_score": 数值(1-1000的整数，代表热度指数，可估算),
   "published_at": "该热点的大致时间或'近期'",
+  "hook": "留资钩子方向（1句，引导老板咨询/留资，结合该热点痛点）",
+  "source_url": "若该选题直接基于上方某条真实热点，请原样填写其 url 字段；否则留空字符串",
   "angles": [
     {
       "name": "创作角度名称（如：老板视角/案例警示/政策解读）",
@@ -242,6 +244,7 @@ HOTSPOT_PROMPT = """你是一位资深的财税短视频选题策划，服务对
 }
 要求：
 - 每个热点给 2-3 个创作角度，角度须差异化（如一个严肃解读、一个案例警示、一个留资钩子）。
+- 每个选题必须包含 hook（留资钩子方向）与 source_url（基于真实热点的原文链接，原样填写上方给出的 url，无则留空字符串）字段。
 - form 必须且只能是上述四个枚举值之一，不要自创。
 - 合规底线：只做政策解读与风险提示，不得教人逃税或违规。
 - 只输出 JSON 数组，不要任何额外解释文字。
@@ -273,7 +276,7 @@ def _topic_match(topic, selected_subs):
     支持同义词表匹配；若 selected 为空则放行。返回 (matched, reason)。
     """
     if not selected_subs:
-        return True, "no subs (pass)"
+        return True, "no subs (pass)", ""
     selected = [str(s).strip() for s in selected_subs if str(s).strip()]
     title = str(topic.get("title") or "").lower()
     summary = str(topic.get("summary") or "").lower()
@@ -284,19 +287,19 @@ def _topic_match(topic, selected_subs):
     negative = ["股市反弹", "政策红包", "市场反弹", "反弹来了", "政策主题", "宏观经济", "出海", "外贸", "国际税收", "楼市", "房价", "股市"]
     for neg in negative:
         if neg in text:
-            return False, f"negative hit: {neg}"
+            return False, f"negative hit: {neg}", ""
 
     # 命中任一子领域的同义词即通过
     for sel in selected:
         synonyms = HOTSPOT_SUBFIELD_SYNONYMS.get(sel, [sel.lower()])
         for syn in synonyms:
             if syn in text:
-                return True, f"syn hit: {syn}"
+                return True, f"syn hit: {syn}", sel
         # 兜底：原词或其去"税务/税收"后的核心词直接出现
         core = sel.lower().replace("税务", "").replace("税收", "").strip()
         if core and len(core) >= 2 and (core in title or core in summary or any(core in t for t in tags)):
-            return True, f"core hit: {core}"
-    return False, "no match"
+            return True, f"core hit: {core}", sel
+    return False, "no match", ""
 
 
 def _hotspot_debug(lines):
@@ -412,7 +415,7 @@ def ai_hotspot(days, subfields):
 
     if realtime and raw_items:
         items_text = "\n".join(
-            f"- 标题：{it.get('title', '')}\n  摘要：{(it.get('content', '') or '')[:180]}\n  时间：{it.get('published_date', '')}"
+            f"- 标题：{it.get('title', '')}\n  摘要：{(it.get('content', '') or '')[:180]}\n  时间：{it.get('published_date', '')}\n  url：{it.get('url', '')}"
             for it in raw_items[:8]
         )
         prompt = prompt_base + f"\n\n【检索到的真实财税热点（近 {days} 天）】\n" + items_text + \
@@ -448,6 +451,9 @@ def ai_hotspot(days, subfields):
                 "tags": subs[:2] or ["财税热点"],
                 "heat_score": 500,
                 "published_at": str(it.get("published_date") or "近期"),
+                "hook": "",
+                "source_url": it.get("url") or "",
+                "matched_sub": subs[0] if subs else "",
                 "angles": [
                     {"name": "政策解读", "suggestion": "从政策背景切入，点明对企业老板的影响与应对建议。", "form": "scroll_male"},
                     {"name": "案例警示", "suggestion": "结合行业案例，突出风险点与合规动作。", "form": "avatar"},
@@ -480,7 +486,7 @@ def ai_hotspot(days, subfields):
             })
         tags = [str(x) for x in (t.get("tags") or []) if str(x).strip()][:6]
         # 强过滤：与所选子领域无关的选题不要返回（检查 title/summary/tags，并拦截硬编）
-        matched, reason = _topic_match(t, subs)
+        matched, reason, msub = _topic_match(t, subs)
         dbg.append("  topic matched=%s reason=%s title=%s tags=%s" % (
             matched, reason, str(t.get("title", ""))[:60], tags[:3]))
         if subs and not matched:
@@ -491,6 +497,9 @@ def ai_hotspot(days, subfields):
             "tags": tags,
             "heat_score": t.get("heat_score") if isinstance(t.get("heat_score"), (int, float)) else "",
             "published_at": str(t.get("published_at") or ""),
+            "hook": str(t.get("hook") or ""),
+            "source_url": str(t.get("source_url") or ""),
+            "matched_sub": msub,
             "angles": angles,
         })
     # 写调试文件（不影响线上返回）
@@ -516,6 +525,8 @@ def ai_hotspot(days, subfields):
     return {
         "realtime": realtime,
         "topics": out,
+        "total": len(topics),
+        "returned": len(out),
         "filtered": filtered,
         "tavily_degraded": tavily_degraded,
         "tavily_message": tavily_message,

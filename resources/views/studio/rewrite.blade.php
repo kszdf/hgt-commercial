@@ -328,7 +328,7 @@ function setModeSelect(value) {
     const sel = document.getElementById('mode');
     if (sel && ['avatar','scroll_male','scroll_female','scroll_dual'].includes(value)) sel.value = value;
 }
-function showSourceBanner(type, count) {
+function showSourceBanner(type, count, sourceUrl) {
     const banner = document.getElementById('sourceBanner');
     const title = document.getElementById('sourceTitle');
     const desc = document.getElementById('sourceDesc');
@@ -340,10 +340,15 @@ function showSourceBanner(type, count) {
         desc.innerHTML = '已从「智能选题」带入 1 条选题，可直接改写';
     } else if (type === 'hotspot') {
         title.textContent = '来自全网财税热点';
-        desc.innerHTML = '已从「全网财税热点」带入 1 条热点选题与创作角度，可直接改写';
+        let d = '已从「全网财税热点」带入 1 条热点选题与创作角度，可直接改写';
+        if (sourceUrl) d += ' · <a href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noopener" class="text-brand-600 underline">查看原文 ↗</a>';
+        desc.innerHTML = d;
     } else if (type === 'dissect') {
         title.textContent = '来自爆款拆解';
         desc.innerHTML = '已从「爆款拆解」带入完整文案与可复刻结构，可直接改写（请替换为你的行业案例与数字人）';
+    } else if (type === 'hotspot-all') {
+        title.textContent = '来自全网财税热点（批量）';
+        cnt.textContent = count || 0;
     } else {
         title.textContent = '基于批量选题二创';
         cnt.textContent = count || 0;
@@ -444,18 +449,56 @@ function getFormLabel(form) {
         const angle = sessionStorage.getItem('hgt_topic_angle') || '';
         const hook = sessionStorage.getItem('hgt_topic_hook') || '';
         const form = sessionStorage.getItem('hgt_topic_form') || '';
+        const sourceUrl = sessionStorage.getItem('hgt_topic_source_url') || '';
         if (title || angle) {
             setTextFromTopic(title, hook, mapTopicFormToMode(form), angle || summary);
-            showSourceBanner('hotspot', 1);
+            showSourceBanner('hotspot', 1, sourceUrl);
             sessionStorage.removeItem('hgt_topic_title');
             sessionStorage.removeItem('hgt_topic_summary');
             sessionStorage.removeItem('hgt_topic_angle');
             sessionStorage.removeItem('hgt_topic_hook');
             sessionStorage.removeItem('hgt_topic_form');
+            sessionStorage.removeItem('hgt_topic_source_url');
+            sessionStorage.removeItem('hgt_topic_matched_sub');
             sessionStorage.removeItem('hgt_topic_from');
         } else {
             document.getElementById('noSourceBox')?.classList.remove('hidden');
         }
+        return;
+    }
+
+    // 1c2. 热点批量跳转（从「全部去二创」过来）
+    if (fromTopic === 'hotspot-all') {
+        const raw = sessionStorage.getItem('hgt_batch_hotspots');
+        let topics = [];
+        try { topics = raw ? JSON.parse(raw) : []; } catch(e) { topics = []; }
+        if (!topics.length) {
+            const saved0 = loadBatchRewriteState();
+            if (saved0 && saved0.topics && saved0.topics.length) topics = saved0.topics;
+        }
+        if (topics.length) {
+            currentTopics = topics;
+            showSourceBanner('hotspot-all', topics.length);
+            document.body.classList.add('entry-batch');
+            document.getElementById('textWrap')?.classList.add('hidden');
+            document.getElementById('genBtn')?.classList.add('hidden');
+            const ml = document.getElementById('modeLabel');
+            if (ml) ml.textContent = '批量统一呈现形式';
+            document.getElementById('forceUnifiedWrap')?.classList.remove('hidden');
+            renderBatchPanel(topics);
+            selectBatchTopic(0);
+            const saved = loadBatchRewriteState();
+            if (saved && Array.isArray(saved.results) && saved.results.length) {
+                batchResults = saved.results;
+                renderBatchProgress();
+                renderBatchResumeBanner(saved.results);
+            }
+            const lbv = localStorage.getItem('hgt_last_batch_video');
+            if (lbv) resumeBatchVideo(lbv);
+        } else {
+            document.getElementById('noSourceBox')?.classList.remove('hidden');
+        }
+        sessionStorage.removeItem('hgt_batch_hotspots');
         return;
     }
 
@@ -490,7 +533,7 @@ function selectBatchTopic(index) {
     const list = document.getElementById('batchTopicList');
     const topic = currentTopics[index];
     if (!topic) return;
-    setTextFromTopic(topic.title, topic.hook || '', mapTopicFormToMode(topic.form));
+    setTextFromTopic(topic.title, topic.hook || '', mapTopicFormToMode(topic.form), topic.angle || topic.summary || '');
     list.querySelectorAll('[data-index]').forEach(d => d.classList.remove('border-brand-400','bg-brand-50'));
     const active = list.querySelector('[data-index="' + index + '"]');
     if (active) active.classList.add('border-brand-400','bg-brand-50');
