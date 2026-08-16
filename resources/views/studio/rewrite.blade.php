@@ -1070,7 +1070,8 @@ function goScrollFromBatch(idx) {
     sessionStorage.setItem('hgt_rewrite_cleaned', r.data.cleaned);
     const displayMode = document.getElementById('mode').value;
     sessionStorage.setItem('hgt_rewrite_mode', displayMode);
-    window.location.href = '/studio/scroll?from=rewrite&src=topic&batch=1&mode=' + encodeURIComponent(displayMode) + '&dialogue=' + encodeURIComponent(r.data.cleaned);
+    const voice = (displayMode === 'scroll_female') ? 'jiang' : 'zhang';
+    window.location.href = '/studio/scroll?from=rewrite&src=topic&batch=1&mode=' + encodeURIComponent(displayMode) + '&voice=' + voice + '&dialogue=' + encodeURIComponent(r.data.cleaned);
 }
 
 // 带稿去出片
@@ -1080,7 +1081,8 @@ document.getElementById('btnGoScroll')?.addEventListener('click', function () {
     const displayMode = document.getElementById('mode').value;
     sessionStorage.setItem('hgt_rewrite_cleaned', lastResult.cleaned);
     sessionStorage.setItem('hgt_rewrite_mode', displayMode);
-    window.location.href = '/studio/scroll?from=rewrite&src=topic&mode=' + encodeURIComponent(displayMode) + '&dialogue=' + encodeURIComponent(lastResult.cleaned);
+    const voice = (displayMode === 'scroll_female') ? 'jiang' : 'zhang';
+    window.location.href = '/studio/scroll?from=rewrite&src=topic&mode=' + encodeURIComponent(displayMode) + '&voice=' + voice + '&dialogue=' + encodeURIComponent(lastResult.cleaned);
 });
 
 // 跑质检

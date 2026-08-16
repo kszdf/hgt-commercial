@@ -309,7 +309,7 @@ function esc(s) {
 function goRewrite() {
     if (!currentDissect) return;
     const title = (document.getElementById('title').value.trim()) || currentDissect.hook_type || '爆款拆解二创';
-    const form = document.getElementById('form').value;
+    const form = document.getElementById('form').value || 'avatar';
     const hook = Array.isArray(currentDissect.rewrite_suggestions) ? currentDissect.rewrite_suggestions.join('；') : '';
     const angle = (currentDissect.hook_type || '') + (Array.isArray(currentDissect.pain_points) ? '；' + currentDissect.pain_points.join('；') : '');
     sessionStorage.setItem('hgt_dissect_title', title);
@@ -324,8 +324,10 @@ function goRewrite() {
 function goScroll() {
     if (!currentText) return;
     sessionStorage.setItem('hgt_dissect_text', currentText);
-    const form = document.getElementById('form').value;
-    location.href = '/studio/scroll?src=dissect' + (form ? '&mode=' + form : '');
+    const form = document.getElementById('form').value || 'avatar';
+    // 默认用老张真声；女声幕后形式用江老师克隆声
+    const voice = (form === 'scroll_female') ? 'jiang' : 'zhang';
+    location.href = '/studio/scroll?src=dissect&mode=' + form + '&voice=' + voice;
 }
 
 // ---------- 去 AI 痕迹 ----------

@@ -813,6 +813,21 @@ async function fetchQueueEstimate() {
     } catch (e) { /* 静默：队列提示非关键路径 */ }
 }
 if (!modeInitializedByUrl) setMode('scroll');   // URL 已指定模式时不再回退为 scroll
+
+// 拆解 / 二创来源预填音色：voice=zhang（老张真声）/ voice=jiang（江老师克隆声）/ 具体 voice_id
+(function prefillVoice() {
+    const p = new URLSearchParams(location.search);
+    const voiceParam = p.get('voice');
+    if (!voiceParam) return;
+    const sv = document.getElementById('singleVoice');
+    if (!sv) return;
+    let needle = voiceParam;
+    if (voiceParam === 'zhang') needle = 'zhangc2';
+    else if (voiceParam === 'jiang') needle = 'jiangnv3';
+    for (const opt of sv.options) {
+        if (opt.value.includes(needle)) { sv.value = opt.value; break; }
+    }
+})();
 updateDurationHint();
 autoSuggest();
 applyVoiceFormAuto(document.getElementById('dialogue').value);
