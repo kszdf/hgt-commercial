@@ -24,10 +24,13 @@ class AdminController extends Controller
     ];
 
     // 新建试用账号默认值（超管可在表单覆盖）
-    private const TRIAL_DEFAULT_DAYS = 7;
+    // 试用策略：累计 20 条 + 有效期最长 30 天（任一先到即失效），过期无效。
+    private const TRIAL_DEFAULT_DAYS = 30;
     private const TRIAL_DEFAULT_MAX_JOBS = 20;     // 累计总条数（0=不限）
     private const TRIAL_DEFAULT_MAX_MINUTES = 0;   // 累计总时长（0=不限）
     private const TRIAL_DEFAULT_ALLOW_BATCH = false;
+    // 试用有效期硬上限：任何试用账号最长不得超过 30 天（过期无效）
+    private const TRIAL_MAX_DAYS_HARD = 30;
 
     public function __construct()
     {
@@ -128,7 +131,7 @@ class AdminController extends Controller
             'email' => ['required', 'email', 'unique:users,email'],
             'phone' => ['required', 'string', 'regex:/^1[3-9]\d{9}$/', 'unique:users,phone'],
             'password' => ['required', 'string', 'min:6'],
-            'trial_days' => ['required', 'integer', 'min:1', 'max:3650'],
+            'trial_days' => ['required', 'integer', 'min:1', 'max:30'],
             'trial_max_jobs' => ['required', 'integer', 'min:0'],
             'trial_max_minutes' => ['required', 'integer', 'min:0'],
             'allow_batch' => ['sometimes', 'boolean'],
@@ -145,6 +148,7 @@ class AdminController extends Controller
             'password.min' => '密码至少 6 位。',
             'trial_days.required' => '请填写试用天数。',
             'trial_days.integer' => '试用天数须为整数。',
+            'trial_days.max' => '试用有效期最长 30 天，过期无效。',
             'trial_max_jobs.required' => '请填写累计生成条数上限（0 表示不限）。',
             'trial_max_minutes.required' => '请填写累计生成时长上限（0 表示不限）。',
         ]);
@@ -161,12 +165,15 @@ class AdminController extends Controller
             $slug = $base . '-' . $i++;
         }
 
+        // 试用有效期硬上限：最长 30 天，任何输入都被收敛到此值（过期无效）
+        $trialDays = min((int) $request->trial_days, self::TRIAL_MAX_DAYS_HARD);
+
         $tenant = Tenant::create([
             'name' => $request->tenant_name,
             'slug' => $slug,
             'plan' => 'free',
             'status' => 'active',
-            'trial_ends_at' => now()->addDays((int) $request->trial_days),
+            'trial_ends_at' => now()->addDays($trialDays),
             'quota_monthly' => (int) env('TRIAL_VIDEO_QUOTA', 10),
             'trial_max_jobs' => (int) $request->trial_max_jobs,
             'trial_max_minutes' => (int) $request->trial_max_minutes,
@@ -184,7 +191,7 @@ class AdminController extends Controller
         ]);
 
         return redirect()->route('admin.tenants')
-            ->with('success', '试用账号「' . $tenant->name . '」已创建（' . $request->trial_days . ' 天 / 累计 ' . ($request->trial_max_jobs ?: '不限') . ' 条）。');
+            ->with('success', '试用账号「' . $tenant->name . '」已创建（' . $trialDays . ' 天 / 累计 ' . ($request->trial_max_jobs ?: '不限') . ' 条，过期无效）。');
     }
 
     /**
@@ -194,12 +201,13 @@ class AdminController extends Controller
     public function updateTrial(Request $request, Tenant $tenant)
     {
         $validator = Validator::make($request->all(), [
-            'trial_days' => ['sometimes', 'required', 'integer', 'min:1', 'max:3650'],
+            'trial_days' => ['sometimes', 'required', 'integer', 'min:1', 'max:30'],
             'trial_max_jobs' => ['sometimes', 'required', 'integer', 'min:0'],
             'trial_max_minutes' => ['sometimes', 'required', 'integer', 'min:0'],
             'allow_batch' => ['sometimes', 'required', 'boolean'],
         ], [
             'trial_days.integer' => '试用天数须为整数。',
+            'trial_days.max' => '试用有效期最长 30 天，过期无效。',
             'trial_max_jobs.integer' => '累计条数须为整数。',
             'trial_max_minutes.integer' => '累计时长须为整数。',
         ]);
@@ -210,8 +218,8 @@ class AdminController extends Controller
 
         $patch = [];
         if ($request->has('trial_days')) {
-            // 以当前为基准顺延：避免每次编辑都把到期日拉回今天
-            $patch['trial_ends_at'] = now()->addDays((int) $request->trial_days);
+            // 以当前为基准顺延，但最长不超过 30 天硬上限
+            $patch['trial_ends_at'] = now()->addDays(min((int) $request->trial_days, self::TRIAL_MAX_DAYS_HARD));
         }
         if ($request->has('trial_max_jobs')) {
             $patch['trial_max_jobs'] = (int) $request->trial_max_jobs;

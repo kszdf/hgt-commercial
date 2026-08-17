@@ -44,7 +44,8 @@
                 </div>
                 <div>
                     <label class="mb-1 block text-xs text-slate-500">试用天数 *</label>
-                    <input name="trial_days" type="number" min="1" required value="{{ old('trial_days', $defaults['days']) }}" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none">
+                    <input name="trial_days" type="number" min="1" max="30" required value="{{ old('trial_days', $defaults['days']) }}" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none">
+                    <p class="mt-1 text-xs text-slate-400">有效期最长 30 天，过期无效（系统硬上限）。</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-xs text-slate-500">累计生成条数上限 *（0=不限）</label>
@@ -119,7 +120,7 @@
                                 <td class="py-2.5 pr-3">
                                     <form method="POST" action="{{ route('admin.tenants.update-trial', $r['id']) }}" class="flex flex-wrap items-center gap-1.5">
                                         @csrf
-                                        <input name="trial_days" type="number" min="1" title="试用天数" value="{{ $r['trial_days_left'] ?? 7 }}" class="w-16 rounded border border-slate-200 px-2 py-1 text-xs">
+                                        <input name="trial_days" type="number" min="1" max="30" title="试用天数(最长30)" value="{{ $r['trial_days_left'] ?? 7 }}" class="w-16 rounded border border-slate-200 px-2 py-1 text-xs">
                                         <input name="trial_max_jobs" type="number" min="0" title="累计条数(0=不限)" value="{{ $r['trial_max_jobs'] }}" class="w-16 rounded border border-slate-200 px-2 py-1 text-xs">
                                         <input name="trial_max_minutes" type="number" min="0" title="累计时长分钟(0=不限)" value="{{ $r['trial_max_minutes'] }}" class="w-20 rounded border border-slate-200 px-2 py-1 text-xs">
                                         <label class="flex items-center gap-1 text-xs text-slate-500" title="批量外发">
