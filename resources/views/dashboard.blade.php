@@ -2,22 +2,35 @@
 <x-workspace-layout title="工作台总览">
 <div class="p-6">
 
-    {{-- 套餐 / 试用状态条 --}}
+    {{-- 套餐 / 试用状态条（超管跳过试用提示） --}}
     @php
+        $isAdmin = auth()->user()->isGlobalAdmin();
         $tenant = auth()->user()->tenant;
-        $trialActive = $tenant->plan === 'free' && $tenant->isTrialActive();
-        $trialExpired = $tenant->isTrialExpired();
-        $usage = $tenant->usageThisMonth();
-        $quota = $tenant->quota_monthly;
-        $remaining = $tenant->remainingQuota();
 
-        $recentJobs = App\Models\VideoJob::where('tenant_id', $tenant->id)
-            ->orderByDesc('created_at')
-            ->with('coverAsset')
-            ->limit(5)
-            ->get();
-        $doneCount = App\Models\VideoJob::where('tenant_id', $tenant->id)->where('status', 'done')->count();
-        $queuedCount = App\Models\VideoJob::where('tenant_id', $tenant->id)->where('status', 'queued')->count();
+        if ($isAdmin) {
+            // 超管：全局统计（跨全部租户）
+            $recentJobs = App\Models\VideoJob::orderByDesc('created_at')->with('coverAsset')->limit(5)->get();
+            $doneCount = App\Models\VideoJob::where('status', 'done')->count();
+            $queuedCount = App\Models\VideoJob::where('status', 'queued')->count();
+            $usage = '-';
+            $quota = '-';
+            $remaining = '-';
+        } else {
+            // 普通租户：按租户统计
+            $trialActive = $tenant->plan === 'free' && $tenant->isTrialActive();
+            $trialExpired = $tenant->isTrialExpired();
+            $usage = $tenant->usageThisMonth();
+            $quota = $tenant->quota_monthly;
+            $remaining = $tenant->remainingQuota();
+
+            $recentJobs = App\Models\VideoJob::where('tenant_id', $tenant->id)
+                ->orderByDesc('created_at')
+                ->with('coverAsset')
+                ->limit(5)
+                ->get();
+            $doneCount = App\Models\VideoJob::where('tenant_id', $tenant->id)->where('status', 'done')->count();
+            $queuedCount = App\Models\VideoJob::where('tenant_id', $tenant->id)->where('status', 'queued')->count();
+        }
 
         $statusMeta = [
             'done'   => ['label' => '已生成', 'cls' => 'bg-emerald-50 text-emerald-600'],
@@ -26,7 +39,12 @@
         ];
     @endphp
 
-    @if ($trialExpired)
+    @if ($isAdmin)
+        <div class="mb-5 flex items-center justify-between rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
+            <div class="text-sm text-indigo-800"><span class="font-semibold">超级管理员模式</span> · 全局管理视角 · 不受租户配额限制</div>
+            <a href="/admin/tenants" class="rounded-lg bg-indigo-500 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-600">租户管理</a>
+        </div>
+    @elseif ($trialExpired)
         <div class="mb-5 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
             <div class="text-sm text-amber-800"><span class="font-semibold">免费试用已结束。</span> 升级订阅套餐后即可继续生成视频。</div>
             <a href="/admin/billing" class="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-amber-600">去升级</a>

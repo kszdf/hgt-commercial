@@ -5,11 +5,21 @@
 
 @php
     $t = auth()->user()->tenant;
-    $preset = in_array($t->theme_preset, ['indigo', 'warm', 'teal'], true) ? $t->theme_preset : 'indigo';
-    $ov = is_array($t->theme_overrides) ? $t->theme_overrides : (json_decode($t->theme_overrides ?? '{}', true) ?: []);
-    $density = in_array($ov['density'] ?? null, ['comfortable', 'compact'], true) ? $ov['density'] : 'comfortable';
-    $accent = preg_match('/^#[0-9a-fA-F]{6}$/', $ov['accent'] ?? '') ? $ov['accent'] : null;
-    $pageTint = preg_match('/^#[0-9a-fA-F]{6}$/', $ov['page_tint'] ?? '') ? $ov['page_tint'] : null;
+    // 超管(tenant_id=null)使用默认主题，不依赖租户配置
+    $isAdmin = is_null($t);
+    if ($isAdmin) {
+        $preset = 'indigo';
+        $ov = [];
+        $density = 'comfortable';
+        $accent = null;
+        $pageTint = null;
+    } else {
+        $preset = in_array($t->theme_preset, ['indigo', 'warm', 'teal'], true) ? $t->theme_preset : 'indigo';
+        $ov = is_array($t->theme_overrides) ? $t->theme_overrides : (json_decode($t->theme_overrides ?? '{}', true) ?: []);
+        $density = in_array($ov['density'] ?? null, ['comfortable', 'compact'], true) ? $ov['density'] : 'comfortable';
+        $accent = preg_match('/^#[0-9a-fA-F]{6}$/', $ov['accent'] ?? '') ? $ov['accent'] : null;
+        $pageTint = preg_match('/^#[0-9a-fA-F]{6}$/', $ov['page_tint'] ?? '') ? $ov['page_tint'] : null;
+    }
 @endphp
 <script>
   (function () {
@@ -115,7 +125,7 @@
                         <span>视频生成列表</span>
                     </a>
                 </li>
-                @php $batchAllowed = auth()->user()->tenant->allow_batch; @endphp
+                @php $batchAllowed = $isAdmin ? true : (auth()->user()->tenant->allow_batch ?? false); @endphp
                 <li>
                     @if(!$batchAllowed)
                         <a href="/admin/billing" class="ws-nav-item ws-nav-rose" title="当前账号未开放批量外发，开通或升级后解锁">
