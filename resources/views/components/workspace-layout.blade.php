@@ -245,10 +245,19 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4 2 2 0 000-4zm0 10v-2m0 2a2 2 0 100 4 2 2 0 000-4zm-6 0H4m2 0a2 2 0 104 0 2 2 0 00-4 0zm12 0h-2m2 0a2 2 0 10-4 0 2 2 0 014 0zM6 6H4m2 0a2 2 0 114 0 2 2 0 01-4 0zm12 0h-2m2 0a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                 </button>
-                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-brand-100 to-brand-200 text-brand-600 ring-2 ring-white shadow-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
+                {{-- 当前用户信息 --}}
+                <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
+                    <div class="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 text-[11px] font-bold text-white ring-2 ring-white">
+                        {{ strtoupper(mb_substr(auth()->user()->name ?: '?', 0, 1)) }}
+                    </div>
+                    <div class="flex flex-col leading-tight">
+                        <span class="max-w-[120px] truncate text-xs font-semibold text-slate-700">{{ auth()->user()->name }}</span>
+                        @if($isAdmin)
+                            <span class="text-[10px] font-medium text-brand-600">超级管理员</span>
+                        @else
+                            <span class="max-w-[120px] truncate text-[10px] text-slate-400">{{ auth()->user()->email }}</span>
+                        @endif
+                    </div>
                 </div>
             </div>
         </header>
