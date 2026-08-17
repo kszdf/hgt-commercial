@@ -22,7 +22,7 @@ class VoiceCloneController extends Controller
 
     public function index()
     {
-        $tenant = request()->user()->tenant;
+        $tenant = $this->studioTenant(request());
         $voices = TenantVoice::where('tenant_id', $tenant->id)
             ->orderBy('gender')
             ->orderByDesc('is_default')
@@ -42,7 +42,7 @@ class VoiceCloneController extends Controller
         ]);
 
         $user = $request->user();
-        $tenant = $user->tenant;
+        $tenant = $this->studioTenant(request());
         $file = $request->file('file');
 
         $b64 = base64_encode(file_get_contents($file->getRealPath()));
@@ -87,7 +87,7 @@ class VoiceCloneController extends Controller
 
     public function setDefault(TenantVoice $voice)
     {
-        $tenant = request()->user()->tenant;
+        $tenant = $this->studioTenant(request());
         if ($voice->tenant_id !== $tenant->id) {
             abort(403);
         }
@@ -102,7 +102,7 @@ class VoiceCloneController extends Controller
 
     public function destroy(TenantVoice $voice)
     {
-        $tenant = request()->user()->tenant;
+        $tenant = $this->studioTenant(request());
         if ($voice->tenant_id !== $tenant->id) {
             abort(403);
         }

@@ -158,6 +158,12 @@
                     </a>
                 </li>
                 <li>
+                    <a href="/studio/xhs" class="{{ request()->is('studio/xhs*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-red">
+                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17m0 0c-5.523 0-10-4.477-10-10S6.477 0 12 0s10 4.477 10 10-4.477 10-10 10z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l3 3 4-4"/></svg>
+                        <span>小红书图文</span>
+                    </a>
+                </li>
+                <li>
                     <a href="/studio/models" class="{{ request()->is('studio/models*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-amber">
                         <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                         <span>数字人模特</span>
@@ -411,6 +417,60 @@
     opacity: 0.95;
 }
 @keyframes zw-spin { to { transform: rotate(360deg); } }
+
+/* ===== 全局中止浮层：长任务运行中显眼出现，橙红渐变 + 停止图标，固定底部居中 ===== */
+#hgtAbortBar {
+    position: fixed;
+    left: 50%;
+    bottom: 26px;
+    transform: translateX(-50%) translateY(24px);
+    z-index: 85;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease, transform .18s ease;
+}
+#hgtAbortBar.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: auto;
+}
+.hgt-abort-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 13px 26px;
+    border-radius: 9999px;
+    background: linear-gradient(180deg, #f87171 0%, #ef4444 100%);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    border: 2px solid #fff;
+    box-shadow: 0 12px 30px rgba(239, 68, 68, .5), 0 3px 8px rgba(0, 0, 0, .22);
+    cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+}
+.hgt-abort-btn:hover {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+    box-shadow: 0 16px 38px rgba(239, 68, 68, .55), 0 3px 8px rgba(0, 0, 0, .22);
+}
+.hgt-abort-btn:active { transform: translateY(1px) scale(.98); }
+.hgt-abort-btn .stop-ico {
+    width: 15px; height: 15px; border-radius: 3px; background: #fff; flex: none;
+}
+.hgt-abort-btn .pulse-ring {
+    position: absolute;
+    inset: -2px;
+    border-radius: 9999px;
+    border: 2px solid rgba(239, 68, 68, .55);
+    animation: hgt-abort-pulse 1.4s ease-out infinite;
+}
+@keyframes hgt-abort-pulse {
+    0%   { transform: scale(1);   opacity: .7; }
+    70%  { transform: scale(1.18); opacity: 0; }
+    100% { transform: scale(1.18); opacity: 0; }
+}
 </style>
 
 <script>
@@ -564,6 +624,101 @@ window.zwSetLoading = function (btn, opts) {
         }
     }
 };
+
+// ===== 全局中止控制器：任何长任务调用 HGTAbort.begin() 即在底部浮层显示醒目「中止」按钮 =====
+// 点击后：① 立即 abort() 当前 fetch（AbortError）；② 可选回调 onAbort 复位 UI；③ 可选 serverCancel 真实停止服务端任务。
+// 用法（页面内）：
+//   const signal = HGTAbort.begin('中止：AI 改写中…', { serverCancel: '/studio/scroll/cancel?job=' + id });
+//   const resp = await fetch(url, { signal });            // fetch 支持 signal，abort 即中断
+//   ...finally { HGTAbort.end(); }                        // 无论成功失败都收起浮层
+//   catch (e) { if (e.name === 'AbortError') { hgtToast('warn','已中止操作'); return; } }  // 复位/提示
+window.HGTAbort = (function () {
+    var controller = null;
+    var meta = { label: '', onAbort: null, serverCancel: null, serverCancelMethod: 'POST', serverCancelDone: false };
+    var bar = null, btn = null, labelEl = null;
+
+    function ensureDom() {
+        if (bar) return;
+        bar = document.createElement('div');
+        bar.id = 'hgtAbortBar';
+        btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'hgt-abort-btn';
+        btn.innerHTML = '<span class="pulse-ring"></span><span class="stop-ico"></span><span class="hgt-abort-label">中止</span>';
+        btn.addEventListener('click', abort);
+        bar.appendChild(btn);
+        document.body.appendChild(bar);
+    }
+
+    function show(label) {
+        ensureDom();
+        labelEl = btn.querySelector('.hgt-abort-label');
+        if (labelEl) labelEl.textContent = label || '中止当前操作';
+        // 强制重排后再加 show，确保过渡动画生效
+        void bar.offsetWidth;
+        bar.classList.add('show');
+    }
+
+    function hide() { if (bar) bar.classList.remove('show'); }
+
+    function begin(label, opts) {
+        opts = opts || {};
+        // 若已有进行中流程，先强制结束旧的（避免信号串台）
+        if (controller) { try { controller.abort(); } catch (e) {} }
+        controller = new AbortController();
+        meta = {
+            label: label || '中止当前操作',
+            onAbort: opts.onAbort || null,
+            serverCancel: opts.serverCancel || null,
+            serverCancelMethod: opts.serverCancelMethod || 'POST',
+            serverCancelDone: false
+        };
+        show(label);
+        return controller.signal;
+    }
+
+    function abort() {
+        if (!controller) return;
+        try { controller.abort(); } catch (e) {}
+        if (meta.onAbort) { try { meta.onAbort(); } catch (e) {} }
+        if (meta.serverCancel && !meta.serverCancelDone) {
+            meta.serverCancelDone = true;
+            callServerCancel();
+        }
+        hide();
+    }
+
+    function callServerCancel() {
+        try {
+            var token = '';
+            var m = document.querySelector('meta[name="csrf-token"]');
+            if (m) token = m.getAttribute('content') || '';
+            var init = {
+                method: meta.serverCancelMethod,
+                headers: { 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
+                keepalive: true
+            };
+            if (meta.serverCancelMethod.toUpperCase() !== 'GET') {
+                init.headers['Content-Type'] = 'application/json';
+                init.body = JSON.stringify({});
+            }
+            fetch(meta.serverCancel, init).catch(function () {});
+        } catch (e) {}
+    }
+
+    function end() {
+        controller = null;
+        meta = { label: '', onAbort: null, serverCancel: null, serverCancelMethod: 'POST', serverCancelDone: false };
+        hide();
+    }
+
+    return {
+        begin: begin,
+        end: end,
+        abort: abort,
+        isActive: function () { return !!controller; }
+    };
+})();
 
 // 服务端 flash（success/error）自动转为 Toast
 document.addEventListener('DOMContentLoaded', function () {

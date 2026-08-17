@@ -24,7 +24,7 @@ class PublishController extends Controller
     /** 发布工作台：待发视频 + 平台账号 + 发布历史。 */
     public function index()
     {
-        $tenant = request()->user()->tenant;
+        $tenant = $this->studioTenant(request());
 
         $videos = VideoJob::where('tenant_id', $tenant->id)
             ->where('publish_status', 'approved')
@@ -74,7 +74,7 @@ class PublishController extends Controller
     /** 批量发布（真实链路：调 8500 出片微服务 /publish）。 */
     public function publish(Request $request)
     {
-        $tenant = request()->user()->tenant;
+        $tenant = $this->studioTenant(request());
 
         // —— 未授权批量外发（allow_batch=false，免费套餐默认即如此；超管可单独开启）——
         if (! $tenant->allow_batch) {

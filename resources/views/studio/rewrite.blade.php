@@ -743,9 +743,10 @@ function mapDisplayModeToRewriteMode(displayMode) {
     return 'single'; // avatar / scroll_male / scroll_female / script 都按单人稿改写
 }
 
-async function callRewrite({mode, text, focus, target_duration, preserve, role_mode, role_note, keep_manual_roles}) {
+async function callRewrite({mode, text, focus, target_duration, preserve, role_mode, role_note, keep_manual_roles, signal}) {
     const resp = await fetch('/studio/rewrite/generate', {
         method: 'POST',
+        signal,
         headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
@@ -792,6 +793,7 @@ async function runSingleRewrite() {
     zwSetLoading(btn, {loading: true, text: 'AI 改写中…'});
     badge.textContent = '改写中'; badge.className = 'rounded-full bg-brand-100 px-3 py-1 text-xs text-brand-600';
 
+    const signal = HGTAbort.begin('中止：AI 改写中…');
     try {
         const data = await callRewrite({
             mode: document.getElementById('mode').value,
@@ -802,6 +804,7 @@ async function runSingleRewrite() {
             role_mode: document.getElementById('roleMode').value,
             role_note: document.getElementById('roleNote').value.trim(),
             keep_manual_roles: document.getElementById('keepManualRoles').checked,
+            signal: signal,
         });
 
         lastResult = data;
@@ -810,9 +813,18 @@ async function runSingleRewrite() {
         badge.className = 'rounded-full bg-green-100 px-3 py-1 text-xs text-green-700';
         zwSetLoading(btn, {loading: false});
     } catch (err) {
+        if (err.name === 'AbortError') {
+            zwSetLoading(btn, {loading: false});
+            badge.textContent = '已中止'; badge.className = 'rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500';
+            errBox.textContent = '⏹ 已中止改写。'; errBox.classList.remove('hidden');
+            hgtToast('warn', '已中止改写');
+            return;
+        }
         zwSetLoading(btn, {loading: false});
         badge.textContent = '失败'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
         errBox.textContent = err.message; errBox.classList.remove('hidden');
+    } finally {
+        HGTAbort.end();
     }
 }
 

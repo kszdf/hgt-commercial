@@ -88,7 +88,7 @@ class CoverAssetController extends Controller
         abort_if(! $coverAsset->is_preset, 404);
 
         $user = $request->user();
-        $tenant = $user->tenant;
+        $tenant = $this->studioTenant(request());
         $src = Storage::disk('local')->path(ltrim($coverAsset->file_path, '/'));
         abort_if(! is_file($src), 404);
 
@@ -122,7 +122,7 @@ class CoverAssetController extends Controller
     public function store(Request $request)
     {
         $user = $request->user();
-        $tenant = $user->tenant;
+        $tenant = $this->studioTenant(request());
 
         $request->validate([
             'file' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],

@@ -57,7 +57,7 @@ class ModelAssetController extends Controller
     /** 列表 + 上传表单。 */
     public function index()
     {
-        $tenant = request()->user()->tenant;
+        $tenant = $this->studioTenant(request());
         $assets = ModelAsset::where('tenant_id', $tenant->id)
             ->orderByDesc('created_at')
             ->get();
@@ -67,7 +67,7 @@ class ModelAssetController extends Controller
     /** 供出片页下拉拉取可用模特（仅 ready）。 */
     public function modelsJson()
     {
-        $tenant = request()->user()->tenant;
+        $tenant = $this->studioTenant(request());
         $assets = ModelAsset::where('tenant_id', $tenant->id)
             ->where('status', 'ready')
             ->get(['id', 'name', 'scene', 'resolution', 'duration']);
@@ -83,7 +83,7 @@ class ModelAssetController extends Controller
         ]);
 
         $user = $request->user();
-        $tenant = $user->tenant;
+        $tenant = $this->studioTenant(request());
         $file = $request->file('file');
         $ext = $file->getClientOriginalExtension();
         $rawRel = $file->storeAs('models', '_raw_' . uniqid() . '.' . $ext);
@@ -213,7 +213,7 @@ class ModelAssetController extends Controller
 
     private function authorizeTenant(ModelAsset $asset): void
     {
-        if ($asset->tenant_id !== request()->user()->tenant_id) {
+        if (! request()->user()->isGlobalAdmin() && $asset->tenant_id !== request()->user()->tenant_id) {
             abort(403);
         }
     }

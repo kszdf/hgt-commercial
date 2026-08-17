@@ -17,8 +17,13 @@ API 可行性：🟡 可全自动（小红书开放平台 + 专业号内容授�
 
 本文件扩展点（已用【真实调用】标注）：
   - authenticate(): OAuth2 授权码换 token + 刷新
-  - _do_publish():  上传视频 → 创建视频笔记(发布) → 返回 note_id/url
+  - _do_publish():  视频笔记 = 上传视频 → 创建 type:video 笔记；
+                    图文笔记 = 上传图片组 → 创建 type:normal 笔记（首图自动作封面）
 supports_auto=True：配置齐备即全自动；未配置降级 dry 模拟。
+图文笔记接口约定（小红书开放平台）：
+  POST /api/open/v1/upload_image  -> 返回 data.image_id（逐张上传）
+  POST /api/open/v1/note/create   -> {"type":"normal","title","desc","images":[image_id...]}
+  （注：开放平台字段名可能随官方文档微调，若真实发布报字段错，按官方文档对齐即可）
 """
 from __future__ import annotations
 
@@ -64,35 +69,62 @@ class XiaohongshuPublisher(BasePublisher):
                 error_message="未授权：请先访问 /oauth/authorize/xiaohongshu 完成 OAuth 授权")
         headers = {"access-token": token, "Content-Type": "application/json"}
 
-        # 1) 上传视频拿 video_id（小红书要求先 upload）
-        if dry:
-            video_id = "dry_video_id"
-        else:
-            with open(req.video_path, "rb") as f:
-                r = requests.post(f"{_XHS_API}/api/open/v1/upload_video",
-                                  headers={"access-token": token},
-                                  files={"video": (os.path.basename(req.video_path), f, "video/mp4")},
-                                  timeout=_TIMEOUT)
-            d = r.json().get("data", {})
-            if not d.get("video_id"):
-                return PublishResult(platform=self.platform_key,
-                                     status=PublishStatus.FAILED,
-                                     error_message="小红书视频上传失败: " + str(r.json()))
-            video_id = d["video_id"]
-
-        # 2) 创建视频笔记（带标题/正文/话题）
         tags_block = "".join(f"#{t} " for t in req.tags)
         payload = {
             "title": req.title,
             "desc": f"{req.description or req.title}\n{tags_block}".strip(),
-            "video_id": video_id,
         }
+
+        # 图文笔记：逐张上传图片 → 创建 type:normal 笔记（首图即封面）
+        if req.image_paths:
+            if dry:
+                image_ids = [f"dry_img_{i}" for i in range(len(req.image_paths))]
+            else:
+                image_ids = []
+                for ip in req.image_paths:
+                    try:
+                        with open(ip, "rb") as f:
+                            r = requests.post(f"{_XHS_API}/api/open/v1/upload_image",
+                                              headers={"access-token": token},
+                                              files={"image": (os.path.basename(ip), f, "image/jpeg")},
+                                              timeout=_TIMEOUT)
+                    except Exception as exc:  # noqa: BLE001
+                        return PublishResult(platform=self.platform_key,
+                                             status=PublishStatus.FAILED,
+                                             error_message="小红书图片上传异常: " + str(exc))
+                    d = r.json().get("data", {})
+                    if not d.get("image_id"):
+                        return PublishResult(platform=self.platform_key,
+                                             status=PublishStatus.FAILED,
+                                             error_message="小红书图片上传失败: " + str(r.json()))
+                    image_ids.append(d["image_id"])
+            payload["images"] = image_ids
+            note_type = "normal"
+        # 视频笔记：上传视频 → 创建 type:video 笔记
+        else:
+            if dry:
+                video_id = "dry_video_id"
+            else:
+                with open(req.video_path, "rb") as f:
+                    r = requests.post(f"{_XHS_API}/api/open/v1/upload_video",
+                                      headers={"access-token": token},
+                                      files={"video": (os.path.basename(req.video_path), f, "video/mp4")},
+                                      timeout=_TIMEOUT)
+                d = r.json().get("data", {})
+                if not d.get("video_id"):
+                    return PublishResult(platform=self.platform_key,
+                                         status=PublishStatus.FAILED,
+                                         error_message="小红书视频上传失败: " + str(r.json()))
+                video_id = d["video_id"]
+            payload["video_id"] = video_id
+            note_type = "video"
+
         if dry:
             note_id = "xhs_dry_note_123"
             post_url = "https://www.xiaohongshu.com/user/profile"
         else:
             r = requests.post(f"{_XHS_API}/api/open/v1/note/create",
-                              headers=headers, json={"type": "video", **payload}, timeout=_TIMEOUT)
+                              headers=headers, json={"type": note_type, **payload}, timeout=_TIMEOUT)
             d = r.json().get("data", {})
             if not d.get("note_id"):
                 return PublishResult(platform=self.platform_key,
@@ -106,5 +138,5 @@ class XiaohongshuPublisher(BasePublisher):
             status=PublishStatus.PUBLISHED,
             platform_post_id=note_id,
             platform_url=post_url,
-            raw={"video_id": video_id, "dry": dry},
+            raw={"note_type": note_type, "dry": dry},
         )

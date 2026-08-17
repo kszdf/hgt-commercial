@@ -1,0 +1,18 @@
+============================================================
+8500 端到端冒烟  BASE=http://localhost:8500
+============================================================
+[PASS] health  -> status=200 2.0s
+[PASS] hotspot subs=['税务稽查']  -> topics=6 realtime=True degraded=False 48.2s
+[PASS] hotspot subs=['增值税', '个税']  -> topics=4 realtime=True degraded=False 34.5s
+[PASS] hotspot subs=['金税四期', '发票管理', '社保公积金']  -> topics=4 realtime=True degraded=False 30.6s
+[PASS] suggest-title style=smart  -> title='金税四期下老板避坑指南' ok=True err= 4.3s
+[PASS] suggest-title style=full  -> title='金税四期下老板三大风险' ok=True err= 8.2s
+[PASS] suggest-title style=suspense  -> title='老板发票乱，税务找上门' ok=True err= 4.4s
+[PASS] dissect(文案)  -> hook_type=痛点直击 structure=6 15.5s
+[PASS] transcribe(降级)  -> status=200 (期望 400/友好降级) 2.1s
+[PASS] deai  -> rewritten_len=111 ok=True 4.3s
+[PASS] strategist  -> score=78 level=中等 5.1s
+[PASS] qc  -> keys=['ok', 'hits', 'chars', 'duration_est_sec', 'risk_level', 'suggestions'] 2.0s
+============================================================
+总计: PASS=12 FAIL=0
+============================================================

@@ -134,7 +134,7 @@
                     <div class="flex flex-wrap gap-2" id="hsDays">
                         <button type="button" data-days="1" class="hs-day rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:border-brand-300">今日</button>
                         <button type="button" data-days="3" class="hs-day rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:border-brand-300">近3天</button>
-                        <button type="button" data-days="7" class="hs-day rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:border-brand-300 bg-brand-500 text-white">近7天</button>
+                        <button type="button" data-days="7" class="hs-day rounded-full border border-brand-300 bg-brand-100 px-3 py-1 text-xs font-medium text-brand-700 transition hover:opacity-80">近7天</button>
                         <button type="button" data-days="30" class="hs-day rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:border-brand-300">近30天</button>
                     </div>
                     <input type="hidden" id="hsDaysVal" value="7">
@@ -280,6 +280,7 @@ document.getElementById('topicForm').addEventListener('submit', async function (
     badge.className = 'rounded-full bg-brand-100 px-3 py-1 text-xs text-brand-600';
     result.innerHTML = buildLoadingHtml();
 
+    const signal = HGTAbort.begin('中止：AI 选题生成中…');
     try {
         const valOrNull = (id) => {
             const v = document.getElementById(id).value?.trim();
@@ -288,6 +289,7 @@ document.getElementById('topicForm').addEventListener('submit', async function (
 
         const resp = await fetch('/studio/topic/generate', {
             method: 'POST',
+            signal,
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
@@ -325,6 +327,14 @@ document.getElementById('topicForm').addEventListener('submit', async function (
         msg.textContent = '';
 
     } catch (err) {
+        if (err.name === 'AbortError') {
+            zwSetLoading(btn, {loading: false});
+            badge.textContent = '已中止';
+            badge.className = 'rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500';
+            msg.textContent = '⏹ 已中止选题生成。';
+            hgtToast('warn', '已中止选题生成');
+            return;
+        }
         zwSetLoading(btn, {loading: false});
         badge.textContent = '失败';
         badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
@@ -334,6 +344,8 @@ document.getElementById('topicForm').addEventListener('submit', async function (
         msg.textContent = '❌ ' + errMsg;
         errBox.innerHTML = '<strong>生成失败</strong><br><span class="text-xs mt-1 block text-red-400">' + escapeHtml(errMsg) + '<br>请检查网络连接或稍后重试。</span>';
         errBox.classList.remove('hidden');
+    } finally {
+        HGTAbort.end();
     }
 });
 
@@ -434,10 +446,10 @@ function updateHsSubHint() {
 
 function setHsSubActive(b, active) {
     if (active) {
-        b.classList.add('active', 'bg-brand-500', 'border-brand-500', 'text-white');
+        b.classList.add('active', 'bg-brand-100', 'border-brand-300', 'text-brand-700');
         b.classList.remove('bg-white', 'border-slate-200', 'text-slate-600');
     } else {
-        b.classList.remove('active', 'bg-brand-500', 'border-brand-500', 'text-white');
+        b.classList.remove('active', 'bg-brand-100', 'border-brand-300', 'text-brand-700');
         b.classList.add('bg-white', 'border-slate-200', 'text-slate-600');
     }
 }
@@ -449,7 +461,7 @@ function setHsSubActive(b, active) {
     HS_SUBS.forEach(s => {
         const b = document.createElement('button');
         b.type = 'button';
-        b.className = 'hs-sub active rounded-full border px-2.5 py-1 text-[11px] font-medium transition hover:opacity-90 active:scale-95 bg-brand-500 border-brand-500 text-white';
+        b.className = 'hs-sub active rounded-full border px-2.5 py-1 text-[11px] font-medium transition hover:opacity-80 active:scale-95 bg-brand-100 border-brand-300 text-brand-700';
         b.dataset.sub = s;
         b.textContent = s;
         b.addEventListener('click', () => {
@@ -475,11 +487,11 @@ document.getElementById('hsClearAll')?.addEventListener('click', () => {
 document.querySelectorAll('#hsDays .hs-day').forEach(b => {
     b.addEventListener('click', () => {
         document.querySelectorAll('#hsDays .hs-day').forEach(x => {
-            x.classList.remove('bg-brand-500','text-white');
-            x.classList.add('border-slate-200','text-slate-600');
+            x.classList.remove('bg-brand-100', 'text-brand-700', 'border-brand-300');
+            x.classList.add('bg-white', 'text-slate-600', 'border-slate-200');
         });
-        b.classList.add('bg-brand-500','text-white');
-        b.classList.remove('border-slate-200','text-slate-600');
+        b.classList.add('bg-brand-100', 'text-brand-700', 'border-brand-300');
+        b.classList.remove('bg-white', 'text-slate-600', 'border-slate-200');
         document.getElementById('hsDaysVal').value = b.dataset.days;
     });
 });
@@ -487,8 +499,8 @@ document.querySelectorAll('#hsDays .hs-day').forEach(b => {
 // 结果区 Tab 切换
 function switchTab(tab) {
     const topic = tab === 'topic';
-    document.getElementById('tabTopic').className = 'rounded-lg px-3 py-1.5 text-xs font-medium transition ' + (topic ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200');
-    document.getElementById('tabHotspot').className = 'rounded-lg px-3 py-1.5 text-xs font-medium transition ' + (topic ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-brand-500 text-white');
+    document.getElementById('tabTopic').className = 'rounded-lg px-3 py-1.5 text-xs font-medium transition ' + (topic ? 'bg-brand-100 text-brand-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200');
+    document.getElementById('tabHotspot').className = 'rounded-lg px-3 py-1.5 text-xs font-medium transition ' + (topic ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-brand-100 text-brand-700');
     document.getElementById('topicHeader').classList.toggle('hidden', !topic);
     document.getElementById('result').classList.toggle('hidden', !topic);
     document.getElementById('actionBar').classList.toggle('hidden', !topic);
@@ -623,9 +635,11 @@ async function fetchHotspots() {
     document.getElementById('hsList').innerHTML = buildHsLoadingHtml();
     document.getElementById('hsRealtime').classList.add('hidden');
     zwSetLoading(btn, {loading: true, text: '抓取热点中…'});
+    const signal = HGTAbort.begin('中止：抓取热点中…');
     try {
         const resp = await fetch('/studio/topic/hotspots', {
             method: 'POST',
+            signal,
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
@@ -662,9 +676,15 @@ async function fetchHotspots() {
         }
         if (data.realtime === false) document.getElementById('hsRealtime').classList.remove('hidden');
     } catch (err) {
-        document.getElementById('hsList').innerHTML = '<div class="rounded-lg border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">'+ escapeHtml(err.message || '未知错误') +'<br><span class="mt-1 block text-xs text-red-400">请检查网络或稍后重试。</span></div>';
+        if (err.name === 'AbortError') {
+            document.getElementById('hsList').innerHTML = '<div class="rounded-lg border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">⏹ 已中止热点抓取。</div>';
+            hgtToast('warn', '已中止热点抓取');
+        } else {
+            document.getElementById('hsList').innerHTML = '<div class="rounded-lg border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">'+ escapeHtml(err.message || '未知错误') +'<br><span class="mt-1 block text-xs text-red-400">请检查网络或稍后重试。</span></div>';
+        }
     } finally {
         zwSetLoading(btn, {loading: false});
+        HGTAbort.end();
     }
 }
 

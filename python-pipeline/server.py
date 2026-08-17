@@ -1251,9 +1251,57 @@ def _append_version(job_id, out_path, payload, tag=""):
 def _publish_job(job_id, platforms, data):
     """模块级发布核心：逐平台调适配器发布指定 job 的成片，回写 job 元数据。
 
+    支持两种作品：
+      - 视频笔记：需 job_id 指向 done 状态的成片（原逻辑）。
+      - 图文笔记（mode="image"）：不依赖视频 job，直接拿 data["image_paths"] 发布。
     供 POST /publish 端点与 run_job 的 auto_publish 后台线程共用。
     返回 results 列表（每平台一条）；出错时返回单元素错误列表。
     """
+    mode = str(data.get("mode") or "video").lower()
+    supported = set(supported_platforms())
+
+    # ---- 图文笔记：不依赖视频 job ----
+    if mode == "image":
+        image_paths = data.get("image_paths") or []
+        if not image_paths:
+            return [{"error": "image_paths required for mode=image"}]
+        missing = [ip for ip in image_paths if not os.path.exists(ip)]
+        if missing:
+            return [{"error": f"image file missing: {missing}"}]
+        unknown = [p for p in platforms if p not in supported]
+        if unknown:
+            return [{"error": f"unsupported platform(s): {unknown}", "supported": supported_platforms()}]
+        tenant_id = str(data.get("tenant_id") or "default")
+        title = str(data.get("title") or "图文笔记")
+        desc = str(data.get("description") or "")
+        tags = data.get("tags") or []
+        cred_ref = data.get("credential_ref")
+
+        def _cb_i(platform, jk, status, detail):
+            _merge_job(job_id, "publish", platform, {"status": status.value, "detail": detail})
+
+        results = []
+        for p in platforms:
+            try:
+                pub = get_publisher(p, status_callback=_cb_i)
+                req = PublishRequest(
+                    tenant_id=tenant_id, platform=p,
+                    image_paths=image_paths, title=title, description=desc,
+                    tags=tags, credential_ref=cred_ref,
+                )
+                res = pub.publish(req, job_id)
+                results.append({
+                    "platform": p, "status": res.status.value,
+                    "post_id": res.platform_post_id, "url": res.platform_url,
+                    "error": res.error_message,
+                })
+            except Exception as exc:  # noqa: BLE001
+                results.append({"platform": p, "status": "failed", "error": str(exc)})
+        if job_id:
+            _set_job(job_id, publish_results=results)
+        return results
+
+    # ---- 视频笔记：需 done 状态成片 ----
     j = jobs.get(job_id)
     if not j:
         return [{"error": "job not found"}]
@@ -1262,7 +1310,6 @@ def _publish_job(job_id, platforms, data):
     out_path = j.get("out")
     if not out_path or not os.path.exists(out_path):
         return [{"error": "video file missing"}]
-    supported = set(supported_platforms())
     unknown = [p for p in platforms if p not in supported]
     if unknown:
         return [{"error": f"unsupported platform(s): {unknown}", "supported": supported_platforms()}]
@@ -1893,6 +1940,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_clone_voice(data)
         if p.path == "/publish":
             return self._handle_publish(data)
+        if p.path == "/xhs_generate":
+            return self._handle_xhs_generate(data)
         if p.path == "/strategist":
             return self._handle_strategist(data)
         if p.path == "/deai":
@@ -1909,17 +1958,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     # ---- 自动发布：调 publishers 适配器把成片分发到指定平台 ----
     def _handle_publish(self, data):
-        """POST /publish：把指定 done 状态的 job 成片发布到多平台。
+        """POST /publish：把成片（视频或图文）发布到多平台。
 
-        入参 JSON:
-            {"job_id": "<id>", "platforms": ["douyin","shipinhao","xiaohongshu"],
-             "tenant_id": "optional", "title": "可选覆盖", "description": "",
-             "tags": [], "credential_ref": "可选凭证句柄"}
+        视频笔记入参:
+            {"job_id": "<id>", "platforms": [...], "title": "", "description": "",
+             "tags": [], "credential_ref": ""}
+        图文笔记入参（mode="image"，不依赖视频 job）:
+            {"mode": "image", "image_paths": ["/abs/cover.png", ...],
+             "platforms": ["xiaohongshu"], "title": "", "description": "", "tags": []}
         返回: {"job_id", "results": [{"platform","status","post_id","url","error"}]}
         无凭证时各适配器降级 dry 模拟（status=published + 模拟 post_id/url）。
         """
-        job_id = data.get("job_id") or ""
-        if not job_id:
+        mode = str(data.get("mode") or "video").lower()
+        job_id = data.get("job_id") or ("xhs_" + secrets.token_hex(8) if mode == "image" else "")
+        if mode != "image" and not job_id:
             return self._send(400, {"error": "job_id required"})
         platforms = data.get("platforms") or []
         if not platforms:
@@ -1938,6 +1990,103 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if "unsupported" in err:
                 return self._send(400, results[0])
         return self._send(200, {"job_id": job_id, "results": results})
+
+    # ---- 小红书图文笔记生成：选题+卖点+受众 → 结构化笔记 + 渲染出图 ----
+    def _handle_xhs_generate(self, data):
+        """POST /xhs_generate：自动产出一篇「能直接发布」的小红书系列图文。
+
+        入参 JSON:
+            {"topic": "选题", "selling_points": "卖点（可多句）",
+             "audience": "受众", "brand": "可选品牌署名", "pages": 可选期望内页数(默认4)}
+        返回:
+            {"ok": true, "note": {...}, "images": [base64...], "image_paths": [abs...],
+             "count": <总张数>}
+        总张数封顶 9（封面1 + 内文≤8）。
+        """
+        topic = (data.get("topic") or "").strip()
+        if not topic:
+            return self._send(400, {"error": "topic required"})
+        selling = (data.get("selling_points") or "").strip()
+        audience = (data.get("audience") or "").strip()
+        brand = (data.get("brand") or "慧根堂 · 老张讲财税").strip()
+        want_pages = max(2, min(8, int(data.get("pages") or 4)))
+
+        # 1) DeepSeek 生成结构化笔记
+        note = self._xhs_build_note(topic, selling, audience, want_pages)
+        if not note:
+            return self._send(502, {"error": "内容生成失败（DeepSeek 不可用或超时）"})
+
+        # 2) 渲染出图（封面 + 内文分页，封顶 9 张）
+        import base64
+        from xhs_render import render_note
+        outdir = os.path.join(JOBS_DIR, "xhs_" + secrets.token_hex(8))
+        os.makedirs(outdir, exist_ok=True)
+        paths = render_note(note, outdir, brand)
+        images_b64 = []
+        for pp in paths:
+            with open(pp, "rb") as f:
+                images_b64.append("data:image/png;base64," + base64.b64encode(f.read()).decode("ascii"))
+
+        return self._send(200, {
+            "ok": True,
+            "note": note,
+            "images": images_b64,
+            "image_paths": paths,
+            "count": len(paths),
+        })
+
+    def _xhs_build_note(self, topic, selling, audience, want_pages):
+        """调 DeepSeek 产出结构化笔记（封面/内文分页/正文/候选标题）。"""
+        try:
+            cfg = get_text_config()
+        except Exception:  # noqa: BLE001
+            cfg = {"model": "", "key": "", "base_url": None}
+        prompt = (
+            "你是一名资深小红书财税内容运营，擅长把专业财税知识改写成老板爱看、"
+            "能涨粉的爆款图文笔记。请根据以下信息，产出一篇系列图文笔记的结构化方案。\n\n"
+            f"【选题】{topic}\n"
+            f"【卖点/核心观点】{selling or '（自行提炼该选题对受众的核心价值）'}\n"
+            f"【目标受众】{audience or '中小企业老板/创业者'}\n"
+            f"【内文分页数量】请产出 {want_pages} 页内文（不含封面）。\n\n"
+            "严格要求：只输出一个 JSON 对象，不要任何解释、不要 markdown 代码块包裹。结构如下：\n"
+            "{\n"
+            '  "cover": {"title": "封面大字标题（≤18字，抓痛点或给钩子）", "subtitle": "封面副标题（≤24字，补充说明）", "tag": "封面标签（≤8字，如 税务风险·老板必看）"},\n'
+            '  "pages": [{"heading": "本页小标题（≤14字）", "points": ["要点1（≤30字）", "要点2（≤30字）", "要点3（≤30字）"]}],\n'
+            '  "body": "小红书正文：口语化、有干货、结尾带互动引导，末尾附 4~6 个 #话题标签（如 #税务风险 #老板必看），总长 200~400 字",\n'
+            '  "titles": ["候选标题1（≤20字，带情绪/数字/痛点）", "候选标题2", "候选标题3", "候选标题4"]\n'
+            "}\n"
+            "注意：pages 数组长度必须等于上面要求的内文页数；points 每页 2~4 条；"
+            "所有中文必须准确、专业、无错别字；禁止出现违禁词（不承诺避税/不诱导虚开）。"
+        )
+        try:
+            content = deepseek_chat(prompt, cfg.get("model", ""), cfg.get("key", ""),
+                                    cfg.get("base_url"), timeout=90)
+        except Exception as e:  # noqa: BLE001
+            _hotspot_debug(["xhs deepseek fail: " + str(e)])
+            return None
+        if not content:
+            return None
+        # 抽取 JSON
+        try:
+            s, e = content.find("{"), content.rfind("}")
+            if s < 0 or e < 0:
+                return None
+            obj = json.loads(content[s:e + 1])
+        except Exception:  # noqa: BLE001
+            return None
+        # 兜底规范化
+        pages = obj.get("pages") or []
+        if not isinstance(pages, list):
+            pages = []
+        out = {
+            "cover": obj.get("cover") or {"title": topic, "subtitle": "", "tag": "财税干货"},
+            "pages": pages[:8],
+            "body": obj.get("body") or "",
+            "titles": obj.get("titles") or [topic],
+        }
+        if not out["pages"]:
+            out["pages"] = [{"heading": topic, "points": [selling or "核心卖点", "适用场景", "行动建议"]}]
+        return out
 
     # ---- P4 OAuth2 授权码模式：抖音/小红书 ----
     def _handle_oauth_authorize(self, platform: str):

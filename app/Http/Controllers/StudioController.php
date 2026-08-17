@@ -26,7 +26,7 @@ class StudioController extends Controller
 
     public function topic()
     {
-        $tenant = request()->user()->tenant;
+        $tenant = $this->studioTenant(request());
         return view('studio.topic', [
             'tenantName'   => $tenant->name,
             'tenantSlug'   => $tenant->slug,
@@ -48,7 +48,7 @@ class StudioController extends Controller
 
     public function qc()
     {
-        $tenant = request()->user()->tenant;
+        $tenant = $this->studioTenant(request());
         // 列出本租户已完成渲染、待质检/已质检的出片，供前端逐条跑技术质检
         $jobs = VideoJob::where('tenant_id', $tenant->id)
             ->where('status', 'done')
@@ -211,7 +211,7 @@ class StudioController extends Controller
     public function qcVideo(Request $request, string $jobId)
     {
         $user = $request->user();
-        $tenant = $user->tenant;
+        $tenant = $this->studioTenant(request());
         try {
             $job = VideoJob::where('job_id', $jobId)
                 ->where('tenant_id', $tenant->id)
@@ -296,7 +296,7 @@ class StudioController extends Controller
     /** 外观设置页：展示预设方案 + 当前租户已保存的 DIY 覆盖。 */
     public function appearance()
     {
-        $tenant = request()->user()->tenant;
+        $tenant = $this->studioTenant(request());
         $preset = in_array($tenant->theme_preset, ['indigo', 'warm', 'teal'], true) ? $tenant->theme_preset : 'indigo';
         $ov = is_array($tenant->theme_overrides) ? $tenant->theme_overrides : (json_decode($tenant->theme_overrides ?? '{}', true) ?: []);
         $density = in_array($ov['density'] ?? null, ['comfortable', 'compact'], true) ? $ov['density'] : 'comfortable';
@@ -319,7 +319,7 @@ class StudioController extends Controller
     /** 保存外观设置：预设 + 可选 DIY 覆盖（强调色 / 页面底色 / 密度）。 */
     public function appearanceUpdate(Request $request)
     {
-        $tenant = request()->user()->tenant;
+        $tenant = $this->studioTenant(request());
 
         $data = $request->validate([
             'theme_preset' => ['required', 'string', 'in:indigo,warm,teal'],
@@ -373,7 +373,7 @@ class StudioController extends Controller
      */
     public function dissect()
     {
-        $tenant = request()->user()->tenant;
+        $tenant = $this->studioTenant(request());
         return view('studio.dissect', [
             'tenantName'     => $tenant->name,
             'industryHint'   => $tenant->settings['industry'] ?? '',

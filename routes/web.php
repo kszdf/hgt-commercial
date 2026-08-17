@@ -110,6 +110,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/models/{modelAsset}/reupload', [ModelAssetController::class, 'reupload'])->name('studio.models.reupload');
 
     // 封面素材管理（上传 / 列表 / 预览 / 删除 / 重新上传）
+    // ---- 小红书图文笔记 ----
+    Route::get('/studio/xhs', [XhsController::class, 'index'])->name('studio.xhs');
+    Route::post('/studio/xhs/generate', [XhsController::class, 'generate']);
+    Route::post('/studio/xhs/publish', [XhsController::class, 'publish']);
+
     Route::get('/studio/covers', [CoverAssetController::class, 'index'])->name('studio.covers');
     Route::get('/studio/covers/json', [CoverAssetController::class, 'coversJson']);
     Route::get('/studio/covers/{coverAsset}/preview', [CoverAssetController::class, 'preview'])->name('studio.covers.preview');

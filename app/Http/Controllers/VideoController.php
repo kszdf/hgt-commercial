@@ -54,7 +54,7 @@ class VideoController extends Controller
             $tenant = \App\Models\Tenant::whereIn('plan', ['pro', 'enterprise'])->first()
                 ?? \App\Models\Tenant::first();
         } else {
-            $tenant = $user->tenant;
+            $tenant = $this->studioTenant(request());
 
             // —— 统一生成拦截：试用到期 / 月度额度 / 试用累计条数 / 试用累计时长 ——
             $block = $tenant->generationBlockReason();
@@ -442,7 +442,7 @@ class VideoController extends Controller
         if ($user->isGlobalAdmin()) {
             $tenantQueued = 0; // 超管不受租户并发限制
         } else {
-            $tenant = $user->tenant;
+            $tenant = $this->studioTenant(request());
             $tenantQueued = \App\Models\VideoJob::where('tenant_id', $tenant->id)
                 ->where('status', 'queued')->count();
         }
@@ -450,6 +450,9 @@ class VideoController extends Controller
         $concurrency  = (int) env('GLOBAL_MAX_JOBS', 3);
         $tenantMax    = (int) env('TENANT_MAX_CONCURRENT_JOBS', 2);
         $avgRenderMin = (int) env('AVG_RENDER_MIN', 10);
+
+        // 全局未完成任务数（跨租户），用于估算新提交后的排队等待
+        $globalQueued = \App\Models\VideoJob::where('status', 'queued')->count();
 
         // 新提交使全局队列 +1，其排队批次 = ceil((N+1)/C)，前面 N 条需渲完
         $estWaitMin = (int) ceil($globalQueued / max(1, $concurrency)) * $avgRenderMin;
@@ -492,7 +495,7 @@ class VideoController extends Controller
     /** 视频生成列表：本租户全部未删除出片任务，按创建时间倒序。 */
     public function library()
     {
-        $tenant = request()->user()->tenant;
+        $tenant = $this->studioTenant(request());
         $jobs = VideoJob::where('tenant_id', $tenant->id)
             ->orderByDesc('created_at')
             ->with('qcReport', 'coverAsset')
@@ -514,7 +517,7 @@ class VideoController extends Controller
     /** 回收站：本租户已软删除的视频。 */
     public function recycle()
     {
-        $tenant = request()->user()->tenant;
+        $tenant = $this->studioTenant(request());
         $jobs = VideoJob::onlyTrashed()
             ->where('tenant_id', $tenant->id)
             ->orderByDesc('deleted_at')
@@ -565,7 +568,7 @@ class VideoController extends Controller
     public function storeBatchPlan(Request $request)
     {
         $user = $request->user();
-        $tenant = $user->tenant;
+        $tenant = $this->studioTenant(request());
         $data = $request->validate([
             'config' => ['required', 'array'],
             'scripts' => ['required', 'array', 'min:1', 'max:50'],
@@ -644,7 +647,7 @@ class VideoController extends Controller
 
     private function authorizeTenant(VideoJob $job): void
     {
-        if ($job->tenant_id !== request()->user()->tenant_id) {
+        if (! request()->user()->isGlobalAdmin() && $job->tenant_id !== request()->user()->tenant_id) {
             abort(403);
         }
     }

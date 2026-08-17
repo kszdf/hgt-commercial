@@ -19,7 +19,7 @@ class ReviewController extends Controller
     /** 审核队列：列出待审/驳回视频（按最近更新）。 */
     public function index()
     {
-        $tenant = request()->user()->tenant;
+        $tenant = $this->studioTenant(request());
         $jobs = VideoJob::where('tenant_id', $tenant->id)
             ->whereIn('publish_status', ['draft', 'reviewing', 'rejected'])
             ->orderByDesc('updated_at')
@@ -65,7 +65,7 @@ class ReviewController extends Controller
 
     private function authorizeTenant(VideoJob $job): void
     {
-        if ($job->tenant_id !== request()->user()->tenant_id) {
+        if (! request()->user()->isGlobalAdmin() && $job->tenant_id !== request()->user()->tenant_id) {
             abort(403);
         }
     }

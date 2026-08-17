@@ -47,7 +47,7 @@ class AdminController extends Controller
 
     public function billing(Request $request)
     {
-        $tenant = $request->user()->tenant;
+        $tenant = $this->studioTenant($request);
         $recent = $tenant->videoJobs()->latest()->limit(20)->get();
 
         return view('admin.billing', [

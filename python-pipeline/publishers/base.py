@@ -37,14 +37,21 @@ class PublishStatus(str, Enum):
 
 @dataclass
 class PublishRequest:
-    """发布请求输入参数（所有适配器统一接收此结构，禁止各平台自定义入参）。"""
+    """发布请求输入参数（所有适配器统一接收此结构，禁止各平台自定义入参）。
+
+    支持两类作品：
+      - 视频笔记：传 video_path（必填其一）。
+      - 图文笔记：传 image_paths（1~9 张本地图，必填其一）。
+    二者至少填其一；适配器按字段是否存在决定笔记类型。
+    """
     tenant_id: int                 # 租户 ID（隔离 + 凭证归属）
     platform: str                 # 规范平台键：douyin/shipinhao/xiaohongshu/bilibili/youtube
-    video_path: str               # 本地视频文件绝对路径
-    title: str                    # 作品标题
+    video_path: Optional[str] = None               # 本地视频文件绝对路径（视频笔记用）
+    image_paths: Optional[list] = None             # 本地图片文件绝对路径列表（图文笔记用，1~9 张）
+    title: str = ""                # 作品标题
     description: str = ""         # 作品描述/正文
     tags: list[str] = field(default_factory=list)      # 话题标签
-    cover_path: Optional[str] = None                  # 封面图路径（可选）
+    cover_path: Optional[str] = None                  # 封面图路径（可选，图文笔记可单独指定封面）
     extra: dict = field(default_factory=dict)          # 平台专属扩展（如 douyin 的 poi_id、youtube 的 privacy_status）
     credential_ref: Optional[str] = None               # 租户在该平台的凭证引用键（真实 secret 不落库）
 
