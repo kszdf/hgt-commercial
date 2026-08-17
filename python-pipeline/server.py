@@ -1231,25 +1231,6 @@ def _is_cancelled(job_id):
         return bool(j and j.get("cancelled"))
 
 
-def _handle_cancel(self, data):
-    """POST /cancel：标记 job 为已取消，使其渲染循环尽快停止。
-
-    入参 JSON: {"job_id": "<id>"}
-    返回: {"ok": true, "status": "cancelled" | "not_found" | "already_done"}
-    """
-    job_id = (data or {}).get("job_id") or ""
-    if not job_id:
-        return self._send(400, {"error": "job_id required"})
-    with lock:
-        j = jobs.get(job_id)
-        if j is None:
-            return self._send(404, {"ok": False, "status": "not_found"})
-        if j.get("status") in ("done", "failed", "cancelled"):
-            return self._send(200, {"ok": True, "status": j.get("status")})
-        j["cancelled"] = True
-        _save_job(job_id, j)
-    return self._send(200, {"ok": True, "status": "cancelled"})
-
 
 
 def _append_version(job_id, out_path, payload, tag=""):
@@ -1991,6 +1972,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if p.path == "/cancel":
             return self._handle_cancel(data)
         return self._send(404, {"error": "not found"})
+
+    # ---- 出片中止：标记 job 为已取消 ----
+    def _handle_cancel(self, data):
+        """POST /cancel：标记 job 为已取消，使其渲染循环尽快停止。
+
+        入参 JSON: {"job_id": "<id>"}
+        返回: {"ok": true, "status": "cancelled" | "not_found" | "already_done"}
+        """
+        job_id = (data or {}).get("job_id") or ""
+        if not job_id:
+            return self._send(400, {"error": "job_id required"})
+        with lock:
+            j = jobs.get(job_id)
+            if j is None:
+                return self._send(404, {"ok": False, "status": "not_found"})
+            if j.get("status") in ("done", "failed", "cancelled"):
+                return self._send(200, {"ok": True, "status": j.get("status")})
+            j["cancelled"] = True
+            _save_job(job_id, j)
+        return self._send(200, {"ok": True, "status": "cancelled"})
 
     # ---- 自动发布：调 publishers 适配器把成片分发到指定平台 ----
     def _handle_publish(self, data):
