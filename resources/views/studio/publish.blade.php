@@ -141,6 +141,37 @@
             location.reload();
         }
     });
+
+    // 批量外发：拦截表单提交，改用 fetch 以支持「中止」按钮（提交中可随时停止）
+    document.querySelectorAll('form[action$="publish.do"], form[action*="studio/publish"]').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (HGTAbort.isActive()) return;
+            const signal = HGTAbort.begin('中止：批量发布中…');
+            const btn = form.querySelector('button[type="submit"]');
+            if (btn) btn.disabled = true;
+            const fd = new FormData(form);
+            fetch(form.action, {
+                method: 'POST',
+                signal: signal,
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: fd
+            })
+            .then(function (r) {
+                // 成功（含重定向）后刷新本页以更新发布历史
+                location.href = '/studio/publish';
+            })
+            .catch(function (err) {
+                if (err.name === 'AbortError') { hgtToast('warn', '已中止发布'); return; }
+                hgtToast('error', '发布请求异常：' + (err.message || '网络错误'));
+                if (btn) btn.disabled = false;
+            })
+            .finally(function () { HGTAbort.end(); });
+        });
+    });
 </script>
 @endpush
 </x-workspace-layout>

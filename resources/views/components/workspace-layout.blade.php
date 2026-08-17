@@ -685,6 +685,7 @@ window.HGTAbort = (function () {
             meta.serverCancelDone = true;
             callServerCancel();
         }
+        controller = null;   // 中止后置空：isActive() 立即返回 false，供循环提前跳出
         hide();
     }
 

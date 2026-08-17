@@ -41,6 +41,12 @@ class PipelineClient
         return $this->send('get', $endpoint, [], $timeout);
     }
 
+    /** 中止出片任务：POST 8500 /cancel，body {job_id}。 */
+    public function cancel(string $jobId, int $timeout = 15): Response
+    {
+        return $this->post('/cancel', ['job_id' => $jobId], $timeout);
+    }
+
     /** 显式发送 JSON raw body（8500 /publish 严格要求 JSON body）。 */
     public function postJson(string $endpoint, array $payload, int $timeout = 180): Response
     {

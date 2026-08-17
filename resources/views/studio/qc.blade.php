@@ -93,9 +93,11 @@ document.getElementById('qcForm').addEventListener('submit', async function (e) 
     msg.textContent = ''; errBox.classList.add('hidden');
     zwSetLoading(btn, {loading: true, text: '检测中…'});
     badge.textContent = '检测中'; badge.className = 'rounded-full bg-brand-100 px-3 py-1 text-xs text-brand-600';
+    const signal = HGTAbort.begin('中止：智能质检中…');
     try {
         const resp = await fetch('/studio/qc/generate', {
             method: 'POST',
+            signal,
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
@@ -132,9 +134,18 @@ document.getElementById('qcForm').addEventListener('submit', async function (e) 
         result.innerHTML = html;
         zwSetLoading(btn, {loading: false});
     } catch (err) {
+        if (err.name === 'AbortError') {
+            zwSetLoading(btn, {loading: false});
+            badge.textContent = '已中止'; badge.className = 'rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500';
+            msg.textContent = '⏹ 已中止质检。';
+            hgtToast('warn', '已中止质检');
+            return;
+        }
         zwSetLoading(btn, {loading: false});
         badge.textContent = '失败'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
         errBox.textContent = err.message; errBox.classList.remove('hidden');
+    } finally {
+        HGTAbort.end();
     }
 });
 
@@ -147,9 +158,11 @@ document.querySelectorAll('.run-qc').forEach(btn => {
         const row = btn.closest('[data-job]');
         const statusEl = row.querySelector('.qc-status');
         btn.disabled = true; btn.classList.add('zw-btn-loading'); btn.textContent = '质检中…';
+        const signal = HGTAbort.begin('中止：视频质检中…');
         try {
             const resp = await fetch('/studio/qc/video/' + jobId, {
                 method: 'POST',
+                signal,
                 headers: {
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
@@ -163,11 +176,13 @@ document.querySelectorAll('.run-qc').forEach(btn => {
             statusEl.textContent = '状态：' + (data.qc?.status || '-') + ' · 分数 ' + (data.qc?.score || 0) + ' · 问题 ' + ((data.qc?.issues || []).length);
             btn.textContent = '重新质检';
         } catch (e) {
+            if (e && e.name === 'AbortError') { statusEl.className = 'qc-status text-xs text-slate-500'; statusEl.textContent = '已中止'; btn.textContent = '质检'; HGTAbort.end(); return; }
             statusEl.className = 'qc-status text-xs text-red-600';
             statusEl.textContent = '失败：' + e.message;
             btn.textContent = '重试';
         }
         btn.classList.remove('zw-btn-loading'); btn.disabled = false;
+        HGTAbort.end();
     });
 });
 </script>

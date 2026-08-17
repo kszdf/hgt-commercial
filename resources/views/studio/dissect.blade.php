@@ -176,9 +176,11 @@ async function startDissect() {
         payload.video_url = url;
     }
 
+    const signal = HGTAbort.begin('中止：爆款拆解中…');
     try {
         const resp = await fetch('/studio/dissect/analyze', {
             method: 'POST',
+            signal,
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
             body: JSON.stringify(payload),
         });
@@ -188,11 +190,16 @@ async function startDissect() {
         currentText = data.text || '';
         renderResult(data);
     } catch (e) {
+        if (e && e.name === 'AbortError') {
+            hgtToast('warn', '已中止拆解');
+            return;
+        }
         fail('网络错误：' + e.message);
     } finally {
         btn.disabled = false;
         btn.classList.remove('zw-btn-loading');
         btn.innerHTML = old;
+        HGTAbort.end();
     }
 }
 
@@ -341,9 +348,11 @@ async function goDeai() {
     const box = document.getElementById('deaiBox');
     box.classList.remove('hidden');
     box.innerHTML = '<div class="luxury-glass p-4"><span class="zw-spinner mr-2"></span><span class="text-sm text-slate-500">正在去 AI 痕迹…</span></div>';
+    const signal = HGTAbort.begin('中止：去 AI 痕迹中…');
     try {
         const resp = await fetch('/studio/deai', {
             method: 'POST',
+            signal,
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
             body: JSON.stringify({ text: currentText }),
         });
@@ -355,7 +364,10 @@ async function goDeai() {
             + '<div class="mt-2 flex gap-2"><button onclick="useDeai()" class="zw-btn rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">用此文案去二创</button>'
             + '<button onclick="copyDeai()" class="zw-btn rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300">复制</button></div></section>';
     } catch (e) {
+        if (e && e.name === 'AbortError') { hgtToast('warn', '已中止去 AI 痕迹'); return; }
         box.innerHTML = '<div class="luxury-glass p-4 text-sm text-rose-600">网络错误：' + esc(e.message) + '</div>';
+    } finally {
+        HGTAbort.end();
     }
 }
 function useDeai() {

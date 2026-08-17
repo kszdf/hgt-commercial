@@ -301,6 +301,30 @@ class VideoController extends Controller
     }
 
     /**
+     * 出片中止：前端「中止」按钮 onAbort 调此端点，转发 8500 标记 job 为已取消。
+     * 兼容 job_id 取自 query(?job=) 或 body({job_id:}) 两种调用方式。
+     */
+    public function cancel(Request $request)
+    {
+        $jobId = $request->query('job') ?: $request->input('job_id');
+        if (! $jobId) {
+            return response()->json(['ok' => false, 'error' => 'job_id required'], 400);
+        }
+
+        try {
+            $resp = app(PipelineClient::class)->cancel($jobId);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['ok' => false, 'error' => '出片服务暂不可用，请稍后重试'], 503);
+        }
+
+        $json = $resp->json();
+        if (! $resp->successful()) {
+            return response()->json($json ?: ['ok' => false, 'error' => '中止失败'], $resp->status());
+        }
+        return response()->json($json);
+    }
+
+    /**
      * 把 8500 原始状态 enriched 成租户端友好的进度结构：
      * 中文分步文案 + 百分比 + 预计剩余秒。纯映射，不动 8500。
      */

@@ -112,10 +112,11 @@ async function doGenerate() {
     const btn = document.getElementById('btnGenerate');
     btn.disabled = true; btn.textContent = '生成中…';
     setStatus('genStatus', '正在调用 AI 生成内容并渲染图片（约 30~60 秒）…', 'warn');
-
+    const signal = HGTAbort.begin('中止：图文生成中…');
     try {
         const resp = await fetch('/studio/xhs/generate', {
             method: 'POST',
+            signal,
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() },
             body: JSON.stringify({
                 topic,
@@ -166,8 +167,10 @@ async function doGenerate() {
 
         setStatus('genStatus', `✅ 成功！已生成 ${_images.length} 张图 + ${(_note.titles||[]).length} 个候选标题`, 'ok');
     } catch (e) {
+        if (e.name === 'AbortError') { setStatus('genStatus', '⏹ 已中止生成', 'warn'); return; }
         setStatus('genStatus', '❌ 生成失败：' + e.message, 'err');
     } finally {
+        HGTAbort.end();
         btn.disabled = false; btn.textContent = '一键生成';
     }
 }
@@ -180,10 +183,11 @@ async function doPublish() {
     const btn = document.getElementById('btnPublish');
     btn.disabled = true; btn.textContent = '发布中…';
     setStatus('pubStatus', '正在发布到小红书…', 'warn');
-
+    const signal = HGTAbort.begin('中止：小红书发布中…');
     try {
         const resp = await fetch('/studio/xhs/publish', {
             method: 'POST',
+            signal,
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() },
             body: JSON.stringify({
                 image_paths: _paths,
@@ -205,8 +209,10 @@ async function doPublish() {
             setStatus('pubStatus', `📤 状态：${r.status} — ${r.url || r.post_id || ''}`, 'ok');
         }
     } catch (e) {
+        if (e.name === 'AbortError') { setStatus('pubStatus', '⏹ 已中止发布', 'warn'); return; }
         setStatus('pubStatus', '❌ 发布异常：' + e.message, 'err');
     } finally {
+        HGTAbort.end();
         btn.disabled = false; btn.textContent = '发布到小红书';
     }
 }

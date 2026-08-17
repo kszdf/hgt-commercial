@@ -1224,6 +1224,34 @@ def _merge_job(job_id, key, subkey, value):
     return j
 
 
+def _is_cancelled(job_id):
+    """任务是否已被用户中止（前端 /cancel 标记）。"""
+    with lock:
+        j = jobs.get(job_id)
+        return bool(j and j.get("cancelled"))
+
+
+def _handle_cancel(self, data):
+    """POST /cancel：标记 job 为已取消，使其渲染循环尽快停止。
+
+    入参 JSON: {"job_id": "<id>"}
+    返回: {"ok": true, "status": "cancelled" | "not_found" | "already_done"}
+    """
+    job_id = (data or {}).get("job_id") or ""
+    if not job_id:
+        return self._send(400, {"error": "job_id required"})
+    with lock:
+        j = jobs.get(job_id)
+        if j is None:
+            return self._send(404, {"ok": False, "status": "not_found"})
+        if j.get("status") in ("done", "failed", "cancelled"):
+            return self._send(200, {"ok": True, "status": j.get("status")})
+        j["cancelled"] = True
+        _save_job(job_id, j)
+    return self._send(200, {"ok": True, "status": "cancelled"})
+
+
+
 def _append_version(job_id, out_path, payload, tag=""):
     """P3 版本管理：把一次成功渲染产物登记为一个版本，写入 job.versions。
     版本号自动递增；记录输出路径、参数快照、时间戳、标签（如 regen/初始）。"""
@@ -1673,8 +1701,14 @@ def run_job(job_id, payload):
         # 准入已完成（/generate 已占并发槽）。HEYGEM 为单 GPU 串行渲染：
         # 先以 step="queued" 告知前端"正在等待渲染资源"，抢到渲染锁后由 _render_with_lock 切到 "rendering"。
         _set_job(job_id, status="rendering", step="queued", start_ts=time.time())
+        if _is_cancelled(job_id):
+            _set_job(job_id, status="cancelled", step="cancelled", error="用户已中止")
+            return
         rc, err = _render_with_lock(job_id, args, log_path)
         if rc == 0 and os.path.exists(out_path):
+            if _is_cancelled(job_id):
+                _set_job(job_id, status="cancelled", step="cancelled", error="用户已中止")
+                return
             # 专业级后处理 + 质量门禁：剪辑（真实标题烧入）→ 智能封面（QC 门禁）
             out_path = _post_process(job_id, payload, out_path, job_dir, edit_style)
             # 终片技术质检：分辨率 / 音轨 / 竖屏 / 中段静音（音频断续/掉字）
@@ -1954,6 +1988,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_transcribe(data)
         if p.path == "/dissect":
             return self._handle_dissect(data)
+        if p.path == "/cancel":
+            return self._handle_cancel(data)
         return self._send(404, {"error": "not found"})
 
     # ---- 自动发布：调 publishers 适配器把成片分发到指定平台 ----

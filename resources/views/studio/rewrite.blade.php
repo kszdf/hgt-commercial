@@ -916,6 +916,7 @@ async function callRewriteWithRetry(payload, maxRetry = 2) {
         try {
             return await callRewrite(payload);
         } catch (err) {
+            if (err.name === 'AbortError') throw err;  // 中止立即上抛，不重试
             lastErr = err;
             if (attempt < maxRetry) await sleep(600 * Math.pow(2, attempt));
         }
@@ -992,6 +993,7 @@ async function runBatchRewrite() {
     badge.textContent = '批量改写中';
     badge.className = 'rounded-full bg-brand-100 px-3 py-1 text-xs text-brand-600';
 
+    const signal = HGTAbort.begin('中止：批量改写中…');
     batchResults = [];
     document.getElementById('batchResumeBanner')?.classList.add('hidden');
     const focus = document.getElementById('focus').value;
@@ -999,6 +1001,7 @@ async function runBatchRewrite() {
     const preserve = document.getElementById('preserve').value.trim();
 
     for (let i = 0; i < currentTopics.length; i++) {
+        if (!HGTAbort.isActive()) { hgtToast('warn', '已中止批量改写'); break; }
         const topic = currentTopics[i];
         const unified = document.getElementById('forceUnified') && document.getElementById('forceUnified').checked;
         const mode = unified ? document.getElementById('mode').value : mapTopicFormToMode(topic.form);
@@ -1009,9 +1012,11 @@ async function runBatchRewrite() {
             role_mode: document.getElementById('roleMode').value,
             role_note: document.getElementById('roleNote').value.trim(),
             keep_manual_roles: document.getElementById('keepManualRoles').checked,
+            signal,
         });
             batchResults.push({index: i, title: topic.title, ok: true, mode: mode, data});
         } catch (err) {
+            if (err.name === 'AbortError') { hgtToast('warn', '已中止批量改写'); break; }
             batchResults.push({index: i, title: topic.title, ok: false, mode: mode, error: err.message});
         }
         btn.textContent = '批量改写中 ' + (i + 1) + '/' + currentTopics.length;
@@ -1021,6 +1026,7 @@ async function runBatchRewrite() {
         if (i < currentTopics.length - 1) await sleep(400);
     }
 
+    HGTAbort.end();
     btn.classList.remove('zw-btn-loading'); btn.disabled = false;
     btn.textContent = '全部二创';
     genBtn.disabled = false;
@@ -1368,7 +1374,7 @@ async function postBvProgress(batchId, index, status, jobId) {
     } catch(e) {}
 }
 
-async function submitOneBatchVideo(batchId, config, index, script) {
+async function submitOneBatchVideo(batchId, config, index, script, signal) {
     const form = config.form;
     const mode = (form === 'avatar') ? 'avatar' : 'scroll';
     const voiceForm = (form === 'scroll_dual') ? 'dialogue' : (form === 'scroll_male' ? 'male_mono' : (form === 'scroll_female' ? 'female_mono' : 'mono'));
@@ -1385,13 +1391,13 @@ async function submitOneBatchVideo(batchId, config, index, script) {
     await postBvProgress(batchId, index, 'submitted', null);
     setBvCard(index, 'submitted', '提交中');
     const resp = await fetch('/studio/scroll/generate', {
-        method:'POST', headers:{'Accept':'application/json','Content-Type':'application/json','X-CSRF-TOKEN':csrf()},
+        method:'POST', signal, headers:{'Accept':'application/json','Content-Type':'application/json','X-CSRF-TOKEN':csrf()},
         body: JSON.stringify(payload)
     });
     const data = await resp.json().catch(()=>({}));
     if (resp.ok && data.job_id) {
         await postBvProgress(batchId, index, 'submitted', data.job_id);
-        pollBvJob(batchId, index, data.job_id);
+        pollBvJob(batchId, index, data.job_id, signal);
         return true;
     }
     if (resp.status === 429 || (data && data.code === 'tenant_busy')) {
@@ -1402,7 +1408,7 @@ async function submitOneBatchVideo(batchId, config, index, script) {
     return 'failed';
 }
 
-async function pollBvJob(batchId, index, jobId) {
+async function pollBvJob(batchId, index, jobId, signal) {
     bvStartTimes[index] = Date.now();  // 记录起始时间戳，用于"已等待"精确计时
     // 显示并绑定本卡「进度」按钮，点击查看时间戳进度记录
     const card0 = document.querySelector('#bvCards [data-bv="'+index+'"]');
@@ -1413,7 +1419,7 @@ async function pollBvJob(batchId, index, jobId) {
     for (let i=0;i<300;i++){
         await sleep(2000);
         try {
-            const resp = await fetch('/studio/scroll/status/'+jobId, { headers:{'Accept':'application/json','X-CSRF-TOKEN':csrf()} });
+            const resp = await fetch('/studio/scroll/status/'+jobId, { signal, headers:{'Accept':'application/json','X-CSRF-TOKEN':csrf()} });
             const data = await resp.json().catch(()=>({}));
             setBvProgress(index, data);  // 实时刷新进度条/分步/已等待/ETA
             if (data.status === 'done') {
@@ -1431,7 +1437,7 @@ async function pollBvJob(batchId, index, jobId) {
                 updateBvSummary();
                 return;
             }
-        } catch(e) {}
+        } catch(e) { if (e && e.name === 'AbortError') return 'aborted'; }
     }
     setBvCard(index, 'failed', '轮询超时');
 }
@@ -1449,11 +1455,13 @@ function updateBvSummary() {
 
 async function runBatchVideoOrchestrator(batchId, config, scripts, onlyIndices) {
     const pending = (onlyIndices && onlyIndices.length) ? onlyIndices.slice() : scripts.map((_,i)=>i);
+    const signal = HGTAbort.begin('中止：批量出片中…');
     while (pending.length) {
+        if (!HGTAbort.isActive()) { hgtToast('warn', '已中止批量出片'); break; }
         const idx = pending.shift();
         let attempt = 0, result = null;
         while (attempt <= 3) {
-            const r = await submitOneBatchVideo(batchId, config, idx, scripts[idx]);
+            const r = await submitOneBatchVideo(batchId, config, idx, scripts[idx], signal);
             if (r === true) { result = true; break; }
             if (r === 'failed') { result = 'failed'; break; }
             attempt++;
@@ -1465,6 +1473,7 @@ async function runBatchVideoOrchestrator(batchId, config, scripts, onlyIndices) 
         }
         await sleep(300);
     }
+    HGTAbort.end();
 }
 
 async function resumeBatchVideo(batchId) {

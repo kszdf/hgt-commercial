@@ -744,9 +744,11 @@ async function aiSuggestTitle() {
     subtitleDirty = false;
     zwSetLoading(btn, { loading: true, text: '⏳ AI 生成中…' });
     if (hint) { hint.textContent = 'AI 正在根据文稿构思标题与副标题…'; hint.className = 'text-[11px] text-brand-600'; }
+    const signal = HGTAbort.begin('中止：AI 标题生成中…');
     try {
         const resp = await fetch('/studio/scroll/suggest-title', {
             method: 'POST',
+            signal,
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
@@ -763,9 +765,11 @@ async function aiSuggestTitle() {
         // AI 结果优先，不再用本地启发式覆盖
         if (hint) { hint.textContent = '✓ AI 已生成（' + {smart:'智能提取', full:'首句完整', suspense:'悬念式'}[titleStyle] + '），可直接修改'; hint.className = 'text-[11px] text-emerald-600'; }
     } catch (err) {
-        if (hint) { hint.textContent = '生成失败：' + (err.message || '未知错误'); hint.className = 'text-[11px] text-red-500'; }
+        if (err.name === 'AbortError') { if (hint) { hint.textContent = '⏹ 已中止生成'; hint.className = 'text-[11px] text-slate-500'; } }
+        else if (hint) { hint.textContent = '生成失败：' + (err.message || '未知错误'); hint.className = 'text-[11px] text-red-500'; }
     } finally {
         zwSetLoading(btn, { loading: false });
+        HGTAbort.end();
     }
 }
 document.getElementById('aiTitleBtn')?.addEventListener('click', aiSuggestTitle);
@@ -1148,9 +1152,23 @@ async function handleGenerate(e) {
     setBtnLoading(true, '正在提交…');
     badge.textContent = '排队中'; badge.className = 'rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-700';
 
+    const signal = HGTAbort.begin('中止：出片进行中…', {
+        onAbort: function () {
+            if (typeof currentJobId !== 'undefined' && currentJobId) {
+                var m = document.querySelector('meta[name="csrf-token"]');
+                var tk = m ? m.content : '';
+                fetch('/studio/scroll/cancel?job=' + currentJobId, {
+                    method: 'POST', keepalive: true,
+                    headers: { 'X-CSRF-TOKEN': tk, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                }).catch(function () {});
+            }
+        }
+    });
     try {
         const resp = await fetch('/studio/scroll/generate', {
             method: 'POST',
+            signal,
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
@@ -1228,9 +1246,18 @@ async function handleGenerate(e) {
             + '<div class="mt-1 text-xs">您可先去其他页面，回来会自动续接进度</div></div>';
         pollStatus(data.job_id);
     } catch (err) {
+        if (err.name === 'AbortError') {
+            setBtnLoading(false);
+            badge.textContent = '已中止'; badge.className = 'rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500';
+            errBox.textContent = '⏹ 已中止出片。'; errBox.classList.remove('hidden');
+            hgtToast('warn', '已中止出片');
+            HGTAbort.end();
+            return;
+        }
         setBtnLoading(false);
         badge.textContent = '失败'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
         errBox.textContent = err.message || '未知错误'; errBox.classList.remove('hidden');
+        HGTAbort.end();
     }
 }
 document.getElementById('genForm').addEventListener('submit', handleGenerate);
@@ -1248,6 +1275,13 @@ async function pollStatus(jobId) {
             await new Promise(r => setTimeout(r, 100));
         }
         window.__hgt_pollNow = false;
+        if (!HGTAbort.isActive()) {
+            badge.textContent = '已中止'; badge.className = 'rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500';
+            setBtnLoading(false);
+            hgtToast('warn', '已中止出片');
+            HGTAbort.end();
+            return;
+        }
         try {
             const statusResp = await fetch('/studio/scroll/status/' + jobId, {
                 headers: {
@@ -1277,6 +1311,7 @@ async function pollStatus(jobId) {
                     '  </div>' +
                     '</div>';
                 setBtnLoading(false);
+                HGTAbort.end();
                 return;
             } else if (data.status === 'failed') {
                 sessionStorage.removeItem('hgt_active_job');
@@ -1284,6 +1319,7 @@ async function pollStatus(jobId) {
                 const eb = document.getElementById('errorBox');
                 eb.textContent = '出片失败：' + (data.error || '未知错误'); eb.classList.remove('hidden');
                 setBtnLoading(false);
+                HGTAbort.end();
                 return;
             } else {
                 badge.textContent = '出片中'; badge.className = 'rounded-full bg-brand-100 px-3 py-1 text-xs text-brand-600';
@@ -1375,6 +1411,7 @@ async function pollStatus(jobId) {
     }
     badge.textContent = '超时'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
     setBtnLoading(false);
+    HGTAbort.end();
 }
 
 // 续接未完成的出片任务（用户离开页面后回来自动恢复轮询）
@@ -1385,6 +1422,17 @@ async function pollStatus(jobId) {
         currentJobId = jobId;
         document.getElementById('jobLogBtn')?.classList.remove('hidden');
         setBtnLoading(true, '出片中…');
+        HGTAbort.begin('中止：出片进行中…', {
+            onAbort: function () {
+                var m = document.querySelector('meta[name="csrf-token"]');
+                var tk = m ? m.content : '';
+                fetch('/studio/scroll/cancel?job=' + jobId, {
+                    method: 'POST', keepalive: true,
+                    headers: { 'X-CSRF-TOKEN': tk, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                }).catch(function () {});
+            }
+        });
         pollStatus(jobId);
     }
 })();
