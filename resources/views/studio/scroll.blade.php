@@ -121,11 +121,18 @@
                 <!-- 声音选择 -->
                 <div class="rounded-lg studio-card studio-card-sm">
                     <label id="voiceLabel" class="mb-1.5 block text-sm font-medium text-slate-600">配音声线</label>
-                    <!-- 常用声线快捷切换（老张本人真声 / 江老师克隆声） -->
-                    <div class="mb-2 flex flex-wrap items-center gap-2">
+                    <!-- 独白模式快捷（男声独白/女声独白/单声线/数字人）：老张或江老师二选一 -->
+                    <div id="quickVoiceSingle" class="mb-2 flex flex-wrap items-center gap-2">
                         <span class="text-xs text-slate-400">快捷：</span>
                         <button type="button" id="quickVoiceZhang" class="quick-voice-btn rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:border-brand-300">老张（本人真声）</button>
                         <button type="button" id="quickVoiceJiang" class="quick-voice-btn rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:border-brand-300">江老师（克隆声）</button>
+                    </div>
+                    <!-- 对话模式快捷（男女对话）：一键填入男声+女声组合 -->
+                    <div id="quickVoiceDialogue" class="mb-2 hidden flex flex-wrap items-center gap-2">
+                        <span class="text-xs text-slate-400">常用组合：</span>
+                        <button type="button" id="quickComboZJ" class="quick-combo-btn rounded-lg border border-brand-300 bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700 hover:border-brand-400 hover:bg-brand-100">🎙️ 老张（男）+ 江老师（女）</button>
+                        <button type="button" id="quickComboZZ" class="quick-combo-btn rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:border-slate-300">👨 老张（男）+ 其他女声</button>
+                        <button type="button" id="quickComboJJ" class="quick-combo-btn rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:border-slate-300">👩 江老师（女）+ 其他男声</button>
                     </div>
                     <!-- dualVoiceWrap：滚动字幕模式下男/女双声线下拉容器（数字人模式隐藏）；独白时由 setVoiceForm 控制单声线显隐 -->
                     <div id="dualVoiceWrap" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -162,7 +169,7 @@
                         </select>
                     </div>
                     <p id="voiceHint" class="mt-1.5 flex items-center justify-between text-xs text-slate-400">
-                        <span>女：行用女声、男：行用男声；单人幕后音用所选对应声线。</span>
+                        <span id="voiceHintText">女：行用女声、男：行用男声；单人幕后音用所选对应声线。</span>
                         <a href="/studio/voices" class="text-brand-600 hover:underline">去克隆新声音 →</a>
                     </p>
                 </div>
@@ -578,24 +585,49 @@ function setVoiceForm(f) {
     const maleWrap = document.getElementById('maleVoice').parentNode;
     const femaleWrap = document.getElementById('femaleVoice').parentNode;
     const hint = document.getElementById('voiceFormHint');
+    const voiceLabel = document.getElementById('voiceLabel');
+    const quickSingle = document.getElementById('quickVoiceSingle');
+    const quickDialogue = document.getElementById('quickVoiceDialogue');
+    const voiceHintText = document.getElementById('voiceHintText');
+
+    // 快捷按钮容器切换
+    if (quickSingle && quickDialogue) {
+        if (f === 'dialogue') {
+            quickSingle.classList.add('hidden');
+            quickDialogue.classList.remove('hidden');
+        } else {
+            quickSingle.classList.remove('hidden');
+            quickDialogue.classList.add('hidden');
+        }
+    }
+
     if (f === 'mono') {
         // 单声线（不限性别）：从全部已克隆声音中任选一个
         singleVW.classList.remove('hidden');
         dualVW.classList.add('hidden');
+        if (voiceLabel) voiceLabel.textContent = '配音声线';
         hint.textContent = '单声线：从全部已克隆声音中任选一个，不限性别；适合无「女：/男：」前缀的独白稿。';
+        if (voiceHintText) voiceHintText.textContent = '选择一条声线用于整段独白配音。';
     } else {
         // 对话 / 男声独白 / 女声独白：使用男+女双下拉容器
         dualVW.classList.remove('hidden');
         singleVW.classList.add('hidden');
         if (f === 'male_mono') {
             maleWrap.classList.remove('hidden'); femaleWrap.classList.add('hidden');
+            if (voiceLabel) voiceLabel.textContent = '配音声线';
             hint.textContent = '男声独白：整段用男声单口播，无需角色前缀（若文稿含「女：/男：」前缀将自动忽略）。';
+            if (voiceHintText) voiceHintText.textContent = '整段用所选男声配音。';
         } else if (f === 'female_mono') {
             maleWrap.classList.add('hidden'); femaleWrap.classList.remove('hidden');
+            if (voiceLabel) voiceLabel.textContent = '配音声线';
             hint.textContent = '女声独白：整段用女声单口播，无需角色前缀（若文稿含「女：/男：」前缀将自动忽略）。';
+            if (voiceHintText) voiceHintText.textContent = '整段用所选女声配音。';
         } else {
+            // dialogue — 男女对话
             maleWrap.classList.remove('hidden'); femaleWrap.classList.remove('hidden');
-            hint.textContent = '男女对话：每行以「女：」「男：」开头，分别用女声/男声；单人独白请在下方选单一声线。';
+            if (voiceLabel) voiceLabel.textContent = '角色配音';
+            hint.textContent = '男女对话：每行以「女：」「男：」开头，分别用下方选择的女声/男声配音。';
+            if (voiceHintText) voiceHintText.textContent = '「女：」行用右侧女声，「男：」行用左侧男声；可点击上方常用组合一键填入。';
         }
     }
 }
@@ -920,10 +952,10 @@ function highlightPreset(key) {
     });
 }
 function applyQuickVoice(needle, which, btn) {
+    // 对话模式下快捷按钮不适用（对话需两个声线，用组合按钮），跳过
+    if (currentMode === 'scroll' && voiceForm === 'dialogue') return;
     const sv = document.getElementById('singleVoice');
     if (!sv) return;
-    // 双声线对话模式下点击快捷声线，自动切到单人独白以便立即可见
-    if (currentMode === 'scroll' && voiceForm === 'dialogue') setVoiceForm('mono');
     let hit = false;
     for (const opt of sv.options) {
         if (opt.value.includes(needle)) { sv.value = opt.value; hit = true; break; }
@@ -939,6 +971,39 @@ document.getElementById('singleVoice').addEventListener('change', () => {
     else if (v.includes('jiangnv3')) highlightQuickVoice('jiang');
     else highlightQuickVoice(null);
 });
+
+// ── 对话模式组合快捷按钮：一键填入男声+女声 ──
+function highlightQuickCombo(activeId) {
+    document.querySelectorAll('.quick-combo-btn').forEach(b => {
+        const on = b.id === activeId;
+        b.className = 'quick-combo-btn rounded-lg border px-3 py-1 text-xs font-medium transition ' +
+            (on ? 'border-brand-400 bg-brand-500 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300');
+    });
+}
+/**
+ * 填入对话组合：同时设置 maleVoice + femaleVoice 下拉框
+ * @param {string} maleNeedle  男声下拉匹配关键词（如 'zhangc2'）
+ * @param {string} femaleNeedle 女声下拉匹配关键词（如 'jiangnv3'）
+ * @param {string} comboId     当前激活的按钮 id
+ */
+function applyVoiceCombo(maleNeedle, femaleNeedle, comboId) {
+    const maleSel = document.getElementById('maleVoice');
+    const femaleSel = document.getElementById('femaleVoice');
+    if (maleSel) {
+        for (const opt of maleSel.options) {
+            if (opt.value.includes(maleNeedle)) { maleSel.value = opt.value; break; }
+        }
+    }
+    if (femaleSel) {
+        for (const opt of femaleSel.options) {
+            if (opt.value.includes(femaleNeedle)) { femaleSel.value = opt.value; break; }
+        }
+    }
+    highlightQuickCombo(comboId);
+}
+document.getElementById('quickComboZJ').addEventListener('click', () => applyVoiceCombo('zhangc2', 'jiangnv3', 'quickComboZJ'));
+document.getElementById('quickComboZZ').addEventListener('click', () => applyVoiceCombo('zhangc2', '', 'quickComboZZ'));
+document.getElementById('quickComboJJ').addEventListener('click', () => applyVoiceCombo('', 'jiangnv3', 'quickComboJJ'));
 
 updateDurationHint();
 autoSuggest();
