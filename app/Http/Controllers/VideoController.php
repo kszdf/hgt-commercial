@@ -23,12 +23,18 @@ class VideoController extends Controller
 
     public function showScroll()
     {
-        $tenant = request()->user()->tenant;
-        $maleVoices = TenantVoice::where('tenant_id', $tenant->id)
+        $user = request()->user();
+        // 超管可查看全部可用声音（跨租户）；普通用户仅看本租户
+        if ($user->isGlobalAdmin()) {
+            $tenantId = \App\Models\Tenant::whereIn('plan', ['pro', 'enterprise'])->first()->id ?? 0;
+        } else {
+            $tenantId = $user->tenant->id;
+        }
+        $maleVoices = TenantVoice::where('tenant_id', $tenantId)
             ->where('gender', 'male')->where('status', 'ready')
             ->orderByDesc('is_default')->orderByDesc('created_at')
             ->get(['id', 'name', 'voice_id', 'is_default']);
-        $femaleVoices = TenantVoice::where('tenant_id', $tenant->id)
+        $femaleVoices = TenantVoice::where('tenant_id', $tenantId)
             ->where('gender', 'female')->where('status', 'ready')
             ->orderByDesc('is_default')->orderByDesc('created_at')
             ->get(['id', 'name', 'voice_id', 'is_default']);
@@ -38,20 +44,31 @@ class VideoController extends Controller
     public function generate(Request $request)
     {
         $user = $request->user();
-        $tenant = $user->tenant;
 
-        // —— 统一生成拦截：试用到期 / 月度额度 / 试用累计条数 / 试用累计时长 ——
-        $block = $tenant->generationBlockReason();
-        if ($block) {
-            $code = $block['code'];
-            $http = in_array($code, ['trial_expired', 'quota_exceeded', 'trial_jobs_exceeded', 'trial_minutes_exceeded'], true)
-                ? 402 : 403;
-            return response()->json([
-                'error' => $block['message'],
-                'code' => $code,
-                'usage' => $tenant->usageThisMonth(),
-                'quota' => $tenant->quota_monthly,
-            ], $http);
+        // —— 超级管理员配额豁免 + 操作上下文解析 ——
+        if ($user->isGlobalAdmin()) {
+            // 超管不受任何配额/试用限制，直接放行
+            $request->merge(['_admin_bypass' => true]);
+            // 超管需一个租户上下文用于：声音查询 / VideoJob.tenant_id / 8500并发护栏 / 默认音色
+            // 优先用 pro/enterprise 租户，回退到任意可用租户
+            $tenant = \App\Models\Tenant::whereIn('plan', ['pro', 'enterprise'])->first()
+                ?? \App\Models\Tenant::first();
+        } else {
+            $tenant = $user->tenant;
+
+            // —— 统一生成拦截：试用到期 / 月度额度 / 试用累计条数 / 试用累计时长 ——
+            $block = $tenant->generationBlockReason();
+            if ($block) {
+                $code = $block['code'];
+                $http = in_array($code, ['trial_expired', 'quota_exceeded', 'trial_jobs_exceeded', 'trial_minutes_exceeded'], true)
+                    ? 402 : 403;
+                return response()->json([
+                    'error' => $block['message'],
+                    'code' => $code,
+                    'usage' => $tenant->usageThisMonth(),
+                    'quota' => $tenant->quota_monthly,
+                ], $http);
+            }
         }
 
         $data = $request->validate([
@@ -420,13 +437,15 @@ class VideoController extends Controller
      */
     public function queueEstimate(Request $request)
     {
-        $tenant = $request->user()->tenant;
-
-        // 全局未完成任务（含正在渲染 + 排队等待，Laravel 侧统一为 queued）
-        $globalQueued = \App\Models\VideoJob::where('status', 'queued')->count();
-        // 本账号进行中任务（受租户并发闸约束，达上限将被 429 拦截）
-        $tenantQueued = \App\Models\VideoJob::where('tenant_id', $tenant->id)
-            ->where('status', 'queued')->count();
+        $user = $request->user();
+        // 超管查看全局队列（不限租户）
+        if ($user->isGlobalAdmin()) {
+            $tenantQueued = 0; // 超管不受租户并发限制
+        } else {
+            $tenant = $user->tenant;
+            $tenantQueued = \App\Models\VideoJob::where('tenant_id', $tenant->id)
+                ->where('status', 'queued')->count();
+        }
 
         $concurrency  = (int) env('GLOBAL_MAX_JOBS', 3);
         $tenantMax    = (int) env('TENANT_MAX_CONCURRENT_JOBS', 2);
