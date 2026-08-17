@@ -92,7 +92,16 @@ class VideoJob extends Model
         if (! in_array($remote, ['done', 'failed'], true)) {
             return false;
         }
-        $this->update(['status' => $remote]);
+        // 成片时长（秒）：8500 /status 返回的 duration 字段（浮点）。用于试用累计总时长计量。
+        $duration = null;
+        if (isset($json['duration']) && is_numeric($json['duration'])) {
+            $duration = (float) $json['duration'];
+        }
+        $update = ['status' => $remote];
+        if ($duration !== null) {
+            $update['duration_sec'] = $duration;
+        }
+        $this->update($update);
         // 渲染完成即进入「待人工审核」初始态（draft），与状态端点逻辑一致
         if ($remote === 'done' && is_null($this->publish_status)) {
             $this->update(['publish_status' => 'draft']);

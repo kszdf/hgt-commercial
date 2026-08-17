@@ -66,7 +66,7 @@ class PublishController extends Controller
         // 浏览器侧访问 8500 的公网/本地地址（弹窗授权用；与 OAUTH_REDIRECT_BASE 保持一致）
         $publicBase = env('PYTHON_PIPELINE_PUBLIC_URL', 'http://127.0.0.1:8500');
 
-        $isTrial = $tenant->plan === 'free';
+        $isTrial = ! $tenant->allow_batch;
 
         return view('studio.publish', compact('videos', 'accounts', 'platforms', 'manualPlatforms', 'records', 'authStatus', 'publicBase', 'isTrial'));
     }
@@ -76,10 +76,10 @@ class PublishController extends Controller
     {
         $tenant = request()->user()->tenant;
 
-        // —— 试用版（免费套餐）禁止批量外发（后端硬闸）——
-        if ($tenant->plan === 'free') {
+        // —— 未授权批量外发（allow_batch=false，免费套餐默认即如此；超管可单独开启）——
+        if (! $tenant->allow_batch) {
             return redirect()->route('studio.publish')
-                ->with('error', '免费试用版暂不支持批量外发，请升级套餐后使用。');
+                ->with('error', '当前账号暂未开放批量外发权限，请联系管理员开通或升级套餐。');
         }
 
         $data = $request->validate([

@@ -40,22 +40,18 @@ class VideoController extends Controller
         $user = $request->user();
         $tenant = $user->tenant;
 
-        // —— 试用到期拦截（未订阅则禁止继续出片）——
-        if ($tenant->isTrialExpired()) {
+        // —— 统一生成拦截：试用到期 / 月度额度 / 试用累计条数 / 试用累计时长 ——
+        $block = $tenant->generationBlockReason();
+        if ($block) {
+            $code = $block['code'];
+            $http = in_array($code, ['trial_expired', 'quota_exceeded', 'trial_jobs_exceeded', 'trial_minutes_exceeded'], true)
+                ? 402 : 403;
             return response()->json([
-                'error' => '免费试用已结束，请升级订阅套餐后继续生成视频。',
-                'code' => 'trial_expired',
-            ], 402);
-        }
-
-        // —— 配额拦截（计费基础）——
-        if ($tenant->isOverQuota()) {
-            return response()->json([
-                'error' => '本月生成额度已用完，请升级套餐或下月继续使用。',
-                'code' => 'quota_exceeded',
+                'error' => $block['message'],
+                'code' => $code,
                 'usage' => $tenant->usageThisMonth(),
                 'quota' => $tenant->quota_monthly,
-            ], 402);
+            ], $http);
         }
 
         $data = $request->validate([

@@ -144,6 +144,13 @@ Route::middleware('auth')->group(function () {
         return view('admin.monitor');
     })->name('admin.monitor');
 
+    // 超级管理员：租户（试用账号）管理（仅超管可访问，守卫在控制器 middleware 内强制）
+    Route::prefix('admin')->group(function () {
+        Route::get('/tenants', [AdminController::class, 'tenants'])->name('admin.tenants');
+        Route::post('/tenants', [AdminController::class, 'storeTrial'])->name('admin.tenants.store');
+        Route::post('/tenants/{tenant}/trial', [AdminController::class, 'updateTrial'])->name('admin.tenants.update-trial');
+    });
+
     // 外观设置（多主题预设 + 租户 DIY 覆盖）
     Route::get('/studio/settings/appearance', [StudioController::class, 'appearance'])->name('studio.settings.appearance');
     Route::post('/studio/settings/appearance', [StudioController::class, 'appearanceUpdate']);

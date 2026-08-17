@@ -115,10 +115,10 @@
                         <span>视频生成列表</span>
                     </a>
                 </li>
-                @php $isTrialNav = auth()->user()->tenant->plan === 'free'; @endphp
+                @php $batchAllowed = auth()->user()->tenant->allow_batch; @endphp
                 <li>
-                    @if($isTrialNav)
-                        <a href="/admin/billing" class="ws-nav-item ws-nav-rose" title="免费试用版暂不支持批量外发，升级后解锁">
+                    @if(!$batchAllowed)
+                        <a href="/admin/billing" class="ws-nav-item ws-nav-rose" title="当前账号未开放批量外发，开通或升级后解锁">
                             <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
                             <span>批量外发</span>
                             <svg class="h-3.5 w-3.5 ml-auto text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
@@ -170,6 +170,20 @@
                         <span>计费订阅</span>
                     </a>
                 </li>
+                @if(auth()->user()->isGlobalAdmin())
+                <li>
+                    <a href="/admin/tenants" class="{{ request()->is('admin/tenants*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
+                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a3 3 0 10-2.5-4.5"/></svg>
+                        <span>租户管理</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/admin/monitor" class="{{ request()->is('admin/monitor*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
+                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+                        <span>监控大盘</span>
+                    </a>
+                </li>
+                @endif
                 <li>
                     <a href="/studio/settings/appearance" class="{{ request()->is('studio/settings/appearance*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
                         <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4 2 2 0 000-4zm0 10v-2m0 2a2 2 0 100 4 2 2 0 000-4zm-6 0H4m2 0a2 2 0 104 0 2 2 0 00-4 0zm12 0h-2m2 0a2 2 0 10-4 0 2 2 0 014 0zM6 6H4m2 0a2 2 0 114 0 2 2 0 01-4 0zm12 0h-2m2 0a2 2 0 11-4 0 2 2 0 014 0z" /></svg>

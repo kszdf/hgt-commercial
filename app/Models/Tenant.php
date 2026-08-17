@@ -12,6 +12,7 @@ class Tenant extends Model
 
     protected $fillable = [
         'name', 'slug', 'plan', 'status', 'trial_ends_at', 'quota_monthly',
+        'trial_max_jobs', 'trial_max_minutes', 'allow_batch',
         'default_avatar', 'default_male_voice', 'default_female_voice', 'settings',
         'theme_preset', 'theme_overrides',
     ];
@@ -20,6 +21,9 @@ class Tenant extends Model
         'settings' => 'array',
         'theme_overrides' => 'array',
         'quota_monthly' => 'integer',
+        'trial_max_jobs' => 'integer',
+        'trial_max_minutes' => 'integer',
+        'allow_batch' => 'boolean',
         'trial_ends_at' => 'datetime',
     ];
 
@@ -127,19 +131,118 @@ class Tenant extends Model
     }
 
     /**
-     * 是否可发起新的视频生成。
-     * - 已订阅套餐（pro/enterprise）：仅受月度额度约束；
-     * - 免费套餐：试用期内且未超额度方可生成，到期未订阅则禁止。
+     * 试用累计可生成总条数（0 = 不限）。
+     */
+    public function trialMaxJobs(): int
+    {
+        return (int) $this->trial_max_jobs;
+    }
+
+    /**
+     * 试用累计可生成总时长（分钟，0 = 不限）。
+     */
+    public function trialMaxMinutes(): int
+    {
+        return (int) $this->trial_max_minutes;
+    }
+
+    /**
+     * 试用累计已生成总条数（不限时返回 0，仅在受限时参与计量）。
+     * 统计本租户所有已完成（done）出片任务数。
+     */
+    public function trialJobsUsed(): int
+    {
+        if ($this->trialMaxJobs() === 0) {
+            return 0;
+        }
+        return (int) $this->videoJobs()->where('status', 'done')->count();
+    }
+
+    /**
+     * 试用累计已生成总时长（秒，不限时返回 0）。
+     * 累加本租户所有已完任务（有 duration_sec）的成片时长。
+     */
+    public function trialSecondsUsed(): int
+    {
+        if ($this->trialMaxMinutes() === 0) {
+            return 0;
+        }
+        return (int) $this->videoJobs()
+            ->where('status', 'done')
+            ->whereNotNull('duration_sec')
+            ->sum('duration_sec');
+    }
+
+    /**
+     * 试用累计已生成总时长（分钟，向上取整，不限时返回 0）。
+     */
+    public function trialMinutesUsed(): int
+    {
+        return (int) ceil($this->trialSecondsUsed() / 60);
+    }
+
+    /**
+     * 是否可发起新的视频生成，综合判定（适用于所有套餐）：
+     * 1) 免费套餐试用到期 → 禁止；
+     * 2) 月度额度（quota_monthly）超限 → 禁止（不限量套餐跳过）；
+     * 3) 试用累计总条数（trial_max_jobs）超限 → 禁止（不限跳过）；
+     * 4) 试用累计总时长（trial_max_minutes）超限 → 禁止（不限跳过）。
+     * 已订阅套餐（pro/enterprise）跳过 1/3/4，仅受 2 约束（enterprise 不限量时全跳过）。
      */
     public function canGenerate(): bool
     {
-        if ($this->plan !== 'free') {
-            return true;
-        }
-        if ($this->isTrialExpired()) {
+        if ($this->plan === 'free' && $this->isTrialExpired()) {
             return false;
         }
-        return ! $this->isOverQuota();
+        if (! $this->isUnlimited() && $this->isOverQuota()) {
+            return false;
+        }
+        if ($this->trialMaxJobs() > 0 && $this->trialJobsUsed() >= $this->trialMaxJobs()) {
+            return false;
+        }
+        if ($this->trialMaxMinutes() > 0 && $this->trialMinutesUsed() >= $this->trialMaxMinutes()) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 生成拦截的详细原因（供前端友好提示）。
+     * 返回 null 表示可生成；否则返回 {code, message, ...}。
+     */
+    public function generationBlockReason(): ?array
+    {
+        if ($this->plan === 'free' && $this->isTrialExpired()) {
+            return [
+                'code' => 'trial_expired',
+                'message' => '免费试用已结束，请升级订阅套餐后继续生成视频。',
+            ];
+        }
+        if (! $this->isUnlimited() && $this->isOverQuota()) {
+            return [
+                'code' => 'quota_exceeded',
+                'message' => '本月生成额度已用完，请升级套餐或下月继续使用。',
+                'usage' => $this->usageThisMonth(),
+                'quota' => $this->quota_monthly,
+            ];
+        }
+        if ($this->trialMaxJobs() > 0 && $this->trialJobsUsed() >= $this->trialMaxJobs()) {
+            return [
+                'code' => 'trial_jobs_exceeded',
+                'message' => '试用累计生成条数已达上限（' . $this->trialMaxJobs() . ' 条），无法继续生成。',
+                'used' => $this->trialJobsUsed(),
+                'max' => $this->trialMaxJobs(),
+            ];
+        }
+        if ($this->trialMaxMinutes() > 0 && $this->trialMinutesUsed() >= $this->trialMaxMinutes()) {
+            return [
+                'code' => 'trial_minutes_exceeded',
+                'message' => '试用累计生成时长已达上限（' . $this->trialMaxMinutes() . ' 分钟），无法继续生成。',
+                'used' => $this->trialMinutesUsed(),
+                'max' => $this->trialMaxMinutes(),
+            ];
+        }
+        return null;
     }
 
     /**
