@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', '追梦 · 商用短视频智能工作台')</title>
     <meta name="description" content="追梦 — 面向企业的短视频智能生产 SaaS 平台，提供智能选题、文案二创、数字人出片、配音、字幕与多平台分发能力。">
-    <meta name="theme-color" content="#6366f1">
+    <meta name="theme-color" content="#7c5cfc">
     <meta property="og:type" content="website">
     <meta property="og:title" content="追梦 · 商用短视频智能工作台">
     <meta property="og:description" content="面向企业的短视频智能生产 SaaS 平台：选题、二创、出片、配音、字幕、分发一站式。">

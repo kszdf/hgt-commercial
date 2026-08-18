@@ -421,9 +421,9 @@
 /* 进行中流动条：渲染是黑盒进程无实时百分比，用流动动画表达"进行中"而非假数字 */
 @keyframes hgtIndet{0%{left:-35%}50%{left:55%}100%{left:110%}}
 .hgt-indet{position:relative;overflow:hidden}
-.hgt-indet>i{position:absolute;top:0;bottom:0;left:-35%;width:35%;border-radius:9999px;background:#6366f1;animation:hgtIndet 1.3s ease-in-out infinite}
+.hgt-indet>i{position:absolute;top:0;bottom:0;left:-35%;width:35%;border-radius:9999px;background:#7c5cfc;animation:hgtIndet 1.3s ease-in-out infinite}
 /* 批量出片看板专用：复用同一动画，作用于 .bv-bar */
-.bv-flow{position:absolute!important;top:0;bottom:0;left:-35%;width:35%!important;border-radius:9999px;background:#6366f1;animation:hgtIndet 1.3s ease-in-out infinite}
+.bv-flow{position:absolute!important;top:0;bottom:0;left:-35%;width:35%!important;border-radius:9999px;background:#7c5cfc;animation:hgtIndet 1.3s ease-in-out infinite}
 
 /* ===== 全局中止浮层：长任务运行中显眼出现，橙红渐变 + 停止图标，固定底部居中 ===== */
 #hgtAbortBar {
