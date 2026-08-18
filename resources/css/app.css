@@ -340,8 +340,10 @@ textarea.studio-input {
    （根治 analytics 等页白压白隐患，同时保持渐变 Hero 卡不受影响——Hero 用 .hero-card 不在此列） */
 .luxury-glass.text-white,
 .studio-card.text-white { color: #1e293b !important; }
-.luxury-glass .text-white,
-.studio-card .text-white { color: #334155 !important; }
+/* 排除交互元素：带背景色的主操作按钮（bg-brand-* + text-white）必须保留白字，
+   否则会被下面这条白卡改色规则压成深灰、文字糊在浅底上看不清 */
+.luxury-glass .text-white:not(button):not(a):not([role="button"]),
+.studio-card .text-white:not(button):not(a):not([role="button"]) { color: #334155 !important; }
 .luxury-glass .text-slate-300,
 .studio-card .text-slate-300 { color: #64748b !important; }
 

@@ -80,3 +80,6 @@ _samples/
 
 # ===== 自动备份脚本日志（每日推送产生的运行记录，非源码）=====
 auto_push.log
+
+# ===== 运行时 watchdog 日志（非源码，守护进程每次运行都会更新）=====
+runtime-logs/heygem_watchdog.log
