@@ -1,4 +1,4 @@
-﻿<x-app-layout>
+<x-app-layout>
 <x-workspace-layout title="原始稿二创">
 <div class="mx-auto max-w-5xl p-6">
 
@@ -483,7 +483,7 @@ document.getElementById('btnGoScroll')?.addEventListener('click', function () {
     const displayMode = document.getElementById('mode').value;
     sessionStorage.setItem('hgt_rewrite_cleaned', lastResult.cleaned);
     sessionStorage.setItem('hgt_rewrite_mode', displayMode);
-    window.location.href = '/studio/scroll?from=rewrite&src=original&mode=' + encodeURIComponent(displayMode) + '&dialogue=' + encodeURIComponent(lastResult.cleaned);
+    window.location.href = '/studio/scroll?from=rewrite&src=original&mode=' + encodeURIComponent(displayMode);
 });
 
 document.getElementById('btnGoQc')?.addEventListener('click', function () {
@@ -499,6 +499,20 @@ document.getElementById('btnRegen')?.addEventListener('click', function () {
 
 // 初始化
 updateCharCount();
+
+// 话术模板联动：从「话术模板」带入 ?tpl= 到原始稿输入框
+(function () {
+    try {
+        var p = new URLSearchParams(window.location.search);
+        var tpl = p.get('tpl');
+        if (tpl) {
+            var ta = document.getElementById('text');
+            if (ta) ta.value = tpl;
+            updateCharCount();
+            hgtToast('info', '已带入模板话术，可直接改写');
+        }
+    } catch (e) {}
+})();
 </script>
 </x-workspace-layout>
 </x-app-layout>

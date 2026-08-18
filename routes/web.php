@@ -11,6 +11,12 @@ use App\Http\Controllers\VoiceCloneController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\PublishController;
 use App\Http\Controllers\CoverAssetController;
+use App\Http\Controllers\AccountController;
+use App\Http\Controllers\MetricsController;
+use App\Http\Controllers\ScheduleController;
+use App\Http\Controllers\MatrixController;
+use App\Http\Controllers\TemplateController;
+use App\Http\Controllers\XhsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -71,6 +77,8 @@ Route::middleware('auth')->group(function () {
     // 视频生成列表 / 回收站（软删除：删除进回收站，可恢复或彻底删除）
     Route::get('/studio/videos', [VideoController::class, 'library'])->name('studio.videos');
     Route::delete('/studio/videos/{videoJob}', [VideoController::class, 'destroy'])->name('studio.videos.destroy');
+    Route::post('/studio/videos/{videoJob}/hit', [VideoController::class, 'markHit'])->name('studio.videos.hit');
+    Route::get('/studio/videos/{videoJob}/clone-data', [VideoController::class, 'cloneData'])->name('studio.videos.clone-data');
     Route::get('/studio/recycle', [VideoController::class, 'recycle'])->name('studio.recycle');
     Route::post('/studio/recycle/{videoJob}/restore', [VideoController::class, 'restore'])->name('studio.recycle.restore')->withTrashed();
     Route::delete('/studio/recycle/{videoJob}', [VideoController::class, 'forceDestroy'])->name('studio.recycle.force')->withTrashed();
@@ -136,9 +144,44 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/review/{videoJob}/approve', [ReviewController::class, 'approve'])->name('studio.review.approve');
     Route::post('/studio/review/{videoJob}/reject', [ReviewController::class, 'reject'])->name('studio.review.reject');
 
-    // 批量外发（审核通过视频一键分发多平台；当前演示模式，真实平台需 OAuth 授权）
+    // 批量外发（视频 × 账号 矩阵分发；simulated 标记区分真实/模拟发布，见 PublishController）
     Route::get('/studio/publish', [PublishController::class, 'index'])->name('studio.publish');
     Route::post('/studio/publish', [PublishController::class, 'publish'])->name('studio.publish.do');
+
+    // 平台账号管理（多账号矩阵发布：账号属性 / 每日上限 / 授权态）
+    Route::get('/studio/accounts', [AccountController::class, 'index'])->name('studio.accounts');
+    Route::get('/studio/accounts/json', [AccountController::class, 'json'])->name('studio.accounts.json');
+    Route::post('/studio/accounts', [AccountController::class, 'store']);
+    Route::post('/studio/accounts/{account}', [AccountController::class, 'update'])->name('studio.accounts.update');
+    Route::post('/studio/accounts/{account}/authorized', [AccountController::class, 'markAuthorized'])->name('studio.accounts.authorized');
+    Route::post('/studio/accounts/{account}/unauthorized', [AccountController::class, 'markUnauthorized'])->name('studio.accounts.unauthorized');
+    Route::delete('/studio/accounts/{account}', [AccountController::class, 'destroy'])->name('studio.accounts.destroy');
+
+    // 数据效果（数据回流 · 半自动：手动速填 / 抖音自动同步 / 未同步清单）
+    Route::get('/studio/metrics', [MetricsController::class, 'index'])->name('studio.metrics');
+    Route::post('/studio/metrics/record', [MetricsController::class, 'record'])->name('studio.metrics.record');
+    Route::post('/studio/metrics/sync', [MetricsController::class, 'sync'])->name('studio.metrics.sync');
+
+    // 内容日历 / 发布排期（到点提醒或自动发布）
+    Route::get('/studio/schedule', [ScheduleController::class, 'index'])->name('studio.schedule');
+    Route::post('/studio/schedule', [ScheduleController::class, 'store']);
+    Route::post('/studio/schedule/{schedule}/auto', [ScheduleController::class, 'toggleAuto'])->name('studio.schedule.auto');
+    Route::post('/studio/schedule/{schedule}/run', [ScheduleController::class, 'runNow'])->name('studio.schedule.run');
+    Route::delete('/studio/schedule/{schedule}', [ScheduleController::class, 'destroy'])->name('studio.schedule.destroy');
+
+    // 内容矩阵（一个选题 → 视频稿 + 小红书图文 + 朋友圈文案）
+    Route::get('/studio/matrix', [MatrixController::class, 'index'])->name('studio.matrix');
+    Route::post('/studio/matrix/video', [MatrixController::class, 'generateVideo'])->name('studio.matrix.video');
+    Route::post('/studio/matrix/xhs', [MatrixController::class, 'generateXhs'])->name('studio.matrix.xhs');
+    Route::post('/studio/matrix/moment', [MatrixController::class, 'generateMoment'])->name('studio.matrix.moment');
+    Route::post('/studio/matrix/xhs/publish', [MatrixController::class, 'publishXhs'])->name('studio.matrix.xhs.publish');
+
+    // 话术模板市场（财税垂类：钩子/开头/避坑/结尾/选题角度）
+    Route::get('/studio/templates', [TemplateController::class, 'index'])->name('studio.templates');
+    Route::post('/studio/templates', [TemplateController::class, 'store']);
+    Route::post('/studio/templates/{template}', [TemplateController::class, 'update'])->name('studio.templates.update');
+    Route::delete('/studio/templates/{template}', [TemplateController::class, 'destroy'])->name('studio.templates.destroy');
+    Route::post('/studio/templates/{template}/copy', [TemplateController::class, 'copy'])->name('studio.templates.copy');
 
     // 计费与配额
     Route::get('/admin/billing', [AdminController::class, 'billing'])->name('admin.billing');

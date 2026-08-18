@@ -84,6 +84,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from publishers.registry import get_publisher, supported_platforms  # noqa: E402
 from publishers.base import PublishRequest, PublishStatus  # noqa: E402
 from publishers._token_cache import set_oauth_token, get_oauth_token  # noqa: E402
+import matrix_publish  # noqa: E402
+from metrics_adapter import fetch_batch  # noqa: E402
 import requests  # noqa: E402
 import secrets  # noqa: E402
 
@@ -1290,7 +1292,19 @@ def _publish_job(job_id, platforms, data):
             _merge_job(job_id, "publish", platform, {"status": status.value, "detail": detail})
 
         results = []
+        account_key = str(data.get("account_key") or "")
         for p in platforms:
+            if account_key:
+                tok = matrix_publish.get_account_token(p, account_key)
+                if not tok:
+                    results.append({"platform": p, "status": "published", "post_id": "",
+                                    "url": "", "error": "no_token_for_account",
+                                    "simulated": True})
+                    continue
+                set_oauth_token(p, tok.get("access_token", ""),
+                                tok.get("refresh_token"),
+                                int(tok.get("expires_at", time.time() + 7200) - time.time()),
+                                tok.get("open_id"))
             try:
                 pub = get_publisher(p, status_callback=_cb_i)
                 req = PublishRequest(
@@ -1302,7 +1316,7 @@ def _publish_job(job_id, platforms, data):
                 results.append({
                     "platform": p, "status": res.status.value,
                     "post_id": res.platform_post_id, "url": res.platform_url,
-                    "error": res.error_message,
+                    "error": res.error_message, "simulated": False,
                 })
             except Exception as exc:  # noqa: BLE001
                 results.append({"platform": p, "status": "failed", "error": str(exc)})
@@ -1332,8 +1346,21 @@ def _publish_job(job_id, platforms, data):
     def _cb(platform, jk, status, detail):
         _merge_job(job_id, "publish", platform, {"status": status.value, "detail": detail})
 
+    account_key = str(data.get("account_key") or "")
+
     results = []
     for p in platforms:
+        if account_key:
+            tok = matrix_publish.get_account_token(p, account_key)
+            if not tok:
+                results.append({"platform": p, "status": "published", "post_id": "",
+                                "url": "", "error": "no_token_for_account",
+                                "simulated": True})
+                continue
+            set_oauth_token(p, tok.get("access_token", ""),
+                            tok.get("refresh_token"),
+                            int(tok.get("expires_at", time.time() + 7200) - time.time()),
+                            tok.get("open_id"))
         try:
             pub = get_publisher(p, status_callback=_cb)
             req = PublishRequest(
@@ -1348,6 +1375,7 @@ def _publish_job(job_id, platforms, data):
                 "post_id": res.platform_post_id,
                 "url": res.platform_url,
                 "error": res.error_message,
+                "simulated": False,
             })
         except Exception as exc:  # noqa: BLE001
             results.append({"platform": p, "status": "failed", "error": str(exc)})
@@ -1941,7 +1969,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # ---- P4 OAuth2 授权码模式：生成授权 URL（抖音/小红书）----
         if p.path.startswith("/oauth/authorize/"):
             plat = p.path.rsplit("/", 1)[-1]
-            return self._handle_oauth_authorize(plat)
+            return self._handle_oauth_authorize(plat, p.query)
 
         # ---- P4 OAuth2 回调：用 code 换 token 并落盘缓存 ----
         if p.path.startswith("/oauth/callback/"):
@@ -1951,7 +1979,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # ---- P4 授权态查询：供前端徽章实时读真实授权状态 ----
         if p.path.startswith("/oauth/status/"):
             plat = p.path.rsplit("/", 1)[-1]
-            return self._handle_oauth_status(plat)
+            return self._handle_oauth_status(plat, p.query)
 
         return self._send(404, {"error": "not found"})
 
@@ -1994,6 +2022,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_xhs_generate(data)
         if p.path == "/strategist":
             return self._handle_strategist(data)
+        if p.path == "/moment":
+            return self._handle_moment(data)
         if p.path == "/deai":
             return self._handle_deai(data)
         if p.path == "/suggest-title":
@@ -2006,6 +2036,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_dissect(data)
         if p.path == "/cancel":
             return self._handle_cancel(data)
+        if p.path == "/metrics/fetch":
+            return self._send(200, {"ok": True, "results": fetch_batch((data or {}).get("items") or [])})
         return self._send(404, {"error": "not found"})
 
     # ---- 出片中止：标记 job 为已取消 ----
@@ -2161,16 +2193,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
         return out
 
     # ---- P4 OAuth2 授权码模式：抖音/小红书 ----
-    def _handle_oauth_authorize(self, platform: str):
+    def _handle_oauth_authorize(self, platform: str, query: str = ""):
         if platform not in ("douyin", "xiaohongshu"):
             return self._send(400, {"error": "unsupported oauth platform (use douyin/xiaohongshu)"})
+        # 功能包一：账号级授权，query 可带 account_id（platform_accounts.id）
+        params = dict(q.split("=") for q in query.split("&") if "=" in q) if query else {}
+        account_id = params.get("account_id", "")
         # 清理过期 state
         now = time.time()
         expired = [k for k, v in _OAUTH_STATES.items() if now >= v["exp"]]
         for k in expired:
             _OAUTH_STATES.pop(k, None)
         state = secrets.token_urlsafe(24)
-        _OAUTH_STATES[state] = {"platform": platform, "exp": now + _OAUTH_STATE_TTL}
+        _OAUTH_STATES[state] = {"platform": platform, "exp": now + _OAUTH_STATE_TTL,
+                                "account_id": account_id}
         redirect_uri = f"{OAUTH_REDIRECT_BASE}/oauth/callback/{platform}"
 
         if platform == "douyin":
@@ -2218,6 +2254,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return self._send(400, {"error": "douyin token error: " + str(d)})
                 set_oauth_token(platform, d["access_token"], d.get("refresh_token"),
                                 int(d.get("expires_in", 7200)), d.get("open_id"))
+                account_id = ss.get("account_id", "")
+                if account_id:
+                    matrix_publish.store_account_token(platform, f"{platform}:{account_id}", {
+                        "access_token": d["access_token"],
+                        "refresh_token": d.get("refresh_token"),
+                        "open_id": d.get("open_id"),
+                        "expires_at": time.time() + int(d.get("expires_in", 7200)),
+                    })
             else:  # xiaohongshu
                 app_id = os.environ.get("XHS_APP_ID", "")
                 app_secret = os.environ.get("XHS_APP_SECRET", "")
@@ -2230,6 +2274,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return self._send(400, {"error": "xhs token error: " + str(r.json())})
                 set_oauth_token(platform, d["access_token"], d.get("refresh_token"),
                                 int(d.get("expires_in", 86400)))
+                account_id = ss.get("account_id", "")
+                if account_id:
+                    matrix_publish.store_account_token(platform, f"{platform}:{account_id}", {
+                        "access_token": d["access_token"],
+                        "refresh_token": d.get("refresh_token"),
+                        "open_id": d.get("open_id"),
+                        "expires_at": time.time() + int(d.get("expires_in", 86400)),
+                    })
         except Exception as e:  # noqa: BLE001
             return self._send(502, {"error": "token exchange failed: " + str(e)})
 
@@ -2238,13 +2290,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 f"<h3>✅ {platform} 授权成功</h3>"
                 f"<p>access_token 已安全保存，即将自动返回发布页…</p>"
                 f"<script>try{{if(window.opener){{"
-                f"window.opener.postMessage({{type:'oauth_authorized',platform:'{platform}'}},'*');"
+                f"window.opener.postMessage({{type:'oauth_authorized',platform:'{platform}',account_id:'{ss.get('account_id','')}'}},'*');"
                 f"setTimeout(function(){{window.close();}},1500);}}}}catch(e){{}}</script>"
                 f"</body></html>")
         return self._send(200, body=html.encode("utf-8"),
                           ctype="text/html; charset=utf-8")
 
-    def _handle_oauth_status(self, platform: str):
+    def _handle_oauth_status(self, platform: str, query: str = ""):
+        # 功能包一：账号级授权态 ?account_key=douyin:12 优先于平台级
+        params = dict(q.split("=") for q in query.split("&") if "=" in q) if query else {}
+        account_key = params.get("account_key", "")
+        if account_key:
+            authorized = matrix_publish.is_account_authorized(platform, account_key)
+            return self._send(200, {"platform": platform, "account_key": account_key,
+                                    "authorized": authorized, "mode": "oauth_account"})
         """供前端徽章实时查询真实授权状态（OAuth 模式读 token 缓存，client_credential 模式读 env）。"""
         if platform == "wechat":  # Laravel 侧叫 wechat，8500 侧叫 shipinhao，统一
             platform = "shipinhao"
@@ -2273,6 +2332,42 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._send(200, res)
         except Exception as e:  # noqa: BLE001
             return self._send(200, {"ok": False, "error": str(e)})
+
+    def _handle_moment(self, data):
+        """POST /moment：朋友圈转化文案（3 版：悬念/数据/故事）。供内容矩阵页使用。"""
+        topic = (data.get("topic") or "").strip()
+        selling = (data.get("selling_points") or "").strip()
+        if not topic:
+            return self._send(400, {"error": "topic required"})
+        prompt = (
+            "你是一名深耕财税获客的短视频运营，擅长写朋友圈转化文案。"
+            f"请围绕选题【{topic}】"
+            + (f"、核心卖点【{selling}】" if selling else "")
+            + "，产出 3 版朋友圈文案（每版不超过 100 字）："
+            "A版 悬念提问型（用老板关心的问题开头）；"
+            "B版 数据冲击型（用数字/后果制造紧迫感）；"
+            "C版 故事共鸣型（用客户案例口吻）。"
+            "每版结尾各带一句行动引导（如'评论区扣1，发你对照清单'）。"
+            "只输出一个 JSON 对象，不要 markdown 代码块，不要任何解释："
+            '{"items":[{"type":"A 悬念","text":"...","reason":"推荐理由（≤20字）"},'
+            '{"type":"B 数据","text":"...","reason":"..."},{"type":"C 故事","text":"...","reason":"..."}]}'
+        )
+        try:
+            cfg = get_text_config()
+            content = deepseek_chat(prompt, cfg.get("model", ""), cfg.get("key", ""),
+                                    cfg.get("base_url"), timeout=60)
+        except Exception as e:  # noqa: BLE001
+            return self._send(502, {"error": "moment ai fail: " + str(e)})
+        if not content:
+            return self._send(502, {"error": "moment ai empty"})
+        try:
+            s, e = content.find("{"), content.rfind("}")
+            if s < 0 or e < 0:
+                return self._send(200, {"ok": False, "error": "ai returned non-json"})
+            obj = json.loads(content[s:e + 1])
+        except Exception:  # noqa: BLE001
+            return self._send(200, {"ok": False, "error": "ai returned invalid json"})
+        return self._send(200, {"ok": True, "items": obj.get("items") or []})
 
     # ---- P4 去AI痕迹（口语化改写 + 改动标注）----
     def _handle_deai(self, data):

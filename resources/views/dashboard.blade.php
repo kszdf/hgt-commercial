@@ -169,6 +169,40 @@
                 </div>
             @endif
         </div>
+
+        <!-- 今日待发（发布排期） -->
+        @unless($isAdmin)
+        @php
+            $todayDue = \App\Models\PublishSchedule::where('tenant_id', $tenant->id)
+                ->whereIn('status', ['pending', 'due'])
+                ->where('schedule_at', '<=', now()->endOfDay())
+                ->with('videoJob', 'account')
+                ->orderBy('schedule_at')
+                ->limit(5)
+                ->get();
+        @endphp
+        <div class="mt-4 luxury-glass p-5">
+            <div class="mb-3 flex items-center justify-between">
+                <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-400">今日待发（发布排期）</h4>
+                <a href="/studio/schedule" class="text-xs font-medium text-brand-600 hover:underline">全部排期 →</a>
+            </div>
+            @if($todayDue->isEmpty())
+                <div class="py-6 text-center text-sm text-slate-400">今天没有到期排期。<a href="/studio/schedule" class="font-medium text-brand-600 hover:underline">去排期 →</a></div>
+            @else
+                <div class="divide-y divide-slate-100">
+                    @foreach($todayDue as $s)
+                        <div class="flex items-center gap-3 py-2.5">
+                            <div class="min-w-0 flex-1">
+                                <div class="truncate text-sm font-medium text-slate-700">{{ $s->videoJob?->title ?: ('#' . $s->video_job_id) }}</div>
+                                <div class="text-xs text-slate-400">{{ $s->schedule_at->format('H:i') }} · {{ $s->account?->platformLabel() ?? '任意账号' }}{{ $s->account && $s->account->account_name ? ' · ' . $s->account->account_name : '' }}</div>
+                            </div>
+                            <span class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium {{ $s->auto_publish ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600' }}">{{ $s->auto_publish ? '自动' : '待手动' }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+        @endunless
     </section>
 
 </div>

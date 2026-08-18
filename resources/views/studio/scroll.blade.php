@@ -356,6 +356,7 @@ function setBtnLoading(isLoading, text) {
         topic:    { label: '选题二创', back: '/studio/rewrite' },
         original: { label: '原始稿二创', back: '/studio/rewrite-original' },
         dissect:  { label: '爆款拆解', back: '/studio/dissect' },
+        clone:    { label: '爆款复刻', back: '/studio/videos' },
     };
     const srcInfo = srcMap[src] || srcMap.original;
     // 批量二创来源：返回时回到批量二创面板（保留已改写的批量进度）
@@ -364,18 +365,52 @@ function setBtnLoading(isLoading, text) {
         backUrl = '/studio/rewrite?from=topic-all';
     }
 
-    // 优先 URL 参数（可刷新、可分享），其次 sessionStorage（兼容旧跳转）
-    let cleaned = '';
-    if (params.has('dialogue')) {
-        try { cleaned = decodeURIComponent(params.get('dialogue')); } catch (e) { cleaned = ''; }
+    // 从「我的视频」复刻跳转：拉取原条文稿与形式自动填入（爆款复刻）
+    if (src === 'clone') {
+        const jobId = params.get('job_id');
+        if (jobId) {
+            fetch('/studio/videos/' + jobId + '/clone-data', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d || !d.ok) return;
+                const ta = document.getElementById('dialogue');
+                if (ta && d.dialogue) { ta.value = d.dialogue; }
+                if (d.title) {
+                    const t = document.getElementById('title');
+                    if (t && !t.value) { t.value = d.title; }
+                }
+                const dm = {
+                    'avatar':        { mode: 'avatar', voiceForm: null },
+                    'scroll_male':   { mode: 'scroll', voiceForm: 'male_mono' },
+                    'scroll_female': { mode: 'scroll', voiceForm: 'female_mono' },
+                    'scroll_dual':   { mode: 'scroll', voiceForm: 'dialogue' }
+                }[d.mode];
+                if (dm) {
+                    setMode(dm.mode);
+                    if (dm.voiceForm) setVoiceForm(dm.voiceForm);
+                }
+                autoSuggest();
+                hgtToast('info', '已带入原片文稿与形式，可直接生成或微调');
+            })
+            .catch(function () { hgtToast('error', '复刻数据加载失败'); });
+        }
+        return;
     }
-    if (!cleaned && params.get('from') === 'rewrite') {
+
+    // 大文本统一走 sessionStorage；URL 只保留来源标识和模式，避免 URL 过长被服务器/浏览器拒绝
+    let cleaned = '';
+    if (params.get('from') === 'rewrite' || src === 'topic' || src === 'original') {
         cleaned = sessionStorage.getItem('hgt_rewrite_cleaned') || '';
+    }
+    if (!cleaned && src === 'matrix') {
+        cleaned = sessionStorage.getItem('hgt_matrix_cleaned') || '';
     }
     if (!cleaned && src === 'dissect') {
         cleaned = sessionStorage.getItem('hgt_dissect_text') || '';
     }
-    const mode = params.get('mode') || sessionStorage.getItem('hgt_rewrite_mode') || '';
+    const mode = params.get('mode') || sessionStorage.getItem('hgt_rewrite_mode') || sessionStorage.getItem('hgt_matrix_mode') || '';
 
     if (cleaned) {
         const ta = document.getElementById('dialogue');

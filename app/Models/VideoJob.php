@@ -15,13 +15,15 @@ class VideoJob extends Model
     protected $fillable = [
         'tenant_id', 'user_id', 'job_id', 'mode', 'title', 'status',
         'qc_status', 'publish_status', 'review_note', 'cover_asset_id', 'batch_id',
-        'heartbeat_at', 'dedupe_key',
+        'heartbeat_at', 'dedupe_key', 'dialogue', 'render_config', 'is_hit',
     ];
 
     protected function casts(): array
     {
         return [
             'heartbeat_at' => 'datetime',
+            'render_config' => 'array',
+            'is_hit' => 'boolean',
         ];
     }
 

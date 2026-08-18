@@ -20,6 +20,14 @@
         $accent = preg_match('/^#[0-9a-fA-F]{6}$/', $ov['accent'] ?? '') ? $ov['accent'] : null;
         $pageTint = preg_match('/^#[0-9a-fA-F]{6}$/', $ov['page_tint'] ?? '') ? $ov['page_tint'] : null;
     }
+    // 顶栏用量胶囊（计费/升级常驻入口，非技术用户升级路径最短化）
+    $usage = null; $quota = null; $remaining = null; $quotaUnlimited = false;
+    if (! $isAdmin) {
+        $usage = $t->usageThisMonth();
+        $quota = (int) $t->quota_monthly;
+        $remaining = $t->remainingQuota();
+        $quotaUnlimited = $t->isUnlimited();
+    }
 @endphp
 <script>
   (function () {
@@ -65,8 +73,8 @@
                 <span class="font-semibold">工作台总览</span>
             </a>
 
-            <!-- 分组：生产管线 -->
-            <p class="mb-2.5 mt-4 px-2 text-xs font-semibold uppercase tracking-wider text-slate-400">生产管线</p>
+            <!-- 分组：内容创作 -->
+            <p class="mb-2.5 mt-4 px-2 text-xs font-semibold uppercase tracking-wider text-slate-400">内容创作</p>
             <ul class="space-y-1">
                 <li>
                     <a href="/studio/topic" class="{{ request()->is('studio/topic*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-sky">
@@ -74,7 +82,13 @@
                         <span>智能选题</span>
                     </a>
                 </li>
-                <!-- 智能二创（折叠分组：选题二创 / 原始稿二创，不再与其他功能平级排列） -->
+                <li>
+                    <a href="/studio/matrix" class="{{ request()->is('studio/matrix*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-fresh">
+                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17m0 0c-5.523 0-10-4.477-10-10S6.477 0 12 0s10 4.477 10 10-4.477 10-10 10z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l3 3 4-4"/></svg>
+                        <span>内容矩阵</span>
+                    </a>
+                </li>
+                <!-- 智能二创（折叠分组：选题二创 / 原始稿二创） -->
                 <li class="space-y-0.5">
                     <button type="button" onclick="toggleSub(this)"
                         class="ws-nav-item w-full ws-nav-violet {{ (request()->is('studio/rewrite') || request()->is('studio/rewrite-original*')) ? 'ws-nav-active' : '' }}">
@@ -96,17 +110,39 @@
                     </ul>
                 </li>
                 <li>
-                <li>
                     <a href="/studio/dissect" class="{{ request()->is('studio/dissect*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-rose">
                         <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.344 5.657z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/></svg>
                         <span>爆款拆解</span>
                     </a>
                 </li>
+                <li>
+                    <a href="/studio/xhs" class="{{ request()->is('studio/xhs*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-red">
+                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17m0 0c-5.523 0-10-4.477-10-10S6.477 0 12 0s10 4.477 10 10-4.477 10-10 10z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l3 3 4-4"/></svg>
+                        <span>小红书图文</span>
+                    </a>
+                </li>
+            </ul>
+
+            <!-- 分组：视频生产 -->
+            <p class="mb-2.5 mt-6 px-2 text-xs font-semibold uppercase tracking-wider text-slate-400">视频生产</p>
+            <ul class="space-y-1">
+                <li>
                     <a href="/studio/scroll{{ Request::has('from') ? '?from=' . Request::get('from') : '' }}" class="{{ (request()->is('studio/scroll*') && !request()->is('studio/scroll/qc*')) ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-fresh">
                         <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                         <span>视频出片</span>
                     </a>
                 </li>
+                <li>
+                    <a href="/studio/videos" class="{{ request()->is('studio/videos*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-teal">
+                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                        <span>我的视频</span>
+                    </a>
+                </li>
+            </ul>
+
+            <!-- 分组：质量与发布 -->
+            <p class="mb-2.5 mt-6 px-2 text-xs font-semibold uppercase tracking-wider text-slate-400">质量与发布</p>
+            <ul class="space-y-1">
                 <li>
                     <a href="/studio/qc" class="{{ request()->is('studio/qc*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-amber">
                         <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -119,31 +155,31 @@
                         <span>人工审核</span>
                     </a>
                 </li>
-                <li>
-                    <a href="/studio/videos" class="{{ request()->is('studio/videos*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-teal">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
-                        <span>视频生成列表</span>
-                    </a>
-                </li>
                 @php $batchAllowed = $isAdmin ? true : (auth()->user()->tenant->allow_batch ?? false); @endphp
                 <li>
                     @if(!$batchAllowed)
                         <a href="/admin/billing" class="ws-nav-item ws-nav-rose" title="当前账号未开放批量外发，开通或升级后解锁">
                             <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-                            <span>批量外发</span>
+                            <span>多平台发布</span>
                             <svg class="h-3.5 w-3.5 ml-auto text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                         </a>
                     @else
                         <a href="/studio/publish" class="{{ request()->is('studio/publish*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-rose">
                             <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-                            <span>批量外发</span>
+                            <span>多平台发布</span>
                         </a>
                     @endif
                 </li>
+                <li>
+                    <a href="/studio/schedule" class="{{ request()->is('studio/schedule*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
+                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        <span>发布排期</span>
+                    </a>
+                </li>
             </ul>
 
-            <!-- 分组：素材管理 -->
-            <p class="mb-2.5 mt-6 px-2 text-xs font-semibold uppercase tracking-wider text-slate-400">素材管理</p>
+            <!-- 分组：素材中心 -->
+            <p class="mb-2.5 mt-6 px-2 text-xs font-semibold uppercase tracking-wider text-slate-400">素材中心</p>
             <ul class="space-y-1">
                 <li>
                     <a href="/studio/voices" class="{{ request()->is('studio/voices*') || request()->is('voice-clone*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-violet">
@@ -158,35 +194,40 @@
                     </a>
                 </li>
                 <li>
-                    <a href="/studio/xhs" class="{{ request()->is('studio/xhs*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-red">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17m0 0c-5.523 0-10-4.477-10-10S6.477 0 12 0s10 4.477 10 10-4.477 10-10 10z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l3 3 4-4"/></svg>
-                        <span>小红书图文</span>
-                    </a>
-                </li>
-                <li>
                     <a href="/studio/models" class="{{ request()->is('studio/models*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-amber">
                         <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                         <span>数字人模特</span>
                     </a>
                 </li>
+                <li>
+                    <a href="/studio/accounts" class="{{ request()->is('studio/accounts*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
+                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                        <span>平台账号</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/studio/templates" class="{{ request()->is('studio/templates*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
+                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <span>话术模板</span>
+                    </a>
+                </li>
             </ul>
 
-            <!-- 分组：系统 -->
-            <p class="mb-2.5 mt-6 px-2 text-xs font-semibold uppercase tracking-wider text-slate-400">系统</p>
+            <!-- 分组：数据 -->
+            <p class="mb-2.5 mt-6 px-2 text-xs font-semibold uppercase tracking-wider text-slate-400">数据</p>
             <ul class="space-y-1">
                 <li>
-                    <a href="/studio/recycle" class="{{ request()->is('studio/recycle*') ? 'ws-nav-active' : 'ws-nav-item' }}">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                        <span>回收站</span>
+                    <a href="/studio/metrics" class="{{ request()->is('studio/metrics*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-teal">
+                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                        <span>数据效果</span>
                     </a>
                 </li>
-                <li>
-                    <a href="/admin/billing" class="{{ request()->is('admin/billing*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-                        <span>计费订阅</span>
-                    </a>
-                </li>
-                @if(auth()->user()->isGlobalAdmin())
+            </ul>
+
+            <!-- 分组：管理（仅超级管理员） -->
+            @if(auth()->user()->isGlobalAdmin())
+            <p class="mb-2.5 mt-6 px-2 text-xs font-semibold uppercase tracking-wider text-slate-400">管理</p>
+            <ul class="space-y-1">
                 <li>
                     <a href="/admin/tenants" class="{{ request()->is('admin/tenants*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
                         <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a3 3 0 10-2.5-4.5"/></svg>
@@ -199,33 +240,13 @@
                         <span>监控大盘</span>
                     </a>
                 </li>
-                @endif
-                <li>
-                    <a href="/studio/settings/appearance" class="{{ request()->is('studio/settings/appearance*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4 2 2 0 000-4zm0 10v-2m0 2a2 2 0 100 4 2 2 0 000-4zm-6 0H4m2 0a2 2 0 104 0 2 2 0 00-4 0zm12 0h-2m2 0a2 2 0 10-4 0 2 2 0 014 0zM6 6H4m2 0a2 2 0 114 0 2 2 0 01-4 0zm12 0h-2m2 0a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                    <span>外观设置</span>
-                </a>
-            </li>
-            <li>
-                <a href="/settings/password" class="{{ request()->is('settings/password*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                    <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                    <span>账号安全</span>
-                </a>
-            </li>
             </ul>
+            @endif
         </nav>
 
-        <!-- 底部：退出登录（做成明显白卡按钮，自由进出） -->
+        <!-- 侧栏底部：品牌标语 -->
         <div class="border-t border-slate-200/60 px-3 py-3">
-            <form method="POST" action="/logout" class="m-0">
-                @csrf
-                <button type="submit" title="退出登录" class="ws-nav-item w-full justify-between text-left hover:border-red-200 hover:bg-red-50 hover:text-red-600" aria-label="退出登录">
-                    <div class="flex items-center gap-3">
-                        <svg class="h-[18px] w-[18px] shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                        <span class="font-medium">退出登录</span>
-                    </div>
-                </button>
-            </form>
+            <p class="px-2 text-[11px] text-slate-400">追梦 · 短视频智能工作台</p>
         </div>
     </aside>
 
@@ -245,26 +266,59 @@
                 <h1 class="text-base font-semibold text-slate-800">{{ $title }}</h1>
             </div>
             <div class="flex items-center gap-2">
+                {{-- 用量胶囊 + 升级（常驻，付费转化最短路径） --}}
+                @if(!$isAdmin)
+                    <a href="/admin/billing" title="本月用量 / 计费订阅"
+                       class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">
+                        <span class="text-slate-400">本月</span>
+                        <span class="font-semibold text-slate-800">{{ $usage }}</span>
+                        <span class="text-slate-400">/</span>
+                        <span class="font-semibold {{ $quotaUnlimited ? 'text-emerald-600' : ($remaining === 0 ? 'text-red-600' : 'text-slate-800') }}">
+                            {{ $quotaUnlimited ? '不限' : $quota }}
+                        </span>
+                        @if($remaining === 0 && !$quotaUnlimited)
+                            <span class="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">升级</span>
+                        @endif
+                    </a>
+                @endif
                 <button onclick="location.href='/studio/settings/appearance'" title="外观设置"
                     class="rounded-lg border border-slate-200 bg-white p-2 text-slate-400 transition hover:border-brand-300 hover:text-brand-500 hover:shadow-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4 2 2 0 000-4zm0 10v-2m0 2a2 2 0 100 4 2 2 0 000-4zm-6 0H4m2 0a2 2 0 104 0 2 2 0 00-4 0zm12 0h-2m2 0a2 2 0 10-4 0 2 2 0 014 0zM6 6H4m2 0a2 2 0 114 0 2 2 0 01-4 0zm12 0h-2m2 0a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                 </button>
-                {{-- 当前用户信息 --}}
-                <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
-                    <div class="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 text-[11px] font-bold text-white ring-2 ring-white">
-                        {{ strtoupper(mb_substr(auth()->user()->name ?: '?', 0, 1)) }}
-                    </div>
-                    <div class="flex flex-col leading-tight">
-                        <span class="max-w-[120px] truncate text-xs font-semibold text-slate-700">{{ auth()->user()->name }}</span>
+                {{-- 用户菜单（计费/外观/账号安全/退出，替代原"系统"组） --}}
+                <details class="relative">
+                    <summary class="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-sm transition hover:border-brand-300">
+                        <div class="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 text-[11px] font-bold text-white ring-2 ring-white">
+                            {{ strtoupper(mb_substr(auth()->user()->name ?: '?', 0, 1)) }}
+                        </div>
+                        <div class="flex flex-col leading-tight">
+                            <span class="max-w-[120px] truncate text-xs font-semibold text-slate-700">{{ auth()->user()->name }}</span>
+                            @if($isAdmin)
+                                <span class="text-[10px] font-medium text-brand-600">超级管理员</span>
+                            @else
+                                <span class="max-w-[120px] truncate text-[10px] text-slate-400">{{ auth()->user()->email }}</span>
+                            @endif
+                        </div>
+                        <svg class="h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="absolute right-0 top-11 z-40 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                        <a href="/admin/billing" class="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">计费订阅</a>
+                        <a href="/studio/settings/appearance" class="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">外观设置</a>
+                        <a href="/settings/password" class="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">账号安全</a>
                         @if($isAdmin)
-                            <span class="text-[10px] font-medium text-brand-600">超级管理员</span>
-                        @else
-                            <span class="max-w-[120px] truncate text-[10px] text-slate-400">{{ auth()->user()->email }}</span>
+                            <div class="my-1 border-t border-slate-100"></div>
+                            <a href="/admin/tenants" class="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">租户管理</a>
+                            <a href="/admin/monitor" class="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">监控大盘</a>
                         @endif
+                        <div class="my-1 border-t border-slate-100"></div>
+                        <form method="POST" action="/logout">
+                            @csrf
+                            <button class="w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50">退出登录</button>
+                        </form>
                     </div>
-                </div>
+                </details>
             </div>
         </header>
 

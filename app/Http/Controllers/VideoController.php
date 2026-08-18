@@ -177,7 +177,7 @@ class VideoController extends Controller
             }
         }
 
-        // —— 记录用量（先落库，用于配额计量）——
+        // —— 记录用量（先落库，用于配额计量）；dialogue 存档供爆款复刻 ——
         $job = VideoJob::create([
             'tenant_id' => $tenant->id,
             'user_id' => $user->id,
@@ -185,6 +185,7 @@ class VideoController extends Controller
             'batch_id' => $data['batch_id'] ?? null,
             'mode' => $mode,
             'title' => $title,
+            'dialogue' => $data['dialogue'],
             'status' => 'queued',
             'heartbeat_at' => now(),  // 创建即记一次心跳，避免新建任务立即被误判为孤儿
             'dedupe_key' => $dedupeKey,
@@ -231,6 +232,9 @@ class VideoController extends Controller
                 $payload[$k] = $request->input($k);
             }
         }
+
+        // 参数快照（爆款复刻用）：存本次出片的完整入参
+        $job->update(['render_config' => $payload]);
 
         try {
             $resp = app(PipelineClient::class)->post('/generate', $payload, 15);
@@ -536,6 +540,30 @@ class VideoController extends Controller
         $videoJob->delete();
 
         return redirect()->route('studio.videos')->with('success', '已移入回收站：' . ($videoJob->title ?: '未命名视频'));
+    }
+
+    /** 标记 / 取消爆款（复刻候选）。 */
+    public function markHit(Request $request, VideoJob $videoJob)
+    {
+        $this->authorizeTenant($videoJob);
+        $videoJob->update(['is_hit' => ! $videoJob->is_hit]);
+        return redirect()->route('studio.videos')->with(
+            'success',
+            $videoJob->is_hit ? '已标记为爆款 ⭐（可一键复刻）' : '已取消爆款标记'
+        );
+    }
+
+    /** 复刻数据：返回该条的文稿与出片参数，供出片页一键带入。 */
+    public function cloneData(Request $request, VideoJob $videoJob)
+    {
+        $this->authorizeTenant($videoJob);
+        return response()->json([
+            'ok' => true,
+            'dialogue' => $videoJob->dialogue,
+            'title' => $videoJob->title,
+            'mode' => $videoJob->mode,
+            'config' => $videoJob->render_config ?: [],
+        ]);
     }
 
     /** 回收站：本租户已软删除的视频。 */

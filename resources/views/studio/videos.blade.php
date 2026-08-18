@@ -1,6 +1,8 @@
-﻿<x-app-layout>
+<x-app-layout>
 <x-workspace-layout title="视频生成列表" :breadcrumbs="[['label' => '工作台总览', 'url' => '/dashboard'], ['label' => '视频生成列表']]">
 <div class="mx-auto max-w-5xl p-6">
+
+    @include('components.flash')
 
     <div class="mb-4 flex items-center justify-between">
         <div>
@@ -72,6 +74,15 @@
                             @if($job->canPublish())
                                 <a href="/studio/publish" class="rounded-lg border border-brand-300 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-50">去发布</a>
                             @endif
+                            @if($job->isRendered() && $job->dialogue)
+                                <a href="/studio/scroll?src=clone&job_id={{ $job->id }}" title="复用此条的文稿与形式去出片"
+                                   class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">↻ 复刻</a>
+                            @endif
+                            <form action="{{ route('studio.videos.hit', $job) }}" method="POST">
+                                @csrf
+                                <button class="rounded-lg border px-3 py-1.5 text-xs transition {{ $job->is_hit ? 'border-amber-300 bg-amber-50 text-amber-600' : 'border-slate-200 bg-white text-slate-500 hover:bg-amber-50' }}"
+                                        title="标记为爆款，方便后续一键复刻">{{ $job->is_hit ? '⭐ 已标记爆款' : '☆ 标记爆款' }}</button>
+                            </form>
                             <form action="{{ route('studio.videos.destroy', $job) }}" method="POST" class="ml-auto">
                                 @csrf @method('DELETE')
                                 <button type="button" onclick="hgtDel(this)" data-msg="确定删除该视频？将移入回收站，可在回收站恢复。" class="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs text-red-600 hover:bg-red-50">删除</button>

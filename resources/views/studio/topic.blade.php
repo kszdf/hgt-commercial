@@ -1,4 +1,4 @@
-﻿<x-app-layout>
+<x-app-layout>
 <x-workspace-layout title="智能选题">
 <div class="mx-auto max-w-5xl p-6">
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -710,4 +710,17 @@ document.getElementById('hsBatchRewrite')?.addEventListener('click', function ()
     sessionStorage.setItem('hgt_batch_hotspots', JSON.stringify(payload));
     window.location.href = '/studio/rewrite?from=hotspot-all';
 });
+
+// 话术模板联动：从「话术模板」的选题角度带入 ?kw= 到关键词输入框
+(function () {
+    try {
+        var p = new URLSearchParams(window.location.search);
+        var kw = p.get('kw');
+        if (kw) {
+            var input = document.getElementById('keywords');
+            if (input) input.value = kw;
+            hgtToast('info', '已带入模板选题方向，可直接生成');
+        }
+    } catch (e) {}
+})();
 </script>

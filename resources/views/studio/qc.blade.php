@@ -65,11 +65,9 @@
 // 从二创页「跑质检」跳转过来时，自动填入清洗稿
 (function () {
     const params = new URLSearchParams(window.location.search);
+    // 大文本走 sessionStorage，避免 URL 过长导致连接被关闭
     let text = '';
-    if (params.has('text')) {
-        try { text = decodeURIComponent(params.get('text')); } catch (e) { text = ''; }
-    }
-    if (!text && params.get('from') === 'rewrite') {
+    if (params.get('from') === 'rewrite') {
         text = sessionStorage.getItem('hgt_qc_text') || '';
     }
     if (text) {
