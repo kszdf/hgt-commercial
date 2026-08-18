@@ -17,9 +17,9 @@
     --color-brand-200: #c7d2fe;
     --color-brand-300: #a5b4fc;
     --color-brand-400: #818cf8;
-    --color-brand-500: #7c5cfc;
-    --color-brand-600: #6d5cff;
-    --color-brand-700: #5b4df5;
+    --color-brand-500: #928eea;
+    --color-brand-600: #7c6cf5;
+    --color-brand-700: #6d5cff;
     --color-brand-800: #4338ca;
     --color-brand-900: #312e81;
     --color-brand-950: #1e1b4b;
@@ -181,6 +181,10 @@ body {
     background: linear-gradient(135deg, var(--color-brand-500), var(--color-brand-400));
     -webkit-background-clip: text; background-clip: text; color: transparent;
 }
+
+/* 品牌按钮：白字可读性增强（提亮背景后仍需字重辅助） */
+.bg-brand-500 { font-weight: 600; }
+.bg-brand-500:hover { font-weight: 600; }
 
 /* 侧边栏 */
 .sidebar-nav { background: #ffffff; border-right: 1px solid #e8ecf1; }
