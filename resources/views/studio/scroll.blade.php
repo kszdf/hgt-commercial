@@ -2,10 +2,7 @@
 <x-workspace-layout title="视频出片工作台">
 <div class="mx-auto max-w-5xl p-6">
 <style>
-/* 出片进度：渲染是黑盒子进程，无实时百分比，用流动条表达"进行中"而非假数字 */
-@keyframes hgtIndet{0%{left:-35%}50%{left:55%}100%{left:110%}}
-.hgt-indet{position:relative;overflow:hidden}
-.hgt-indet>i{position:absolute;top:0;bottom:0;left:-35%;width:35%;border-radius:9999px;background:#6366f1;animation:hgtIndet 1.3s ease-in-out infinite}
+/* 出片进度：渲染是黑盒子进程，无实时百分比，流动条样式(.hgt-indet)已定义在全局 workspace-layout */
 </style>
 
     <!-- 出片形式快捷切换 -->

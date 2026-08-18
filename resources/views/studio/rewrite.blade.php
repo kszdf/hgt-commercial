@@ -1242,7 +1242,7 @@ function renderBatchVideoBoard(batchId, scripts) {
             + '<div class="flex items-center justify-between gap-2"><span class="font-medium text-slate-700 truncate">'+escapeHtml(s.title||('第'+(i+1)+'条'))+'</span>'
             + '<span class="bv-status shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">排队中</span></div>'
             // 进度条（动态宽度用 inline style，避开 Tailwind 扫描）
-            + '<div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100"><div class="bv-bar h-full rounded-full bg-brand-500" style="width:0%"></div></div>'
+            + '<div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 relative"><div class="bv-bar h-full rounded-full bg-brand-500"></div></div>'
             // 四段分步指示器
             + '<div class="bv-steps mt-2 flex items-center justify-between">'
             +   '<span class="bv-step flex items-center gap-1 text-slate-400" data-step="0"><span class="bv-dot inline-block h-1.5 w-1.5 rounded-full bg-slate-300"></span>提交成功</span>'
@@ -1276,14 +1276,13 @@ function setBvProgress(index, data) {
     const status = (data && data.status) || 'queued';
     const step = (data && data.step) || (status === 'done' ? 'done' : status === 'failed' ? 'failed' : 'queued');
 
-    // 1) 进度条百分比：优先用后端 progress，缺失时按 step 兜底
-    let pct = (data && typeof data.progress === 'number') ? data.progress : null;
-    if (pct === null) {
-        const m = { queued:8, editing:40, rendering:75, rerender:92, done:100, failed:100 };
-        pct = (m[step] !== undefined) ? m[step] : 8;
-    }
+    // 1) 渲染是黑盒进程，无实时 progress，用流动条(bv-flow)表达"进行中"而非假百分比
+    const isDone = (status === 'done' || status === 'failed');
     const bar = card.querySelector('.bv-bar');
-    if (bar) bar.style.width = pct + '%';
+    if (bar) {
+        if (isDone) { bar.classList.remove('bv-flow'); bar.style.width = '100%'; }
+        else { bar.classList.add('bv-flow'); bar.style.width = ''; }
+    }
 
     // 2) 四段分步高亮：提交成功 → 配音字幕 → 视频渲染 → 出片完成
     const phaseMap = { queued:0, editing:1, rendering:2, rerender:2, done:3, failed:-1 };
@@ -1592,7 +1591,7 @@ function openJobLog(jobId) {
             html += '<div style="display:flex;gap:.5rem;padding:.4rem 0;border-bottom:1px solid #f1f5f9;align-items:baseline;flex-wrap:wrap">'
                 + '<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#64748b;flex-shrink:0">' + escHtml(e.time) + '</span>'
                 + '<span style="color:' + c + ';font-weight:600;flex-shrink:0">' + escHtml(e.label) + '</span>'
-                + '<span style="color:#94a3b8">进度 ' + (e.progress||0) + '%</span>'
+                + '<span style="color:#94a3b8">' + (st === 'done' ? '已完成' : (st === 'failed' ? '出片失败' : '进行中')) + '</span>'
                 + (typeof e.eta === 'number' && e.eta > 0 && st !== 'done' && st !== 'failed' ? '<span style="color:#94a3b8">预计剩余 ' + e.eta + 's</span>' : '')
                 + '</div>';
         });
