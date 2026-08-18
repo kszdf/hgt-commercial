@@ -1354,28 +1354,63 @@ def _publish_job(job_id, platforms, data):
     _set_job(job_id, publish_results=results)
     return results
 
+# 终态集合：已明确结束的 job，无需回收；其余一律视为重启前未完成（渲染线程已死）
+_TERMINAL_STATUS = ("done", "failed", "cancelled")
+
+
 def recover_jobs():
-    """启动自愈：扫描 JOBS_DIR，把 queued/rendering（中断）job 标 failed，
-    并把已完成(done)的 job 载入内存，使 /download 重启后仍可用。"""
-    recovered = 0
-    for name in os.listdir(JOBS_DIR):
+    """启动自愈：扫描 JOBS_DIR 把磁盘上的 job 状态恢复到内存，使 /status、/download
+    重启后仍可用，且前端轮询不再因内存清空而"永远查不到"。
+
+    处理规则：
+      - 终态(done/failed/cancelled)：原样载入内存；若 done 但成片文件已丢失，
+        降级为 failed 避免前端下载 404。
+      - 非终态(渲染/编辑/精修等中断)：渲染线程随进程死亡必中断，标 failed 并提示重提，
+        同时释放其占用的并发槽（active_total / active_by_tenant），避免僵尸占坑导致
+        新任务被"并发已满"拒绝。
+    重启后进程内无任何渲染线程在跑，故 active_total 统一归零兜底。
+    """
+    global active_total
+    loaded = 0
+    interrupted = 0
+    for name in sorted(os.listdir(JOBS_DIR)):
         mpath = os.path.join(JOBS_DIR, name, "job.json")
         if not os.path.isfile(mpath):
             continue
         try:
             with open(mpath, encoding="utf-8") as f:
                 meta = json.load(f)
-        except Exception:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
+            print(f"[pipeline] recover_jobs: skip unreadable {name}/job.json: {e}")
             continue
         st = meta.get("status")
         with lock:
-            if st in ("queued", "rendering"):
+            if st in _TERMINAL_STATUS:
+                # done 但产物缺失：降级，避免下载 404 / 无限"已完成"
+                if st == "done" and not (meta.get("out") and os.path.exists(meta.get("out"))):
+                    meta["status"] = "failed"
+                    meta["error"] = "restart_recovered: 成片文件缺失，请重新提交"
+                    _save_job(name, meta)
+                    interrupted += 1
+                jobs[name] = meta
+            else:
+                # 非终态：重启后必然中断，标 failed + 释放并发槽
                 meta["status"] = "failed"
+                meta["step"] = "failed"
                 meta["error"] = "restart_recovered: 服务重启导致任务中断，请重新提交"
                 _save_job(name, meta)
-                recovered += 1
-            jobs[name] = meta  # 不论状态都载入内存缓存
-    return recovered
+                jobs[name] = meta
+                tid = meta.get("tenant_id") or "default"
+                if active_by_tenant.get(tid, 0) > 0:
+                    active_by_tenant[tid] -= 1
+                    if active_by_tenant[tid] <= 0:
+                        del active_by_tenant[tid]
+                interrupted += 1
+            loaded += 1
+    # 重启后无进程在跑，全局在跑计数归零（防御僵尸占坑）
+    active_total = 0
+    print(f"[pipeline] recover_jobs: loaded {loaded} jobs, interrupted(marked failed) {interrupted}")
+    return interrupted
 
 def watchdog_loop():
     """卡死看门狗：每 60s 扫描一次，超过 HARD_TIMEOUT+120s 仍 rendering 的 job 强制回收。"""
