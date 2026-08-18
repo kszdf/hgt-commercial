@@ -1,6 +1,12 @@
 <x-app-layout>
 <x-workspace-layout title="视频出片工作台">
 <div class="mx-auto max-w-5xl p-6">
+<style>
+/* 出片进度：渲染是黑盒子进程，无实时百分比，用流动条表达"进行中"而非假数字 */
+@keyframes hgtIndet{0%{left:-35%}50%{left:55%}100%{left:110%}}
+.hgt-indet{position:relative;overflow:hidden}
+.hgt-indet>i{position:absolute;top:0;bottom:0;left:-35%;width:35%;border-radius:9999px;background:#6366f1;animation:hgtIndet 1.3s ease-in-out infinite}
+</style>
 
     <!-- 出片形式快捷切换 -->
     <div class="mb-4 flex flex-wrap gap-2">
@@ -1336,6 +1342,7 @@ async function pollStatus(jobId) {
                 };
                 const info = STEP_MAP[step] || { label: '出片处理中', percent: 50, stage: 1 };
                 const percent = (typeof data.progress === 'number') ? data.progress : info.percent;
+                const isDone = (step === 'done' || step === 'failed');
 
                 const elapsedSec = Math.max(0, Math.round((Date.now() - startMs) / 1000));
                 const etaSec = (typeof data.eta_sec === 'number') ? data.eta_sec : null;
@@ -1400,10 +1407,12 @@ async function pollStatus(jobId) {
                     '    <div class="text-xs text-slate-400">已等待 ' + fmt(elapsedSec) + '　·　' + etaText + '</div>' +
                     '  </div>' +
                     '  <div class="mb-4 flex items-center justify-between gap-1">' + stepsHtml + '</div>' +
-                    '  <div class="h-2 w-full overflow-hidden rounded-full bg-slate-100">' +
-                    '    <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width:' + percent + '%"></div>' +
+                    '  <div class="h-2 w-full overflow-hidden rounded-full bg-slate-100 ' + (isDone ? '' : 'hgt-indet') + '">' +
+                    (isDone
+                        ? '    <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width:100%"></div>'
+                        : '    <i></i>') +
                     '  </div>' +
-                    '  <div class="mt-1 flex items-center justify-between text-[11px] text-slate-400"><span>' + percent + '%</span><span>' + hint + '</span></div>' +
+                    '  <div class="mt-1 flex items-center justify-between text-[11px] text-slate-400"><span>' + (isDone ? (step === 'failed' ? '出片失败' : '已完成 100%') : ('进行中 · ' + info.label)) + '</span><span>' + hint + '</span></div>' +
                     stuckHint +
                     '</div>';
             }
@@ -1470,7 +1479,7 @@ function openJobLog(jobId) {
             html += '<div style="display:flex;gap:.5rem;padding:.4rem 0;border-bottom:1px solid #f1f5f9;align-items:baseline;flex-wrap:wrap">'
                 + '<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#64748b;flex-shrink:0">' + escHtml(e.time) + '</span>'
                 + '<span style="color:' + c + ';font-weight:600;flex-shrink:0">' + escHtml(e.label) + '</span>'
-                + '<span style="color:#94a3b8">进度 ' + (e.progress||0) + '%</span>'
+                + '<span style="color:#94a3b8">' + (st === 'done' ? '已完成' : (st === 'failed' ? '出片失败' : '进行中')) + '</span>'
                 + (typeof e.eta === 'number' && e.eta > 0 && st !== 'done' && st !== 'failed' ? '<span style="color:#94a3b8">预计剩余 ' + e.eta + 's</span>' : '')
                 + '</div>';
         });
