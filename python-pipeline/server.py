@@ -2249,40 +2249,34 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except Exception as e:  # noqa: BLE001
             return self._send(200, {"ok": False, "error": str(e)})
 
-    # ---- AI 智能生成标题 / 副标题（根据文稿内容，科学、有吸引力）----
+    # ---- AI 智能生成标题 / 副标题（根据文稿内容，轻量快速版）----
     def _handle_suggest_title(self, data):
         dialogue = (data.get("dialogue") or "").strip()
         if not dialogue:
             return self._send(400, {"error": "dialogue required"})
         industry = (data.get("industry") or "").strip()
         style = (data.get("style") or "").strip()
-        # 仅取前 800 字送模型，控制 token 与时延；去角色前缀让标题更聚焦内容
+        # 仅取前 300 字（标题只需开头核心信息，不必全文送入）
         trimmed = re.sub(r'^\s*(?:女|男|旁白|解说|主播|画外音|独白|配音)[:：]\s*', '', dialogue, flags=re.M)
-        trimmed = "\n".join(l.strip() for l in trimmed.splitlines() if l.strip())[:800]
-        ind_hint = f"（内容行业：{industry}）" if industry else ""
+        trimmed = "\n".join(l.strip() for l in trimmed.splitlines() if l.strip())[:300]
+        ind_hint = f"（行业：{industry}）" if industry else ""
         style_hint = {
-            "smart": "标题仅从核心关键词/数字/痛点中极简提取，不超过 10 字，例如‘私户收款被罚30万’。",
-            "full": "标题必须是文稿首句的完整句（保留主谓宾完整语义），15 字以内，例如‘餐饮老板微信收款被查补税30万’。",
-            "suspense": "标题必须制造强悬念或警示，以‘为什么/真相是/小心/别再/90%的人不知道’开头，例如‘小心！私户收款正被金税四期紧盯’。",
-        }.get(style, "标题可智能提取核心关键词，也可保留首句完整语义或制造悬念，任选其一。")
+            "smart": "极简提取关键词/数字/痛点，≤10字。例：'私户收款被罚30万'。",
+            "full": "首句完整语义，≤15字。例：'餐饮老板微信收款被查补税30万'。",
+            "suspense": "强悬念/警示，以'为什么/真相是/小心/别再'开头。例：'小心！私户收款正被金税四期紧盯'。",
+        }.get(style, "智能提取关键词或首句，可制造悬念。")
+        # 轻量 prompt：flash 模型本身懂短视频套路，无需喂大量规则
         prompt = (
-            "你是一位短视频文案专家，擅长为抖音、视频号、小红书生成高点击的封面标题和副标题。\n"
-            f"请根据以下文稿内容{ind_hint}，生成 1 组标题 + 副标题：\n"
-            "【要求】\n"
-            f"1. 主标题 6–12 字，硬上限 15 字；必须包含核心关键词（人群/痛点/利益点），"
-            f"前 5 个字就要让人知道这条视频讲什么。{style_hint}\n"
-            "2. 副标题 15–25 字，硬上限 30 字；补充主标题，说明"
-            "\"这是什么内容、谁该看、能得到什么\"，不能与主标题重复。\n"
-            "3. 风格适配财税/商业短视频：真实、有警示感、不恐吓、不带违禁词。\n"
-            "4. 优先使用以下爆款公式之一：数字法、悬念法、痛点法、反差法、地域法。\n"
-            "5. 禁用词汇：最、第一、国家级、根治、必看、不看后悔、暴富、躺赚、必死、全网第一。\n"
-            "6. 标题党绝对不行，必须能从文稿中找到事实依据。\n"
-            '7. 严格只输出一个 JSON 对象：{"title":"...","subtitle":"..."}，'
-            "不要返回任何多余内容（不要解释、不要代码块标记）。"
+            f"为抖音/视频号短视频生成1组封面标题+副标题{ind_hint}。\n"
+            f"风格要求：{style_hint}\n"
+            "主标题6-12字(上限15)，含核心关键词，前5字让人懂讲什么。\n"
+            "副标题15-25字(上限30)，补充说明内容/受众/价值，不重复主标题。\n"
+            "风格：真实有警示感、不恐吓、不带违禁词(最/第一/根治/必看/暴富/躺赚)。\n"
+            '严格只输出JSON:{"title":"...","subtitle:"..."}，不要其他内容。'
         )
         try:
             cfg = get_text_config()
-            raw = deepseek_chat(prompt + "\n\n【文稿】\n" + trimmed, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=60)
+            raw = deepseek_chat(prompt + "\n\n【文稿】\n" + trimmed, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=20)
         except Exception as e:  # noqa: BLE001
             return self._send(200, {"ok": False, "error": "AI 标题生成失败：" + str(e)[:200]})
         if isinstance(raw, dict):

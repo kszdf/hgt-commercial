@@ -263,7 +263,7 @@ class StudioController extends Controller
             'style' => $data['style'] ?? null,
         ], fn ($v) => $v !== null && $v !== '');
         try {
-            $resp = app(PipelineClient::class)->post('/suggest-title', $send, 90);
+            $resp = app(PipelineClient::class)->post('/suggest-title', $send, 30);
         } catch (PipelineUnavailableException $e) {
             return response()->json(['error' => '标题生成服务暂时不可用，请稍后重试'], 503);
         }
