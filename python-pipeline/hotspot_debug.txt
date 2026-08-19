@@ -842,3 +842,26 @@ deepseek_content_len=0 generated_count=6
   topic matched=True reason=syn hit: 增值税 title=企业所得税 tags=['增值税', '企业所得税']
   topic matched=True reason=syn hit: 增值税 title=中华人民共和国企业所得税法 - 国家税务总局政策法规库 tags=['增值税', '企业所得税']
   topic matched=True reason=syn hit: 增值税 title=税眼看透合伙企业全周期（一）：从“先分后税”谈起 - 金杜律师事务所 tags=['增值税', '企业所得税']
+=== 2026-08-19 13:46:40.625073 days=7 subs=['税务稽查'] ===
+tavily_key_present=True
+tavily ok query=税务稽查 税务 政策 热点 案例 results=6
+after tavily: realtime=True raw_items=6
+=== 2026-08-19 13:46:40.625073 days=7 subs=['税务稽查'] ===
+tavily_key_present=True
+tavily ok query=税务稽查 税务 政策 热点 案例 results=6
+before deepseek prompt_len=2874
+deepseek ok content_len=3552
+=== 2026-08-19 13:47:11.906643 days=7 subs=['税务稽查'] ===
+realtime=True raw_items_count=6
+  raw: 税务稽查案例_税 屋——第一时间传递财税政策法规！
+  raw: 税务_中国财政金融案例中心
+  raw: 金税三期下的税务稽查重点&案例分享
+  raw: 2026年税务稽查风暴：真实案例与应对策略 _ 安企财税
+  raw: 国家税务总局对2023年税务稽查的19个热点问题作出解答
+  raw: 税务稽查程序规则与实务要点_税 屋——第一时间传递财税政策法规！
+deepseek_content_len=3552 generated_count=5
+  topic matched=True reason=syn hit: 税务稽查 title=2026稽查风暴，老板如何自保？ tags=['税务稽查', '风险防范', '稽查案例']
+  topic matched=True reason=syn hit: 税务稽查 title=税务稽查问答：检举必查吗？ tags=['税务稽查', '检举应对', '政策解读']
+  topic matched=True reason=syn hit: 税务稽查 title=税务稽查程序，老板必须懂 tags=['税务稽查', '稽查程序', '合规应对']
+  topic matched=True reason=syn hit: 税务稽查 title=金税三期下，稽查重点在哪？ tags=['税务稽查', '金税三期', '大数据稽查']
+  topic matched=True reason=syn hit: 税务稽查 title=五张缴款书，牵出亿元骗税案 tags=['税务稽查', '骗税案例', '海关缴款书']

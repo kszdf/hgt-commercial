@@ -37,6 +37,27 @@
     --color-gold-500: #f59e0b;
 }
 
+/* 出片进度条：不确定进度时的流光动画 */
+@keyframes hgt-indet {
+    0% { left: -35%; }
+    100% { left: 100%; }
+}
+.hgt-indet {
+    position: relative;
+    overflow: hidden;
+}
+.hgt-indet::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -35%;
+    width: 35%;
+    background: linear-gradient(90deg, transparent, var(--color-brand-400, #818cf8), transparent);
+    border-radius: 9999px;
+    animation: hgt-indet 1.4s ease-in-out infinite;
+}
+
 /* ============================================
    主题令牌层（多预设 + 租户 DIY 覆盖）
    默认（indigo 预设）与既有外观完全一致，零回归。

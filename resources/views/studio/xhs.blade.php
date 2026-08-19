@@ -259,10 +259,12 @@ async function doPublish() {
         if (!resp.ok) throw new Error(data.error || '发布失败');
 
         const r = (data.results && data.results[0]) || data;
-        if (r.status === 'published') {
+        if (r.status === 'published' && r.simulated) {
+            setStatus('pubStatus', `🟡 模拟发布（未真实发出）：${r.error || '未配置小红书账号授权。图片已生成，可以下载后手动发；如需自动发布，请先在「平台账号」完成小红书 OAuth 授权。'}`, 'warn');
+        } else if (r.status === 'published') {
             setStatus('pubStatus', `✅ 发布成功！笔记链接：${r.url || r.platform_post_id || ''}`, 'ok');
         } else if (r.status === 'failed') {
-            setStatus('pubStatus', `⚠️ 发布未成功：${r.error || JSON.stringify(r)}（可能为模拟模式，需完成小红书 OAuth 授权后真发）`, 'warn');
+            setStatus('pubStatus', `❌ 发布失败：${r.error || JSON.stringify(r)}`, 'err');
         } else {
             setStatus('pubStatus', `📤 状态：${r.status} — ${r.url || r.post_id || ''}`, 'ok');
         }

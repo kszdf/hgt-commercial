@@ -120,18 +120,25 @@ class XiaohongshuPublisher(BasePublisher):
             note_type = "video"
 
         if dry:
-            note_id = "xhs_dry_note_123"
-            post_url = "https://www.xiaohongshu.com/user/profile"
-        else:
-            r = requests.post(f"{_XHS_API}/api/open/v1/note/create",
-                              headers=headers, json={"type": note_type, **payload}, timeout=_TIMEOUT)
-            d = r.json().get("data", {})
-            if not d.get("note_id"):
-                return PublishResult(platform=self.platform_key,
-                                     status=PublishStatus.FAILED,
-                                     error_message="小红书发布失败: " + str(r.json()))
-            note_id = d["note_id"]
-            post_url = f"https://www.xiaohongshu.com/explore/{note_id}"
+            # 未配置 XHS_APP_ID / 未授权时：仅做模拟发布，绝不假装真成功
+            return PublishResult(
+                platform=self.platform_key,
+                status=PublishStatus.PUBLISHED,
+                platform_post_id="SIMULATED",
+                platform_url="",
+                error_message="未配置小红书发布授权，本次为模拟发布（图片已生成，但未真正发出）。如需真发，请先在「平台账号」完成小红书 OAuth 授权。",
+                raw={"note_type": note_type, "dry": dry, "simulated": True},
+            )
+
+        r = requests.post(f"{_XHS_API}/api/open/v1/note/create",
+                          headers=headers, json={"type": note_type, **payload}, timeout=_TIMEOUT)
+        d = r.json().get("data", {})
+        if not d.get("note_id"):
+            return PublishResult(platform=self.platform_key,
+                                 status=PublishStatus.FAILED,
+                                 error_message="小红书发布失败: " + str(r.json()))
+        note_id = d["note_id"]
+        post_url = f"https://www.xiaohongshu.com/explore/{note_id}"
 
         return PublishResult(
             platform=self.platform_key,

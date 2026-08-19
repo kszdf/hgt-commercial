@@ -1316,7 +1316,8 @@ def _publish_job(job_id, platforms, data):
                 results.append({
                     "platform": p, "status": res.status.value,
                     "post_id": res.platform_post_id, "url": res.platform_url,
-                    "error": res.error_message, "simulated": False,
+                    "error": res.error_message,
+                    "simulated": bool(res.raw.get("simulated")) if res.raw else False,
                 })
             except Exception as exc:  # noqa: BLE001
                 results.append({"platform": p, "status": "failed", "error": str(exc)})
@@ -1375,7 +1376,7 @@ def _publish_job(job_id, platforms, data):
                 "post_id": res.platform_post_id,
                 "url": res.platform_url,
                 "error": res.error_message,
-                "simulated": False,
+                "simulated": bool(res.raw.get("simulated")) if res.raw else False,
             })
         except Exception as exc:  # noqa: BLE001
             results.append({"platform": p, "status": "failed", "error": str(exc)})

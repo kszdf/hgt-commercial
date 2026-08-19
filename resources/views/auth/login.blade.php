@@ -71,10 +71,19 @@
                 <label class="flex items-center gap-2 text-slate-500">
                     <flux:checkbox name="remember" /> 记住我
                 </label>
-                <a href="/forgot-password" class="text-brand-500 hover:underline text-sm">忘记密码？</a>
+                <a href="/forgot-password" class="flex items-center gap-1 font-medium text-brand-600 hover:text-brand-700 hover:underline">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    忘记密码？
+                </a>
             </div>
 
             <flux:button variant="primary" type="submit" class="w-full !bg-brand-500 hover:!bg-brand-600 !shadow-sm mt-2">登录工作台</flux:button>
+
+            <!-- 找回密码兜底入口：大号独立按钮，避免密码框旁的小链接被忽略 -->
+            <a href="/forgot-password" class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                忘记密码，用手机号/邮箱重置
+            </a>
         </form>
 
         <p class="mt-5 text-center text-sm text-slate-400">
