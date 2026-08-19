@@ -70,7 +70,7 @@
             <!-- 首页入口 -->
             <a href="/dashboard" class="{{ request()->is('dashboard') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
                 <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-                <span class="font-semibold">工作台总览</span>
+                <span class="font-semibold">工作总览</span>
             </a>
 
             <!-- 分组：内容生产（默认展开） -->
@@ -122,8 +122,8 @@
                 </li>
             </ul>
 
-            <!-- 分组：视频与发布（默认展开） -->
-            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>视频与发布</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+            <!-- 分组：视频发布（默认展开） -->
+            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>视频发布</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
             <ul class="space-y-0.5 ws-group-body">
                 <li>
                     <a href="/studio/scroll{{ Request::has('from') ? '?from=' . Request::get('from') : '' }}" class="{{ (request()->is('studio/scroll*') && !request()->is('studio/scroll/qc*')) ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-fresh">
@@ -172,8 +172,8 @@
                 </li>
             </ul>
 
-            <!-- 分组：素材与资源（默认收起） -->
-            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>素材与资源</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+            <!-- 分组：素材中心（默认收起） -->
+            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>素材中心</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
             <ul class="space-y-0.5 ws-group-body collapsed">
                 <li>
                     <a href="/studio/voices" class="{{ request()->is('studio/voices*') || request()->is('voice-clone*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-violet">
@@ -207,8 +207,8 @@
                 </li>
             </ul>
 
-            <!-- 分组：数据（默认收起） -->
-            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>数据</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+            <!-- 分组：数据中心（默认收起） -->
+            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>数据中心</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
             <ul class="space-y-0.5 ws-group-body collapsed">
                 <li>
                     <a href="/studio/metrics" class="{{ request()->is('studio/metrics*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-teal">
@@ -218,8 +218,8 @@
                 </li>
             </ul>
 
-            <!-- 分组：账户（默认收起） -->
-            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>账户</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+            <!-- 分组：账户中心（默认收起） -->
+            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>账户中心</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
             <ul class="space-y-0.5 ws-group-body collapsed">
                 <li>
                     <a href="/settings/password" class="{{ request()->is('settings/password*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-violet">
@@ -229,9 +229,9 @@
                 </li>
             </ul>
 
-            <!-- 分组：管理（仅超级管理员，默认收起） -->
+            <!-- 分组：管理超管（仅超级管理员，默认收起） -->
             @if(auth()->user()->isGlobalAdmin())
-            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>管理</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>管理超管</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
             <ul class="space-y-0.5 ws-group-body collapsed">
                 <li>
                     <a href="/admin/tenants" class="{{ request()->is('admin/tenants*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
@@ -604,7 +604,7 @@ document.querySelectorAll('.ws-sidebar a').forEach(function(a) {
    全局 UX 基础设施：Toast / 二次确认 / 返回 / flash 自动转 Toast
    ============================================================ */
 
-// 智能返回：有同域来源则后退，否则回工作台总览
+// 智能返回：有同域来源则后退，否则回工作总览
 function hgtBack() {
     try {
         if (document.referrer && document.referrer.indexOf(location.origin) === 0) {
