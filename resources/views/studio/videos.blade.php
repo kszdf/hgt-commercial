@@ -51,6 +51,12 @@
                                 @else bg-slate-100 text-slate-500 @endif">
                                 渲染：{{ $job->status == 'done' ? '已完成' : ($job->status == 'failed' ? '失败' : '渲染中') }}
                             </span>
+                            @if($job->status=='failed' && $job->failed_reason)
+                                <span class="rounded px-2 py-0.5 bg-red-50 text-red-600"
+                                    title="{{ $job->pipeline_error ?: '' }}">
+                                    原因：{{ \App\Models\VideoJob::failedReasonLabel($job->failed_reason) }}
+                                </span>
+                            @endif
                             <span class="rounded px-2 py-0.5
                                 @if($job->qc_status=='passed') bg-emerald-100 text-emerald-700
                                 @elseif($job->qc_status=='warned') bg-amber-100 text-amber-700

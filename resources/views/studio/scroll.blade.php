@@ -300,8 +300,10 @@
                     <span id="statusBadge" class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500">待生成</span>
                 </div>
             </div>
-            <div id="result" class="flex min-h-[320px] items-center justify-center rounded-lg bg-slate-50 text-sm text-slate-400">
-                生成后的视频将显示在这里
+            <div id="result" class="flex min-h-[320px] flex-col items-center justify-center rounded-lg bg-slate-50 text-sm text-slate-400">
+                <div class="mb-2 text-3xl">🎬</div>
+                <div class="font-medium">请填写文稿并点击左侧「生成视频」按钮</div>
+                <div class="mt-1 text-xs">出片约需 5–15 分钟，支持离开后自动续接进度</div>
             </div>
             <div id="errorBox" class="mt-3 hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600"></div>
         </section>
@@ -1189,9 +1191,22 @@ async function handleGenerate(e) {
 
     setBtnLoading(true, '正在提交…');
     badge.textContent = '排队中'; badge.className = 'rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-700';
+    result.innerHTML = renderProgressCard({
+        title: '正在连接出片服务…',
+        hint: '提交成功后进入排队队列',
+        step: 'queued',
+        stage: 0,
+        percent: 5,
+        elapsedSec: 0,
+        etaSec: null,
+        qpos: 0,
+        isSkeleton: true
+    });
+    startProgressTimer();
 
     const signal = HGTAbort.begin('中止：出片进行中…', {
         onAbort: function () {
+            stopProgressTimer();
             if (typeof currentJobId !== 'undefined' && currentJobId) {
                 var m = document.querySelector('meta[name="csrf-token"]');
                 var tk = m ? m.content : '';
@@ -1279,11 +1294,21 @@ async function handleGenerate(e) {
         const qh = document.getElementById('queueHint');
         if (qh) { qh.className = 'mt-2 text-xs text-emerald-600'; qh.textContent = '✓ 任务已提交，已进入出片队列，系统将按顺序渲染。'; }
         setBtnLoading(true, '出片中…');
-        result.innerHTML = '<div class="text-center text-slate-400"><div class="mb-2 text-3xl">⏳</div>'
-            + '<div class="font-medium text-slate-600">出片任务已提交，正在真实配音合成…</div>'
-            + '<div class="mt-1 text-xs">您可先去其他页面，回来会自动续接进度</div></div>';
+        result.innerHTML = renderProgressCard({
+            title: '出片任务已提交',
+            hint: '正在真实配音合成，可先去其他页面',
+            step: 'editing',
+            stage: 1,
+            percent: 20,
+            elapsedSec: 0,
+            etaSec: null,
+            qpos: 0,
+            isSkeleton: true
+        });
+        startProgressTimer();
         pollStatus(data.job_id);
     } catch (err) {
+        stopProgressTimer();
         if (err.name === 'AbortError') {
             setBtnLoading(false);
             badge.textContent = '已中止'; badge.className = 'rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500';
@@ -1300,10 +1325,119 @@ async function handleGenerate(e) {
 }
 document.getElementById('genForm').addEventListener('submit', handleGenerate);
 
+// ===== 出片进度通用工具 =====
+function fmtDuration(s) {
+    s = Math.max(0, Math.round(s));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const r = s % 60;
+    if (h > 0) return h + ' 小时 ' + (m > 0 ? m + ' 分' : '');
+    if (m > 0) return m + ' 分 ' + (r > 0 ? (r + ' 秒') : '');
+    return r + ' 秒';
+}
+
+// 进度卡片渲染器：骨架/真实状态统一结构，避免 resumeJob 与 pollStatus 两套 UI
+function renderProgressCard(opts) {
+    const {
+        title, hint, step, stage, percent, elapsedSec, etaSec,
+        qpos, stuckHint, isSkeleton, errorText
+    } = opts;
+    const STAGES = ['提交成功', '配音字幕合成', '视频渲染', '出片完成'];
+    let stepsHtml = '';
+    for (let k = 0; k < STAGES.length; k++) {
+        const reached = isSkeleton ? (k === 0) : (k <= stage);
+        const current = isSkeleton ? (k === 0) : (k === stage && step !== 'done' && step !== 'failed');
+        const dotCls = reached
+            ? (current ? 'bg-brand-500 text-white' : 'bg-brand-100 text-brand-700')
+            : 'bg-slate-100 text-slate-400';
+        stepsHtml += '<div class="flex flex-col items-center gap-1">' +
+            '<div class="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold ' + dotCls + '">' +
+            (reached ? (k < stage ? '✓' : (k + 1)) : (k + 1)) + '</div>' +
+            '<div class="text-[10px] ' + (current ? 'font-medium text-brand-700' : 'text-slate-400') + '">' + STAGES[k] + '</div>' +
+            '</div>';
+        if (k < STAGES.length - 1) {
+            stepsHtml += '<div class="mt-3 h-0.5 flex-1 ' + (k < stage ? 'bg-brand-300' : 'bg-slate-200') + '"></div>';
+        }
+    }
+
+    const isDone = !isSkeleton && (step === 'done' || step === 'failed');
+    const etaText = isSkeleton
+        ? '正在连接出片服务…'
+        : (step === 'queued' && qpos > 0)
+            ? ('前面约 ' + qpos + ' 个排队')
+            : (typeof etaSec === 'number' && etaSec > 0)
+                ? ('预计剩余 ' + fmtDuration(etaSec))
+                : '预计还需数分钟';
+
+    const progressWidth = isSkeleton ? '45%' : (isDone ? '100%' : (percent + '%'));
+    const progressColor = isDone && step === 'failed' ? 'bg-red-500' : 'bg-brand-500';
+    const bottomText = isDone
+        ? (step === 'failed' ? '出片失败' : '已完成 100%')
+        : ('进行中 · ' + (isSkeleton ? '获取最新进度' : (opts.label || '出片处理中')));
+
+    return '<div class="mx-auto w-full max-w-md rounded-xl border border-slate-100 bg-white p-5 shadow-sm" data-hgt-progress="1">' +
+        '  <div class="mb-3 text-center">' +
+        '    <div class="mb-1 text-sm font-medium text-slate-700">' + (title || '出片处理中') + '</div>' +
+        '    <div class="text-xs text-slate-400" data-hgt-timer="' + (elapsedSec || 0) + '">已等待 ' + fmtDuration(elapsedSec || 0) + (isSkeleton ? '' : '　·　' + etaText) + '</div>' +
+        '  </div>' +
+        '  <div class="mb-4 flex items-center justify-between gap-1">' + stepsHtml + '</div>' +
+        '  <div class="h-2 w-full overflow-hidden rounded-full bg-slate-100 ' + (isDone ? '' : 'hgt-indet') + '" style="position:relative">' +
+        '    <div class="h-full rounded-full ' + progressColor + ' transition-all duration-500" style="width:' + progressWidth + '"></div>' +
+        '  </div>' +
+        '  <div class="mt-1 flex items-center justify-between text-[11px] text-slate-400"><span>' + bottomText + '</span><span>' + (hint || '数字人出片约 5–15 分钟，可先去其他页面') + '</span></div>' +
+        (stuckHint || '') +
+        (errorText ? '<div class="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">' + errorText + '</div>' : '') +
+        '</div>';
+}
+
+// 启动/停止实时计时器（每秒刷新「已等待」文案）
+let __hgt_timerInterval = null;
+function startProgressTimer() {
+    stopProgressTimer();
+    __hgt_timerInterval = setInterval(function () {
+        document.querySelectorAll('[data-hgt-timer]').forEach(function (el) {
+            const base = parseInt(el.getAttribute('data-hgt-timer') || '0', 10);
+            // 每次刷新时把基准值 +1，实现自增
+            el.setAttribute('data-hgt-timer', String(base + 1));
+            const text = el.textContent || '';
+            const prefix = text.split('　·　')[0];
+            const suffix = text.includes('　·　') ? ('　·　' + text.split('　·　')[1]) : '';
+            el.textContent = '已等待 ' + fmtDuration(base + 1) + suffix;
+        });
+    }, 1000);
+}
+function stopProgressTimer() {
+    if (__hgt_timerInterval) { clearInterval(__hgt_timerInterval); __hgt_timerInterval = null; }
+}
+
+// 失败原因中文标签与处置建议（看门狗结构化 failed_reason 透传）
+const FAILED_REASON_LABEL = {
+    timeout: '出片超时（长时间无进展）',
+    service_unavailable: '出片服务异常（持续不可达）',
+    resource: '系统资源不足（磁盘/显存/内存）',
+    format: '素材或格式问题',
+    job_lost: '出片任务丢失（服务侧已无记录）',
+    unknown: '出片失败（原因未知）',
+};
+const FAILED_REASON_TIP = {
+    timeout: '任务卡死已自动终止，可重新提交；若反复超时请缩短内容或分批生成。',
+    service_unavailable: '出片服务暂时不可用，请稍后重试；持续失败请联系技术支持。',
+    resource: '服务器资源不足，请稍后重试或联系我们扩容。',
+    format: '请检查文稿/素材格式后重新提交。',
+    job_lost: '任务在服务侧已丢失，请重新提交生成。',
+    unknown: '可重新提交生成，或联系技术支持。',
+};
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+}
+
 async function pollStatus(jobId) {
     const badge = document.getElementById('statusBadge');
     const result = document.getElementById('result');
-    const startMs = Date.now();  // 轮询起始时间戳，用于精确计算「已等待」
+    const pageLoadMs = Date.now();
+    let baseElapsedSec = 0;      // 后端返回的已等待秒数（任务创建至今）
     let lastStep = null;         // 最近一次 8500 返回的 step
     let lastStepMs = Date.now(); // 进入当前 step 的时间戳，用于卡死感知
     for (let i = 0; i < 1800; i++) {  // 最多 60 分钟轮询（数字人视频含重渲染可能 20–40 分钟）
@@ -1316,6 +1450,7 @@ async function pollStatus(jobId) {
         if (!HGTAbort.isActive()) {
             badge.textContent = '已中止'; badge.className = 'rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500';
             setBtnLoading(false);
+            stopProgressTimer();
             hgtToast('warn', '已中止出片');
             HGTAbort.end();
             return;
@@ -1329,7 +1464,7 @@ async function pollStatus(jobId) {
             });
             const statusText = await statusResp.text();
             let data;
-            try { data = JSON.parse(statusText); } catch (_) { return; } // 网络抖动，跳过本轮
+            try { data = JSON.parse(statusText); } catch (_) { continue; } // 网络抖动，跳过本轮继续轮询
             if (data.status === 'done') {
                 sessionStorage.removeItem('hgt_active_job');
                 badge.textContent = '完成'; badge.className = 'rounded-full bg-green-100 px-3 py-1 text-xs text-green-700';
@@ -1349,14 +1484,25 @@ async function pollStatus(jobId) {
                     '  </div>' +
                     '</div>';
                 setBtnLoading(false);
+                stopProgressTimer();
                 HGTAbort.end();
                 return;
             } else if (data.status === 'failed') {
                 sessionStorage.removeItem('hgt_active_job');
                 badge.textContent = '失败'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
                 const eb = document.getElementById('errorBox');
-                eb.textContent = '出片失败：' + (data.error || '未知错误'); eb.classList.remove('hidden');
+                const reasonKey = data.failed_reason || 'unknown';
+                const reasonLabel = FAILED_REASON_LABEL[reasonKey] || '出片失败';
+                const detail = data.pipeline_error || data.error || '未知错误';
+                const tip = FAILED_REASON_TIP[reasonKey] || '可重新提交生成，或联系技术支持。';
+                eb.innerHTML = '<div class="font-medium">出片失败：' + reasonLabel + '</div>'
+                    + '<div class="mt-1 break-words">' + escapeHtml(String(detail).slice(0, 300)) + '</div>'
+                    + '<div class="mt-1 text-red-500/80">' + tip + '</div>';
+                eb.classList.remove('hidden');
+                // 同步写一条失败日志到控制台便于排查
+                if (window.console) console.warn('[出片失败]', reasonKey, detail);
                 setBtnLoading(false);
+                stopProgressTimer();
                 HGTAbort.end();
                 return;
             } else {
@@ -1376,7 +1522,10 @@ async function pollStatus(jobId) {
                 const percent = (typeof data.progress === 'number') ? data.progress : info.percent;
                 const isDone = (step === 'done' || step === 'failed');
 
-                const elapsedSec = Math.max(0, Math.round((Date.now() - startMs) / 1000));
+                // 已等待时长优先取后端计算（任务创建至今），页面刷新/续接时更准确
+                baseElapsedSec = (typeof data.elapsed_sec === 'number' && data.elapsed_sec > 0)
+                    ? data.elapsed_sec
+                    : Math.max(0, Math.round((Date.now() - pageLoadMs) / 1000));
                 const etaSec = (typeof data.eta_sec === 'number') ? data.eta_sec : null;
 
                 let title, hint;
@@ -1384,22 +1533,12 @@ async function pollStatus(jobId) {
                     title = qpos > 0 ? ('排队中（前面还有 ' + qpos + ' 个视频在渲染）') : '排队中（等待渲染资源）';
                     hint = '数字人出片较慢，请耐心等待；可先去其他页面，回来会自动续接';
                 } else if (step === 'rerender') {
-                    title = '检测到音频瑕疵，正在自动重渲染修复（预计再需几分钟）';
+                    title = '检测到音频瑕疵，正在自动重渲染修复';
                     hint = '为保质量平台自动重渲染一次，无需任何操作';
                 } else {
                     title = info.label;
                     hint = '数字人出片较慢，约 5–15 分钟；可先去其他页面，回来会自动续接';
                 }
-
-                const fmt = (s) => {
-                    s = Math.max(0, Math.round(s));
-                    const m = Math.floor(s / 60); const r = s % 60;
-                    return m > 0 ? (m + ' 分 ' + (r > 0 ? (r + ' 秒') : '')) : (r + ' 秒');
-                };
-                // 数字人/视频渲染波动大，精确 ETA 容易钉死造成误导，故使用柔性文案
-                const etaText = (step === 'queued' && data.queue_pos > 0)
-                    ? ('前面约 ' + data.queue_pos + ' 个排队')
-                    : '预计还需数分钟';
 
                 // 同阶段超时感知：某阶段持续不推进超过阈值，提示用户可能卡住并可手动刷新
                 const isRegen = !!data.regen_attempted;  // 处于 QC 自动重试阶段，阈值放宽避免误报"卡住"
@@ -1408,63 +1547,60 @@ async function pollStatus(jobId) {
                 if (step !== lastStep) { lastStep = step; lastStepMs = Date.now(); }
                 const stageStuckSec = Math.floor((Date.now() - lastStepMs) / 1000);
                 const stuckHint = stageStuckSec >= STAGE_STUCK_SEC
-                    ? ('<div class="mt-2 text-xs" style="color:#d97706">⚠ 当前阶段已持续 ' + fmt(stageStuckSec) + ' 未推进，可能已经卡住。<button type="button" onclick="window.__hgt_pollNow=true" class="ml-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-amber-700 hover:bg-amber-100">立即刷新</button></div>')
-                    : (elapsedSec >= TOTAL_STUCK_SEC
-                        ? ('<div class="mt-2 text-xs" style="color:#d97706">已等待较久（' + fmt(elapsedSec) + '）。数字人视频正常 5–15 分钟，重渲染会更久；若仍无进展请刷新页面或重试。</div>')
+                    ? ('<div class="mt-2 text-xs" style="color:#d97706">⚠ 当前阶段已持续 ' + fmtDuration(stageStuckSec) + ' 未推进，可能已经卡住。<button type="button" onclick="window.__hgt_pollNow=true" class="ml-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-amber-700 hover:bg-amber-100">立即刷新</button></div>')
+                    : (baseElapsedSec >= TOTAL_STUCK_SEC
+                        ? ('<div class="mt-2 text-xs" style="color:#d97706">已等待较久（' + fmtDuration(baseElapsedSec) + '）。数字人视频正常 5–15 分钟，重渲染会更久；若仍无进展请刷新页面或重试。</div>')
                         : '');
 
-                // 四段分步条：提交成功 → 配音字幕合成 → 视频渲染 → 出片完成
-                const STAGES = ['提交成功', '配音字幕合成', '视频渲染', '出片完成'];
-                let stepsHtml = '';
-                for (let k = 0; k < STAGES.length; k++) {
-                    const reached = k <= info.stage;
-                    const current = k === info.stage && step !== 'done' && step !== 'failed';
-                    const dotCls = reached
-                        ? (current ? 'bg-brand-500 text-white' : 'bg-brand-100 text-brand-700')
-                        : 'bg-slate-100 text-slate-400';
-                    stepsHtml += '<div class="flex flex-col items-center gap-1">' +
-                        '<div class="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold ' + dotCls + '">' +
-                        (reached ? (k < info.stage ? '✓' : (k + 1)) : (k + 1)) + '</div>' +
-                        '<div class="text-[10px] ' + (current ? 'font-medium text-brand-700' : 'text-slate-400') + '">' + STAGES[k] + '</div>' +
-                        '</div>';
-                    if (k < STAGES.length - 1) {
-                        stepsHtml += '<div class="mt-3 h-0.5 flex-1 ' + (k < info.stage ? 'bg-brand-300' : 'bg-slate-200') + '"></div>';
-                    }
-                }
-
-                result.innerHTML =
-                    '<div class="mx-auto w-full max-w-md rounded-xl border border-slate-100 bg-white p-5 shadow-sm">' +
-                    '  <div class="mb-3 text-center">' +
-                    '    <div class="mb-1 text-sm font-medium text-slate-700">' + title + '</div>' +
-                    '    <div class="text-xs text-slate-400">已等待 ' + fmt(elapsedSec) + '　·　' + etaText + '</div>' +
-                    '  </div>' +
-                    '  <div class="mb-4 flex items-center justify-between gap-1">' + stepsHtml + '</div>' +
-                    '  <div class="h-2 w-full overflow-hidden rounded-full bg-slate-100 ' + (isDone ? '' : 'hgt-indet') + '">' +
-                    (isDone
-                        ? '    <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width:100%"></div>'
-                        : '    <i></i>') +
-                    '  </div>' +
-                    '  <div class="mt-1 flex items-center justify-between text-[11px] text-slate-400"><span>' + (isDone ? (step === 'failed' ? '出片失败' : '已完成 100%') : ('进行中 · ' + info.label)) + '</span><span>' + hint + '</span></div>' +
-                    stuckHint +
-                    '</div>';
+                result.innerHTML = renderProgressCard({
+                    title: title,
+                    label: info.label,
+                    hint: hint,
+                    step: step,
+                    stage: info.stage,
+                    percent: percent,
+                    elapsedSec: baseElapsedSec,
+                    etaSec: etaSec,
+                    qpos: qpos,
+                    stuckHint: stuckHint
+                });
+                startProgressTimer();
             }
         } catch (e) { /* 网络抖动，继续轮询 */ }
     }
     badge.textContent = '超时'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
     setBtnLoading(false);
+    stopProgressTimer();
     HGTAbort.end();
 }
 
 // 续接未完成的出片任务（用户离开页面后回来自动恢复轮询）
 (function resumeJob() {
     const jobId = sessionStorage.getItem('hgt_active_job');
+    const result = document.getElementById('result');
     if (jobId) {
         jobSubmitted = true;
         currentJobId = jobId;
         document.getElementById('jobLogBtn')?.classList.remove('hidden');
         setBtnLoading(true, '出片中…');
+        // 立即展示带进度条骨架的卡片，避免"只有文字"的空白等待
+        if (result) {
+            result.innerHTML = renderProgressCard({
+                title: '正在续接出片进度…',
+                hint: '任务 ' + jobId.substring(0, 8) + '… 仍在处理',
+                step: 'queued',
+                stage: 0,
+                percent: 8,
+                elapsedSec: 0,
+                etaSec: null,
+                qpos: 0,
+                isSkeleton: true
+            });
+            startProgressTimer();
+        }
         HGTAbort.begin('中止：出片进行中…', {
             onAbort: function () {
+                stopProgressTimer();
                 var m = document.querySelector('meta[name="csrf-token"]');
                 var tk = m ? m.content : '';
                 fetch('/studio/scroll/cancel?job=' + jobId, {
@@ -1474,7 +1610,27 @@ async function pollStatus(jobId) {
                 }).catch(function () {});
             }
         });
-        pollStatus(jobId);
+        // 先拉一次真实状态，把骨架里的「已等待 0 秒」立刻校正为后端累计时长
+        fetch('/studio/scroll/status/' + jobId, {
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'done' || data.status === 'failed') {
+                // 终态直接让 pollStatus 处理展示
+                pollStatus(jobId);
+            } else {
+                // 非终态：用后端 elapsed_sec 刷新骨架计时器基准，再进入轮询
+                const elapsed = (typeof data.elapsed_sec === 'number' && data.elapsed_sec > 0) ? data.elapsed_sec : 0;
+                const timerEl = result?.querySelector('[data-hgt-timer]');
+                if (timerEl) timerEl.setAttribute('data-hgt-timer', String(elapsed));
+                pollStatus(jobId);
+            }
+        })
+        .catch(() => {
+            // 即使首次拉取失败也继续轮询，pollStatus 会自己重试
+            pollStatus(jobId);
+        });
     }
 })();
 

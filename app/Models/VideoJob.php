@@ -16,12 +16,15 @@ class VideoJob extends Model
         'tenant_id', 'user_id', 'job_id', 'mode', 'title', 'status',
         'qc_status', 'publish_status', 'review_note', 'cover_asset_id', 'batch_id',
         'heartbeat_at', 'dedupe_key', 'dialogue', 'render_config', 'is_hit',
+        'last_pipeline_step', 'step_changed_at', 'failed_reason', 'failed_at', 'pipeline_error',
     ];
 
     protected function casts(): array
     {
         return [
             'heartbeat_at' => 'datetime',
+            'step_changed_at' => 'datetime',
+            'failed_at' => 'datetime',
             'render_config' => 'array',
             'is_hit' => 'boolean',
         ];
@@ -102,6 +105,15 @@ class VideoJob extends Model
         $update = ['status' => $remote];
         if ($duration !== null) {
             $update['duration_sec'] = $duration;
+        }
+        // 失败：结构化记录原因与原始错误，便于前端明确提示 + 管理员溯源
+        if ($remote === 'failed') {
+            $err = $json['error'] ?? null;
+            $update['failed_reason'] = self::classifyError($err, $json['step'] ?? null);
+            $update['failed_at'] = now();
+            if ($err !== null) {
+                $update['pipeline_error'] = is_string($err) ? $err : json_encode($err, JSON_UNESCAPED_UNICODE);
+            }
         }
         $this->update($update);
         // 渲染完成即进入「待人工审核」初始态（draft），与状态端点逻辑一致
@@ -195,5 +207,94 @@ class VideoJob extends Model
             'review_note' => ($this->review_note ? $this->review_note . '；' : '') . '[系统]' . $reason,
         ]);
         return true;
+    }
+
+    /**
+     * 记录 8500 真实阶段推进（看门狗每次轮询调用）。
+     * 仅当阶段发生变化时更新 step_changed_at，作为「最近一次真实进展」的基线：
+     *  - 首次观测（last_pipeline_step 为空）：以创建时间为基线，使老任务/历史卡死任务
+     *    立即纳入检测（避免新字段上线前创建的任务永远查不到进度）。
+     *  - 阶段变化：刷新为当前时间。
+     * 通过查询构造器直接更新，绕过 updated_at 自动维护（避免干扰列表排序与缓存）。
+     */
+    public function recordStep(?string $step): void
+    {
+        if (! $step || $this->last_pipeline_step === $step) {
+            return;
+        }
+        $baseline = $this->last_pipeline_step === null
+            ? ($this->created_at ?? now())   // 首次观测：进度基线 = 创建时间（历史任务同样适用）
+            : now();
+        static::whereKey($this->getKey())->update([
+            'last_pipeline_step' => $step,
+            'step_changed_at'    => $baseline,
+        ]);
+        $this->last_pipeline_step = $step;
+        $this->step_changed_at = $baseline;
+    }
+
+    /**
+     * 结构化标记任务失败（看门狗 / 控制器共用）。
+     * 仅当任务尚未到达终态时生效；失败幂等（重复调用不重复写）。
+     * 失败原因分类写入 failed_reason，原始错误写入 pipeline_error。
+     */
+    public function markFailed(string $reason, ?string $error = null, ?string $detail = null): bool
+    {
+        if ($this->isTerminal()) {
+            return false;
+        }
+        $note = $detail ?: self::failedReasonLabel($reason);
+        $update = [
+            'status'        => 'failed',
+            'failed_reason' => $reason,
+            'failed_at'     => now(),
+        ];
+        if ($error !== null) {
+            $update['pipeline_error'] = $error;
+        }
+        $update['review_note'] = ($this->review_note ? $this->review_note . '；' : '') . '[系统]' . $note;
+        $this->update($update);
+        return true;
+    }
+
+    /** 失败原因中文标签（前端展示 / 日志 / 列表溯源）。 */
+    public static function failedReasonLabel(string $reason): string
+    {
+        return match ($reason) {
+            'timeout'             => '出片超时（长时间无进展）',
+            'service_unavailable' => '出片服务异常（持续不可达）',
+            'resource'            => '系统资源不足（磁盘/显存/内存）',
+            'format'              => '素材或格式问题',
+            'job_lost'            => '出片任务丢失（服务侧已无记录）',
+            default               => '出片失败（原因未知）',
+        };
+    }
+
+    /**
+     * 从 8500 返回的错误文本推断失败原因分类。
+     * 资源类（磁盘/显存/内存）→ resource；格式/编码/分辨率 → format；其余 → unknown。
+     */
+    public static function classifyError(?string $error, ?string $step): string
+    {
+        if ($error) {
+            $e = mb_strtolower($error);
+            if (preg_match('/(no space|disk|磁盘|空间不足|vram|cuda|out of memory|memoryerror|内存|显存)/u', $e)) {
+                return 'resource';
+            }
+            if (preg_match('/(format|codec|resolution|unsupported|invalid|编码|格式|分辨率|不支持)/u', $e)) {
+                return 'format';
+            }
+        }
+        return 'unknown';
+    }
+
+    /** 距最近一次阶段推进的秒数（无记录则用创建时间）。 */
+    public function secondsSinceProgress(): int
+    {
+        $base = $this->step_changed_at ?? $this->created_at;
+        if (! $base) {
+            return 0;
+        }
+        return max(0, (int) now()->diffInSeconds($base));
     }
 }

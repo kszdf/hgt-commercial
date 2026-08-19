@@ -9,12 +9,17 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * 服务端兜底同步：把 video_jobs 中卡在 queued 的任务，按 8500 真实状态回写为 done/failed。
+ * 出片任务兜底看门狗：周期性把 video_jobs 中卡在 queued 的任务按真实状态回写 / 检测卡死。
  *
- * 为什么需要它：video_jobs.status 的推进原本只靠前端轮询 /studio/scroll/status/{jobId}
- * 端点触发。若用户提交批量出片后关掉页面，任务会永久卡 queued，既挡住并发闸
- * （TENANT_MAX_CONCURRENT_JOBS，报 429）又让视频库状态不准。
- * 本命令作为常驻 Docker 服务（--daemon）周期性兜底，从根本上消除该风险。
+ * 彻底解决「假出片」四要件：
+ *  1) 任务状态检测：每次轮询都向 8500 查询真实阶段（queued/editing/rendering/rerender），
+ *     记录阶段最后推进时间；某阶段长时间不前进即识别为卡死/进程丢失。
+ *  2) 超时机制：双阈值——阶段卡死超时（按阶段给不同阈值）+ 任务绝对超时（总耗时硬上限）。
+ *  3) 失败自动提示：失败写入结构化 failed_reason，前端据此展示明确失败原因，不再无限等待。
+ *  4) 状态可追溯：每个任务写 storage/logs/video-jobs/{job_id}.log，含阶段切换、卡死判定、
+ *     失败原因与原始错误，便于排查长时间无输出的根因。
+ *
+ * 作为常驻 Docker 服务（--daemon）每 30s 运行；routes/console.php 另挂每 5 分钟调度冗余。
  */
 class SyncVideoJobs extends Command
 {
@@ -23,7 +28,7 @@ class SyncVideoJobs extends Command
         {--interval=30 : 守护模式轮询间隔（秒）}
         {--limit=200 : 单次最多同步的任务数}';
 
-    protected $description = '服务端兜底：把卡在 queued 的出片任务按 8500 真实状态回写为 done/failed';
+    protected $description = '出片看门狗：卡死检测 + 超时回收 + 失败原因结构化，根治假出片';
 
     private bool $stopping = false;
 
@@ -60,20 +65,23 @@ class SyncVideoJobs extends Command
             return self::SUCCESS;
         }
 
-        // 兜底回收阈值（秒）：任务无心跳超过该时长即进入回收判定。
-        // 默认 300s（5 分钟），可在 .env 用 VIDEO_STALE_TIMEOUT_SEC 覆盖。
-        // 注意：阈值仅决定「何时开始判定」，是否真回收仍由 8500 真实状态把关，
-        // 绝不会仅凭前端心跳断开就误杀正在渲染的任务。
+        // —— 卡死 / 超时阈值（秒）——
+        // 阶段卡死：某阶段（含排队 queued / 配音字幕合成 editing / 渲染 rendering / 重渲染 rerender）
+        //   长时间无推进即判失败。排队等待渲染资源给更长阈值（避免多任务排队误杀），
+        //   已进入渲染/合成的阶段给较严阈值（正常应 15–25 分钟出片）。
+        $stepStuckSec  = (int) env('VIDEO_STEP_STUCK_TIMEOUT_SEC', 1500);   // 25 分钟（活动阶段）
+        $queueStuckSec = (int) env('VIDEO_QUEUE_STUCK_TIMEOUT_SEC', 3000);  // 50 分钟（排队等锁）
+        // 绝对超时：任务总耗时硬上限（兜底网，无论卡在哪个阶段都拦得住）。
+        $absoluteSec   = (int) env('VIDEO_ABSOLUTE_TIMEOUT_SEC', 5400);     // 90 分钟
+        // 服务不可达：8500 持续不可达超过该时长才判失败（避免瞬时抖动误杀）。
+        $serviceDownSec = (int) env('VIDEO_SERVICE_DOWN_TIMEOUT_SEC', 600); // 10 分钟
+        // 提交孤儿回收阈值（无 job_id 的任务）：默认 300s，可由 VIDEO_STALE_TIMEOUT_SEC 覆盖。
         $staleSec = (int) env('VIDEO_STALE_TIMEOUT_SEC', 300);
-
-        // 渲染卡死回收阈值（秒）：8500 长期返回 rendering/rerender 但任务总耗时超过该值，
-        // 视为渲染进程假死/丢失，自动标 failed 释放并发槽。默认 1800s（30 分钟），
-        // 数字人重渲染场景可配置为 1200–1800s；滚动字幕卡可配更短。
-        $renderStuckSec = (int) env('VIDEO_RENDER_STUCK_TIMEOUT_SEC', 1800);
         $limit = (int) $this->option('limit');
 
         try {
-            // —— 1) 正常状态同步：按 8500 真实状态推进 queued 任务 ——
+            // —— 1) 全量监测：所有带 job_id 的 queued 任务，按 8500 真实状态推进 + 卡死检测 ——
+            // 每轮都覆盖（不依赖前端心跳），从根上消除「客户端关页面 / 一直开着轮询」导致的漏检。
             $jobs = VideoJob::where('status', 'queued')
                 ->whereNotNull('job_id')
                 ->orderBy('created_at')
@@ -86,20 +94,37 @@ class SyncVideoJobs extends Command
                 try {
                     $resp = app(PipelineClient::class)->get('/status/' . $job->job_id, 15);
                 } catch (PipelineUnavailableException $e) {
-                    $this->warn("job {$job->job_id} 8500 不可达，跳过");
+                    // 8500 不可达：累计不可达时长，超阈值才判失败（瞬时抖动不误杀）
+                    $downKey = 'video_job_svc_down:' . $job->job_id;
+                    $first = Cache::get($downKey);
+                    if (! $first) {
+                        Cache::put($downKey, now()->timestamp, $serviceDownSec + 120);
+                        $first = now()->timestamp;
+                    }
+                    $downFor = now()->timestamp - $first;
+                    if ($downFor >= $serviceDownSec) {
+                        $job->markFailed('service_unavailable', null,
+                            '出片微服务持续不可达约 ' . round($downFor / 60) . ' 分钟，任务已自动终止');
+                        $this->logEvent($job->job_id, 'failed', 'service_unavailable',
+                            '8500 持续不可达 ' . $downFor . 's');
+                        $synced++;
+                        $this->info("job {$job->job_id} 服务不可达超时 -> failed（service_unavailable）");
+                    } else {
+                        $this->warn("job {$job->job_id} 8500 暂不可达（已持续 {$downFor}s / 阈值 {$serviceDownSec}s）");
+                    }
                     continue;
                 }
-                // 8500 侧已查无此任务（被回收 / 从未真正提交成功）→ 直接标记失败释放槽位，
-                // 不再让孤儿任务永久占用并发闸。
+                // 8500 恢复：清除不可达计时
+                Cache::forget('video_job_svc_down:' . $job->job_id);
+
+                // 8500 侧已查无此任务（被回收 / 从未真正提交成功）→ 标记失败释放槽位
                 if ($resp->status() === 404) {
-                    $job->update([
-                        'status' => 'failed',
-                        'review_note' => ($job->review_note ? $job->review_note . '；' : '')
-                            . '[系统]8500 侧任务不存在，已自动回收',
-                    ]);
+                    $job->markFailed('job_lost', null,
+                        '出片服务中已无此任务记录，可能已被回收，已自动终止');
+                    $this->logEvent($job->job_id, 'failed', 'job_lost', '8500 返回 404');
                     $released404++;
                     $synced++;
-                    $this->info("job {$job->job_id} 8500 404 -> failed（回收释放槽位）");
+                    $this->info("job {$job->job_id} 8500 404 -> failed（job_lost，释放槽位）");
                     continue;
                 }
                 if (! $resp->successful()) {
@@ -107,44 +132,60 @@ class SyncVideoJobs extends Command
                     continue;
                 }
                 $json = $resp->json();
-
-                // —— 渲染卡死兜底：8500 长期停留在 rendering/rerender 且任务总耗时超限 ——
-                // 典型场景：8500 的自动重渲染只记日志不真正执行，状态卡成"幽灵渲染"；
-                // 前端用户会看到一个永远不动的"视频渲染中"。到达本阈值后强制回收，
-                // 避免并发槽被无限占用、用户无限等待。
                 $remoteStatus = $json['status'] ?? null;
                 $remoteStep   = $json['step'] ?? $remoteStatus;
-                if (in_array($remoteStatus, ['rendering', 'rerender'], true)
-                    && in_array($remoteStep, ['rendering', 'rerender'], true)
-                    && $job->created_at->copy()->addSeconds($renderStuckSec)->isPast()
-                ) {
-                    $job->update([
-                        'status' => 'failed',
-                        'review_note' => ($job->review_note ? $job->review_note . '；' : '')
-                            . "[系统]8500 持续 {$remoteStatus}/{$remoteStep} 超过 {$renderStuckSec} 秒无终态，判定渲染卡死并回收",
-                    ]);
-                    $synced++;
-                    $this->info("job {$job->job_id} 渲染卡死 -> failed（{$remoteStatus} 超 {$renderStuckSec} 秒）");
+                $remoteError  = isset($json['error'])
+                    ? (is_string($json['error']) ? $json['error'] : json_encode($json['error'], JSON_UNESCAPED_UNICODE))
+                    : null;
+
+                // 阶段推进记录（真实进度基线，用于卡死检测）
+                $job->recordStep($remoteStep);
+
+                // 8500 已到终态：复用模型方法回写（含失败原因分类）
+                if (in_array($remoteStatus, ['done', 'failed'], true)) {
+                    if ($job->applyPipelineStatus($json)) {
+                        if ($remoteStatus === 'failed') {
+                            $this->logEvent($job->job_id, 'failed', $job->failed_reason ?? 'unknown', $remoteError ?? '');
+                        }
+                        $synced++;
+                        $this->info("job {$job->job_id} -> {$job->status}");
+                    }
                     continue;
                 }
 
-                if ($job->applyPipelineStatus($json)) {
+                // —— 卡死检测（核心）：覆盖 queued / editing / rendering / rerender 全阶段 ——
+                // 1) 阶段长时间无推进：比「仅看创建时间」更准——真正卡在某个阶段（如等渲染锁、
+                //    配音字幕合成阻塞）会被即时识别，而不必等总耗时爆表。
+                $stuckSec = $job->secondsSinceProgress();
+                $stepTimeout = ($remoteStep === 'queued') ? $queueStuckSec : $stepStuckSec;
+                if ($stuckSec >= $stepTimeout) {
+                    $job->markFailed('timeout', $remoteError,
+                        '任务停留在「' . ($remoteStep ?: '未知') . '」阶段约 ' . round($stuckSec / 60)
+                        . ' 分钟无进展，判定卡死并终止');
+                    $this->logEvent($job->job_id, 'failed', 'timeout',
+                        "step={$remoteStep} 无进展 {$stuckSec}s >= {$stepTimeout}s");
                     $synced++;
-                    $this->info("job {$job->job_id} -> {$job->status}");
+                    $this->info("job {$job->job_id} 阶段卡死 -> failed（{$remoteStep} 无进展 {$stuckSec}s）");
+                    continue;
+                }
+                // 2) 绝对超时：总耗时超过硬上限（兜底网，必拦得住任何卡死）
+                $elapsed = (int) now()->diffInSeconds($job->created_at);
+                if ($elapsed >= $absoluteSec) {
+                    $job->markFailed('timeout', $remoteError,
+                        '任务总耗时约 ' . round($elapsed / 60) . ' 分钟仍未出片，触发绝对超时并终止');
+                    $this->logEvent($job->job_id, 'failed', 'timeout',
+                        "elapsed {$elapsed}s >= {$absoluteSec}s");
+                    $synced++;
+                    $this->info("job {$job->job_id} 绝对超时 -> failed（elapsed {$elapsed}s）");
+                    continue;
                 }
             }
 
-            // —— 2) 孤儿回收：长时间无心跳且仍停留在 queued（客户端断开 / 提交未获标识）——
-            // 关键护栏：job_id 非空 的任务说明已真正提交到 8500，回收前必须再向 8500 确认真实状态。
-            // 绝不能仅凭「前端心跳断了」就判定死亡——用户关页面后 8500 仍可能在正常渲染。
-            // 判定规则：
-            //   · 8500 返回 404                → 任务确已不存在，真死，回收释放槽位
-            //   · 8500 返回「渲染中」等非终态 → 任务活着，仅续心跳，绝不回收
-            //   · 8500 不可达 / 其他异常        → 极可能为瞬时抖动，保守保护（续心跳不回收）
-            //   · job_id 为空                  → 提交后未拿到标识，8500 侧根本无此任务，超时直接回收（安全）
-            // 这样 5 分钟阈值只杀「真死」的任务，正常渲染一个不误伤。
+            // —— 2) 提交孤儿回收：job_id 为空（提交后未拿到标识，8500 侧根本无此任务）——
+            // 这类任务不可能在渲染，超时直接回收释放槽位。带 job_id 的任务已由第 1 部分统一监测。
             $cutoff = now()->subSeconds($staleSec);
-            $stale = VideoJob::where('status', 'queued')
+            $orphans = VideoJob::where('status', 'queued')
+                ->whereNull('job_id')
                 ->where(function ($q) use ($cutoff) {
                     $q->where('heartbeat_at', '<', $cutoff)
                       ->orWhere(function ($q2) use ($cutoff) {
@@ -157,63 +198,45 @@ class SyncVideoJobs extends Command
                 ->get();
 
             $released = 0;
-            foreach ($stale as $job) {
-                // 已真正提交到 8500 的任务：以 8500 真实状态为准，禁止误杀
-                if (! empty($job->job_id)) {
-                    try {
-                        $resp = app(PipelineClient::class)->get('/status/' . $job->job_id, 15);
-                    } catch (PipelineUnavailableException $e) {
-                        // 8500 不可达（极可能为瞬时抖动）：保守保护，续心跳不回收
-                        $job->touchHeartbeat();
-                        $this->info("job {$job->job_id} 8500 暂不可达，续心跳保护（不回收）");
-                        continue;
-                    }
-                    if ($resp->status() === 404) {
-                        // 8500 侧已无此任务 → 真死，回收释放槽位
-                        $job->update([
-                            'status' => 'failed',
-                            'review_note' => ($job->review_note ? $job->review_note . '；' : '')
-                                . '[系统]8500 侧任务不存在，已自动回收',
-                        ]);
-                        $released++;
-                        $this->info("job {$job->job_id} 8500 404 -> failed（回收释放槽位）");
-                        continue;
-                    }
-                    if ($resp->successful()) {
-                        $json = $resp->json();
-                        if (in_array($json['status'] ?? null, ['done', 'failed'], true)) {
-                            // 8500 已到终态（理论已被第 1 部分推进，此处兜底）
-                            $job->applyPipelineStatus($json);
-                            continue;
-                        }
-                        // 8500 仍在渲染（非终态）→ 任务活着，仅续心跳，绝不回收
-                        $job->touchHeartbeat();
-                        $this->info("job {$job->job_id} 8500 仍在渲染，续心跳保护（不回收）");
-                        continue;
-                    }
-                    // 其他非预期 http 码：保守保护，续心跳不回收
-                    $job->touchHeartbeat();
-                    continue;
-                }
-
-                // job_id 为空：提交后未拿到标识，8500 侧根本无此任务，超时直接回收（安全）
-                if ($job->releaseIfStale($staleSec)) {
+            foreach ($orphans as $job) {
+                if ($job->markFailed('job_lost', null, '提交后未获得任务标识，已自动回收')) {
                     $released++;
+                    $this->logEvent(($job->job_id ?: ('db#' . $job->id)), 'failed', 'job_lost', '提交孤儿超时回收');
                     $this->info('job 提交孤儿（无 job_id）超时回收 -> failed（释放槽位）');
                 }
             }
 
-            if ($jobs->isEmpty() && $stale->isEmpty()) {
+            if ($jobs->isEmpty() && $orphans->isEmpty()) {
                 $this->info('[' . now()->toDateTimeString() . '] 无待同步 / 待回收任务');
             } else {
                 $this->info('[' . now()->toDateTimeString() . "] 同步完成：状态推进 {$synced} 条"
-                    . "（含 404 回收 {$released404}），超时回收 {$released} 条"
-                    . "，扫描 queued {$jobs->count()} / 孤儿候选 {$stale->count()}");
+                    . "（含 404 回收 {$released404}），提交孤儿回收 {$released} 条"
+                    . "，扫描 queued(有job_id) {$jobs->count()} / 提交孤儿 {$orphans->count()}");
             }
         } finally {
             $lock->release();
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * 写结构化事件日志到 storage/logs/video-jobs/{job_id}.log（与控制器 logJobProgress 同源路径）。
+     * 失败事件含原因分类 + 原始错误，便于溯源长时间无输出的根因。写入失败静默吞掉。
+     */
+    private function logEvent(string $jobId, string $type, string $reason, string $detail): void
+    {
+        try {
+            $dir = storage_path('logs/video-jobs');
+            if (! is_dir($dir)) {
+                @mkdir($dir, 0755, true);
+            }
+            $file = $dir . '/' . preg_replace('/[^A-Za-z0-9_-]/', '', $jobId) . '.log';
+            $ts = date('Y-m-d H:i:s');
+            $line = sprintf("[%s] EVENT type=%s reason=%s detail=%s\n", $ts, $type, $reason, $detail);
+            @file_put_contents($file, $line, FILE_APPEND);
+        } catch (\Throwable $e) {
+            // 日志异常静默吞掉，不阻断看门狗
+        }
     }
 }

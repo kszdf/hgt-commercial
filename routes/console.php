@@ -18,3 +18,7 @@ Schedule::command('metrics:sync --days=30')->everySixHours();
 
 // 发布排期：每分钟处理到点排期（自动发布或标记到期提醒）
 Schedule::command('schedules:dispatch')->everyMinute();
+
+// 出片看门狗冗余调度：每 5 分钟兜底跑一次，与 video-sync 常驻容器双保险，
+// 即使 video-sync 容器异常退出，调度器仍能检测卡死任务并标记失败（根治假出片）。
+Schedule::command('video:sync')->everyFiveMinutes();

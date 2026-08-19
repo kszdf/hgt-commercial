@@ -292,7 +292,9 @@ class VideoController extends Controller
         }
         $json = $resp->json();
         // 同步任务状态到本地用量表（复用模型方法，与兜底同步命令同源）
-        $job = VideoJob::where('job_id', $jobId)->first();
+        // 用 withTrashed：任务可能被用户在「我的视频」移入回收站，但 8500 仍会继续渲染/失败，
+        // 轮询时必须把终态回写，否则前端会永远卡在"出片中"。
+        $job = VideoJob::withTrashed()->where('job_id', $jobId)->first();
         if ($job) {
             $job->applyPipelineStatus($json);
             // 客户端轮询即代表「仍在线」，刷新心跳（孤儿回收的判定依据）
@@ -367,6 +369,20 @@ class VideoController extends Controller
         $json['eta_sec']         = $etaSec;
         $json['avg_render_sec']  = $avgRenderSec;
 
+        // 追加租户端已等待时长（从任务创建到当前），便于前端恢复轮询时展示真实总耗时
+        $job = VideoJob::withTrashed()->where('job_id', $json['job_id'] ?? '')->first();
+        if ($job && $job->created_at) {
+            $json['created_at']  = $job->created_at->toDateTimeString();
+            $json['elapsed_sec'] = max(0, (int) abs($job->created_at->diffInSeconds(now())));
+        } else {
+            $json['created_at']  = null;
+            $json['elapsed_sec'] = 0;
+        }
+        // 透传结构化失败信息给前端（失败提示 + 溯源）
+        $json['failed_reason']  = $job ? $job->failed_reason : null;
+        $json['failed_at']      = $job && $job->failed_at ? $job->failed_at->toDateTimeString() : null;
+        $json['pipeline_error'] = $job ? $job->pipeline_error : null;
+
         return $json;
     }
 
@@ -400,14 +416,20 @@ class VideoController extends Controller
             }
 
             $ts   = date('Y-m-d H:i:s');
+            $failSuffix = '';
+            if (($json['status'] ?? '') === 'failed' && ! empty($json['failed_reason'])) {
+                $failSuffix = ' reason=' . $json['failed_reason']
+                    . ' error=' . mb_substr((string) ($json['pipeline_error'] ?? ''), 0, 200);
+            }
             $line = sprintf(
-                "[%s] step=%s status=%s label=%s progress=%d%% eta=%ds\n",
+                "[%s] step=%s status=%s label=%s progress=%d%% eta=%ds%s\n",
                 $ts,
                 $json['step'] ?? '-',
                 $json['status'] ?? '-',
                 $json['step_label'] ?? '-',
                 $json['progress'] ?? 0,
-                $json['eta_sec'] ?? 0
+                $json['eta_sec'] ?? 0,
+                $failSuffix
             );
             @file_put_contents($file, $line, FILE_APPEND);
         } catch (\Throwable $e) {
