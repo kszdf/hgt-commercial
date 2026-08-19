@@ -796,6 +796,86 @@ def _build_role_instruction(role_mode, role_note, keep_manual_roles, mode):
     return base
 
 
+def _compress_to_target(text, max_chars, cfg=None):
+    """
+    把 text 压缩到 max_chars 字以内。先用 LLM 压缩一次；若仍超则规则化截断。
+    保留开头钩子、核心观点/案例/数据句、结尾钩子。
+    """
+    if cfg is None:
+        cfg = get_text_config()
+    prompt = (
+        f"你是短视频脚本编辑。下面稿子共 {len(text)} 字，请严格精简到 {max_chars} 字以内（含标点），"
+        f"只输出稿子本身，不要解释、不要标题。\n"
+        f"保留要求：开头吸引点、1-2 个核心观点/真实案例/关键数据、结尾行动钩子。\n"
+        f"删除要求：重复解释、客套话、过渡铺垫、抽象大道理。\n\n{text}"
+    )
+    try:
+        compressed = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=60)
+        compressed = compressed.strip()
+        if compressed.startswith("```"):
+            compressed = compressed.split("```")[1]
+        compressed = compressed.strip()
+        if len(compressed) <= max_chars and len(compressed) >= max_chars * 0.3:
+            return compressed
+    except Exception as e:
+        traceback.print_exc()
+
+    # LLM 压缩失败或仍超：规则化截断
+    import re
+    # 按句拆分（保留标点在句内）
+    sents = re.split(r"(?<=[。！？；.!?;])", text.replace("\n", ""))
+    sents = [s.strip() for s in sents if s.strip()]
+    if not sents:
+        return text[:max_chars]
+
+    # 保留首句和尾句
+    kept = [sents[0]]
+    if len(sents) > 1:
+        kept.append(sents[-1])
+    budget = max_chars - sum(len(s) for s in kept)
+
+    # 中间句按重要性打分
+    keywords = set(["税", "风险", "稽查", "处罚", "罚款", "案例", "老板", "个人卡", "虚开", "发票", "合规", "节税", "成本", "利润", "被查", "滞纳金", "刑事责任", "金税", "数据", "%", "万", "元"])
+    scored = []
+    for s in sents[1:-1]:
+        score = 0
+        for kw in keywords:
+            if kw in s:
+                score += 2
+        # 含数字加分
+        if re.search(r"\d", s):
+            score += 3
+        # 句子本身不能太长
+        score -= max(0, len(s) - 60) * 0.05
+        scored.append((score, s))
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    body = []
+    used = 0
+    for score, s in scored:
+        if used + len(s) <= budget:
+            body.append(s)
+            used += len(s)
+        else:
+            break
+    # 按原文顺序拼接
+    body_set = set(body)
+    result = kept[0]
+    for s in sents[1:-1]:
+        if s in body_set:
+            result += s
+            body_set.discard(s)
+    result += kept[-1]
+    # 兜底硬截断
+    if len(result) > max_chars:
+        result = result[:max_chars]
+        # 截到最近一个句号
+        last_dot = max(result.rfind("。"), result.rfind("！"), result.rfind("？"))
+        if last_dot > max_chars * 0.7:
+            result = result[:last_dot + 1]
+    return result
+
+
 def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
                role_mode=None, role_note=None, keep_manual_roles=None):
     """智能二创：多模式改写 + 角色/声音分配 + 违禁词标红/清洗。返回含元数据的完整结果。"""
@@ -819,6 +899,8 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
 
     # 目标时长约束：130–160 字/分 ≈ 2.17–2.67 字/秒；预估按 2.4 字/秒
     dur_hint = ""
+    chars_low = None
+    chars_high = None
     if target_duration is not None:
         try:
             secs = int(target_duration)
@@ -842,11 +924,12 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
                              "\n".join(f"  • {item}" for item in items) + "\n")
 
     prompt = (
-        f"你是资深短视频脚本编辑。请把下面的稿子改写为「{style}」的自然口语稿，"
-        "彻底去除AI机械感与书面腔，但保持专业准确性、不编造数据、不改原意。\n\n"
+        f"你是资深短视频脚本编辑。请把下面的稿子改写为「{style}」的自然口语稿。\n"
+        f"{dur_hint}"  # 目标时长约束放在最前面、最显眼
         f"【角色与声音分配】\n{role_instruction}\n"
-        f"{focus_hint}{dur_hint}{preserve_hint}"
-        "要求：保留原意与关键结论；长短句结合、自然停顿；不堆砌语气词、禁用'啊/嘛/呢/哎哟'等夸张口语；"
+        f"{focus_hint}{preserve_hint}"
+        "要求：彻底去除AI机械感与书面腔，但保持专业准确性、不编造数据、不改原意；"
+        "保留原意与关键结论；长短句结合、自然停顿；不堆砌语气词、禁用'啊/嘛/呢/哎哟'等夸张口语；"
         "对话感来自内容互动而非语气词；说话干脆直给。\n"
         "只输出改写后的稿子本身，不要解释、不要标题、不要代码块。\n\n"
         "原稿：\n" + text
@@ -855,6 +938,13 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
     rewritten = rewritten.strip()
     if rewritten.startswith("```"):
         rewritten = rewritten.split("```")[1]
+
+    # 目标时长硬闸：AI 返回后若仍超字数，自动压缩到目标范围
+    if target_duration is not None and chars_high is not None and chars_high > 0:
+        raw_chars = len(rewritten.replace(" ", "").replace("\n", ""))
+        if raw_chars > chars_high:
+            rewritten = _compress_to_target(rewritten, chars_high, cfg)
+
     hits = forbidden_words.scan(rewritten)
     cleaned = forbidden_words.clean_script(rewritten)
 
