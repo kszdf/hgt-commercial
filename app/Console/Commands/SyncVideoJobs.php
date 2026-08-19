@@ -82,7 +82,8 @@ class SyncVideoJobs extends Command
         try {
             // —— 1) 全量监测：所有带 job_id 的 queued 任务，按 8500 真实状态推进 + 卡死检测 ——
             // 每轮都覆盖（不依赖前端心跳），从根上消除「客户端关页面 / 一直开着轮询」导致的漏检。
-            $jobs = VideoJob::where('status', 'queued')
+            $jobs = VideoJob::withTrashed()
+                ->where('status', 'queued')
                 ->whereNotNull('job_id')
                 ->orderBy('created_at')
                 ->limit($limit)

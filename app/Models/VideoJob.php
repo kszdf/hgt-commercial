@@ -272,12 +272,15 @@ class VideoJob extends Model
 
     /**
      * 从 8500 返回的错误文本推断失败原因分类。
-     * 资源类（磁盘/显存/内存）→ resource；格式/编码/分辨率 → format；其余 → unknown。
+     * 超时/硬上限 → timeout；资源类（磁盘/显存/内存）→ resource；格式/编码/分辨率 → format；其余 → unknown。
      */
     public static function classifyError(?string $error, ?string $step): string
     {
         if ($error) {
             $e = mb_strtolower($error);
+            if (preg_match('/(timeout|timed out|超时|硬上限|超过.*秒|时间限制|time limit)/u', $e)) {
+                return 'timeout';
+            }
             if (preg_match('/(no space|disk|磁盘|空间不足|vram|cuda|out of memory|memoryerror|内存|显存)/u', $e)) {
                 return 'resource';
             }

@@ -1433,6 +1433,17 @@ function escapeHtml(s) {
     });
 }
 
+// 当前轮询请求的 AbortController，用于「立即刷新」强制中断卡住的 fetch
+let __hgt_pollController = null;
+
+// 立即刷新：先打断当前可能卡住的请求，再触发下一轮轮询
+function forcePollRefresh() {
+    window.__hgt_pollNow = true;
+    if (__hgt_pollController) {
+        try { __hgt_pollController.abort('manual-refresh'); } catch (e) {}
+    }
+}
+
 async function pollStatus(jobId) {
     const badge = document.getElementById('statusBadge');
     const result = document.getElementById('result');
@@ -1455,13 +1466,18 @@ async function pollStatus(jobId) {
             HGTAbort.end();
             return;
         }
+        let fetchTimeout = null;
         try {
+            __hgt_pollController = new AbortController();
+            fetchTimeout = setTimeout(() => { __hgt_pollController.abort('timeout'); }, 10000);
             const statusResp = await fetch('/studio/scroll/status/' + jobId, {
+                signal: __hgt_pollController.signal,
                 headers: {
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
                 }
             });
+            clearTimeout(fetchTimeout);
             const statusText = await statusResp.text();
             let data;
             try { data = JSON.parse(statusText); } catch (_) { continue; } // 网络抖动，跳过本轮继续轮询
@@ -1547,7 +1563,7 @@ async function pollStatus(jobId) {
                 if (step !== lastStep) { lastStep = step; lastStepMs = Date.now(); }
                 const stageStuckSec = Math.floor((Date.now() - lastStepMs) / 1000);
                 const stuckHint = stageStuckSec >= STAGE_STUCK_SEC
-                    ? ('<div class="mt-2 text-xs" style="color:#d97706">⚠ 当前阶段已持续 ' + fmtDuration(stageStuckSec) + ' 未推进，可能已经卡住。<button type="button" onclick="window.__hgt_pollNow=true" class="ml-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-amber-700 hover:bg-amber-100">立即刷新</button></div>')
+                    ? ('<div class="mt-2 text-xs" style="color:#d97706">⚠ 当前阶段已持续 ' + fmtDuration(stageStuckSec) + ' 未推进，可能已经卡住。<button type="button" onclick="forcePollRefresh()" class="ml-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-amber-700 hover:bg-amber-100">立即刷新</button></div>')
                     : (baseElapsedSec >= TOTAL_STUCK_SEC
                         ? ('<div class="mt-2 text-xs" style="color:#d97706">已等待较久（' + fmtDuration(baseElapsedSec) + '）。数字人视频正常 5–15 分钟，重渲染会更久；若仍无进展请刷新页面或重试。</div>')
                         : '');
@@ -1566,7 +1582,11 @@ async function pollStatus(jobId) {
                 });
                 startProgressTimer();
             }
-        } catch (e) { /* 网络抖动，继续轮询 */ }
+        } catch (e) {
+            if (fetchTimeout) clearTimeout(fetchTimeout);
+            // 手动刷新/超时/网络抖动都继续下一轮轮询
+            continue;
+        }
     }
     badge.textContent = '超时'; badge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs text-red-600';
     setBtnLoading(false);
