@@ -2037,6 +2037,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_publish(data)
         if p.path == "/xhs_generate":
             return self._handle_xhs_generate(data)
+        if p.path == "/xhs_regen_cover":
+            return self._handle_xhs_regen_cover(data)
         if p.path == "/strategist":
             return self._handle_strategist(data)
         if p.path == "/moment":
@@ -2131,6 +2133,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         audience = (data.get("audience") or "").strip()
         brand = (data.get("brand") or "慧根堂 · 老张讲财税").strip()
         want_pages = max(2, min(8, int(data.get("pages") or 4)))
+        cover_seed = int(data.get("seed") or secrets.randbelow(100000))
 
         # 1) DeepSeek 生成结构化笔记
         note = self._xhs_build_note(topic, selling, audience, want_pages)
@@ -2139,10 +2142,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         # 2) 渲染出图（封面 + 内文分页，封顶 9 张）
         import base64
-        from xhs_render import render_note
+        from xhs_render import render_note, render_cover
         outdir = os.path.join(JOBS_DIR, "xhs_" + secrets.token_hex(8))
         os.makedirs(outdir, exist_ok=True)
-        paths = render_note(note, outdir, brand)
+        paths = render_note(note, outdir, brand, cover_seed=cover_seed)
         images_b64 = []
         for pp in paths:
             with open(pp, "rb") as f:
@@ -2154,6 +2157,40 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "images": images_b64,
             "image_paths": paths,
             "count": len(paths),
+            "cover_seed": cover_seed,
+        })
+
+    def _handle_xhs_regen_cover(self, data):
+        """POST /xhs_regen_cover：仅重新生成封面（换背景/配色），文字（标题/副标题）不变。
+
+        入参 JSON:
+            {"cover": {"title","subtitle","tag"}, "brand": 可选, "seed": 必填（新随机 seed）,
+             "topic"/"selling_points"/"audience": 可选（AI 背景 prompt 用）}
+        返回:
+            {"ok": true, "cover": "data:image/png;base64,...", "cover_path": abs, "seed": int}
+        """
+        cover = data.get("cover") or {}
+        if not (cover.get("title") or cover.get("subtitle")):
+            return self._send(400, {"error": "cover title/subtitle required"})
+        brand = (data.get("brand") or "慧根堂 · 老张讲财税").strip()
+        seed = int(data.get("seed") or secrets.randbelow(100000))
+        topic = (data.get("topic") or "").strip()
+        selling = (data.get("selling_points") or "").strip()
+        audience = (data.get("audience") or "").strip()
+
+        import base64
+        from xhs_render import render_cover
+        outdir = os.path.join(JOBS_DIR, "xhs_" + secrets.token_hex(8))
+        os.makedirs(outdir, exist_ok=True)
+        cover_path = os.path.join(outdir, "cover.png")
+        render_cover({"cover": cover}, cover_path, brand, seed, topic, selling, audience)
+        with open(cover_path, "rb") as f:
+            cover_b64 = "data:image/png;base64," + base64.b64encode(f.read()).decode("ascii")
+        return self._send(200, {
+            "ok": True,
+            "cover": cover_b64,
+            "cover_path": cover_path,
+            "seed": seed,
         })
 
     def _xhs_build_note(self, topic, selling, audience, want_pages):

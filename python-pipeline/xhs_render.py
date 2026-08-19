@@ -45,8 +45,23 @@ CARD_BORDER = (226, 232, 240)
 BG_TOP = (255, 255, 255)
 BG_BOTTOM = (241, 245, 250)  # #F1F5FA
 
-# AI 背景插画开关（接火山方舟/即梦后改 True 并实现 _gen_ai_bg）
-AI_BG_AVAILABLE = False
+# AI 背景插画：检测到 ARK_API_KEY 自动启用（无需改开关）；未配 key 时降级为多套深色渐变
+# 配色变体（仍可凭 seed 切换观感），保证「重新生成封面」功能始终可用、且不依赖外网 key。
+def ai_bg_available():
+    """有火山方舟 key 才启用 AI 插画背景。"""
+    return bool(os.environ.get("ARK_API_KEY", "").strip())
+
+
+# 无 AI key 时的多套封面深色配色变体（按 seed 轮换）。白字保证可读，仅底色/装饰色不同，
+# 让「重新生成封面」在没有 AI key 时也能切换不同观感。
+COVER_DARK_PALETTES = [
+    ((14, 116, 144), (11, 85, 99)),     # 青（默认）
+    ((30, 64, 124), (23, 48, 99)),      # 深蓝
+    ((76, 29, 149), (55, 20, 110)),     # 深紫
+    ((6, 95, 70), (5, 70, 52)),         # 深绿
+    ((124, 45, 18), (90, 32, 12)),      # 深棕橙
+    ((15, 23, 42), (30, 41, 59)),       # 深灰蓝
+]
 MAX_IMAGES = 9  # 小红书单篇笔记最多 9 图
 
 
@@ -98,13 +113,138 @@ def _text_w(draw, text, font):
     return draw.textlength(text, font=font)
 
 
-def _draw_cover(cover: dict, brand: str) -> Image.Image:
-    img = _vgradient(W, H, TEAL, TEAL_DARK)
-    draw = ImageDraw.Draw(img)
+def _cover_prompt(cover: dict, topic: str = "", selling: str = "", audience: str = "") -> str:
+    """根据封面内容构造 AI 插画 prompt（中文，火山方舟可理解）。"""
+    title = (cover.get("title") or "").strip()
+    sub = (cover.get("subtitle") or "").strip()
+    parts = []
+    if title:
+        parts.append(f"主标题：{title}")
+    if sub:
+        parts.append(f"副标题：{sub}")
+    if topic:
+        parts.append(f"选题场景：{topic}")
+    if selling:
+        parts.append(f"核心卖点：{selling}")
+    if audience:
+        parts.append(f"目标受众：{audience}")
+    base = ("小红书封面插画，财税知识科普风格，扁平化/商务简约插画风，画面干净留白充足，"
+            "明亮积极、专业可信。")
+    if parts:
+        base += "内容相关元素：" + "；".join(parts) + "。"
+    base += ("画面不得出现任何文字、字母、数字、标语或品牌名，纯插画背景即可；"
+             "色调以蓝/青/暖金为主，适合在上方叠加白色中文大标题，整体有信任感与高级感。")
+    return base
 
-    # 顶部柔光圆（装饰）
+
+def _gradient_cover(bg_seed: int) -> Image.Image:
+    """无 AI key 时的深色渐变封面底（按 seed 切换配色变体，白字保证可读）。"""
+    top, bottom = COVER_DARK_PALETTES[bg_seed % len(COVER_DARK_PALETTES)]
+    img = _vgradient(W, H, top, bottom)
+    draw = ImageDraw.Draw(img)
+    deco = COVER_DARK_PALETTES[(bg_seed + 1) % len(COVER_DARK_PALETTES)][1]
     draw.ellipse([-200, -200, 520, 520], fill=(255, 255, 255, 18))
     draw.ellipse([760, 980, 1400, 1620], fill=(255, 255, 255, 12))
+    return img
+
+
+def _apply_ai_bg(bg) -> Image.Image:
+    """AI 插画上叠半透明深青遮罩，压暗 42%，保证白色标题清晰可读。"""
+    img = bg.convert("RGB").resize((W, H))
+    overlay = Image.new("RGB", (W, H), (8, 47, 73))
+    return Image.blend(img, overlay, 0.42)
+
+
+def _download_b64(url: str):
+    try:
+        import requests, base64
+        r = requests.get(url, timeout=60)
+        r.raise_for_status()
+        return base64.b64encode(r.content).decode("ascii")
+    except Exception as e:  # noqa: BLE001
+        print("[xhs_render] download failed:", e, flush=True)
+        return None
+
+
+def _poll_ark_task(endpoint: str, api_key: str, task_id: str, max_wait: int = 110):
+    import requests, time, base64
+    url = endpoint.rstrip("/") + "/tasks/" + str(task_id)
+    headers = {"Authorization": f"Bearer {api_key}"}
+    deadline = time.time() + max_wait
+    while time.time() < deadline:
+        try:
+            r = requests.get(url, headers=headers, timeout=30)
+            j = r.json()
+            status = j.get("status") or (j.get("data") or {}).get("status")
+            if status in ("completed", "succeeded", "success"):
+                out = j.get("output") or j.get("data") or {}
+                if isinstance(out, dict) and out.get("image_urls"):
+                    return _download_b64(out["image_urls"][0])
+                if isinstance(j.get("data"), list) and j["data"]:
+                    item = j["data"][0]
+                    if item.get("b64_json"):
+                        return item["b64_json"]
+                    if item.get("url"):
+                        return _download_b64(item["url"])
+            if status in ("failed", "error"):
+                return None
+        except Exception as e:  # noqa: BLE001
+            print("[xhs_render] poll task err:", e, flush=True)
+        time.sleep(3)
+    return None
+
+
+def _gen_ai_bg(prompt: str, seed):
+    """调火山方舟 Seedream 文生图，返回 PIL Image(1080x1440) 或 None（无 key/失败降级）。"""
+    api_key = os.environ.get("ARK_API_KEY", "").strip()
+    if not api_key:
+        return None
+    try:
+        import requests, base64, io
+        endpoint = os.environ.get("ARK_IMG_ENDPOINT",
+                                  "https://ark.cn-beijing.volces.com/api/v1/images/generations")
+        model = os.environ.get("ARK_IMG_MODEL", "doubao-seedream-5-0-260128")
+        size = os.environ.get("ARK_IMG_SIZE", "1024x1536")
+        payload = {"model": model, "prompt": prompt, "size": size, "n": 1,
+                   "response_format": "b64_json"}
+        if seed:
+            try:
+                payload["seed"] = int(seed)
+            except Exception:  # noqa: BLE001
+                pass
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        r = requests.post(endpoint, headers=headers, json=payload, timeout=120)
+        r.raise_for_status()
+        j = r.json()
+        b64 = None
+        # 同步返回：data[].b64_json / data[].url
+        if isinstance(j.get("data"), list) and j["data"]:
+            item = j["data"][0]
+            if item.get("b64_json"):
+                b64 = item["b64_json"]
+            elif item.get("url"):
+                b64 = _download_b64(item["url"])
+        # 异步返回：task_id / id
+        elif j.get("task_id") or j.get("id"):
+            b64 = _poll_ark_task(endpoint, api_key, j.get("task_id") or j.get("id"))
+        if not b64:
+            print("[xhs_render] ai bg: no image in response", flush=True)
+            return None
+        return Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
+    except Exception as e:  # noqa: BLE001
+        print("[xhs_render] ai bg failed:", repr(e), flush=True)
+        return None
+
+
+def _draw_cover(cover: dict, brand: str, bg_seed: int = 0,
+                topic: str = "", selling: str = "", audience: str = "") -> Image.Image:
+    """绘制封面：优先 AI 插画背景（带压暗遮罩），否则深色渐变配色变体。文字绘制逻辑不变。"""
+    if ai_bg_available():
+        bg = _gen_ai_bg(_cover_prompt(cover, topic, selling, audience), bg_seed)
+        img = _apply_ai_bg(bg) if bg is not None else _gradient_cover(bg_seed)
+    else:
+        img = _gradient_cover(bg_seed)
+    draw = ImageDraw.Draw(img)
 
     pad = 90
     # 标签 pill
@@ -200,7 +340,8 @@ def _draw_page(heading: str, points: List[str], page_no: int, total: int, brand:
     return img
 
 
-def render_note(note: dict, outdir: str, brand: str = "慧根堂 · 老张讲财税") -> List[str]:
+def render_note(note: dict, outdir: str, brand: str = "慧根堂 · 老张讲财税",
+                cover_seed: int = 0) -> List[str]:
     """把结构化笔记渲染成一组 PNG，返回绝对路径列表（封面在前）。"""
     os.makedirs(outdir, exist_ok=True)
     paths: List[str] = []
@@ -213,7 +354,7 @@ def render_note(note: dict, outdir: str, brand: str = "慧根堂 · 老张讲财
 
     # 封面
     cover_path = os.path.join(outdir, "cover.png")
-    _draw_cover(note.get("cover", {}), brand).save(cover_path, "PNG")
+    _draw_cover(note.get("cover", {}), brand, cover_seed).save(cover_path, "PNG")
     paths.append(cover_path)
 
     total = len(pages)
@@ -223,3 +364,11 @@ def render_note(note: dict, outdir: str, brand: str = "慧根堂 · 老张讲财
         paths.append(p)
 
     return paths
+
+
+def render_cover(note: dict, outpath: str, brand: str = "慧根堂 · 老张讲财税",
+                 seed: int = 0, topic: str = "", selling: str = "",
+                 audience: str = "") -> str:
+    """只渲封面（用于「重新生成封面」），返回封面路径。文字（标题/副标题）保持不变，仅换背景。"""
+    _draw_cover(note.get("cover", {}), brand, seed, topic, selling, audience).save(outpath, "PNG")
+    return outpath

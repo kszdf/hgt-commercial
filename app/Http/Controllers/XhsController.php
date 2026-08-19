@@ -59,6 +59,44 @@ class XhsController extends Controller
     }
 
     /**
+     * 仅重新生成封面（换背景/配色），文字不变。
+     */
+    public function regenCover(Request $request)
+    {
+        $request->validate([
+            'cover' => 'required|array',
+            'cover.title' => 'nullable|string|max:60',
+            'cover.subtitle' => 'nullable|string|max:80',
+            'cover.tag' => 'nullable|string|max:20',
+            'seed' => 'nullable|integer',
+            'topic' => 'nullable|string|max:200',
+            'selling_points' => 'nullable|string|max:1000',
+            'audience' => 'nullable|string|max:300',
+            'brand' => 'nullable|string|max:60',
+        ]);
+
+        try {
+            $client = new PipelineClient();
+            $resp = $client->postJson('/xhs_regen_cover', [
+                'cover' => $request->input('cover'),
+                'seed' => (int) ($request->input('seed') ?? random_int(0, 999999)),
+                'topic' => $request->input('topic', ''),
+                'selling_points' => $request->input('selling_points', ''),
+                'audience' => $request->input('audience', ''),
+                'brand' => $request->input('brand', '慧根堂 · 老张讲财税'),
+            ], 120);
+        } catch (\Exception $e) {
+            return response()->json(['error' => '出片微服务不可达：' . $e->getMessage()], 503);
+        }
+
+        if (!$resp->successful()) {
+            return response()->json(['error' => '重新生成封面失败：' . $resp->body()], $resp->status());
+        }
+
+        return response()->json($resp->json());
+    }
+
+    /**
      * 发布图文笔记到小红书（8500 /publish mode=image）。
      */
     public function publish(Request $request)

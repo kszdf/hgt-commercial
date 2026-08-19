@@ -154,10 +154,25 @@ async function doGenerate() {
             const div = document.createElement('div');
             div.className = 'relative overflow-hidden rounded-lg border border-slate-200';
             const img = new Image(); img.src = src; img.className = 'w-full aspect-[3/4] object-cover';
-            const cap = document.createElement('div');
-            cap.className = 'absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-white text-xs';
-            cap.textContent = i === 0 ? '封面' : `第${i}页`;
-            div.appendChild(img); div.appendChild(cap);
+            div.appendChild(img);
+            if (i === 0) {
+                const cap = document.createElement('div');
+                cap.className = 'absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-white text-xs';
+                cap.textContent = '封面';
+                div.appendChild(cap);
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.id = 'btnRegenCover';
+                btn.textContent = '重新生成封面';
+                btn.className = 'absolute right-2 top-2 rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-brand-700 shadow hover:bg-white transition-colors';
+                btn.onclick = doRegenCover;
+                div.appendChild(btn);
+            } else {
+                const cap = document.createElement('div');
+                cap.className = 'absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-white text-xs';
+                cap.textContent = `第${i}页`;
+                div.appendChild(cap);
+            }
             ig.appendChild(div);
         });
         document.getElementById('imgCount').textContent = String(_images.length);
@@ -171,6 +186,50 @@ async function doGenerate() {
     } finally {
         HGTAbort.end();
         zwSetLoading(btn, { loading: false });
+    }
+}
+
+async function doRegenCover() {
+    if (!_note || !_note.cover) { alert('请先生成图文'); return; }
+    const btn = document.getElementById('btnRegenCover');
+    if (!btn) return;
+    const old = btn.textContent;
+    btn.disabled = true; btn.textContent = '生成中…';
+    setStatus('genStatus', '正在重新生成封面（仅换背景，文字不变）…', 'warn');
+    const signal = HGTAbort.begin('中止：重新生成封面中…');
+    try {
+        const resp = await fetch('/studio/xhs/regen-cover', {
+            method: 'POST',
+            signal,
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() },
+            body: JSON.stringify({
+                cover: _note.cover,
+                seed: Math.floor(Math.random() * 1000000),
+                topic: document.getElementById('xhsTopic').value.trim(),
+                selling_points: document.getElementById('xhsSelling').value.trim(),
+                audience: document.getElementById('xAudience').value.trim(),
+            }),
+        });
+        const data = await resp.json();
+
+        if (!resp.ok || !data.ok) throw new Error(data.error || '重新生成封面失败');
+
+        // 替换封面图与发布用路径
+        _images[0] = data.cover;
+        if (data.cover_path) _paths[0] = data.cover_path;
+        const firstDiv = document.getElementById('imageGrid').firstElementChild;
+        const img = firstDiv ? firstDiv.querySelector('img') : null;
+        if (img) img.src = data.cover;
+
+        const mode = (data.seed !== undefined && data.cover_path && data.cover_path.indexOf('ai') >= 0)
+            ? 'AI 插画' : '配色模板';
+        setStatus('genStatus', `✅ 封面已重新生成（${mode}背景已更换，文字不变）`, 'ok');
+    } catch (e) {
+        if (e.name === 'AbortError') { setStatus('genStatus', '⏹ 已中止重新生成', 'warn'); return; }
+        setStatus('genStatus', '❌ 重新生成封面失败：' + e.message, 'err');
+    } finally {
+        HGTAbort.end();
+        btn.disabled = false; btn.textContent = old;
     }
 }
 

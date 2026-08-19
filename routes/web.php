@@ -123,6 +123,7 @@ Route::middleware('auth')->group(function () {
     // ---- 小红书图文笔记 ----
     Route::get('/studio/xhs', [XhsController::class, 'index'])->name('studio.xhs');
     Route::post('/studio/xhs/generate', [XhsController::class, 'generate']);
+    Route::post('/studio/xhs/regen-cover', [XhsController::class, 'regenCover']);
     Route::post('/studio/xhs/publish', [XhsController::class, 'publish']);
 
     Route::get('/studio/covers', [CoverAssetController::class, 'index'])->name('studio.covers');
