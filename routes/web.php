@@ -119,6 +119,7 @@ Route::middleware('auth')->group(function () {
     // 封面素材管理（上传 / 列表 / 预览 / 删除 / 重新上传）
     // ---- 小红书图文笔记 ----
     Route::get('/studio/xhs', [XhsController::class, 'index'])->name('studio.xhs');
+    Route::post('/studio/xhs/build-note', [XhsController::class, 'buildNote']);
     Route::post('/studio/xhs/generate', [XhsController::class, 'generate']);
     Route::post('/studio/xhs/regen-cover', [XhsController::class, 'regenCover']);
     Route::post('/studio/xhs/publish', [XhsController::class, 'publish']);

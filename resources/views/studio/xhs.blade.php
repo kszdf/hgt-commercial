@@ -2,8 +2,8 @@
 <x-workspace-layout title="小红书图文笔记">
 <div class="mx-auto max-w-6xl p-6">
     <div class="mb-5">
-        <h1 class="text-xl font-bold text-slate-800">小红书图文笔记 · 一键生成</h1>
-        <p class="mt-1 text-sm text-slate-500">输入选题、卖点、受众 → 自动产出封面+内文配图+正文+候选标题，一键发布到小红书。</p>
+        <h1 class="text-xl font-bold text-slate-800">小红书图文笔记 · 分步生成</h1>
+        <p class="mt-1 text-sm text-slate-500">第一步：填选题/卖点/受众 → 生成正文（可修改）；第二步：点击「生成图文」产出封面+内文配图。</p>
     </div>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -39,9 +39,24 @@
                         <option value="8">8 页（最多）</option>
                     </select>
                 </div>
+                <button type="button" id="btnBuildNote" onclick="doBuildNote()"
+                    class="rounded-lg bg-slate-700 px-5 py-3 text-sm font-semibold text-white shadow hover:bg-slate-800 transition-colors">
+                    生成正文
+                </button>
+            </section>
+
+            <!-- 正文编辑区 -->
+            <section class="luxury-glass p-5">
+                <div class="mb-2 flex items-center justify-between">
+                    <h3 class="text-sm font-bold text-slate-800">小红书正文（可编辑，也可直接粘贴爆款文案）</h3>
+                    <span class="text-xs text-slate-400">修改后点「生成图文」即可重出图</span>
+                </div>
+                <textarea id="bodyText" rows="8" placeholder="先点「生成正文」由 AI 生成；或者直接粘贴一篇爆款文案到这里，再点「生成图文」。"
+                    class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100"></textarea>
+
                 <button type="button" id="btnGenerate" onclick="doGenerate()"
-                    class="rounded-lg bg-brand-600 px-7 py-3 text-base font-semibold text-white shadow hover:bg-brand-700 transition-colors">
-                    一键生成
+                    class="mt-3 w-full rounded-lg bg-brand-600 px-7 py-3 text-base font-semibold text-white shadow hover:bg-brand-700 transition-colors">
+                    生成图文
                 </button>
             </section>
 
@@ -55,13 +70,6 @@
             <section class="luxury-glass p-5 hidden" id="secTitles">
                 <h3 class="mb-2 text-sm font-bold text-slate-800">候选标题（点击选用）</h3>
                 <div id="titleList" class="flex flex-wrap gap-2"></div>
-            </section>
-
-            <!-- 正文 -->
-            <section class="luxury-glass p-5 hidden" id="secBody">
-                <h3 class="mb-2 text-sm font-bold text-slate-800">小红书正文</h3>
-                <textarea id="bodyText" rows="4"
-                    class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400"></textarea>
             </section>
 
             <!-- 图片预览 -->
@@ -117,16 +125,23 @@ function setStatus(elId, msg, type) {
     el.classList.remove('hidden');
 }
 
-async function doGenerate() {
+// 从当前 textarea 同步 body 到 _note
+function syncBodyToNote() {
+    if (_note) {
+        _note.body = document.getElementById('bodyText').value || _note.body || '';
+    }
+}
+
+async function doBuildNote() {
     const topic = document.getElementById('xhsTopic').value.trim();
     if (!topic) { alert('请填写选题'); return; }
 
-    const btn = document.getElementById('btnGenerate');
+    const btn = document.getElementById('btnBuildNote');
     zwSetLoading(btn, { loading: true, text: '生成中…' });
-    setStatus('genStatus', '正在调用 AI 生成内容并渲染图片（约 30~60 秒）…', 'warn');
-    const signal = HGTAbort.begin('中止：图文生成中…');
+    setStatus('genStatus', '正在调用 AI 生成正文…', 'warn');
+    const signal = HGTAbort.begin('中止：生成正文…');
     try {
-        const resp = await fetch('/studio/xhs/generate', {
+        const resp = await fetch('/studio/xhs/build-note', {
             method: 'POST',
             signal,
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() },
@@ -138,69 +153,121 @@ async function doGenerate() {
             }),
         });
         const data = await resp.json();
+        if (!resp.ok || !data.ok) throw new Error(data.error || '生成正文失败');
 
+        _note = data.note;
+        renderNotePreview(data.note);
+        setStatus('genStatus', '✅ 正文已生成，可编辑后点「生成图文」', 'ok');
+    } catch (e) {
+        if (e.name === 'AbortError') { setStatus('genStatus', '⏹ 已中止', 'warn'); return; }
+        setStatus('genStatus', '❌ 生成正文失败：' + e.message, 'err');
+    } finally {
+        HGTAbort.end();
+        zwSetLoading(btn, { loading: false });
+    }
+}
+
+async function doGenerate() {
+    const topic = document.getElementById('xhsTopic').value.trim();
+    if (!topic) { alert('请填写选题'); return; }
+
+    const bodyText = document.getElementById('bodyText').value.trim();
+    if (!bodyText) { alert('请先生成正文，或把爆款文案粘贴到正文框'); return; }
+
+    syncBodyToNote();
+
+    const btn = document.getElementById('btnGenerate');
+    zwSetLoading(btn, { loading: true, text: '出图中…' });
+    setStatus('genStatus', '正在渲染封面+内文配图（约 30~60 秒）…', 'warn');
+    const signal = HGTAbort.begin('中止：图文生成中…');
+    try {
+        const payload = {
+            topic,
+            selling_points: document.getElementById('xhsSelling').value.trim(),
+            audience: document.getElementById('xAudience').value.trim(),
+            pages: parseInt(document.getElementById('xPages').value),
+            brand: '慧根堂 · 老张讲财税',
+        };
+        // 如果已有完整 note 结构，优先用它（保留用户在 textarea 的修改）
+        if (_note && _note.cover && Array.isArray(_note.pages) && _note.pages.length > 0) {
+            payload.note = _note;
+            delete payload.topic; // 后端以 note 为准
+        } else {
+            // 否则把当前正文当 raw_body 交给后端整理再渲染（适合直接粘贴爆款文案）
+            payload.raw_body = bodyText;
+        }
+
+        const resp = await fetch('/studio/xhs/generate', {
+            method: 'POST',
+            signal,
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() },
+            body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
         if (!resp.ok || !data.ok) throw new Error(data.error || '生成失败');
 
         _note = data.note;
         _images = data.images || [];
         _paths = data.image_paths || [];
-
-        // 渲染候选标题
-        const tl = document.getElementById('titleList');
-        tl.innerHTML = '';
-        (_note.titles || []).forEach((t, i) => {
-            const b = document.createElement('button');
-            b.type = 'button'; b.className = 'px-3 py-1.5 rounded-full text-xs font-medium border border-brand-300 text-brand-700 hover:bg-brand-50 cursor-pointer transition-colors';
-            b.textContent = t; b.onclick = () => { _selectedTitle = t; b.classList.replace('border-brand-300','border-brand-500'); b.classList.add('bg-brand-100'); };
-            tl.appendChild(b);
-        });
-        document.getElementById('secTitles').classList.remove('hidden');
-
-        // 正文
-        document.getElementById('bodyText').value = _note.body || '';
-        document.getElementById('secBody').classList.remove('hidden');
-
-        // 图片
-        const ig = document.getElementById('imageGrid');
-        ig.innerHTML = '';
-        _images.forEach((src, i) => {
-            const div = document.createElement('div');
-            div.className = 'relative overflow-hidden rounded-lg border border-slate-200';
-            const img = new Image(); img.src = src; img.className = 'w-full aspect-[3/4] object-cover cursor-pointer transition-opacity hover:opacity-90';
-            img.onclick = () => openBig(src);
-            div.appendChild(img);
-            if (i === 0) {
-                const cap = document.createElement('div');
-                cap.className = 'absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-white text-xs';
-                cap.textContent = '封面';
-                div.appendChild(cap);
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.id = 'btnRegenCover';
-                btn.textContent = '重新生成封面';
-                btn.className = 'absolute right-2 top-2 rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-brand-700 shadow hover:bg-white transition-colors';
-                btn.onclick = doRegenCover;
-                div.appendChild(btn);
-            } else {
-                const cap = document.createElement('div');
-                cap.className = 'absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-white text-xs';
-                cap.textContent = `第${i}页`;
-                div.appendChild(cap);
-            }
-            ig.appendChild(div);
-        });
-        document.getElementById('imgCount').textContent = String(_images.length);
-        document.getElementById('secImages').classList.remove('hidden');
+        renderImages(_images);
         document.getElementById('pubArea').classList.remove('hidden');
-
-        setStatus('genStatus', `✅ 成功！已生成 ${_images.length} 张图 + ${(_note.titles||[]).length} 个候选标题`, 'ok');
+        setStatus('genStatus', `✅ 成功！已生成 ${_images.length} 张图`, 'ok');
     } catch (e) {
         if (e.name === 'AbortError') { setStatus('genStatus', '⏹ 已中止生成', 'warn'); return; }
-        setStatus('genStatus', '❌ 生成失败：' + e.message, 'err');
+        setStatus('genStatus', '❌ 生成图文失败：' + e.message, 'err');
     } finally {
         HGTAbort.end();
         zwSetLoading(btn, { loading: false });
     }
+}
+
+function renderNotePreview(note) {
+    // 候选标题
+    const tl = document.getElementById('titleList');
+    tl.innerHTML = '';
+    (note.titles || []).forEach((t, i) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'px-3 py-1.5 rounded-full text-xs font-medium border border-brand-300 text-brand-700 hover:bg-brand-50 cursor-pointer transition-colors';
+        b.textContent = t; b.onclick = () => { _selectedTitle = t; b.classList.replace('border-brand-300','border-brand-500'); b.classList.add('bg-brand-100'); };
+        tl.appendChild(b);
+    });
+    document.getElementById('secTitles').classList.remove('hidden');
+
+    // 正文
+    document.getElementById('bodyText').value = note.body || '';
+}
+
+function renderImages(images) {
+    const ig = document.getElementById('imageGrid');
+    ig.innerHTML = '';
+    images.forEach((src, i) => {
+        const div = document.createElement('div');
+        div.className = 'relative overflow-hidden rounded-lg border border-slate-200';
+        const img = new Image(); img.src = src; img.className = 'w-full aspect-[3/4] object-cover cursor-pointer transition-opacity hover:opacity-90';
+        img.onclick = () => openBig(src);
+        div.appendChild(img);
+        if (i === 0) {
+            const cap = document.createElement('div');
+            cap.className = 'absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-white text-xs';
+            cap.textContent = '封面';
+            div.appendChild(cap);
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.id = 'btnRegenCover';
+            btn.textContent = '重新生成封面';
+            btn.className = 'absolute right-2 top-2 rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-brand-700 shadow hover:bg-white transition-colors';
+            btn.onclick = doRegenCover;
+            div.appendChild(btn);
+        } else {
+            const cap = document.createElement('div');
+            cap.className = 'absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-white text-xs';
+            cap.textContent = `第${i}页`;
+            div.appendChild(cap);
+        }
+        ig.appendChild(div);
+    });
+    document.getElementById('imgCount').textContent = String(images.length);
+    document.getElementById('secImages').classList.remove('hidden');
 }
 
 async function doRegenCover() {
@@ -225,10 +292,8 @@ async function doRegenCover() {
             }),
         });
         const data = await resp.json();
-
         if (!resp.ok || !data.ok) throw new Error(data.error || '重新生成封面失败');
 
-        // 替换封面图与发布用路径
         _images[0] = data.cover;
         if (data.cover_path) _paths[0] = data.cover_path;
         const firstDiv = document.getElementById('imageGrid').firstElementChild;
@@ -269,7 +334,6 @@ async function doPublish() {
             }),
         });
         const data = await resp.json();
-
         if (!resp.ok) throw new Error(data.error || '发布失败');
 
         const r = (data.results && data.results[0]) || data;
@@ -285,50 +349,50 @@ async function doPublish() {
     } catch (e) {
         if (e.name === 'AbortError') { setStatus('pubStatus', '⏹ 已中止发布', 'warn'); return; }
         setStatus('pubStatus', '❌ 发布异常：' + e.message, 'err');
-        } finally {
-            HGTAbort.end();
-            zwSetLoading(btn, { loading: false });
-        }
+    } finally {
+        HGTAbort.end();
+        zwSetLoading(btn, { loading: false });
     }
+}
 
-    function openBig(src) {
-        const ov = document.getElementById('bigOverlay');
-        document.getElementById('bigImg').src = src;
-        ov.classList.remove('hidden');
-        ov.classList.add('flex', 'items-center', 'justify-center');
-    }
-    function closeBig() {
-        const ov = document.getElementById('bigOverlay');
-        ov.classList.add('hidden');
-        ov.classList.remove('flex', 'items-center', 'justify-center');
-    }
-    async function doDownload() {
-        if (!_paths || !_paths.length) { alert('请先生成图文'); return; }
-        const btn = document.getElementById('btnDownload');
-        if (!btn) return;
-        const old = btn.textContent;
-        btn.disabled = true; btn.textContent = '打包中…';
-        try {
-            const resp = await fetch('/studio/xhs/download', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() },
-                body: JSON.stringify({ images: _images }),
-            });
-            if (!resp.ok) {
-                const d = await resp.json().catch(() => ({}));
-                throw new Error(d.error || ('下载失败 ' + resp.status));
-            }
-            const blob = await resp.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = 'xiaohongshu_' + Date.now() + '.zip';
-            document.body.appendChild(a); a.click(); a.remove();
-            URL.revokeObjectURL(url);
-            setStatus('genStatus', '✅ 已打包下载（' + _paths.length + ' 张 PNG）', 'ok');
-        } catch (e) {
-            setStatus('genStatus', '❌ 下载失败：' + e.message, 'err');
-        } finally {
-            btn.disabled = false; btn.textContent = old;
+function openBig(src) {
+    const ov = document.getElementById('bigOverlay');
+    document.getElementById('bigImg').src = src;
+    ov.classList.remove('hidden');
+    ov.classList.add('flex', 'items-center', 'justify-center');
+}
+function closeBig() {
+    const ov = document.getElementById('bigOverlay');
+    ov.classList.add('hidden');
+    ov.classList.remove('flex', 'items-center', 'justify-center');
+}
+async function doDownload() {
+    if (!_images || !_images.length) { alert('请先生成图文'); return; }
+    const btn = document.getElementById('btnDownload');
+    if (!btn) return;
+    const old = btn.textContent;
+    btn.disabled = true; btn.textContent = '打包中…';
+    try {
+        const resp = await fetch('/studio/xhs/download', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() },
+            body: JSON.stringify({ images: _images }),
+        });
+        if (!resp.ok) {
+            const d = await resp.json().catch(() => ({}));
+            throw new Error(d.error || ('下载失败 ' + resp.status));
         }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'xiaohongshu_' + Date.now() + '.zip';
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        setStatus('genStatus', '✅ 已打包下载（' + _images.length + ' 张 PNG）', 'ok');
+    } catch (e) {
+        setStatus('genStatus', '❌ 下载失败：' + e.message, 'err');
+    } finally {
+        btn.disabled = false; btn.textContent = old;
     }
+}
 </script>

@@ -2126,6 +2126,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_clone_voice(data)
         if p.path == "/publish":
             return self._handle_publish(data)
+        if p.path == "/xhs_build_note":
+            return self._handle_xhs_build_note(data)
         if p.path == "/xhs_generate":
             return self._handle_xhs_generate(data)
         if p.path == "/xhs_regen_cover":
@@ -2206,32 +2208,57 @@ class Handler(http.server.BaseHTTPRequestHandler):
         return self._send(200, {"job_id": job_id, "results": results})
 
     # ---- 小红书图文笔记生成：选题+卖点+受众 → 结构化笔记 + 渲染出图 ----
-    def _handle_xhs_generate(self, data):
-        """POST /xhs_generate：自动产出一篇「能直接发布」的小红书系列图文。
+    def _handle_xhs_build_note(self, data):
+        """POST /xhs_build_note：仅根据选题/卖点/受众生成结构化笔记（不出图）。
 
         入参 JSON:
-            {"topic": "选题", "selling_points": "卖点（可多句）",
-             "audience": "受众", "brand": "可选品牌署名", "pages": 可选期望内页数(默认4)}
+            {"topic": "选题", "selling_points": "卖点（可多句）", "audience": "受众",
+             "pages": 可选期望内页数(默认4), "raw_body": "用户已写好的正文草稿（可选）"}
         返回:
-            {"ok": true, "note": {...}, "images": [base64...], "image_paths": [abs...],
-             "count": <总张数>}
-        总张数封顶 9（封面1 + 内文≤8）。
+            {"ok": true, "note": {"cover":..., "pages":..., "body":..., "titles":...}}
         """
         topic = (data.get("topic") or "").strip()
         if not topic:
             return self._send(400, {"error": "topic required"})
         selling = (data.get("selling_points") or "").strip()
         audience = (data.get("audience") or "").strip()
-        brand = (data.get("brand") or "慧根堂 · 老张讲财税").strip()
         want_pages = max(2, min(8, int(data.get("pages") or 4)))
-        cover_seed = int(data.get("seed") or secrets.randbelow(100000))
+        raw_body = (data.get("raw_body") or "").strip()
 
-        # 1) DeepSeek 生成结构化笔记
-        note = self._xhs_build_note(topic, selling, audience, want_pages)
+        note = self._xhs_build_note(topic, selling, audience, want_pages, raw_body=raw_body)
         if not note:
             return self._send(502, {"error": "内容生成失败（DeepSeek 不可用或超时）"})
+        return self._send(200, {"ok": True, "note": note})
 
-        # 2) 渲染出图（封面 + 内文分页，封顶 9 张）
+    def _handle_xhs_generate(self, data):
+        """POST /xhs_generate：基于结构化笔记渲染出「能直接发布」的小红书系列图文。
+
+        支持三种入参模式：
+          1) 传完整 note：{"note": {...}, "brand": ..., "seed": ...}
+          2) 传用户正文草稿：{"topic":..., "selling_points":..., "audience":..., "pages":..., "raw_body": ...}
+          3) 老模式：{"topic":..., "selling_points":..., "audience":..., "pages":..., "brand": ..., "seed": ...}
+        返回:
+            {"ok": true, "note": {...}, "images": [base64...], "image_paths": [abs...],
+             "count": <总张数>}
+        总张数封顶 9（封面1 + 内文≤8）。
+        """
+        brand = (data.get("brand") or "慧根堂 · 老张讲财税").strip()
+        cover_seed = int(data.get("seed") or secrets.randbelow(100000))
+
+        note = data.get("note")
+        if not note:
+            topic = (data.get("topic") or "").strip()
+            if not topic:
+                return self._send(400, {"error": "缺少选题或已生成的笔记结构(note)"})
+            selling = (data.get("selling_points") or "").strip()
+            audience = (data.get("audience") or "").strip()
+            want_pages = max(2, min(8, int(data.get("pages") or 4)))
+            raw_body = (data.get("raw_body") or "").strip()
+            note = self._xhs_build_note(topic, selling, audience, want_pages, raw_body=raw_body)
+            if not note:
+                return self._send(502, {"error": "内容生成失败（DeepSeek 不可用或超时）"})
+
+        # 渲染出图（封面 + 内文分页，封顶 9 张）
         import base64
         from xhs_render import render_note, render_cover
         outdir = os.path.join(JOBS_DIR, "xhs_" + secrets.token_hex(8))
@@ -2284,29 +2311,56 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "seed": seed,
         })
 
-    def _xhs_build_note(self, topic, selling, audience, want_pages):
-        """调 DeepSeek 产出结构化笔记（封面/内文分页/正文/候选标题）。"""
+    def _xhs_build_note(self, topic, selling, audience, want_pages, raw_body=None):
+        """调 DeepSeek 产出结构化笔记（封面/内文分页/正文/候选标题）。
+
+        若传入 raw_body，则基于用户已写好的正文草稿进行整理和结构化。
+        """
         try:
             cfg = get_text_config()
         except Exception:  # noqa: BLE001
             cfg = {"model": "", "key": "", "base_url": None}
-        prompt = (
-            "你是一名资深小红书财税内容运营，擅长把专业财税知识改写成老板爱看、"
-            "能涨粉的爆款图文笔记。请根据以下信息，产出一篇系列图文笔记的结构化方案。\n\n"
-            f"【选题】{topic}\n"
-            f"【卖点/核心观点】{selling or '（自行提炼该选题对受众的核心价值）'}\n"
-            f"【目标受众】{audience or '中小企业老板/创业者'}\n"
-            f"【内文分页数量】请产出 {want_pages} 页内文（不含封面）。\n\n"
-            "严格要求：只输出一个 JSON 对象，不要任何解释、不要 markdown 代码块包裹。结构如下：\n"
-            "{\n"
-            '  "cover": {"title": "封面大字标题（≤18字，抓痛点或给钩子）", "subtitle": "封面副标题（≤24字，补充说明）", "tag": "封面标签（≤8字，如 税务风险·老板必看）"},\n'
-            '  "pages": [{"heading": "本页小标题（≤14字）", "points": ["要点1（≤30字）", "要点2（≤30字）", "要点3（≤30字）"]}],\n'
-            '  "body": "小红书正文：口语化、有干货、结尾带互动引导，末尾附 4~6 个 #话题标签（如 #税务风险 #老板必看），总长 200~400 字",\n'
-            '  "titles": ["候选标题1（≤20字，带情绪/数字/痛点）", "候选标题2", "候选标题3", "候选标题4"]\n'
-            "}\n"
-            "注意：pages 数组长度必须等于上面要求的内文页数；points 每页 2~4 条；"
-            "所有中文必须准确、专业、无错别字；禁止出现违禁词（不承诺避税/不诱导虚开）。"
-        )
+
+        if raw_body:
+            prompt = (
+                "你是一名资深小红书财税内容运营，擅长把老板写好的财税文案/爆款方案，"
+                "整理成能直接出图的小红书系列图文笔记。请严格根据以下信息产出结构化方案。\n\n"
+                f"【选题】{topic}\n"
+                f"【卖点/核心观点】{selling or '（自行提炼该选题对受众的核心价值）'}\n"
+                f"【目标受众】{audience or '中小企业老板/创业者'}\n"
+                f"【内文分页数量】请产出 {want_pages} 页内文（不含封面）。\n"
+                f"【用户正文草稿】\n{raw_body}\n\n"
+                "任务：基于用户正文草稿，保留其核心观点与真实案例，重新整理成小红书爆款风格："
+                "口语化、有钩子、有干货、结尾带互动引导。"
+                "严格要求：只输出一个 JSON 对象，不要任何解释、不要 markdown 代码块包裹。结构如下：\n"
+                "{\n"
+                '  "cover": {"title": "封面大字标题（≤18字，抓痛点或给钩子）", "subtitle": "封面副标题（≤24字，补充说明）", "tag": "封面标签（≤8字）"},\n'
+                '  "pages": [{"heading": "本页小标题（≤14字）", "points": ["要点1（≤30字）", "要点2（≤30字）", "要点3（≤30字）"]}],\n'
+                '  "body": "整理后的完整小红书正文（口语化，带话题标签 #税务风险 #老板必看 等），总长 200~400 字",\n'
+                '  "titles": ["候选标题1（≤20字，带情绪/数字/痛点）", "候选标题2", "候选标题3", "候选标题4"]\n'
+                "}\n"
+                "注意：pages 数组长度必须等于上面要求的内文页数；points 每页 2~4 条；"
+                "封面标题必须从用户草稿核心痛点中提炼；所有中文准确、专业、无错别字；"
+                "禁止出现违禁词（不承诺避税/不诱导虚开）。"
+            )
+        else:
+            prompt = (
+                "你是一名资深小红书财税内容运营，擅长把专业财税知识改写成老板爱看、"
+                "能涨粉的爆款图文笔记。请根据以下信息，产出一篇系列图文笔记的结构化方案。\n\n"
+                f"【选题】{topic}\n"
+                f"【卖点/核心观点】{selling or '（自行提炼该选题对受众的核心价值）'}\n"
+                f"【目标受众】{audience or '中小企业老板/创业者'}\n"
+                f"【内文分页数量】请产出 {want_pages} 页内文（不含封面）。\n\n"
+                "严格要求：只输出一个 JSON 对象，不要任何解释、不要 markdown 代码块包裹。结构如下：\n"
+                "{\n"
+                '  "cover": {"title": "封面大字标题（≤18字，抓痛点或给钩子）", "subtitle": "封面副标题（≤24字，补充说明）", "tag": "封面标签（≤8字，如 税务风险·老板必看）"},\n'
+                '  "pages": [{"heading": "本页小标题（≤14字）", "points": ["要点1（≤30字）", "要点2（≤30字）", "要点3（≤30字）"]}],\n'
+                '  "body": "小红书正文：口语化、有干货、结尾带互动引导，末尾附 4~6 个 #话题标签（如 #税务风险 #老板必看），总长 200~400 字",\n'
+                '  "titles": ["候选标题1（≤20字，带情绪/数字/痛点）", "候选标题2", "候选标题3", "候选标题4"]\n'
+                "}\n"
+                "注意：pages 数组长度必须等于上面要求的内文页数；points 每页 2~4 条；"
+                "所有中文必须准确、专业、无错别字；禁止出现违禁词（不承诺避税/不诱导虚开）。"
+            )
         try:
             content = deepseek_chat(prompt, cfg.get("model", ""), cfg.get("key", ""),
                                     cfg.get("base_url"), timeout=90)
@@ -2330,11 +2384,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         out = {
             "cover": obj.get("cover") or {"title": topic, "subtitle": "", "tag": "财税干货"},
             "pages": pages[:8],
-            "body": obj.get("body") or "",
+            "body": obj.get("body") or raw_body or "",
             "titles": obj.get("titles") or [topic],
         }
         if not out["pages"]:
-            out["pages"] = [{"heading": topic, "points": [selling or "核心卖点", "适用场景", "行动建议"]}]
+            if raw_body:
+                out["pages"] = [{"heading": topic, "points": [selling or "核心卖点", "要点提炼", "行动建议"]}]
+            else:
+                out["pages"] = [{"heading": topic, "points": [selling or "核心卖点", "适用场景", "行动建议"]}]
         return out
 
     # ---- P4 OAuth2 授权码模式：抖音/小红书 ----

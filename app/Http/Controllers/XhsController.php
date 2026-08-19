@@ -26,27 +26,74 @@ class XhsController extends Controller
     }
 
     /**
-     * 调 8500 /xhs_generate，返回结构化笔记 + 渲染图片（base64）。
+     * 调 8500 /xhs_build_note，仅生成结构化笔记（不出图）。
      */
-    public function generate(Request $request)
+    public function buildNote(Request $request)
     {
         $request->validate([
             'topic' => 'required|string|max:200',
-            'selling_points' => 'nullable|string|max:1000',
+            'selling_points' => 'nullable|string|max:5000',
             'audience' => 'nullable|string|max:300',
             'pages' => 'nullable|integer|min:2|max:8',
-            'brand' => 'nullable|string|max:60',
+            'raw_body' => 'nullable|string|max:8000',
         ]);
 
         try {
             $client = new PipelineClient();
-            $resp = $client->postJson('/xhs_generate', [
+            $resp = $client->postJson('/xhs_build_note', [
                 'topic' => $request->input('topic'),
                 'selling_points' => $request->input('selling_points', ''),
                 'audience' => $request->input('audience', ''),
-                'brand' => $request->input('brand', '慧根堂 · 老张讲财税'),
                 'pages' => (int) ($request->input('pages') ?? 4),
+                'raw_body' => $request->input('raw_body', ''),
             ], 120);
+        } catch (\Exception $e) {
+            return response()->json(['error' => '出片微服务不可达：' . $e->getMessage()], 503);
+        }
+
+        if (!$resp->successful()) {
+            return response()->json(['error' => '生成失败：' . $resp->body()], $resp->status());
+        }
+
+        return response()->json($resp->json());
+    }
+
+    /**
+     * 调 8500 /xhs_generate，基于结构化笔记渲染图片（base64）。
+     * 支持传入完整 note，也支持 topic+raw_body 让 8500 先整理再渲染。
+     */
+    public function generate(Request $request)
+    {
+        $request->validate([
+            'topic' => 'nullable|string|max:200',
+            'selling_points' => 'nullable|string|max:5000',
+            'audience' => 'nullable|string|max:300',
+            'pages' => 'nullable|integer|min:2|max:8',
+            'brand' => 'nullable|string|max:60',
+            'note' => 'nullable|array',
+            'raw_body' => 'nullable|string|max:8000',
+        ]);
+
+        if (!$request->input('note') && !$request->input('raw_body') && !$request->input('topic')) {
+            return response()->json(['error' => '请填写选题，或先生成/粘贴正文'], 400);
+        }
+
+        $payload = [
+            'brand' => $request->input('brand', '慧根堂 · 老张讲财税'),
+            'pages' => (int) ($request->input('pages') ?? 4),
+        ];
+        if ($request->has('note')) {
+            $payload['note'] = $request->input('note');
+        } else {
+            $payload['topic'] = $request->input('topic', '');
+            $payload['selling_points'] = $request->input('selling_points', '');
+            $payload['audience'] = $request->input('audience', '');
+            $payload['raw_body'] = $request->input('raw_body', '');
+        }
+
+        try {
+            $client = new PipelineClient();
+            $resp = $client->postJson('/xhs_generate', $payload, 180);
         } catch (\Exception $e) {
             return response()->json(['error' => '出片微服务不可达：' . $e->getMessage()], 503);
         }
