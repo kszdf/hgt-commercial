@@ -84,7 +84,6 @@
 </x-workspace-layout>
 </x-app-layout>
 
-@push('scripts')
 <script>
 function csrf() { return document.querySelector('meta[name="csrf-token"]')?.content || ''; }
 
@@ -110,7 +109,7 @@ async function doGenerate() {
     if (!topic) { alert('请填写选题'); return; }
 
     const btn = document.getElementById('btnGenerate');
-    btn.disabled = true; btn.textContent = '生成中…';
+    zwSetLoading(btn, { loading: true, text: '生成中…' });
     setStatus('genStatus', '正在调用 AI 生成内容并渲染图片（约 30~60 秒）…', 'warn');
     const signal = HGTAbort.begin('中止：图文生成中…');
     try {
@@ -171,7 +170,7 @@ async function doGenerate() {
         setStatus('genStatus', '❌ 生成失败：' + e.message, 'err');
     } finally {
         HGTAbort.end();
-        btn.disabled = false; btn.textContent = '一键生成';
+        zwSetLoading(btn, { loading: false });
     }
 }
 
@@ -181,7 +180,7 @@ async function doPublish() {
     const desc = document.getElementById('bodyText')?.value || _note?.body || '';
 
     const btn = document.getElementById('btnPublish');
-    btn.disabled = true; btn.textContent = '发布中…';
+    zwSetLoading(btn, { loading: true, text: '发布中…' });
     setStatus('pubStatus', '正在发布到小红书…', 'warn');
     const signal = HGTAbort.begin('中止：小红书发布中…');
     try {
@@ -213,8 +212,7 @@ async function doPublish() {
         setStatus('pubStatus', '❌ 发布异常：' + e.message, 'err');
     } finally {
         HGTAbort.end();
-        btn.disabled = false; btn.textContent = '发布到小红书';
+        zwSetLoading(btn, { loading: false });
     }
 }
 </script>
-@endpush
