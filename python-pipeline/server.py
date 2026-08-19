@@ -1861,11 +1861,28 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 queue_pos = 1 + sum(1 for oid, oj in snap
                                     if oid != jid and oj.get("step") == "queued"
                                     and (oj.get("start_ts") or 0) < me_ts)
+            # 读取 render.log 最后一行的 progress，给前端真实进度（避免 ETA 永远停在固定值）
+            render_progress = None
+            try:
+                log_path = os.path.join(JOBS_DIR, jid, "render.log")
+                if os.path.isfile(log_path):
+                    with open(log_path, "r", encoding="utf-8") as f:
+                        lines = f.readlines()
+                    for line in reversed(lines):
+                        m = re.search(r"progress=(\d+)", line)
+                        if m:
+                            val = int(m.group(1))
+                            if 0 <= val <= 100:
+                                render_progress = val
+                                break
+            except Exception:  # noqa: BLE001
+                pass
             return self._send(200, {
                 "job_id": jid,
                 "status": j["status"],
                 "step": j.get("step"),
                 "queue_pos": queue_pos,
+                "progress": render_progress,
                 "result": f"/download/{jid}" if j["status"] == "done" else None,
                 "cover": j.get("cover"),
                 "qc_video": j.get("qc_video"),

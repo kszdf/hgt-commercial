@@ -1339,7 +1339,7 @@ function fmtDuration(s) {
 // 进度卡片渲染器：骨架/真实状态统一结构，避免 resumeJob 与 pollStatus 两套 UI
 function renderProgressCard(opts) {
     const {
-        title, hint, step, stage, percent, elapsedSec, etaSec,
+        title, hint, step, stage, percent, elapsedSec, etaSec, etaHint,
         qpos, stuckHint, isSkeleton, errorText
     } = opts;
     const STAGES = ['提交成功', '配音字幕合成', '视频渲染', '出片完成'];
@@ -1367,7 +1367,7 @@ function renderProgressCard(opts) {
             ? ('前面约 ' + qpos + ' 个排队')
             : (typeof etaSec === 'number' && etaSec > 0)
                 ? ('预计剩余 ' + fmtDuration(etaSec))
-                : '预计还需数分钟';
+                : (etaHint || '预计还需数分钟');
 
     const progressWidth = isSkeleton ? '45%' : (isDone ? '100%' : (percent + '%'));
     const progressColor = isDone && step === 'failed' ? 'bg-red-500' : 'bg-brand-500';
@@ -1527,12 +1527,12 @@ async function pollStatus(jobId) {
                 const qpos = data.queue_pos || 0;
                 // 后端 enriched 字段优先；缺失时本地兜底映射（兼容旧版 8500 / 缓存）
                 const STEP_MAP = {
-                    queued:    { label: '排队等待渲染资源', percent: 8,  stage: 0 },
-                    editing:   { label: '智能配音与字幕合成', percent: 40, stage: 1 },
-                    rendering: { label: '视频 / 数字人渲染中', percent: 75, stage: 2 },
-                    rerender:  { label: '画面精修（自动重渲染）', percent: 92, stage: 2 },
-                    done:      { label: '已完成', percent: 100, stage: 3 },
-                    failed:    { label: '出片失败', percent: 100, stage: 3 },
+                    queued:    { label: '排队等待渲染资源', percent: 8,  stage: 0, etaHint: '预计还需 1–10 分钟（视排队情况）' },
+                    editing:   { label: '智能配音与字幕合成', percent: 40, stage: 1, etaHint: '预计还需 1–3 分钟' },
+                    rendering: { label: '视频 / 数字人渲染中', percent: 75, stage: 2, etaHint: '预计还需 5–15 分钟' },
+                    rerender:  { label: '画面精修（自动重渲染）', percent: 92, stage: 2, etaHint: '预计还需 3–8 分钟' },
+                    done:      { label: '已完成', percent: 100, stage: 3, etaHint: '' },
+                    failed:    { label: '出片失败', percent: 100, stage: 3, etaHint: '' },
                 };
                 const info = STEP_MAP[step] || { label: '出片处理中', percent: 50, stage: 1 };
                 const percent = (typeof data.progress === 'number') ? data.progress : info.percent;
@@ -1542,7 +1542,8 @@ async function pollStatus(jobId) {
                 baseElapsedSec = (typeof data.elapsed_sec === 'number' && data.elapsed_sec > 0)
                     ? data.elapsed_sec
                     : Math.max(0, Math.round((Date.now() - pageLoadMs) / 1000));
-                const etaSec = (typeof data.eta_sec === 'number') ? data.eta_sec : null;
+                const etaSec = (typeof data.eta_sec === 'number' && data.eta_sec > 0) ? data.eta_sec : 0;
+                const etaHint = data.eta_hint || info.etaHint || '';
 
                 let title, hint;
                 if (step === 'queued') {
@@ -1553,20 +1554,34 @@ async function pollStatus(jobId) {
                     hint = '为保质量平台自动重渲染一次，无需任何操作';
                 } else {
                     title = info.label;
-                    hint = '数字人出片较慢，约 5–15 分钟；可先去其他页面，回来会自动续接';
+                    // 按已等待时长给出不同安抚文案，避免 7 分钟就吓用户"卡住"
+                    if (baseElapsedSec < 300) {
+                        hint = '数字人出片通常需要 5–15 分钟；可先去其他页面，回来会自动续接';
+                    } else if (baseElapsedSec < 900) {
+                        hint = '仍在正常范围内，请继续等待；数字人渲染较慢，约 5–15 分钟';
+                    } else if (baseElapsedSec < 1500) {
+                        hint = '已等待较久（' + fmtDuration(baseElapsedSec) + '），若超过 25 分钟仍无进展可点击刷新';
+                    } else {
+                        hint = '当前阶段已超过 25 分钟未推进，可能已经卡住，建议刷新或重试';
+                    }
                 }
 
-                // 同阶段超时感知：某阶段持续不推进超过阈值，提示用户可能卡住并可手动刷新
-                const isRegen = !!data.regen_attempted;  // 处于 QC 自动重试阶段，阈值放宽避免误报"卡住"
-                const STAGE_STUCK_SEC = isRegen ? 600 : 300;   // 重渲染期同阶段无推进阈值翻倍（10 分钟）
-                const TOTAL_STUCK_SEC = isRegen ? 1500 : 900;  // 重渲染期总等待阈值放宽（25 分钟）
+                // 同阶段超时感知：阈值与后端看门狗对齐，避免正常长视频被误报
+                // 后端：阶段卡死 25 分钟 / 排队 50 分钟 / 绝对 90 分钟 / 服务不可达 10 分钟
+                const isRegen = !!data.regen_attempted;
+                const STAGE_WARN_SEC = isRegen ? 1200 : 1200;     // 20 分钟：显示"已等待较久"预警
+                const STAGE_STUCK_SEC = isRegen ? 1500 : 1500;    // 25 分钟：才报"可能已经卡住"
+                const TOTAL_STUCK_SEC = isRegen ? 1800 : 1500;    // 重渲染期总等待阈值放宽（30/25 分钟）
                 if (step !== lastStep) { lastStep = step; lastStepMs = Date.now(); }
                 const stageStuckSec = Math.floor((Date.now() - lastStepMs) / 1000);
-                const stuckHint = stageStuckSec >= STAGE_STUCK_SEC
-                    ? ('<div class="mt-2 text-xs" style="color:#d97706">⚠ 当前阶段已持续 ' + fmtDuration(stageStuckSec) + ' 未推进，可能已经卡住。<button type="button" onclick="forcePollRefresh()" class="ml-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-amber-700 hover:bg-amber-100">立即刷新</button></div>')
-                    : (baseElapsedSec >= TOTAL_STUCK_SEC
-                        ? ('<div class="mt-2 text-xs" style="color:#d97706">已等待较久（' + fmtDuration(baseElapsedSec) + '）。数字人视频正常 5–15 分钟，重渲染会更久；若仍无进展请刷新页面或重试。</div>')
-                        : '');
+                let stuckHint = '';
+                if (stageStuckSec >= STAGE_STUCK_SEC) {
+                    stuckHint = '<div class="mt-2 text-xs" style="color:#d97706">⚠ 当前阶段已持续 ' + fmtDuration(stageStuckSec) + ' 未推进，可能已经卡住。<button type="button" onclick="forcePollRefresh()" class="ml-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-amber-700 hover:bg-amber-100">立即刷新</button></div>';
+                } else if (stageStuckSec >= STAGE_WARN_SEC) {
+                    stuckHint = '<div class="mt-2 text-xs" style="color:#d97706">当前阶段已持续 ' + fmtDuration(stageStuckSec) + '，数字人视频 5–15 分钟属于正常；若继续无推进请<button type="button" onclick="forcePollRefresh()" class="ml-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-amber-700 hover:bg-amber-100">立即刷新</button></div>';
+                } else if (baseElapsedSec >= TOTAL_STUCK_SEC) {
+                    stuckHint = '<div class="mt-2 text-xs" style="color:#d97706">已等待较久（' + fmtDuration(baseElapsedSec) + '）。数字人视频正常 5–15 分钟，重渲染会更久；若仍无进展请刷新页面或重试。</div>';
+                }
 
                 result.innerHTML = renderProgressCard({
                     title: title,
@@ -1577,6 +1592,7 @@ async function pollStatus(jobId) {
                     percent: percent,
                     elapsedSec: baseElapsedSec,
                     etaSec: etaSec,
+                    etaHint: etaHint,
                     qpos: qpos,
                     stuckHint: stuckHint
                 });

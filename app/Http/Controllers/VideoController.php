@@ -332,7 +332,11 @@ class VideoController extends Controller
 
     /**
      * 把 8500 原始状态 enriched 成租户端友好的进度结构：
-     * 中文分步文案 + 百分比 + 预计剩余秒。纯映射，不动 8500。
+     * 中文分步文案 + 百分比 + 预计剩余秒。
+     *
+     * 进度策略：
+     * - 8500 返回真实 progress 时优先使用，并基于真实进度 + 已耗时动态推算 ETA；
+     * - 无真实 progress 时 fallback 到阶段固定百分比，ETA 返回 0，前端显示区间文案（避免"永远停在 2分30秒"）。
      */
     private function enrichPipelineStatus(array $json): array
     {
@@ -341,43 +345,57 @@ class VideoController extends Controller
 
         // 流水线分步（顺序即阶段推进）：提交 → 配音字幕 → 视频渲染 → 完成
         $stepMap = [
-            'queued'    => ['label' => '排队等待渲染资源', 'percent' => 8],
-            'editing'   => ['label' => '智能配音与字幕合成', 'percent' => 40],
-            'rendering' => ['label' => '视频 / 数字人渲染中', 'percent' => 75],
-            'rerender'  => ['label' => '画面精修（自动重渲染）', 'percent' => 92],
-            'done'      => ['label' => '已完成', 'percent' => 100],
-            'failed'    => ['label' => '出片失败', 'percent' => 100],
+            'queued'    => ['label' => '排队等待渲染资源', 'percent' => 8,  'eta_hint' => '预计还需 1–10 分钟（视排队情况）'],
+            'editing'   => ['label' => '智能配音与字幕合成', 'percent' => 40, 'eta_hint' => '预计还需 1–3 分钟'],
+            'rendering' => ['label' => '视频 / 数字人渲染中', 'percent' => 75, 'eta_hint' => '预计还需 5–15 分钟'],
+            'rerender'  => ['label' => '画面精修（自动重渲染）', 'percent' => 92, 'eta_hint' => '预计还需 3–8 分钟'],
+            'done'      => ['label' => '已完成', 'percent' => 100, 'eta_hint' => ''],
+            'failed'    => ['label' => '出片失败', 'percent' => 100, 'eta_hint' => ''],
         ];
+
+        $info = $stepMap[$step] ?? ($status === 'done' ? $stepMap['done']
+            : ($status === 'failed' ? $stepMap['failed'] : ['label' => '出片处理中', 'percent' => 50, 'eta_hint' => '预计还需 5–15 分钟']));
 
         // 单条平均渲染秒，与队列预估（queueEstimate）同源 env('AVG_RENDER_MIN')
         $avgRenderSec = (int) env('AVG_RENDER_MIN', 10) * 60;
 
-        $info = $stepMap[$step] ?? ($status === 'done' ? $stepMap['done']
-            : ($status === 'failed' ? $stepMap['failed'] : ['label' => '出片处理中', 'percent' => 50]));
+        // 追加租户端已等待时长（从任务创建到当前），便于前端恢复轮询时展示真实总耗时
+        $job = VideoJob::withTrashed()->where('job_id', $json['job_id'] ?? '')->first();
+        $elapsedSec = 0;
+        if ($job && $job->created_at) {
+            $json['created_at'] = $job->created_at->toDateTimeString();
+            $elapsedSec = max(0, (int) abs($job->created_at->diffInSeconds(now())));
+            $json['elapsed_sec'] = $elapsedSec;
+        } else {
+            $json['created_at']  = null;
+            $json['elapsed_sec'] = 0;
+        }
 
-        // 预计剩余：排队按前面任务数估算；渲染中按剩余百分比估算
+        // 真实进度优先；无真实进度 fallback 到阶段固定百分比
+        $realProgress = (isset($json['progress']) && is_numeric($json['progress'])) ? (int) $json['progress'] : null;
+        $percent = $realProgress ?? $info['percent'];
+
+        // 预计剩余：排队按前面任务数估算；渲染中优先按真实进度动态推算，无真实进度则 eta=0（前端显示区间文案）
         $etaSec = 0;
         if ($status === 'queued' || $step === 'queued') {
             $queuePos = (int) ($json['queue_pos'] ?? 0);
             $etaSec = ($queuePos + 1) * $avgRenderSec;
         } elseif ($status !== 'done' && $status !== 'failed') {
-            $etaSec = (int) round(((100 - $info['percent']) / 100) * $avgRenderSec);
+            if ($realProgress !== null && $realProgress > 0 && $elapsedSec > 0) {
+                // 按已完成比例线性外推剩余时间（例如 20% 用了 100 秒 → 剩余 400 秒）
+                $etaSec = (int) round(($elapsedSec / $realProgress) * (100 - $realProgress));
+                $etaSec = max(0, min($etaSec, 3600)); // 封顶 60 分钟，避免异常值
+            }
+            // realProgress 缺失时 etaSec 保持 0，前端会显示 $info['eta_hint']
         }
 
         $json['step_label']      = $info['label'];
-        $json['progress']        = $info['percent'];
+        $json['progress']        = $percent;
         $json['eta_sec']         = $etaSec;
+        $json['eta_hint']        = $info['eta_hint'];
+        $json['has_real_progress'] = $realProgress !== null;
         $json['avg_render_sec']  = $avgRenderSec;
 
-        // 追加租户端已等待时长（从任务创建到当前），便于前端恢复轮询时展示真实总耗时
-        $job = VideoJob::withTrashed()->where('job_id', $json['job_id'] ?? '')->first();
-        if ($job && $job->created_at) {
-            $json['created_at']  = $job->created_at->toDateTimeString();
-            $json['elapsed_sec'] = max(0, (int) abs($job->created_at->diffInSeconds(now())));
-        } else {
-            $json['created_at']  = null;
-            $json['elapsed_sec'] = 0;
-        }
         // 透传结构化失败信息给前端（失败提示 + 溯源）
         $json['failed_reason']  = $job ? $job->failed_reason : null;
         $json['failed_at']      = $job && $job->failed_at ? $job->failed_at->toDateTimeString() : null;
