@@ -202,8 +202,8 @@ def _gen_ai_bg(prompt: str, seed):
     try:
         import requests, base64, io
         endpoint = os.environ.get("ARK_IMG_ENDPOINT",
-                                  "https://ark.cn-beijing.volces.com/api/v1/images/generations")
-        model = os.environ.get("ARK_IMG_MODEL", "doubao-seedream-5-0-260128")
+                                  "https://ark.cn-beijing.volces.com/api/v3/images/generations")
+        model = os.environ.get("ARK_IMG_MODEL", "doubao-seedream-5-0-lite-260128")
         size = os.environ.get("ARK_IMG_SIZE", "1024x1536")
         payload = {"model": model, "prompt": prompt, "size": size, "n": 1,
                    "response_format": "b64_json"}
