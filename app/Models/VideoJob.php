@@ -16,7 +16,8 @@ class VideoJob extends Model
         'tenant_id', 'user_id', 'job_id', 'mode', 'title', 'status',
         'qc_status', 'publish_status', 'review_note', 'cover_asset_id', 'batch_id',
         'heartbeat_at', 'dedupe_key', 'dialogue', 'render_config', 'is_hit',
-        'last_pipeline_step', 'step_changed_at', 'failed_reason', 'failed_at', 'pipeline_error',
+        'last_pipeline_step', 'step_changed_at', 'last_progress', 'progress_changed_at',
+        'failed_reason', 'failed_at', 'pipeline_error',
     ];
 
     protected function casts(): array
@@ -24,6 +25,7 @@ class VideoJob extends Model
         return [
             'heartbeat_at' => 'datetime',
             'step_changed_at' => 'datetime',
+            'progress_changed_at' => 'datetime',
             'failed_at' => 'datetime',
             'render_config' => 'array',
             'is_hit' => 'boolean',

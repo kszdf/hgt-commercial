@@ -375,18 +375,37 @@ class VideoController extends Controller
         $realProgress = (isset($json['progress']) && is_numeric($json['progress'])) ? (int) $json['progress'] : null;
         $percent = $realProgress ?? $info['percent'];
 
-        // 预计剩余：排队按前面任务数估算；渲染中优先按真实进度动态推算，无真实进度则 eta=0（前端显示区间文案）
+        // 记录进度变化，用于识别"僵尸进度"（如 HEYGEM status=1 progress=20 长期不变）
+        $progressStale = false;
+        if ($job && $realProgress !== null) {
+            $changed = $job->last_progress === null || $job->last_progress !== $realProgress;
+            if ($changed) {
+                $job->updateQuietly([
+                    'last_progress' => $realProgress,
+                    'progress_changed_at' => now(),
+                ]);
+                $progressStale = false;
+            } else {
+                $staleSec = $job->progress_changed_at
+                    ? (int) abs($job->progress_changed_at->diffInSeconds(now()))
+                    : PHP_INT_MAX;
+                // 进度 60 秒未变化且低于 50% 视为不可信，不再用于线性外推 ETA
+                $progressStale = $staleSec >= 60 && $realProgress < 50;
+            }
+        }
+
+        // 预计剩余：排队按前面任务数估算；渲染中优先按真实进度动态推算，无真实进度或僵尸进度则 eta=0（前端显示区间文案）
         $etaSec = 0;
         if ($status === 'queued' || $step === 'queued') {
             $queuePos = (int) ($json['queue_pos'] ?? 0);
             $etaSec = ($queuePos + 1) * $avgRenderSec;
         } elseif ($status !== 'done' && $status !== 'failed') {
-            if ($realProgress !== null && $realProgress > 0 && $elapsedSec > 0) {
+            if (! $progressStale && $realProgress !== null && $realProgress > 0 && $elapsedSec > 0) {
                 // 按已完成比例线性外推剩余时间（例如 20% 用了 100 秒 → 剩余 400 秒）
                 $etaSec = (int) round(($elapsedSec / $realProgress) * (100 - $realProgress));
                 $etaSec = max(0, min($etaSec, 3600)); // 封顶 60 分钟，避免异常值
             }
-            // realProgress 缺失时 etaSec 保持 0，前端会显示 $info['eta_hint']
+            // 僵尸进度或 realProgress 缺失时 etaSec 保持 0，前端会显示 $info['eta_hint']
         }
 
         $json['step_label']      = $info['label'];
@@ -394,6 +413,7 @@ class VideoController extends Controller
         $json['eta_sec']         = $etaSec;
         $json['eta_hint']        = $info['eta_hint'];
         $json['has_real_progress'] = $realProgress !== null;
+        $json['progress_stale']  = $progressStale;
         $json['avg_render_sec']  = $avgRenderSec;
 
         // 透传结构化失败信息给前端（失败提示 + 溯源）
