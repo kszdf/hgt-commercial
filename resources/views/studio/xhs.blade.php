@@ -125,6 +125,21 @@ function setStatus(elId, msg, type) {
     el.classList.remove('hidden');
 }
 
+function spinnerHtml(size='h-4 w-4') {
+    return '<svg class="' + size + ' inline animate-spin align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+}
+
+function setLoadingStatus(elId, msg) {
+    const el = document.getElementById(elId);
+    el.classList.remove('hidden', 'border-green-200', 'bg-green-50', 'text-green-700',
+                         'border-amber-200', 'bg-amber-50', 'text-amber-700',
+                         'border-red-200', 'bg-red-50', 'text-red-700');
+    el.classList.add('border-amber-200','bg-amber-50','text-amber-700');
+    el.innerHTML = spinnerHtml() + ' <span class="align-middle">' + msg + '</span>' +
+        ' <button type="button" onclick="HGTAbort.abort()" class="ml-2 align-middle rounded border border-amber-300 px-1.5 py-0.5 text-xs hover:bg-amber-100">中止</button>';
+    el.classList.remove('hidden');
+}
+
 // 从当前 textarea 同步 body 到 _note
 function syncBodyToNote() {
     if (_note) {
@@ -138,7 +153,7 @@ async function doBuildNote() {
 
     const btn = document.getElementById('btnBuildNote');
     zwSetLoading(btn, { loading: true, text: '生成中…' });
-    setStatus('genStatus', '正在调用 AI 生成正文…', 'warn');
+    setLoadingStatus('genStatus', '正在调用 AI 生成正文…');
     const signal = HGTAbort.begin('中止：生成正文…');
     try {
         const resp = await fetch('/studio/xhs/build-note', {
@@ -178,7 +193,7 @@ async function doGenerate() {
 
     const btn = document.getElementById('btnGenerate');
     zwSetLoading(btn, { loading: true, text: '出图中…' });
-    setStatus('genStatus', '正在渲染封面+内文配图（约 30~60 秒）…', 'warn');
+    setLoadingStatus('genStatus', '正在渲染封面+内文配图（约 30~60 秒）…');
     const signal = HGTAbort.begin('中止：图文生成中…');
     try {
         const payload = {
@@ -276,7 +291,7 @@ async function doRegenCover() {
     if (!btn) return;
     const old = btn.textContent;
     btn.disabled = true; btn.textContent = '生成中…';
-    setStatus('genStatus', '正在重新生成封面（仅换背景，文字不变）…', 'warn');
+    setLoadingStatus('genStatus', '正在重新生成封面（仅换背景，文字不变）…');
     const signal = HGTAbort.begin('中止：重新生成封面中…');
     try {
         const resp = await fetch('/studio/xhs/regen-cover', {
