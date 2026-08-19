@@ -53,7 +53,7 @@
 
 <div class="flex min-h-screen">
     <!-- ===== 左侧功能菜单栏 ===== -->
-    <aside id="workspaceSidebar" class="ws-sidebar group flex w-56 shrink-0 flex-col border-r border-[var(--surface-card-border)] bg-[var(--sidebar-bg)] transition-all duration-200 md:w-56">
+    <aside id="workspaceSidebar" class="ws-sidebar group flex w-52 shrink-0 flex-col border-r border-[var(--surface-card-border)] bg-[var(--sidebar-bg)] transition-all duration-200 md:w-52">
         <!-- 品牌 LOGO 标识 -->
         <div class="flex h-16 items-center gap-2.5 border-b border-slate-200/60 px-4">
             <a href="/dashboard" class="flex items-center gap-2.5 no-underline">
@@ -66,36 +66,36 @@
         </div>
 
         <!-- 导航 -->
-        <nav class="flex-1 overflow-y-auto px-3 py-3">
+        <nav class="flex-1 overflow-y-auto px-2 py-2">
             <!-- 首页入口 -->
             <a href="/dashboard" class="{{ request()->is('dashboard') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                 <span class="font-semibold">工作台总览</span>
             </a>
 
             <!-- 分组：内容生产（默认展开） -->
             <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>内容生产</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
-            <ul class="space-y-1 ws-group-body">
+            <ul class="space-y-0.5 ws-group-body">
                 <li>
                     <a href="/studio/topic" class="{{ request()->is('studio/topic*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-sky">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                         <span>智能选题</span>
                     </a>
                 </li>
                 <li>
                     <a href="/studio/matrix" class="{{ request()->is('studio/matrix*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-fresh">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17m0 0c-5.523 0-10-4.477-10-10S6.477 0 12 0s10 4.477 10 10-4.477 10-10 10z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l3 3 4-4"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17m0 0c-5.523 0-10-4.477-10-10S6.477 0 12 0s10 4.477 10 10-4.477 10-10 10z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l3 3 4-4"/></svg>
                         <span>内容矩阵</span>
                     </a>
                 </li>
                 <li class="space-y-0.5">
                     <button type="button" onclick="toggleSub(this)"
-                        class="ws-nav-item w-full ws-nav-violet {{ (request()->is('studio/rewrite') || request()->is('studio/rewrite-original*')) ? 'ws-nav-active' : '' }}">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        class="ws-nav-item w-full font-medium ws-nav-violet {{ (request()->is('studio/rewrite') || request()->is('studio/rewrite-original*')) ? 'ws-nav-active' : '' }}">
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                         <span>智能二创</span>
                         <svg class="chev h-3.5 w-3.5 ml-auto text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                     </button>
-                    <ul class="rewrite-sub ml-3.5 mt-0.5 space-y-0.5 border-l border-slate-200 pl-2.5">
+                    <ul class="rewrite-sub ml-3.5 mt-0.5 space-y-0.5 border-l border-slate-200/60 pl-2.5">
                         <li>
                             <a href="/studio/rewrite" class="{{ request()->is('studio/rewrite') && !request()->is('studio/rewrite-original*') ? 'ws-nav-active' : 'ws-nav-item' }}">
                                 <span>选题二创</span>
@@ -110,13 +110,13 @@
                 </li>
                 <li>
                     <a href="/studio/dissect" class="{{ request()->is('studio/dissect*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-rose">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.344 5.657z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.344 5.657z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/></svg>
                         <span>爆款拆解</span>
                     </a>
                 </li>
                 <li>
                     <a href="/studio/xhs" class="{{ request()->is('studio/xhs*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-red">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17m0 0c-5.523 0-10-4.477-10-10S6.477 0 12 0s10 4.477 10 10-4.477 10-10 10z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l3 3 4-4"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17m0 0c-5.523 0-10-4.477-10-10S6.477 0 12 0s10 4.477 10 10-4.477 10-10 10z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l3 3 4-4"/></svg>
                         <span>小红书图文</span>
                     </a>
                 </li>
@@ -124,28 +124,28 @@
 
             <!-- 分组：视频与发布（默认展开） -->
             <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>视频与发布</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
-            <ul class="space-y-1 ws-group-body">
+            <ul class="space-y-0.5 ws-group-body">
                 <li>
                     <a href="/studio/scroll{{ Request::has('from') ? '?from=' . Request::get('from') : '' }}" class="{{ (request()->is('studio/scroll*') && !request()->is('studio/scroll/qc*')) ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-fresh">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                         <span>视频出片</span>
                     </a>
                 </li>
                 <li>
                     <a href="/studio/videos" class="{{ request()->is('studio/videos*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-teal">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
                         <span>我的视频</span>
                     </a>
                 </li>
                 <li>
                     <a href="/studio/qc" class="{{ request()->is('studio/qc*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-amber">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         <span>智能质检</span>
                     </a>
                 </li>
                 <li>
                     <a href="/studio/review" class="{{ request()->is('studio/review*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-indigo">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                         <span>人工审核</span>
                     </a>
                 </li>
@@ -153,20 +153,20 @@
                 <li>
                     @if(!$batchAllowed)
                         <span class="ws-nav-item ws-nav-rose opacity-60 cursor-not-allowed" title="当前账号未开放批量外发，开通或升级后解锁">
-                            <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                            <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
                             <span>多平台发布</span>
                             <svg class="h-3.5 w-3.5 ml-auto text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                         </span>
                     @else
                         <a href="/studio/publish" class="{{ request()->is('studio/publish*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-rose">
-                            <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                            <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
                             <span>多平台发布</span>
                         </a>
                     @endif
                 </li>
                 <li>
                     <a href="/studio/schedule" class="{{ request()->is('studio/schedule*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                         <span>发布排期</span>
                     </a>
                 </li>
@@ -174,34 +174,34 @@
 
             <!-- 分组：素材与资源（默认收起） -->
             <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>素材与资源</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
-            <ul class="space-y-1 ws-group-body collapsed">
+            <ul class="space-y-0.5 ws-group-body collapsed">
                 <li>
                     <a href="/studio/voices" class="{{ request()->is('studio/voices*') || request()->is('voice-clone*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-violet">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
                         <span>声音库</span>
                     </a>
                 </li>
                 <li>
                     <a href="/studio/covers" class="{{ request()->is('studio/covers*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-rose">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                         <span>封面库</span>
                     </a>
                 </li>
                 <li>
                     <a href="/studio/models" class="{{ request()->is('studio/models*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-amber">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                         <span>数字人模特</span>
                     </a>
                 </li>
                 <li>
                     <a href="/studio/accounts" class="{{ request()->is('studio/accounts*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                         <span>平台账号</span>
                     </a>
                 </li>
                 <li>
                     <a href="/studio/templates" class="{{ request()->is('studio/templates*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         <span>话术模板</span>
                     </a>
                 </li>
@@ -209,10 +209,10 @@
 
             <!-- 分组：数据（默认收起） -->
             <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>数据</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
-            <ul class="space-y-1 ws-group-body collapsed">
+            <ul class="space-y-0.5 ws-group-body collapsed">
                 <li>
                     <a href="/studio/metrics" class="{{ request()->is('studio/metrics*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-teal">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                         <span>数据效果</span>
                     </a>
                 </li>
@@ -220,10 +220,10 @@
 
             <!-- 分组：账户（默认收起） -->
             <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>账户</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
-            <ul class="space-y-1 ws-group-body collapsed">
+            <ul class="space-y-0.5 ws-group-body collapsed">
                 <li>
                     <a href="/settings/password" class="{{ request()->is('settings/password*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-violet">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                         <span>账号安全</span>
                     </a>
                 </li>
@@ -232,16 +232,16 @@
             <!-- 分组：管理（仅超级管理员，默认收起） -->
             @if(auth()->user()->isGlobalAdmin())
             <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>管理</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
-            <ul class="space-y-1 ws-group-body collapsed">
+            <ul class="space-y-0.5 ws-group-body collapsed">
                 <li>
                     <a href="/admin/tenants" class="{{ request()->is('admin/tenants*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a3 3 0 10-2.5-4.5"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a3 3 0 10-2.5-4.5"/></svg>
                         <span>租户管理</span>
                     </a>
                 </li>
                 <li>
                     <a href="/admin/monitor" class="{{ request()->is('admin/monitor*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                        <svg class="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
                         <span>监控大盘</span>
                     </a>
                 </li>
@@ -381,36 +381,34 @@
 <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 z-20 hidden bg-black/30 backdrop-blur-[2px] md:hidden"></div>
 
 <style>
-/* ===== 工作区导航项（凸起白卡 + 功能色图标） ===== */
+/* ===== 工作区导航项（轻量列表式 + 功能色图标） ===== */
 .ws-nav-item,
 .ws-nav-active {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: var(--nav-py) 0.75rem;
-    border-radius: 0.625rem;
-    font-size: 0.875rem;
+    gap: 0.55rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;          /* 13px：主菜单项 */
+    line-height: 1.25rem;
     text-decoration: none;
-    border: 1px solid var(--surface-card-border);
-    transition: background .15s ease, box-shadow .16s ease, transform .16s ease, color .15s ease, border-color .15s ease;
+    border: 0;
+    background: transparent;
+    transition: background .12s ease, color .12s ease;
 }
 
-/* 默认态：白色凸起卡片 + 柔和阴影（与侧栏底色拉开，形成立体感） */
+/* 默认态：透明底列表项，hover 仅给极淡背景 */
 .ws-nav-item {
-    font-weight: 500;
+    font-weight: 400;
     color: var(--text-body);
-    background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 1px rgba(15, 23, 42, 0.03);
 }
 .ws-nav-item:hover {
     color: var(--text-strong);
-    border-color: rgba(15, 23, 42, 0.10);
-    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.09), 0 1px 2px rgba(15, 23, 42, 0.05);
-    transform: translateY(-1px);
+    background: var(--nav-hover-bg);
 }
 
 /* 图标默认稍淡，悬停时常亮 */
-.ws-nav-item svg { opacity: 0.9; transition: opacity .15s ease, transform .15s ease; }
+.ws-nav-item svg { opacity: 0.85; transition: opacity .12s ease; }
 .ws-nav-item:hover svg { opacity: 1; }
 
 /* 功能色：仅作用于每个菜单的第一个图标，文字保持中性（协调不扎眼） */
@@ -424,18 +422,27 @@
 .ws-nav-rose   > svg:first-of-type { color: var(--color-rose-600); }
 .ws-nav-brand  > svg:first-of-type { color: var(--color-brand-600); }
 
-/* 激活态：主题强调色填充 + 略强阴影，并覆盖功能色（避免撞色） */
+/* 激活态：主题色浅底 + 主题色文字，无阴影 */
 .ws-nav-active {
-    font-weight: 600;
+    font-weight: 500;
     color: var(--nav-active-fg);
     background: var(--nav-active-bg);
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.10), 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 .ws-nav-active > svg:first-of-type { color: var(--nav-active-fg); opacity: 1; }
 
-/* 二创折叠分组 */
+/* 二创折叠分组：父级保持 13px/500，子级 12px/400，层级正确 */
 .rewrite-sub.collapsed { display: none; }
 .chev { transition: transform 0.15s ease; transform: rotate(90deg); }
+.rewrite-sub .ws-nav-item,
+.rewrite-sub .ws-nav-active {
+    font-size: 0.75rem;            /* 12px：子菜单更小 */
+    color: var(--text-muted);
+    padding: 0.25rem 0.5rem;
+}
+.rewrite-sub .ws-nav-active {
+    color: var(--nav-active-fg);
+    font-weight: 500;
+}
 
 /* 侧栏分组可折叠 */
 .ws-group-toggle {
@@ -443,18 +450,17 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    margin: 1.1rem 0 0.4rem;
+    margin: 0.75rem 0 0.25rem;
     padding: 0 0.5rem;
     background: none;
     border: 0;
     cursor: pointer;
-    font-size: 11px;
+    font-size: 0.75rem;            /* 12px：分组标题小字但加粗 */
     font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--text-tertiary, #94a3b8);
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
 }
-.ws-group-toggle:first-of-type { margin-top: 0.4rem; }
+.ws-group-toggle:first-of-type { margin-top: 0.25rem; }
 .ws-group-chev { transition: transform 0.15s ease; transform: rotate(90deg); }
 .ws-group-body.collapsed { display: none; }
 
