@@ -68,11 +68,8 @@ Route::middleware('auth')->group(function () {
     // 出片队列预估（提交前 / 轮询时展示当前队列数与预计等待，只读）
     Route::get('/studio/scroll/queue-estimate', [VideoController::class, 'queueEstimate']);
 
-    // 批量出片（统一形式一键生成 N 条）
+    // 出片音色列表（供单条出片表单使用；批量出片功能已移除）
     Route::get('/studio/available-voices', [VideoController::class, 'voices']);
-    Route::post('/studio/batch-video/plan', [VideoController::class, 'storeBatchPlan']);
-    Route::get('/studio/batch-video/{batchId}', [VideoController::class, 'batchStatus']);
-    Route::post('/studio/batch-video/{batchId}/progress', [VideoController::class, 'batchProgress']);
 
     // 视频生成列表 / 回收站（软删除：删除进回收站，可恢复或彻底删除）
     Route::get('/studio/videos', [VideoController::class, 'library'])->name('studio.videos');

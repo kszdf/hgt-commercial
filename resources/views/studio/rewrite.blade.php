@@ -2,13 +2,6 @@
 <x-workspace-layout title="选题二创">
     <div class="mx-auto max-w-5xl p-6">
 
-    <style>
-        /* 批量出片进度看板：进度条与分步指示器（纯 CSS，避开 Tailwind 扫描） */
-        .bv-bar { transition: width .5s ease; }
-        .bv-step { transition: color .3s ease; }
-        .bv-dot { transition: background-color .3s ease; }
-    </style>
-
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <!-- ===== 左侧：选题改写输入区 ===== -->
         <section class="luxury-glass p-5">
@@ -190,14 +183,11 @@
             <!-- 单条改写恢复提示 -->
             <div id="singleRestoreNote" class="hidden mb-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2 text-sm text-brand-700">已恢复上次的改写内容，可继续编辑或直接改写。</div>
 
-            <!-- 批量出片入口 -->
-            <button type="button" id="batchVideoBtn" class="hidden mb-3 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90 active:scale-[0.98] disabled:opacity-50" title="用同一种呈现形式为已完成的清洗稿批量生成视频">🎬 批量出片（统一形式）</button>
+            <!-- 出片引导：批量出片功能已移除，逐条用卡片内「带稿去出片」 -->
+            <p class="mb-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2 text-xs text-brand-700">改写完成后，在下面每条结果卡片里点「带稿去出片」即可逐条生成视频。</p>
 
             <!-- 批量结果列表 -->
             <div id="batchResult" class="hidden space-y-3"></div>
-
-            <!-- 批量出片进度看板 -->
-            <div id="batchVideoBoard" class="hidden"></div>
 
             <!-- 结果内容 -->
             <div id="result" class="hidden space-y-3"></div>
@@ -232,38 +222,6 @@
 
             <div id="errorBox" class="mt-3 hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600"></div>
 
-            <!-- 批量出片 · 统一形式选择器 -->
-            <div id="batchVideoModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                <div id="batchVideoModalCard" class="w-full max-w-md cursor-move rounded-2xl bg-white p-5 shadow-xl">
-                    <h3 class="text-base font-semibold text-slate-800">批量出片 · 统一形式</h3>
-                    <p class="mt-1 text-xs text-slate-500">将用同一种呈现形式为 <span id="bvCount" class="font-medium text-brand-600">0</span> 条清洗稿生成视频。混合形式请改用逐条「带稿去出片」。</p>
-                    <div class="mt-3 grid grid-cols-2 gap-2" id="bvFormGrid">
-                        <button type="button" data-bv-form="scroll_male" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition">男声幕后音</button>
-                        <button type="button" data-bv-form="scroll_female" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition">女声幕后音</button>
-                        <button type="button" data-bv-form="scroll_dual" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition">男女对话</button>
-                        <button type="button" data-bv-form="avatar" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition">单人数字人</button>
-                    </div>
-                    <input type="hidden" id="bvForm" value="scroll_male">
-                    <div id="bvVoiceArea" class="mt-3 space-y-2">
-                        <div id="bvSingleWrap" class="hidden">
-                            <label class="text-xs text-slate-500">数字人声线</label>
-                            <select id="bvSingleVoice" class="mt-1 w-full rounded-lg border border-slate-200 text-sm"></select>
-                        </div>
-                        <div id="bvMaleWrap">
-                            <label class="text-xs text-slate-500">男声</label>
-                            <select id="bvMaleVoice" class="mt-1 w-full rounded-lg border border-slate-200 text-sm"></select>
-                        </div>
-                        <div id="bvFemaleWrap">
-                            <label class="text-xs text-slate-500">女声</label>
-                            <select id="bvFemaleVoice" class="mt-1 w-full rounded-lg border border-slate-200 text-sm"></select>
-                        </div>
-                    </div>
-                    <div class="mt-4 flex justify-end gap-2">
-                        <button type="button" id="bvCancel" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">取消</button>
-                        <button type="button" id="bvStart" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white">开始批量生成</button>
-                    </div>
-                </div>
-            </div>
             <!-- 批量改写确认面板 -->
             <div id="batchRewriteModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
                 <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
@@ -432,9 +390,6 @@ function getFormLabel(form) {
                 renderBatchProgress();
                 renderBatchResumeBanner(saved.results);
             }
-            // 关页/返回后续接上次批量出片（DB 为权威源）
-            const lbv = localStorage.getItem('hgt_last_batch_video');
-            if (lbv) resumeBatchVideo(lbv);
         } else {
             document.getElementById('noSourceBox')?.classList.remove('hidden');
         }
@@ -493,8 +448,6 @@ function getFormLabel(form) {
                 renderBatchProgress();
                 renderBatchResumeBanner(saved.results);
             }
-            const lbv = localStorage.getItem('hgt_last_batch_video');
-            if (lbv) resumeBatchVideo(lbv);
         } else {
             document.getElementById('noSourceBox')?.classList.remove('hidden');
         }
@@ -1063,7 +1016,6 @@ function renderBatchProgress() {
         html += '</div>';
     });
     container.innerHTML = html;
-    document.getElementById('batchVideoBtn')?.classList.toggle('hidden', !batchResults.some(r => r.ok && r.data && r.data.cleaned));
 }
 
 function renderBatchResumeBanner(results) {
@@ -1159,445 +1111,7 @@ document.getElementById('btnRegen')?.addEventListener('click', function () {
     document.getElementById('rwForm').scrollIntoView({ behavior: 'smooth' });
 });
 
-// ========== 8. 批量出片（统一形式一键生成） ==========
-let batchVideoState = null;
 function csrf(){ return document.querySelector('meta[name="csrf-token"]')?.content || ''; }
-
-function fillVoiceSelect(selId, list) {
-    const sel = document.getElementById(selId);
-    if (!sel) return;
-    sel.innerHTML = '<option value="">默认声线</option>' + (list||[]).map(v =>
-        '<option value="'+escapeHtml(v.voice_id)+'">'+escapeHtml(v.name||v.voice_id)+(v.is_default?'（默认）':'')+'</option>'
-    ).join('');
-}
-function selectBvForm(form) {
-    document.querySelectorAll('[data-bv-form]').forEach(b => b.classList.remove('border-brand-400','bg-brand-50','ring-1','ring-brand-200'));
-    const el = document.querySelector('[data-bv-form="'+form+'"]');
-    if (el) el.classList.add('border-brand-400','bg-brand-50','ring-1','ring-brand-200');
-    const f = document.getElementById('bvForm'); if (f) f.value = form;
-    const single = document.getElementById('bvSingleWrap');
-    const male = document.getElementById('bvMaleWrap');
-    const female = document.getElementById('bvFemaleWrap');
-    if (!single || !male || !female) return;
-    if (form === 'avatar') { single.classList.remove('hidden'); male.classList.add('hidden'); female.classList.add('hidden'); }
-    else if (form === 'scroll_male') { single.classList.add('hidden'); male.classList.remove('hidden'); female.classList.add('hidden'); }
-    else if (form === 'scroll_female') { single.classList.add('hidden'); male.classList.add('hidden'); female.classList.remove('hidden'); }
-    else { single.classList.add('hidden'); male.classList.remove('hidden'); female.classList.remove('hidden'); }
-}
-
-async function openBatchVideoModal() {
-    const okItems = batchResults.filter(r => r.ok && r.data && r.data.cleaned);
-    if (!okItems.length) {
-        hgtToast('warn', '没有可出片的清洗稿，请先完成批量改写');
-        return;
-    }
-    hgtToast('info', '正在打开批量出片配置…', 1500);
-    const cnt = document.getElementById('bvCount'); if (cnt) cnt.textContent = okItems.length;
-    try {
-        const resp = await fetch('/studio/available-voices', { headers: { 'Accept':'application/json', 'X-CSRF-TOKEN': csrf() } });
-        if (!resp.ok) throw new Error(resp.status + ' ' + resp.statusText);
-        const data = await resp.json();
-        fillVoiceSelect('bvMaleVoice', data.male);
-        fillVoiceSelect('bvFemaleVoice', data.female);
-        fillVoiceSelect('bvSingleVoice', (data.male||[]).concat(data.female||[]));
-    } catch(e) {
-        console.error('[batchVideo] voices 加载失败:', e);
-        hgtToast('warn', '声线列表加载失败，将使用默认声线', 2500);
-        ['bvMaleVoice','bvFemaleVoice','bvSingleVoice'].forEach(id => {
-            const sel = document.getElementById(id); if (sel) sel.innerHTML = '<option value="">默认声线</option>';
-        });
-    }
-    selectBvForm('scroll_male');
-    const modal = document.getElementById('batchVideoModal');
-    if (!modal) { hgtToast('error', '批量出片弹窗未找到'); return; }
-    modal.classList.remove('hidden');
-    modal.style.display = 'flex';
-}
-
-async function startBatchVideo() {
-    const okItems = batchResults.filter(r => r.ok && r.data && r.data.cleaned);
-    if (!okItems.length) return;
-    const form = document.getElementById('bvForm').value;
-    const config = {
-        form: form,
-        male_voice: document.getElementById('bvMaleVoice') ? document.getElementById('bvMaleVoice').value : '',
-        female_voice: document.getElementById('bvFemaleVoice') ? document.getElementById('bvFemaleVoice').value : '',
-        single_voice: document.getElementById('bvSingleVoice') ? document.getElementById('bvSingleVoice').value : '',
-    };
-    const scripts = okItems.map(r => ({ title: r.title, cleaned: r.data.cleaned }));
-    const modal = document.getElementById('batchVideoModal');
-    if (modal) { modal.classList.add('hidden'); modal.style.display = ''; }
-    let batchId;
-    try {
-        const resp = await fetch('/studio/batch-video/plan', {
-            method:'POST', headers:{'Accept':'application/json','Content-Type':'application/json','X-CSRF-TOKEN':csrf()},
-            body: JSON.stringify({ config, scripts })
-        });
-        const data = await resp.json();
-        if (!resp.ok || !data.batch_id) throw new Error(data.error || '创建批量计划失败');
-        batchId = data.batch_id;
-    } catch(e) {
-        hgtToast('error', '批量出片启动失败：' + e.message);
-        return;
-    }
-    try { localStorage.setItem('hgt_last_batch_video', batchId); } catch(e) {}
-    batchVideoState = { batchId, config, scripts };
-    renderBatchVideoBoard(batchId, scripts);
-    runBatchVideoOrchestrator(batchId, config, scripts, null);
-}
-
-function renderBatchVideoBoard(batchId, scripts) {
-    const board = document.getElementById('batchVideoBoard');
-    if (!board) return;
-    board.classList.remove('hidden');
-    document.getElementById('batchResult')?.classList.add('hidden');
-    let html = '<div class="mb-2 flex items-center justify-between"><h4 class="text-sm font-semibold text-slate-700">批量出片进度</h4><div class="flex items-center gap-2"><span id="bvSummary" class="text-xs text-slate-500">0 / '+scripts.length+'</span><button type="button" id="bvAbortBtn" class="rounded border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100">中止出片</button></div></div><div id="bvCards" class="space-y-2">';
-    scripts.forEach((s, i) => {
-        html += '<div class="rounded-lg border border-slate-200 bg-white p-3 text-xs" data-bv="'+i+'">'
-            + '<div class="flex items-center justify-between gap-2"><span class="font-medium text-slate-700 truncate">'+escapeHtml(s.title||('第'+(i+1)+'条'))+'</span>'
-            + '<span class="bv-status shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">排队中</span></div>'
-            // 进度条（动态宽度用 inline style，避开 Tailwind 扫描）
-            + '<div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 relative"><div class="bv-bar h-full rounded-full bg-brand-500"></div></div>'
-            // 四段分步指示器
-            + '<div class="bv-steps mt-2 flex items-center justify-between">'
-            +   '<span class="bv-step flex items-center gap-1 text-slate-400" data-step="0"><span class="bv-dot inline-block h-1.5 w-1.5 rounded-full bg-slate-300"></span>提交成功</span>'
-            +   '<span class="bv-step flex items-center gap-1 text-slate-400" data-step="1"><span class="bv-dot inline-block h-1.5 w-1.5 rounded-full bg-slate-300"></span>配音字幕</span>'
-            +   '<span class="bv-step flex items-center gap-1 text-slate-400" data-step="2"><span class="bv-dot inline-block h-1.5 w-1.5 rounded-full bg-slate-300"></span>视频渲染</span>'
-            +   '<span class="bv-step flex items-center gap-1 text-slate-400" data-step="3"><span class="bv-dot inline-block h-1.5 w-1.5 rounded-full bg-slate-300"></span>出片完成</span>'
-            + '</div>'
-            // 信息行：分步文案 + 已等待 + 预计剩余
-            + '<div class="bv-info mt-1 text-[10px] text-slate-400">等待开始…</div>'
-            + '<div class="bv-actions mt-1 flex gap-2 items-center">'
-            + '<button class="bv-log hidden rounded border border-slate-200 bg-white px-2 py-1 text-slate-500" type="button">进度</button>'
-            + '<a class="bv-dl hidden rounded bg-brand-500 px-2 py-1 text-white" target="_blank">下载</a>'
-            + '<button class="bv-retry hidden rounded border border-slate-200 bg-white px-2 py-1 text-slate-600" type="button">重试</button>'
-            + '</div></div>';
-    });
-    html += '</div>';
-    board.innerHTML = html;
-    // 显式中止按钮（与全局 HGTAbort 浮层双保险）
-    const abortBtn = document.getElementById('bvAbortBtn');
-    if (abortBtn) {
-        abortBtn.addEventListener('click', () => {
-            if (confirm('确定要中止批量出片吗？已完成的视频会保留。')) {
-                HGTAbort.abort();
-                hgtToast('warn', '已发送中止信号，当前任务完成后停止后续任务');
-            }
-        });
-    }
-}
-
-// 每张卡的轮询起始时间戳（用于"已等待"精确计时，可追溯）
-const bvStartTimes = {};
-// 每张卡当前 step 及进入时间，用于卡死感知
-const bvLastStep = {};
-const bvLastStepMs = {};
-
-// 批量看板进度渲染：进度条 + 四段分步高亮 + 已等待 + 预计剩余
-// data 来自 /studio/scroll/status/{jobId}（含后端的 step_label/progress/eta_sec 增强字段）
-function setBvProgress(index, data) {
-    const card = document.querySelector('#bvCards [data-bv="'+index+'"]');
-    if (!card) return;
-    const status = (data && data.status) || 'queued';
-    const step = (data && data.step) || (status === 'done' ? 'done' : status === 'failed' ? 'failed' : 'queued');
-
-    // 1) 渲染是黑盒进程，无实时 progress，用流动条(bv-flow)表达"进行中"而非假百分比
-    const isDone = (status === 'done' || status === 'failed');
-    const bar = card.querySelector('.bv-bar');
-    if (bar) {
-        if (isDone) { bar.classList.remove('bv-flow'); bar.style.width = '100%'; }
-        else { bar.classList.add('bv-flow'); bar.style.width = ''; }
-    }
-
-    // 2) 四段分步高亮：提交成功 → 配音字幕 → 视频渲染 → 出片完成
-    const phaseMap = { queued:0, editing:1, rendering:2, rerender:2, done:3, failed:-1 };
-    const cur = (phaseMap[step] !== undefined) ? phaseMap[step] : 0;
-    card.querySelectorAll('.bv-step').forEach(el => {
-        const s = parseInt(el.getAttribute('data-step'), 10);
-        const dot = el.querySelector('.bv-dot');
-        el.classList.remove('text-slate-400','text-brand-600','text-green-600','text-red-600','font-medium');
-        if (dot) dot.classList.remove('bg-slate-300','bg-brand-500','bg-green-500','bg-red-500');
-        if (status === 'failed') {
-            el.classList.add(s === cur ? 'text-red-600' : 'text-slate-300');
-            if (dot) dot.classList.add(s === cur ? 'bg-red-500' : 'bg-slate-200');
-        } else if (s < cur) {
-            el.classList.add('text-green-600'); if (dot) dot.classList.add('bg-green-500');
-        } else if (s === cur) {
-            el.classList.add('text-brand-600','font-medium'); if (dot) dot.classList.add('bg-brand-500');
-        } else {
-            el.classList.add('text-slate-400'); if (dot) dot.classList.add('bg-slate-300');
-        }
-    });
-
-    // 3) 信息行：分步文案 + 已等待 + 预计剩余（ETA）
-    const info = card.querySelector('.bv-info');
-    if (info) {
-        if (status === 'done') {
-            info.className = 'bv-info mt-1 text-[10px] text-green-600';
-            info.textContent = (data && data.regen_failed) ? '已完成（自动修复未成功，可能含短暂静音）' : '已完成';
-        } else if (status === 'failed') {
-            info.className = 'bv-info mt-1 text-[10px] text-red-600';
-            info.textContent = '失败：' + ((data && (data.error || data.step_label)) || '请重试');
-        } else {
-            const st = bvStartTimes[index] || Date.now();
-            const elapsed = Math.max(0, Math.floor((Date.now() - st) / 1000));
-            const em = Math.floor(elapsed / 60), es = elapsed % 60;
-            // 数字人/视频渲染波动大，精确 ETA 容易钉死造成误导，故使用柔性文案
-            let eta = '';
-            if (status === 'queued' && data && data.queue_pos > 0) {
-                eta = '｜前面约 ' + data.queue_pos + ' 个排队';
-            } else if (status !== 'queued' && status !== 'done' && status !== 'failed') {
-                eta = '｜预计还需数分钟';
-            }
-            const label = (data && data.step_label) ? data.step_label
-                : (status === 'rerender' ? '自动重渲染修复中'
-                : (status === 'queued' ? '排队等待渲染资源' : '渲染中'));
-            // 同阶段卡死感知（重渲染期阈值翻倍避免误报）
-            if (step !== bvLastStep[index]) { bvLastStep[index] = step; bvLastStepMs[index] = Date.now(); }
-            const stageSec = Math.floor((Date.now() - (bvLastStepMs[index] || Date.now())) / 1000);
-            const sm = Math.floor(stageSec / 60), ss = stageSec % 60;
-            const stuckTh = (data && data.regen_attempted) ? 600 : 300;
-            const stuckText = stageSec >= stuckTh
-                ? '（⚠ 当前阶段已 ' + sm + ' 分 ' + ss + ' 秒 未推进，可能卡住，建议刷新或重试）'
-                : '';
-            info.className = 'bv-info mt-1 text-[10px] text-slate-400';
-            info.textContent = label + '｜已等待 ' + em + ' 分 ' + es + ' 秒' + eta + stuckText;
-        }
-    }
-
-    // 4) 状态徽章同步
-    const st2 = card.querySelector('.bv-status');
-    if (st2) {
-        if (status === 'done') { st2.textContent = '完成'; st2.className = 'bv-status shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700'; }
-        else if (status === 'failed') { st2.textContent = '失败'; st2.className = 'bv-status shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-[10px] text-red-600'; }
-        else {
-            const lbl = (data && data.step_label) ? data.step_label
-                : (status === 'rerender' ? '自动重渲染修复中'
-                : (status === 'queued' ? '排队中' : '渲染中'));
-            st2.textContent = lbl; st2.className = 'bv-status shrink-0 rounded bg-brand-100 px-1.5 py-0.5 text-[10px] text-brand-600';
-        }
-    }
-}
-
-// 兼容旧调用：用合成 data 委托给 setBvProgress（提交中/排队中/终态无实时数据时）
-function setBvCard(index, status, label) {
-    setBvProgress(index, {
-        status: status,
-        step: (status === 'done' ? 'done' : status === 'failed' ? 'failed' : 'queued'),
-        step_label: label || '',
-        progress: (status === 'done' ? 100 : status === 'failed' ? 100 : 0)
-    });
-}
-
-async function postBvProgress(batchId, index, status, jobId) {
-    try {
-        await fetch('/studio/batch-video/'+batchId+'/progress', {
-            method:'POST', headers:{'Accept':'application/json','Content-Type':'application/json','X-CSRF-TOKEN':csrf()},
-            body: JSON.stringify({ index, status, job_id: jobId || null })
-        });
-    } catch(e) {}
-}
-
-async function submitOneBatchVideo(batchId, config, index, script, signal) {
-    const form = config.form;
-    const mode = (form === 'avatar') ? 'avatar' : 'scroll';
-    const voiceForm = (form === 'scroll_dual') ? 'dialogue' : (form === 'scroll_male' ? 'male_mono' : (form === 'scroll_female' ? 'female_mono' : 'mono'));
-    const payload = {
-        mode: mode,
-        dialogue: script.cleaned,
-        title: (script.title||'').slice(0,20),
-        voice_form: (form === 'avatar') ? null : voiceForm,
-        male_voice: (form === 'avatar' || form === 'scroll_female') ? null : (config.male_voice || null),
-        female_voice: (form === 'avatar' || form === 'scroll_male') ? null : (config.female_voice || null),
-        batch_id: batchId,
-    };
-    if (form === 'avatar') { payload.male_voice = config.single_voice || null; payload.female_voice = null; }
-    await postBvProgress(batchId, index, 'submitted', null);
-    setBvCard(index, 'submitted', '提交中');
-    const resp = await fetch('/studio/scroll/generate', {
-        method:'POST', signal, headers:{'Accept':'application/json','Content-Type':'application/json','X-CSRF-TOKEN':csrf()},
-        body: JSON.stringify(payload)
-    });
-    const data = await resp.json().catch(()=>({}));
-    if (resp.ok && data.job_id) {
-        await postBvProgress(batchId, index, 'submitted', data.job_id);
-        pollBvJob(batchId, index, data.job_id, signal);
-        return true;
-    }
-    if (resp.status === 429 || (data && data.code === 'tenant_busy')) {
-        return false; // 编排器退避重试
-    }
-    await postBvProgress(batchId, index, 'failed', null);
-    setBvCard(index, 'failed', '失败：'+(data.error||'提交失败'));
-    return 'failed';
-}
-
-async function pollBvJob(batchId, index, jobId, signal) {
-    bvStartTimes[index] = Date.now();  // 记录起始时间戳，用于"已等待"精确计时
-    // 显示并绑定本卡「进度」按钮，点击查看时间戳进度记录
-    const card0 = document.querySelector('#bvCards [data-bv="'+index+'"]');
-    if (card0) {
-        const logBtn = card0.querySelector('.bv-log');
-        if (logBtn) { logBtn.classList.remove('hidden'); logBtn.onclick = () => openJobLog(jobId); }
-    }
-    for (let i=0;i<300;i++){
-        await sleep(2000);
-        try {
-            const resp = await fetch('/studio/scroll/status/'+jobId, { signal, headers:{'Accept':'application/json','X-CSRF-TOKEN':csrf()} });
-            const data = await resp.json().catch(()=>({}));
-            setBvProgress(index, data);  // 实时刷新进度条/分步/已等待/ETA
-            if (data.status === 'done') {
-                await postBvProgress(batchId, index, 'done', jobId);
-                setBvProgress(index, data);
-                const card = document.querySelector('#bvCards [data-bv="'+index+'"]');
-                if (card) { const dl = card.querySelector('.bv-dl'); if (dl) { dl.classList.remove('hidden'); dl.href = '/studio/scroll/download/'+jobId; } }
-                updateBvSummary();
-                return;
-            } else if (data.status === 'failed') {
-                await postBvProgress(batchId, index, 'failed', jobId);
-                setBvProgress(index, data);
-                const card = document.querySelector('#bvCards [data-bv="'+index+'"]');
-                if (card) card.querySelector('.bv-retry')?.classList.remove('hidden');
-                updateBvSummary();
-                return;
-            }
-        } catch(e) { if (e && e.name === 'AbortError') return 'aborted'; }
-    }
-    setBvCard(index, 'failed', '轮询超时');
-}
-
-function updateBvSummary() {
-    const cards = document.querySelectorAll('#bvCards [data-bv]');
-    let done=0, failed=0;
-    cards.forEach(c => {
-        const t = c.querySelector('.bv-status')?.textContent || '';
-        if (t==='完成') done++; else if (t.indexOf('失败')>=0) failed++;
-    });
-    const sum = document.getElementById('bvSummary');
-    if (sum) sum.textContent = '完成 '+done+' / 失败 '+failed+' / 共 '+cards.length;
-}
-
-async function runBatchVideoOrchestrator(batchId, config, scripts, onlyIndices) {
-    const pending = (onlyIndices && onlyIndices.length) ? onlyIndices.slice() : scripts.map((_,i)=>i);
-    const signal = HGTAbort.begin('中止：批量出片中…');
-    while (pending.length) {
-        if (!HGTAbort.isActive()) { hgtToast('warn', '已中止批量出片'); break; }
-        const idx = pending.shift();
-        let attempt = 0, result = null;
-        while (attempt <= 3) {
-            const r = await submitOneBatchVideo(batchId, config, idx, scripts[idx], signal);
-            if (r === true) { result = true; break; }
-            if (r === 'failed') { result = 'failed'; break; }
-            attempt++;
-            await sleep(Math.min(20000, 5000 * Math.pow(2, attempt-1)));
-        }
-        if (result !== true && result !== 'failed') {
-            await postBvProgress(batchId, idx, 'failed', null);
-            setBvCard(idx, 'failed', '提交失败（重试上限）');
-        }
-        await sleep(300);
-    }
-    HGTAbort.end();
-}
-
-async function resumeBatchVideo(batchId) {
-    try {
-        const resp = await fetch('/studio/batch-video/'+batchId, { headers:{'Accept':'application/json','X-CSRF-TOKEN':csrf()} });
-        const data = await resp.json();
-        if (!resp.ok || !data.scripts) return;
-        const config = data.config || {};
-        const scripts = data.scripts.map(s => ({ title:s.title, cleaned:s.cleaned }));
-        batchVideoState = { batchId, config, scripts };
-        renderBatchVideoBoard(batchId, scripts);
-        const pending = [];
-        data.scripts.forEach((s, i) => {
-            if (s.status === 'done') {
-                setBvCard(i,'done','完成');
-                if (s.job_id) { const card=document.querySelector('#bvCards [data-bv="'+i+'"]'); if(card){const dl=card.querySelector('.bv-dl'); if(dl){dl.classList.remove('hidden'); dl.href='/studio/scroll/download/'+s.job_id;}} }
-            } else if (s.status === 'failed') {
-                setBvCard(i,'failed','失败');
-            } else if (s.job_id) {
-                pollBvJob(batchId, i, s.job_id);
-            } else {
-                pending.push(i);
-            }
-        });
-        updateBvSummary();
-        if (pending.length) runBatchVideoOrchestrator(batchId, config, scripts, pending);
-    } catch(e) {}
-}
-
-// 事件绑定（DOMContentLoaded 后执行，避免元素未渲染导致事件丢失）
-function bindBatchVideo(){
-    const btn = document.getElementById('batchVideoBtn');
-    if (btn) {
-        btn.replaceWith(btn.cloneNode(true)); // 清除可能重复的旧监听器
-        document.getElementById('batchVideoBtn')?.addEventListener('click', openBatchVideoModal);
-    }
-    document.getElementById('bvStart')?.addEventListener('click', startBatchVideo);
-    document.getElementById('bvCancel')?.addEventListener('click', () => {
-        const modal = document.getElementById('batchVideoModal');
-        if (modal) { modal.classList.add('hidden'); modal.style.display = ''; }
-    });
-    const modal = document.getElementById('batchVideoModal');
-    if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) { modal.classList.add('hidden'); modal.style.display = ''; } });
-    document.querySelectorAll('[data-bv-form]').forEach(b => b.addEventListener('click', () => selectBvForm(b.dataset.bvForm)));
-}
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bindBatchVideo);
-} else {
-    bindBatchVideo();
-}
-
-// 批量出片弹窗：鼠标拖拽移动
-(function makeBatchVideoModalDraggable(){
-    const card = document.getElementById('batchVideoModalCard');
-    const modal = document.getElementById('batchVideoModal');
-    if (!card || !modal) return;
-
-    let dragging = false, startX = 0, startY = 0, initialLeft = 0, initialTop = 0;
-
-    // 点击卡片空白处可拖拽；点击按钮/输入框/选择框时不触发拖拽
-    card.addEventListener('mousedown', function (e) {
-        const tag = (e.target.tagName || '').toLowerCase();
-        const isInteractive = ['button', 'input', 'select', 'textarea', 'a', 'label'].includes(tag)
-            || e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('textarea') || e.target.closest('a');
-        if (isInteractive) return;
-        dragging = true;
-        startX = e.clientX;
-        startY = e.clientY;
-        const rect = card.getBoundingClientRect();
-        initialLeft = rect.left;
-        initialTop = rect.top;
-        card.style.position = 'fixed';
-        card.style.left = initialLeft + 'px';
-        card.style.top = initialTop + 'px';
-        card.style.margin = '0';
-        card.style.transform = 'none';
-        card.style.maxWidth = rect.width + 'px';
-        card.classList.add('select-none');
-    });
-
-    window.addEventListener('mousemove', function (e) {
-        if (!dragging) return;
-        e.preventDefault();
-        let nx = initialLeft + (e.clientX - startX);
-        let ny = initialTop + (e.clientY - startY);
-        const vw = window.innerWidth, vh = window.innerHeight;
-        const rect = card.getBoundingClientRect();
-        // 限制在可视窗口内，至少保留 40px 可见
-        nx = Math.max(0, Math.min(nx, vw - 40));
-        ny = Math.max(0, Math.min(ny, vh - 40));
-        card.style.left = nx + 'px';
-        card.style.top = ny + 'px';
-    });
-
-    window.addEventListener('mouseup', function () {
-        if (!dragging) return;
-        dragging = false;
-        card.classList.remove('select-none');
-    });
-})();
 
 // 初始化字数
 updateCharCount();
