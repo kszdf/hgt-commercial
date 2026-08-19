@@ -131,4 +131,47 @@ class XhsController extends Controller
 
         return response()->json($resp->json());
     }
+
+    /**
+     * 打包下载已生成的小红书图文图片（ZIP）。
+     * 入参 images 为前端已有的 base64 data URL 数组（含封面与内文页），
+     * 直接在后端解码打包，避免依赖磁盘路径（8500 写在 Windows 路径、容器读不到）。
+     */
+    public function download(Request $request)
+    {
+        $images = $request->input('images', []);
+        if (!is_array($images) || count($images) === 0) {
+            return response()->json(['error' => '没有可下载的图片'], 400);
+        }
+        if (!class_exists(\ZipArchive::class)) {
+            return response()->json(['error' => '服务器未启用 Zip 支持'], 500);
+        }
+        $tmp = tempnam(sys_get_temp_dir(), 'xhs_') . '.zip';
+        $zip = new \ZipArchive();
+        if ($zip->open($tmp, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            return response()->json(['error' => '无法创建压缩包'], 500);
+        }
+        $added = 0;
+        foreach ($images as $i => $dataUrl) {
+            if (!is_string($dataUrl)) {
+                continue;
+            }
+            if (!preg_match('/^data:image\/png;base64,(.+)$/s', $dataUrl, $m)) {
+                continue;
+            }
+            $bin = base64_decode($m[1], true);
+            if ($bin === false || $bin === '') {
+                continue;
+            }
+            $name = ($i === 0 ? 'cover' : 'page_' . $i) . '.png';
+            $zip->addFromString($name, $bin);
+            $added++;
+        }
+        $zip->close();
+        if ($added === 0) {
+            @unlink($tmp);
+            return response()->json(['error' => '图片数据无效'], 400);
+        }
+        return response()->download($tmp, 'xiaohongshu_' . date('Ymd_His') . '.zip')->deleteFileAfterSend(true);
+    }
 }

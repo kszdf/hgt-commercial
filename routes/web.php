@@ -125,6 +125,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/xhs/generate', [XhsController::class, 'generate']);
     Route::post('/studio/xhs/regen-cover', [XhsController::class, 'regenCover']);
     Route::post('/studio/xhs/publish', [XhsController::class, 'publish']);
+    Route::post('/studio/xhs/download', [XhsController::class, 'download']);
 
     Route::get('/studio/covers', [CoverAssetController::class, 'index'])->name('studio.covers');
     Route::get('/studio/covers/json', [CoverAssetController::class, 'coversJson']);

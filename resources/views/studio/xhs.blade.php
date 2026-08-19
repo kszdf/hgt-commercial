@@ -66,7 +66,11 @@
 
             <!-- 图片预览 -->
             <section class="luxury-glass p-5 hidden" id="secImages">
-                <h3 class="mb-3 text-sm font-bold text-slate-800">图文预览（共 <span id="imgCount">0</span> 张，最多9张）</h3>
+                <div class="mb-3 flex items-center justify-between">
+                    <h3 class="text-sm font-bold text-slate-800">图文预览（共 <span id="imgCount">0</span> 张，最多9张）</h3>
+                    <button type="button" id="btnDownload" onclick="doDownload()"
+                        class="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white shadow hover:bg-brand-700 transition-colors">下载全部图片</button>
+                </div>
                 <div id="imageGrid" class="grid grid-cols-2 gap-3"></div>
             </section>
 
@@ -77,6 +81,15 @@
                     发布到小红书
                 </button>
                 <div id="pubStatus" class="mt-3 hidden rounded-lg border p-4 text-sm"></div>
+            </div>
+
+            <!-- 放大查看大图 -->
+            <div id="bigOverlay" class="fixed inset-0 z-50 hidden bg-black/80 p-6"
+                 onclick="closeBig()">
+                <img id="bigImg" src="" alt="放大预览"
+                     class="max-h-[90vh] max-w-[90vw] rounded-lg shadow-2xl" onclick="event.stopPropagation()" />
+                <button type="button" onclick="closeBig()"
+                        class="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-sm font-medium text-slate-800 shadow hover:bg-white">关闭 ✕</button>
             </div>
         </div>
     </div>
@@ -153,7 +166,8 @@ async function doGenerate() {
         _images.forEach((src, i) => {
             const div = document.createElement('div');
             div.className = 'relative overflow-hidden rounded-lg border border-slate-200';
-            const img = new Image(); img.src = src; img.className = 'w-full aspect-[3/4] object-cover';
+            const img = new Image(); img.src = src; img.className = 'w-full aspect-[3/4] object-cover cursor-pointer transition-opacity hover:opacity-90';
+            img.onclick = () => openBig(src);
             div.appendChild(img);
             if (i === 0) {
                 const cap = document.createElement('div');
@@ -271,9 +285,50 @@ async function doPublish() {
     } catch (e) {
         if (e.name === 'AbortError') { setStatus('pubStatus', '⏹ 已中止发布', 'warn'); return; }
         setStatus('pubStatus', '❌ 发布异常：' + e.message, 'err');
-    } finally {
-        HGTAbort.end();
-        zwSetLoading(btn, { loading: false });
+        } finally {
+            HGTAbort.end();
+            zwSetLoading(btn, { loading: false });
+        }
     }
-}
+
+    function openBig(src) {
+        const ov = document.getElementById('bigOverlay');
+        document.getElementById('bigImg').src = src;
+        ov.classList.remove('hidden');
+        ov.classList.add('flex', 'items-center', 'justify-center');
+    }
+    function closeBig() {
+        const ov = document.getElementById('bigOverlay');
+        ov.classList.add('hidden');
+        ov.classList.remove('flex', 'items-center', 'justify-center');
+    }
+    async function doDownload() {
+        if (!_paths || !_paths.length) { alert('请先生成图文'); return; }
+        const btn = document.getElementById('btnDownload');
+        if (!btn) return;
+        const old = btn.textContent;
+        btn.disabled = true; btn.textContent = '打包中…';
+        try {
+            const resp = await fetch('/studio/xhs/download', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() },
+                body: JSON.stringify({ images: _images }),
+            });
+            if (!resp.ok) {
+                const d = await resp.json().catch(() => ({}));
+                throw new Error(d.error || ('下载失败 ' + resp.status));
+            }
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'xiaohongshu_' + Date.now() + '.zip';
+            document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+            setStatus('genStatus', '✅ 已打包下载（' + _paths.length + ' 张 PNG）', 'ok');
+        } catch (e) {
+            setStatus('genStatus', '❌ 下载失败：' + e.message, 'err');
+        } finally {
+            btn.disabled = false; btn.textContent = old;
+        }
+    }
 </script>
