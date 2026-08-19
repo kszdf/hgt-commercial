@@ -191,7 +191,7 @@
             <div id="singleRestoreNote" class="hidden mb-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2 text-sm text-brand-700">已恢复上次的改写内容，可继续编辑或直接改写。</div>
 
             <!-- 批量出片入口 -->
-            <button type="button" id="batchVideoBtn" class="hidden mb-3 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90 active:scale-[0.98]">🎬 批量出片（统一形式）</button>
+            <button type="button" id="batchVideoBtn" class="hidden mb-3 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90 active:scale-[0.98] disabled:opacity-50" title="用同一种呈现形式为已完成的清洗稿批量生成视频">🎬 批量出片（统一形式）</button>
 
             <!-- 批量结果列表 -->
             <div id="batchResult" class="hidden space-y-3"></div>
@@ -1187,17 +1187,31 @@ function selectBvForm(form) {
 
 async function openBatchVideoModal() {
     const okItems = batchResults.filter(r => r.ok && r.data && r.data.cleaned);
-    if (!okItems.length) return;
+    if (!okItems.length) {
+        hgtToast('warn', '没有可出片的清洗稿，请先完成批量改写');
+        return;
+    }
+    hgtToast('info', '正在打开批量出片配置…', 1500);
     const cnt = document.getElementById('bvCount'); if (cnt) cnt.textContent = okItems.length;
     try {
         const resp = await fetch('/studio/available-voices', { headers: { 'Accept':'application/json', 'X-CSRF-TOKEN': csrf() } });
+        if (!resp.ok) throw new Error(resp.status + ' ' + resp.statusText);
         const data = await resp.json();
         fillVoiceSelect('bvMaleVoice', data.male);
         fillVoiceSelect('bvFemaleVoice', data.female);
         fillVoiceSelect('bvSingleVoice', (data.male||[]).concat(data.female||[]));
-    } catch(e) {}
+    } catch(e) {
+        console.error('[batchVideo] voices 加载失败:', e);
+        hgtToast('warn', '声线列表加载失败，将使用默认声线', 2500);
+        ['bvMaleVoice','bvFemaleVoice','bvSingleVoice'].forEach(id => {
+            const sel = document.getElementById(id); if (sel) sel.innerHTML = '<option value="">默认声线</option>';
+        });
+    }
     selectBvForm('scroll_male');
-    document.getElementById('batchVideoModal')?.classList.remove('hidden');
+    const modal = document.getElementById('batchVideoModal');
+    if (!modal) { hgtToast('error', '批量出片弹窗未找到'); return; }
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
 }
 
 async function startBatchVideo() {
@@ -1211,7 +1225,8 @@ async function startBatchVideo() {
         single_voice: document.getElementById('bvSingleVoice') ? document.getElementById('bvSingleVoice').value : '',
     };
     const scripts = okItems.map(r => ({ title: r.title, cleaned: r.data.cleaned }));
-    document.getElementById('batchVideoModal')?.classList.add('hidden');
+    const modal = document.getElementById('batchVideoModal');
+    if (modal) { modal.classList.add('hidden'); modal.style.display = ''; }
     let batchId;
     try {
         const resp = await fetch('/studio/batch-video/plan', {
@@ -1222,7 +1237,7 @@ async function startBatchVideo() {
         if (!resp.ok || !data.batch_id) throw new Error(data.error || '创建批量计划失败');
         batchId = data.batch_id;
     } catch(e) {
-        alert('批量出片启动失败：' + e.message);
+        hgtToast('error', '批量出片启动失败：' + e.message);
         return;
     }
     try { localStorage.setItem('hgt_last_batch_video', batchId); } catch(e) {}
@@ -1236,7 +1251,7 @@ function renderBatchVideoBoard(batchId, scripts) {
     if (!board) return;
     board.classList.remove('hidden');
     document.getElementById('batchResult')?.classList.add('hidden');
-    let html = '<div class="mb-2 flex items-center justify-between"><h4 class="text-sm font-semibold text-slate-700">批量出片进度</h4><span id="bvSummary" class="text-xs text-slate-500">0 / '+scripts.length+'</span></div><div id="bvCards" class="space-y-2">';
+    let html = '<div class="mb-2 flex items-center justify-between"><h4 class="text-sm font-semibold text-slate-700">批量出片进度</h4><div class="flex items-center gap-2"><span id="bvSummary" class="text-xs text-slate-500">0 / '+scripts.length+'</span><button type="button" id="bvAbortBtn" class="rounded border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100">中止出片</button></div></div><div id="bvCards" class="space-y-2">';
     scripts.forEach((s, i) => {
         html += '<div class="rounded-lg border border-slate-200 bg-white p-3 text-xs" data-bv="'+i+'">'
             + '<div class="flex items-center justify-between gap-2"><span class="font-medium text-slate-700 truncate">'+escapeHtml(s.title||('第'+(i+1)+'条'))+'</span>'
@@ -1260,6 +1275,16 @@ function renderBatchVideoBoard(batchId, scripts) {
     });
     html += '</div>';
     board.innerHTML = html;
+    // 显式中止按钮（与全局 HGTAbort 浮层双保险）
+    const abortBtn = document.getElementById('bvAbortBtn');
+    if (abortBtn) {
+        abortBtn.addEventListener('click', () => {
+            if (confirm('确定要中止批量出片吗？已完成的视频会保留。')) {
+                HGTAbort.abort();
+                hgtToast('warn', '已发送中止信号，当前任务完成后停止后续任务');
+            }
+        });
+    }
 }
 
 // 每张卡的轮询起始时间戳（用于"已等待"精确计时，可追溯）
@@ -1502,15 +1527,27 @@ async function resumeBatchVideo(batchId) {
     } catch(e) {}
 }
 
-// 事件绑定
-(function bindBatchVideo(){
-    document.getElementById('batchVideoBtn')?.addEventListener('click', openBatchVideoModal);
+// 事件绑定（DOMContentLoaded 后执行，避免元素未渲染导致事件丢失）
+function bindBatchVideo(){
+    const btn = document.getElementById('batchVideoBtn');
+    if (btn) {
+        btn.replaceWith(btn.cloneNode(true)); // 清除可能重复的旧监听器
+        document.getElementById('batchVideoBtn')?.addEventListener('click', openBatchVideoModal);
+    }
     document.getElementById('bvStart')?.addEventListener('click', startBatchVideo);
-    document.getElementById('bvCancel')?.addEventListener('click', () => document.getElementById('batchVideoModal')?.classList.add('hidden'));
+    document.getElementById('bvCancel')?.addEventListener('click', () => {
+        const modal = document.getElementById('batchVideoModal');
+        if (modal) { modal.classList.add('hidden'); modal.style.display = ''; }
+    });
     const modal = document.getElementById('batchVideoModal');
-    if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
+    if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) { modal.classList.add('hidden'); modal.style.display = ''; } });
     document.querySelectorAll('[data-bv-form]').forEach(b => b.addEventListener('click', () => selectBvForm(b.dataset.bvForm)));
-})();
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindBatchVideo);
+} else {
+    bindBatchVideo();
+}
 
 // 批量出片弹窗：鼠标拖拽移动
 (function makeBatchVideoModalDraggable(){
