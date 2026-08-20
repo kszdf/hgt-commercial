@@ -21,6 +21,7 @@ class PlatformAccount extends Model
         'avatar_url', 'remark', 'content_tags', 'daily_limit',
         'today_count', 'last_published_at',
         'oauth_token', 'refresh_token', 'expires_at', 'status',
+        'account_info',
     ];
 
     protected $casts = [
@@ -29,6 +30,7 @@ class PlatformAccount extends Model
         'content_tags' => 'array',
         'daily_limit' => 'integer',
         'today_count' => 'integer',
+        'account_info' => 'encrypted:array',
     ];
 
     /** 平台规范键 → 中文名（与 config/platforms.php 保持一致）。 */
