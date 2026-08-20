@@ -149,25 +149,16 @@
                         <span>人工审核</span>
                     </a>
                 </li>
-                @php $batchAllowed = $isAdmin ? true : (auth()->user()->tenant->allow_batch ?? false); @endphp
                 <li>
-                    @if(!$batchAllowed)
-                        <span class="ws-nav-item ws-nav-rose opacity-60 cursor-not-allowed" title="当前账号未开放批量外发，开通或升级后解锁">
-                            <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-                            <span>多平台发布</span>
-                            <svg class="h-3.5 w-3.5 ml-auto text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                        </span>
-                    @else
-                        <a href="/studio/publish" class="{{ request()->is('studio/publish*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-rose">
-                            <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-                            <span>多平台发布</span>
-                        </a>
-                    @endif
+                    <a href="/studio/publish" class="{{ request()->is('studio/publish*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-rose">
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                        <span>发布助手</span>
+                    </a>
                 </li>
                 <li>
                     <a href="/studio/accounts" class="{{ request()->is('studio/accounts*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                        <span>平台账号</span>
+                        <span>发布渠道</span>
                     </a>
                 </li>
                 <li>

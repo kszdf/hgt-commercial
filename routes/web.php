@@ -144,17 +144,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/review/{videoJob}/approve', [ReviewController::class, 'approve'])->name('studio.review.approve');
     Route::post('/studio/review/{videoJob}/reject', [ReviewController::class, 'reject'])->name('studio.review.reject');
 
-    // 批量外发（视频 × 账号 矩阵分发；simulated 标记区分真实/模拟发布，见 PublishController）
+    // 发布助手（导出素材 + 各平台手动发布中心）
     Route::get('/studio/publish', [PublishController::class, 'index'])->name('studio.publish');
-    Route::post('/studio/publish', [PublishController::class, 'publish'])->name('studio.publish.do');
 
     // 平台账号管理（多账号矩阵发布：账号属性 / 每日上限 / 授权态）
     Route::get('/studio/accounts', [AccountController::class, 'index'])->name('studio.accounts');
     Route::get('/studio/accounts/json', [AccountController::class, 'json'])->name('studio.accounts.json');
     Route::post('/studio/accounts', [AccountController::class, 'store']);
     Route::post('/studio/accounts/{account}', [AccountController::class, 'update'])->name('studio.accounts.update');
-    Route::post('/studio/accounts/{account}/authorized', [AccountController::class, 'markAuthorized'])->name('studio.accounts.authorized');
-    Route::post('/studio/accounts/{account}/unauthorized', [AccountController::class, 'markUnauthorized'])->name('studio.accounts.unauthorized');
     Route::delete('/studio/accounts/{account}', [AccountController::class, 'destroy'])->name('studio.accounts.destroy');
 
     // 数据效果（数据回流 · 半自动：手动速填 / 抖音自动同步 / 未同步清单）
@@ -174,7 +171,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/matrix/video', [MatrixController::class, 'generateVideo'])->name('studio.matrix.video');
     Route::post('/studio/matrix/xhs', [MatrixController::class, 'generateXhs'])->name('studio.matrix.xhs');
     Route::post('/studio/matrix/moment', [MatrixController::class, 'generateMoment'])->name('studio.matrix.moment');
-    Route::post('/studio/matrix/xhs/publish', [MatrixController::class, 'publishXhs'])->name('studio.matrix.xhs.publish');
 
     // 话术模板市场（财税垂类：钩子/开头/避坑/结尾/选题角度）
     Route::get('/studio/templates', [TemplateController::class, 'index'])->name('studio.templates');

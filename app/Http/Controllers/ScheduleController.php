@@ -91,8 +91,8 @@ class ScheduleController extends Controller
     public function toggleAuto(Request $request, PublishSchedule $schedule)
     {
         $this->assertTenantOwner($request, $schedule->tenant_id);
-        $schedule->update(['auto_publish' => ! $schedule->auto_publish]);
-        return redirect()->route('studio.schedule')->with('success', $schedule->auto_publish ? '已开启自动发布。' : '已关闭自动发布（到点仅提醒）。');
+        $schedule->update(['auto_publish' => false]);
+        return redirect()->route('studio.schedule')->with('info', '自动发布已停用，排期仅作提醒，请手动发布。');
     }
 
     /** 立即执行某条排期（手动）。 */
@@ -105,32 +105,8 @@ class ScheduleController extends Controller
             return redirect()->route('studio.schedule')->with('error', '该排期已终态（' . $schedule->statusLabel() . '），不能重复执行。');
         }
 
-        $job = $schedule->videoJob;
-        $account = $schedule->account;
-
-        if (! $job || $job->status !== 'done') {
-            $schedule->update(['status' => PublishSchedule::STATUS_SKIPPED, 'error' => '视频未完成渲染或已删除']);
-            return redirect()->route('studio.schedule')->with('error', '该视频不可发布，排期已标记跳过。');
-        }
-        if (! $account || ! $account->isAuthorized()) {
-            $schedule->update(['status' => PublishSchedule::STATUS_SKIPPED, 'error' => '账号未授权']);
-            return redirect()->route('studio.schedule')->with('error', '该账号未授权，排期已标记跳过。请先在「平台账号」中授权。');
-        }
-
-        $schedule->update(['status' => PublishSchedule::STATUS_PUBLISHING]);
-        $r = app(PublishRunner::class)->run($job, $account, $tenant);
-
-        $schedule->update([
-            'status' => $r['ok'] ? PublishSchedule::STATUS_PUBLISHED : PublishSchedule::STATUS_FAILED,
-            'published_at' => $r['ok'] ? now() : null,
-            'error' => $r['ok'] ? null : $r['reason'],
-        ]);
-
-        $msg = $r['ok']
-            ? ($r['simulated'] ? '已执行（演示模拟，未实际发出，请完成平台授权）' : '发布成功')
-            : ('发布失败：' . $r['reason']);
-
-        return redirect()->route('studio.schedule')->with($r['ok'] ? 'success' : 'error', $msg);
+        // 自动发布已停用（2026-08-20）：排期仅作发布提醒，执行请到「发布助手」下载成片后手动发布。
+        return redirect()->route('studio.schedule')->with('info', '自动发布已停用，请到「发布助手」下载成片，在各平台 App 手动发布。');
     }
 
     public function destroy(Request $request, PublishSchedule $schedule)

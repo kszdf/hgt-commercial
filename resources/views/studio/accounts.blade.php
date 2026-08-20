@@ -1,36 +1,36 @@
 <x-app-layout>
-<x-workspace-layout title="平台账号">
+<x-workspace-layout title="发布渠道">
 <div class="mx-auto max-w-5xl p-6">
 
     @include('components.flash')
 
     {{-- 说明 --}}
     <div class="mb-5 rounded-xl border border-slate-200 bg-white px-4 py-3">
-        <div class="text-sm font-semibold text-slate-700">多账号矩阵发布</div>
+        <div class="text-sm font-semibold text-slate-700">发布渠道备忘</div>
         <ul class="mt-1 space-y-1 text-sm text-slate-500">
-            <li>· 抖音、小红书等平台可以添加 <strong>多个账号</strong>：既可以一条视频同时发到多个号（打矩阵），也可以不同视频指定不同账号发布。</li>
-            <li>· 每个账号可设置「内容定位标签」和「每日发布上限」，防止同一内容过多账号同质化发布被平台风控。</li>
-            <li>· 授权：填写平台账号信息并添加后，点击「去授权」完成平台授权；完成后点击「标记为已授权」即可用于发布。</li>
+            <li>· 这里只记录你<strong>在哪些平台发布</strong>（账号名 / 标签 / 备注 / 每日建议上限），方便统一管理与打标签。</li>
+            <li>· 不收集任何账号密码等敏感信息；正式发布在各平台 App 内手动完成。</li>
+            <li>· 自动发布（OAuth 授权 / 一键群发）已停用：多数平台需企业资质且基本不对外开放，手动发布最稳、最合规。</li>
         </ul>
     </div>
 
-    {{-- 新增账号按钮 --}}
+    {{-- 新增渠道按钮 --}}
     <div class="luxury-glass mb-5 p-5">
         <div class="flex items-center justify-between">
             <div>
-                <h3 class="text-sm font-semibold text-slate-700">添加新账号</h3>
-                <p class="text-xs text-slate-500">按平台要求填写账号信息，系统将加密保存。</p>
+                <h3 class="text-sm font-semibold text-slate-700">添加渠道</h3>
+                <p class="text-xs text-slate-500">记录一个你常用的发布平台账号。</p>
             </div>
             <button type="button" onclick="openAccountModal('add')"
-                class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">添加账号</button>
+                class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">添加渠道</button>
         </div>
     </div>
 
-    {{-- 账号列表 --}}
+    {{-- 渠道列表 --}}
     <div class="luxury-glass overflow-hidden">
-        <div class="px-5 py-4 text-sm font-semibold text-slate-700">我的账号（{{ $accounts->count() }}）</div>
+        <div class="px-5 py-4 text-sm font-semibold text-slate-700">我的渠道（{{ $accounts->count() }}）</div>
         @if($accounts->isEmpty())
-            <div class="px-5 pb-6 text-center text-sm text-slate-400">还没有账号，点击上方「添加账号」创建一个。</div>
+            <div class="px-5 pb-6 text-center text-sm text-slate-400">还没有渠道备忘，点击上方「添加渠道」创建一个。</div>
         @else
             <div class="divide-y divide-slate-100">
                 @foreach($accounts as $a)
@@ -39,12 +39,7 @@
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="font-medium text-slate-800">{{ $a->account_name ?: $a->platformLabel() }}</span>
                                 <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{{ $a->platformLabel() }}</span>
-                                @if($a->isAuthorized())
-                                    <span class="rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">已授权</span>
-                                @else
-                                    <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-400">未授权</span>
-                                @endif
-                                <span class="text-xs text-slate-400">今日余量 {{ $a->remainingToday() }}/{{ $a->daily_limit }} 条</span>
+                                <span class="text-xs text-slate-400">建议 ≤ {{ $a->daily_limit }} 条/天</span>
                             </div>
                             @if($a->remark)
                                 <p class="mt-0.5 truncate text-xs text-slate-400">{{ $a->remark }}</p>
@@ -58,21 +53,6 @@
                             @endif
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
-                            @php $publicBase = env('PYTHON_PIPELINE_PUBLIC_URL', 'http://127.0.0.1:8500'); @endphp
-                            <button type="button" class="oauth-btn rounded-md bg-brand-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-brand-700"
-                                    data-auth-url="{{ $publicBase }}/oauth/authorize/{{ $a->platform }}?account_id={{ $a->id }}"
-                                    data-account-id="{{ $a->id }}">去授权</button>
-                            @if(!$a->isAuthorized())
-                                <form method="POST" action="{{ route('studio.accounts.authorized', $a) }}">
-                                    @csrf
-                                    <button class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 hover:bg-slate-50">标记为已授权</button>
-                                </form>
-                            @else
-                                <form method="POST" action="{{ route('studio.accounts.unauthorized', $a) }}">
-                                    @csrf
-                                    <button class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-400 hover:bg-slate-50">标记未授权</button>
-                                </form>
-                            @endif
                             <button type="button"
                                 onclick='openAccountModal("edit", @json([
                                     "id" => $a->id,
@@ -81,10 +61,9 @@
                                     "remark" => $a->remark,
                                     "content_tags" => $a->content_tags ?? [],
                                     "daily_limit" => $a->daily_limit,
-                                    "account_info" => $a->account_info ?? [],
                                 ]))'
                                 class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 hover:bg-slate-50">编辑</button>
-                            <form method="POST" action="{{ route('studio.accounts.destroy', $a) }}" onsubmit="return confirm('确认删除该账号？删除后不可恢复。')">
+                            <form method="POST" action="{{ route('studio.accounts.destroy', $a) }}" onsubmit="return confirm('确认删除该渠道备忘？删除后不可恢复。')">
                                 @csrf
                                 @method('DELETE')
                                 <button class="rounded-md border border-red-100 bg-red-50 px-2.5 py-1 text-[11px] text-red-600 hover:bg-red-100">删除</button>
@@ -97,12 +76,12 @@
     </div>
 </div>
 
-{{-- 账号信息弹窗（新增 / 编辑共用） --}}
+{{-- 渠道信息弹窗（新增 / 编辑共用） --}}
 <div id="accountModal" class="fixed inset-0 z-50 hidden" aria-modal="true">
     <div class="absolute inset-0 bg-black/40" onclick="closeAccountModal()"></div>
     <div class="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
         <div class="mb-4 flex items-center justify-between">
-            <h3 id="modalTitle" class="text-base font-semibold text-slate-800">添加账号</h3>
+            <h3 id="modalTitle" class="text-base font-semibold text-slate-800">添加渠道</h3>
             <button type="button" onclick="closeAccountModal()" class="text-slate-400 hover:text-slate-600">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
@@ -131,9 +110,10 @@
             </div>
 
             <div>
-                <label class="mb-1 block text-slate-600">每日发布上限（条/天）</label>
+                <label class="mb-1 block text-slate-600">每日建议上限（条/天）</label>
                 <input type="number" name="daily_limit" id="dailyLimit" min="1" max="20" value="3"
                     class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700">
+                <p class="mt-1 text-xs text-slate-400">仅作备忘提醒，防止同一内容过多账号同质化发布被平台风控。</p>
             </div>
 
             {{-- 内容定位标签：自定义输入 --}}
@@ -146,11 +126,6 @@
                 </div>
                 <div id="tagInputs" class="hidden"></div>
                 <p id="tagHint" class="mt-1 text-xs text-slate-400">已添加 0/20 个标签</p>
-            </div>
-
-            {{-- 平台信息字段（动态生成） --}}
-            <div id="platformFields" class="space-y-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
-                {{-- JS 动态填充 --}}
             </div>
 
             <div>
@@ -169,14 +144,13 @@
 
 @push('scripts')
 <script>
-    const platformFields = @json($platformFields);
     let currentTags = [];
     let currentMode = 'add';
 
     function openAccountModal(mode, data) {
         currentMode = mode;
         currentTags = [];
-        document.getElementById('modalTitle').textContent = mode === 'edit' ? '编辑账号' : '添加账号';
+        document.getElementById('modalTitle').textContent = mode === 'edit' ? '编辑渠道' : '添加渠道';
 
         const form = document.getElementById('accountForm');
         const methodInput = document.getElementById('modalMethod');
@@ -192,7 +166,6 @@
             document.getElementById('dailyLimit').value = data.daily_limit || 3;
             document.getElementById('remark').value = data.remark || '';
             currentTags = Array.isArray(data.content_tags) ? data.content_tags : [];
-            renderPlatformFields(data.platform, data.account_info || {});
         } else {
             form.action = '{{ route('studio.accounts') }}';
             methodInput.value = '';
@@ -202,7 +175,6 @@
             document.getElementById('accountName').value = '';
             document.getElementById('dailyLimit').value = 3;
             document.getElementById('remark').value = '';
-            renderPlatformFields(document.getElementById('platformSelect').value, {});
         }
 
         renderTags();
@@ -214,33 +186,7 @@
     }
 
     function onPlatformChange(platform) {
-        renderPlatformFields(platform, {});
-    }
-
-    function renderPlatformFields(platform, values) {
-        const container = document.getElementById('platformFields');
-        const fields = platformFields[platform] || [];
-
-        if (fields.length === 0) {
-            container.innerHTML = '<p class="text-xs text-slate-400">该平台无需额外账号信息。</p>';
-            return;
-        }
-
-        container.innerHTML = '<div class="mb-1 text-xs font-medium text-slate-500">平台账号信息</div>';
-        fields.forEach(field => {
-            const wrapper = document.createElement('div');
-            const requiredMark = field.required ? ' <span class="text-red-500">*</span>' : '';
-            const value = values[field.name] || '';
-            wrapper.innerHTML = `
-                <label class="mb-1 block text-slate-600">${field.label}${requiredMark}</label>
-                <input type="${field.type}" name="account_info[${field.name}]" value="${escapeHtml(value)}"
-                    placeholder="${escapeHtml(field.hint)}"
-                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700"
-                    ${field.required ? 'required' : ''}>
-                <p class="mt-0.5 text-[10px] text-slate-400">${escapeHtml(field.hint)}</p>
-            `;
-            container.appendChild(wrapper);
-        });
+        // 平台切换无需动态字段（已不收集账号密码）
     }
 
     function renderTags() {
@@ -302,35 +248,11 @@
 
     document.getElementById('accountForm').addEventListener('submit', function (e) {
         if (currentMode === 'edit') {
-            // Laravel 不支持 PUT 表单，追加 _method
             const method = document.createElement('input');
             method.type = 'hidden';
             method.name = '_method';
             method.value = 'PUT';
             this.appendChild(method);
-        }
-    });
-
-    // 平台授权弹窗 + 回调（8500 授权成功后 postMessage 回传 account_id → 自动标记已授权）
-    document.querySelectorAll('.oauth-btn').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var w = 640, h = 720;
-            var left = (window.screen.width - w) / 2, top = (window.screen.height - h) / 2;
-            window.open(btn.getAttribute('data-auth-url'), 'oauth_popup',
-                'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top);
-        });
-    });
-    window.addEventListener('message', function (e) {
-        var d = e.data || {};
-        if (d.type === 'oauth_authorized') {
-            var aid = d.account_id;
-            if (!aid) { location.reload(); return; }
-            var token = document.querySelector('meta[name="csrf-token"]')?.content || '';
-            fetch('/studio/accounts/' + aid + '/authorized', {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
-                body: new URLSearchParams({})
-            }).then(function () { location.reload(); });
         }
     });
 </script>

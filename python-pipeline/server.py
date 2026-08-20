@@ -30,11 +30,8 @@
          }
     GET  /status/{job_id}            -> {"job_id","status","result","error"}
     GET  /download/{job_id}          -> video/mp4 流
-    POST /publish                    -> {"job_id","results":[{platform,status,post_id,url,error}]}
-         body: {"job_id","platforms":["douyin","shipinhao","xiaohongshu"],
-                "tenant_id":"可选","title":"可选覆盖","description":"","tags":[],
-                "credential_ref":"可选凭证句柄"}
-         说明：无凭证时各适配器降级 dry 模拟（status=published + 模拟 post_id/url）
+    # POST /publish 已停用（2026-08-20）：自动发布改为「导出素材 + 各平台手动发布」
+    # 原 /oauth/* 授权路由亦已停用。
     POST /strategist                 -> P4 获客军师：{"potential_score","level","hook_suggest","industry_fit","improvements"}
          body: {"title","script","industry":"可选","platform":"可选"}
     POST /deai                       -> P4 去AI痕迹：{"rewritten","changes","removed_markers"}
@@ -1876,15 +1873,8 @@ def run_job(job_id, payload):
             _set_job(job_id, status="done", step="done", out=out_path)
             if not payload.get("_regen"):
                 _append_version(job_id, out_path, payload, tag="初始版本")
-            # 自动发布（可选）：若请求带 auto_publish 平台列表，done 后后台线程分发
-            # 不阻塞 done 返回；分发状态经 _publish_job 回写 job.publish / publish_results
-            auto_plats = payload.get("auto_publish") or []
-            if auto_plats:
-                _set_job(job_id, auto_publish=list(auto_plats))
-                threading.Thread(
-                    target=_publish_job, args=(job_id, auto_plats, payload),
-                    daemon=True,
-                ).start()
+            # 自动发布已停用（2026-08-20）：系统改为「导出素材 + 各平台手动发布」，
+            # done 后不再后台触发 _publish_job / dry 模拟发布。
         elif rc == 124:
             _set_job(job_id, status="failed",
                      error=f"渲染超时（超过 {HARD_TIMEOUT} 秒硬上限），已自动终止以释放资源。请缩短内容或分批生成。")
@@ -2074,20 +2064,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._send(200, {"ok": True, "mode": "seed",
                                     "count": len(seed), "hotspots": seed})
 
-        # ---- P4 OAuth2 授权码模式：生成授权 URL（抖音/小红书）----
-        if p.path.startswith("/oauth/authorize/"):
-            plat = p.path.rsplit("/", 1)[-1]
-            return self._handle_oauth_authorize(plat, p.query)
-
-        # ---- P4 OAuth2 回调：用 code 换 token 并落盘缓存 ----
-        if p.path.startswith("/oauth/callback/"):
-            plat = p.path.rsplit("/", 1)[-1]
-            return self._handle_oauth_callback(plat, p.query)
-
-        # ---- P4 授权态查询：供前端徽章实时读真实授权状态 ----
-        if p.path.startswith("/oauth/status/"):
-            plat = p.path.rsplit("/", 1)[-1]
-            return self._handle_oauth_status(plat, p.query)
+        # ---- OAuth2 授权已停用（2026-08-20）：改为导出素材 + 各平台手动发布 ----
+        # 原 /oauth/authorize|callback|status 路由已移除（handler 保留备用）。
 
         return self._send(404, {"error": "not found"})
 
@@ -2124,8 +2102,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_delete_asset(data)
         if p.path == "/clone_voice":
             return self._handle_clone_voice(data)
-        if p.path == "/publish":
-            return self._handle_publish(data)
         if p.path == "/xhs_build_note":
             return self._handle_xhs_build_note(data)
         if p.path == "/xhs_generate":
