@@ -2248,13 +2248,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
         note = data.get("note")
         if not note:
             topic = (data.get("topic") or "").strip()
-            if not topic:
-                return self._send(400, {"error": "缺少选题或已生成的笔记结构(note)"})
+            raw_body = (data.get("raw_body") or "").strip()
+            if not topic and not raw_body:
+                return self._send(400, {"error": "缺少选题、已生成的笔记结构(note)或正文草稿(raw_body)"})
             selling = (data.get("selling_points") or "").strip()
             audience = (data.get("audience") or "").strip()
             want_pages = max(2, min(8, int(data.get("pages") or 4)))
-            raw_body = (data.get("raw_body") or "").strip()
-            note = self._xhs_build_note(topic, selling, audience, want_pages, raw_body=raw_body)
+            note = self._xhs_build_note(topic or "（用户粘贴文案）", selling, audience, want_pages, raw_body=raw_body)
             if not note:
                 return self._send(502, {"error": "内容生成失败（DeepSeek 不可用或超时）"})
 
