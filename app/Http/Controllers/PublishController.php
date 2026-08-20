@@ -43,7 +43,7 @@ class PublishController extends Controller
             ->limit(50)
             ->get();
 
-        $isSuperAdmin = $request->user()?->isGlobalAdmin() ?? false;
+        $isSuperAdmin = request()->user()?->isGlobalAdmin() ?? false;
         $isTrial = ! $isSuperAdmin && ! $tenant->allow_batch;
 
         return view('studio.publish', compact(
