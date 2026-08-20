@@ -43,7 +43,8 @@ class PublishController extends Controller
             ->limit(50)
             ->get();
 
-        $isTrial = ! $tenant->allow_batch;
+        $isSuperAdmin = $request->user()?->isGlobalAdmin() ?? false;
+        $isTrial = ! $isSuperAdmin && ! $tenant->allow_batch;
 
         return view('studio.publish', compact(
             'videos', 'accounts', 'authorizedIds', 'manualPlatforms', 'records', 'isTrial'
@@ -54,9 +55,10 @@ class PublishController extends Controller
     public function publish(Request $request)
     {
         $tenant = $this->studioTenant(request());
+        $isSuperAdmin = $request->user()?->isGlobalAdmin() ?? false;
 
-        // —— 未授权批量外发（免费套餐默认即如此）——
-        if (! $tenant->allow_batch) {
+        // —— 未授权批量外发（免费套餐默认即如此）；超管绕过该限制 ——
+        if (! $isSuperAdmin && ! $tenant->allow_batch) {
             return redirect()->route('studio.publish')
                 ->with('error', '当前账号暂未开放批量外发权限，请联系管理员开通或升级套餐。');
         }
