@@ -122,43 +122,4 @@ class MatrixController extends Controller
 
         return response()->json(['ok' => true, 'items' => $r['items'] ?? []]);
     }
-
-    /** 直接发布矩阵页生成的小红书图文（复用 xhs 发布链路）。 */
-    public function publishXhs(Request $request)
-    {
-        $data = $request->validate([
-            'image_paths' => ['required', 'array', 'min:1'],
-            'image_paths.*' => ['string'],
-            'title' => ['nullable', 'string', 'max:100'],
-            'description' => ['nullable', 'string', 'max:5000'],
-            'tags' => ['nullable', 'array'],
-            'tags.*' => ['string', 'max:20'],
-        ]);
-
-        try {
-            $resp = app(PipelineClient::class)->postJson('/publish', [
-                'mode' => 'image',
-                'image_paths' => $data['image_paths'],
-                'platforms' => ['xiaohongshu'],
-                'title' => $data['title'] ?? '',
-                'description' => $data['description'] ?? '',
-                'tags' => $data['tags'] ?? [],
-                'tenant_id' => (string) auth()->id(),
-            ], 60);
-        } catch (PipelineUnavailableException $e) {
-            return response()->json(['error' => '发布服务暂时不可用'], 503);
-        }
-        if (! $resp->successful()) {
-            return response()->json(['error' => '发布失败：' . substr((string) $resp->body(), 0, 200)], $resp->status());
-        }
-        $r = $resp->json();
-        $simulated = collect(($r['results'] ?? []))->contains(fn ($x) => ! empty($x['simulated']))
-            || collect(($r['results'] ?? []))->contains(fn ($x) => ($x['status'] ?? '') === 'published' && empty($x['post_id']) && empty($x['url']));
-
-        return response()->json([
-            'ok' => true,
-            'simulated' => $simulated,
-            'results' => $r['results'] ?? [],
-        ]);
-    }
 }
