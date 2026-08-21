@@ -317,49 +317,6 @@ async function doRegenCover() {
     }
 }
 
-async function doPublish() {
-    if (!_paths.length) { alert('请先生成图文'); return; }
-    const title = _selectedTitle || (_note?.cover?.title || '');
-    const desc = document.getElementById('bodyText')?.value || _note?.body || '';
-
-    const btn = document.getElementById('btnPublish');
-    zwSetLoading(btn, { loading: true, text: '发布中…' });
-    setStatus('pubStatus', '正在发布到小红书…', 'warn');
-    const signal = HGTAbort.begin('中止：小红书发布中…');
-    try {
-        const resp = await fetch('/studio/xhs/publish', {
-            method: 'POST',
-            signal,
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() },
-            body: JSON.stringify({
-                image_paths: _paths,
-                title,
-                description: desc,
-                tags: [],
-            }),
-        });
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.error || '发布失败');
-
-        const r = (data.results && data.results[0]) || data;
-        if (r.status === 'published' && r.simulated) {
-            setStatus('pubStatus', `🟡 模拟发布（未真实发出）：${r.error || '未配置小红书账号授权。图片已生成，可以下载后手动发；如需自动发布，请先在「平台账号」完成小红书 OAuth 授权。'}`, 'warn');
-        } else if (r.status === 'published') {
-            setStatus('pubStatus', `✅ 发布成功！笔记链接：${r.url || r.platform_post_id || ''}`, 'ok');
-        } else if (r.status === 'failed') {
-            setStatus('pubStatus', `❌ 发布失败：${r.error || JSON.stringify(r)}`, 'err');
-        } else {
-            setStatus('pubStatus', `📤 状态：${r.status} — ${r.url || r.post_id || ''}`, 'ok');
-        }
-    } catch (e) {
-        if (e.name === 'AbortError') { setStatus('pubStatus', '⏹ 已中止发布', 'warn'); return; }
-        setStatus('pubStatus', '❌ 发布异常：' + e.message, 'err');
-    } finally {
-        HGTAbort.end();
-        zwSetLoading(btn, { loading: false });
-    }
-}
-
 function openBig(src) {
     const ov = document.getElementById('bigOverlay');
     document.getElementById('bigImg').src = src;

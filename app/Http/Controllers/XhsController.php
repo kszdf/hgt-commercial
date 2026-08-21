@@ -7,12 +7,12 @@ use Illuminate\Support\Facades\Auth;
 use App\Services\PipelineClient;
 
 /**
- * 小红书图文笔记控制器：选题+卖点+受众 → 结构化笔记 → 渲染出图 → 预览/发布。
+ * 小红书图文笔记控制器：选题+卖点+受众 → 结构化笔记 → 渲染出图 → 预览/下载。
  *
  * 链路：
  *   前端表单 → POST /studio/xhs/generate → 8500 /xhs_generate (DeepSeek + PIL 出图)
- *   → 返回 base64 图片列表 + 结构化笔记 → 前端预览
- *   → POST /studio/xhs/publish → 8500 /publish mode:image → 小红书开放平台发布
+ *   → 返回 base64 图片列表 + 结构化笔记 → 前端预览/下载。
+ *   暂不提供自动发布，生成后请在小红书 App 手动发布。
  */
 class XhsController extends Controller
 {
@@ -138,42 +138,6 @@ class XhsController extends Controller
 
         if (!$resp->successful()) {
             return response()->json(['error' => '重新生成封面失败：' . $resp->body()], $resp->status());
-        }
-
-        return response()->json($resp->json());
-    }
-
-    /**
-     * 发布图文笔记到小红书（8500 /publish mode=image）。
-     */
-    public function publish(Request $request)
-    {
-        $request->validate([
-            'image_paths' => 'required|array|min:1',
-            'image_paths.*' => 'string',
-            'title' => 'nullable|string|max:100',
-            'description' => 'nullable|string|max:5000',
-            'tags' => 'array',
-            'tags.*' => 'string',
-        ]);
-
-        try {
-            $client = new PipelineClient();
-            $resp = $client->postJson('/publish', [
-                'mode' => 'image',
-                'image_paths' => $request->input('image_paths'),
-                'platforms' => ['xiaohongshu'],
-                'title' => $request->input('title', ''),
-                'description' => $request->input('description', ''),
-                'tags' => $request->input('tags', []),
-                'tenant_id' => auth()->id(),
-            ], 60);
-        } catch (\Exception $e) {
-            return response()->json(['error' => '出片微服务不可达：' . $e->getMessage()], 503);
-        }
-
-        if (!$resp->successful()) {
-            return response()->json(['error' => '发布失败：' . $resp->body()], $resp->status());
         }
 
         return response()->json($resp->json());
