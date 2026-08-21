@@ -82,15 +82,6 @@
                 <div id="imageGrid" class="grid grid-cols-2 gap-3"></div>
             </section>
 
-            <!-- 发布按钮 -->
-            <div class="hidden" id="pubArea">
-                <button type="button" id="btnPublish" onclick="doPublish()"
-                    class="w-full rounded-lg bg-red-500 px-7 py-3 text-base font-semibold text-white shadow hover:bg-red-600 transition-colors">
-                    发布到小红书
-                </button>
-                <div id="pubStatus" class="mt-3 hidden rounded-lg border p-4 text-sm"></div>
-            </div>
-
             <!-- 放大查看大图 -->
             <div id="bigOverlay" class="fixed inset-0 z-50 hidden bg-black/80 p-6"
                  onclick="closeBig()">
@@ -225,8 +216,7 @@ async function doGenerate() {
         _images = data.images || [];
         _paths = data.image_paths || [];
         renderImages(_images);
-        document.getElementById('pubArea').classList.remove('hidden');
-        setStatus('genStatus', `✅ 成功！已生成 ${_images.length} 张图`, 'ok');
+        setStatus('genStatus', `✅ 成功！已生成 ${_images.length} 张图，请点右上角「下载全部图片」后在小红书 App 手动发布。`, 'ok');
     } catch (e) {
         if (e.name === 'AbortError') { setStatus('genStatus', '⏹ 已中止生成', 'warn'); return; }
         setStatus('genStatus', '❌ 生成图文失败：' + e.message, 'err');
