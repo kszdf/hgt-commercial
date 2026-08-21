@@ -59,7 +59,9 @@
             <div id="xhsResult" class="text-xs text-slate-400">未生成（约 30–60 秒）。</div>
             <div id="xhsActions" class="mt-3 hidden space-y-2">
                 <div id="xhsImages" class="grid max-h-64 grid-cols-3 gap-1 overflow-y-auto"></div>
-                <button id="publishXhs" class="w-full rounded-lg bg-brand-600 py-1.5 text-xs font-medium text-white hover:bg-brand-700">发布到小红书 →</button>
+                <div class="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-700">
+                    图片已生成，请右键保存后在小红书 App 手动发布。
+                </div>
             </div>
         </div>
 
@@ -155,23 +157,6 @@ document.getElementById('btnXhs').addEventListener('click', async function () {
         document.getElementById('xhsResult').textContent = '生成失败：' + (err.message||'未知错误');
     } finally { zwSetLoading(btn,{loading:false}); HGTAbort.end(); }
 });
-document.getElementById('publishXhs').addEventListener('click', async function () {
-    const d = window.__matrixXhs; if (!d) return;
-    const btn = this; zwSetLoading(btn, {loading:true, text:'发布中…'});
-    try {
-        const r = await post('/studio/matrix/xhs/publish', {
-            image_paths: d.image_paths||[],
-            title: (d.note&&d.note.titles&&d.note.titles[0])||'',
-            description: (d.note&&d.note.body)||'',
-            tags: [],
-        });
-        if (!r.ok) throw new Error(r.error||'发布失败');
-        if (r.simulated) { hgtToast('warn','已提交（演示模式：未配置小红书授权，未实际发布）'); }
-        else { hgtToast('success','已发布到小红书'); }
-    } catch (err) { hgtToast('error', '发布失败：' + (err.message||'')); }
-    finally { zwSetLoading(btn,{loading:false}); }
-});
-
 // ---- 卡3 朋友圈文案 ----
 document.getElementById('btnMoment').addEventListener('click', async function () {
     const i = input();
