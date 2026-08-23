@@ -68,6 +68,7 @@ GPT_SOVITS = r"D:/heygem_data/gpt_sovits"
 # 复用 gpt_sovits 侧已验证的 DeepSeek 写稿封装与违禁词库（key 不进 Laravel，仅本机 model_keys.env）
 sys.path.insert(0, GPT_SOVITS)
 from model_providers import get_text_config, deepseek_chat, ensure_env, tavily_search, get_key  # noqa: E402
+from asset_fetcher import fetch_policy_asset  # noqa: E402  （政策原文素材采集器）
 import forbidden_words  # noqa: E402
 # 本地 ASR（FunASR）：tools/asr 无 __init__.py，用 sys.path 注入目录后直接 import；
 # 模型缺失时 only_asr=None，仅 /transcribe 受影响，不拖垮其它端点。
@@ -1328,7 +1329,7 @@ def _append_version(job_id, out_path, payload, tag=""):
     import datetime as _dt
     snap = {k: payload.get(k) for k in
             ("mode", "edit_style", "title", "subtitle", "subtitle_style",
-             "natural", "platform", "overlay", "bg")}
+             "natural", "platform", "overlay", "bg", "dialogue")}
     entry = {
         "v": 0,  # 占位，下面算
         "out": out_path,
@@ -1873,8 +1874,13 @@ def run_job(job_id, payload):
             _set_job(job_id, status="done", step="done", out=out_path)
             if not payload.get("_regen"):
                 _append_version(job_id, out_path, payload, tag="初始版本")
-            # 自动发布已停用（2026-08-20）：系统改为「导出素材 + 各平台手动发布」，
-            # done 后不再后台触发 _publish_job / dry 模拟发布。
+            # 自动发布：done 后若请求带了 auto_publish 平台列表，后台线程分发
+            # （无凭证时各适配器降级 dry 模拟，不阻塞出片交付，也不掩盖真实发布结果）。
+            _auto_targets = payload.get("auto_publish") or []
+            if _auto_targets:
+                threading.Thread(
+                    target=lambda: _publish_job(job_id, list(_auto_targets), payload),
+                    daemon=True).start()
         elif rc == 124:
             _set_job(job_id, status="failed",
                      error=f"渲染超时（超过 {HARD_TIMEOUT} 秒硬上限），已自动终止以释放资源。请缩短内容或分批生成。")
@@ -2124,6 +2130,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_dissect(data)
         if p.path == "/cancel":
             return self._handle_cancel(data)
+        if p.path == "/policy_asset":
+            return self._handle_policy_asset(data)
+        if p.path == "/publish":
+            return self._handle_publish(data)
+        if p.path == "/clone":
+            return self._handle_clone(data)
         if p.path == "/metrics/fetch":
             return self._send(200, {"ok": True, "results": fetch_batch((data or {}).get("items") or [])})
         return self._send(404, {"error": "not found"})
@@ -2611,6 +2623,47 @@ class Handler(http.server.BaseHTTPRequestHandler):
         title = str(obj.get("title", "")).strip()[:15]
         subtitle = str(obj.get("subtitle", "")).strip()[:30]
         return self._send(200, {"ok": True, "title": title, "subtitle": subtitle})
+
+    # ---- 政策原文素材采集（文案引用政策 → 官方原文证据卡高清图）----
+    def _handle_policy_asset(self, data):
+        """POST /policy_asset：根据政策引用抓取官方原文素材。
+        入参 JSON: {"policy": "财税〔2024〕15号 或 政策名称/关键词"}
+        返回: {"ok": true, "image_path", "source_url", "title", "clause", "doc_no", "level", "note"}
+        L1 playwright 截屏 → L2 urllib 正文 + PIL 渲染 → L3 仅返回官方 URL（绝不静默失败）。
+        """
+        policy = (data or {}).get("policy") or ""
+        if not policy.strip():
+            return self._send(400, {"error": "policy required（政策文号/名称/关键词）"})
+        try:
+            asset = fetch_policy_asset(policy)
+            return self._send(200, {"ok": True, **asset.to_dict()})
+        except Exception as e:  # noqa: BLE001
+            return self._send(200, {"ok": False, "error": str(e)[:200]})
+
+    # ---- 爆款复刻：从历史版本快照一键复用全套参数重新出片（数据驱动迭代）----
+    def _handle_clone(self, data):
+        """POST /clone：加载某 job 的历史版本快照（对话稿+字幕/剪辑/封面参数），
+        复用全套参数重新出片，实现「爆款复刻」——把跑赢的参数一键复用。
+        入参 JSON: {"job_id": "...", "version": 1(可选，默认最新)}
+        返回: 复用 /generate 的 {"job_id","status":"queued"}
+        """
+        job_id = (data or {}).get("job_id") or ""
+        if not job_id:
+            return self._send(400, {"error": "job_id required"})
+        with lock:
+            vers = list((jobs.get(job_id) or {}).get("versions") or [])
+        if not vers:
+            return self._send(404, {"error": "该 job 无历史版本可复刻"})
+        v = int((data or {}).get("version") or 0)
+        if v < 1 or v > len(vers):
+            v = len(vers)   # 默认复刻最新版本
+        snap = vers[v - 1].get("snapshot") or {}
+        if not snap.get("dialogue"):
+            return self._send(400, {"error": "该版本快照缺少对话稿，无法复刻"})
+        payload = dict(snap)
+        payload["clone_of"] = job_id
+        payload["clone_version"] = v
+        return self._handle_generate(payload)
 
     # ---- 声音克隆（租户上传参考音频 → CosyVoice 克隆 → voice_id）----
     def _handle_clone_voice(self, data):
