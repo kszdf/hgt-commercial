@@ -1202,12 +1202,13 @@ def _detect_mid_silence(path, min_dur=2.5, noise="-35dB"):
             except Exception:  # noqa: BLE001
                 pass
             cur_start = None
-    # 仅保留中段静音（与 [2s, dur-2s] 中段区域有重叠且时长达标），避开片头/片尾合理留白
+    # 仅保留中段静音（静音"开始时间"须落在 [2s, dur-2s] 中段区间内），
+    # 避开片头品牌卡(约3s静音)与片尾留白——此前用"结束时间>2"会把片头静音误判为中段。
     mid_lo, mid_hi = 2.0, max(0.0, dur - 2.0)
     mid = [s for s in segs
            if s["duration"] >= min_dur
-           and (s["start"] + s["duration"]) > mid_lo
-           and s["start"] < mid_hi]
+           and s["start"] >= mid_lo
+           and s["start"] + s["duration"] <= mid_hi]
     longest = max([s["duration"] for s in mid], default=0.0)
     return {"found": bool(mid), "longest": longest, "segments": mid}
 
