@@ -76,7 +76,10 @@ sys.path.insert(0, os.path.join(GPT_SOVITS, "tools", "asr"))
 try:
     from funasr_asr import only_asr  # noqa: E402
 except Exception:  # noqa: BLE001
-    only_asr = None
+    try:
+        from whisper_asr import only_asr  # noqa: E402  （faster-whisper 兜底，模型已下载）
+    except Exception:  # noqa: BLE001
+        only_asr = None
 # 自动发布模块：平台适配器（抖音/视频号/小红书优先，B站/YouTube 顺延）
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from publishers.registry import get_publisher, supported_platforms  # noqa: E402
@@ -104,6 +107,7 @@ SCRIPT_SCROLL = os.path.join(GPT_SOVITS, "make_scroll_video.py")
 SCRIPT_EDIT = os.path.join(GPT_SOVITS, "auto_edit.py")
 SCRIPT_COVER = os.path.join(GPT_SOVITS, "make_cover.py")
 SCRIPT_AVATAR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "make_avatar_from_dialogue.py")
+SCRIPT_MOTION = os.path.join(GPT_SOVITS, "make_motion_video_v4.py")
 
 # 字幕字体：前端传 key，映射为 Windows 系统字体路径（渲染脚本跑在本机，可直接读取）
 FONT_MAP = {
@@ -676,6 +680,59 @@ def ai_dissect(text, platform=None, industry=None):
                 "hook_type": "待分析", "pain_points": [], "case_evidence": [],
                 "emotion_rhythm": [], "structure": [],
                 "reusable_parts": [], "must_replace": [], "rewrite_suggestions": []}
+
+
+def ai_follow_hot(text, platform=None, industry=None):
+    """对标爆款 → 财税仿写：拆解对标文案结构，产出原创财税口播稿。
+    返回 {"ok": True, "dissect": {...}, "rewrite": {...}} 或 {"ok": False, "error"}。"""
+    text = (text or "").strip()
+    if not text:
+        return {"ok": False, "error": "对标文案为空"}
+    cfg = get_text_config()
+    if not cfg.get("key"):
+        return {"ok": False, "error": "未配置文本模型 key"}
+
+    # 1) 拆解对标结构
+    dissect = ai_dissect(text, platform, industry)
+
+    # 2) 财税仿写（结构照搬 + 案例替换 + 违禁词红线）
+    try:
+        fb = forbidden_words.build_guidance()
+    except Exception:  # noqa: BLE001
+        fb = ""
+    ind = f"行业背景：{industry or '财税税务咨询'}。\n"
+    plat = f"发布平台：{platform}。\n" if platform else ""
+    prompt = (
+        "你是财税行业短视频仿写专家。基于对标爆款文案的结构骨架，产出一篇我们自己的原创财税口播稿。\n"
+        + ind + plat
+        + "仿写原则：\n"
+        "- 结构照搬对标（钩子类型、节奏、段落结构），内容 100% 原创，不照抄原文\n"
+        "- 案例换成我们自己的财税场景（虚开发票/金税四期/个人卡收款/挂靠经营/稽查应对等）\n"
+        "- 语气像跟老板聊天，不居高临下，口语化但财税术语准确\n"
+        "- 结尾带留资钩子（引导评论/私信，自然不生硬）\n"
+        + fb + "\n"
+        "严格输出 JSON（不要解释、不要 markdown 代码块）：\n"
+        '{"title":"标题(≤18字,戳痛点)","hook_type":"痛点直击/悬念提问/反常识/身份共鸣/数据冲击/利益承诺",'
+        '"opening":"开头(1-2句钩子)","body":"正文(3-5句,一句一意)","ending":"结尾(留资钩子1-2句)",'
+        '"topics":["话题1","话题2","话题3"]}\n\n'
+        f"【对标文案】\n{text[:800]}\n\n"
+        f"【对标结构拆解参考】hook={dissect.get('hook_type', '')} "
+        f"痛点={', '.join(dissect.get('pain_points', [])[:3])}\n"
+        f"可复用结构={', '.join(dissect.get('reusable_parts', [])[:4])}\n"
+    )
+    try:
+        content = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
+        content = (content or "").strip()
+        if content.startswith("```"):
+            content = content.strip("`")
+            if content[:4].lower() == "json":
+                content = content[4:]
+            content = content.strip()
+        obj = json.loads(content)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": "仿写失败：" + str(e)[:160], "dissect": dissect}
+
+    return {"ok": True, "dissect": dissect, "rewrite": obj}
 
 
 def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, form=None):
@@ -1764,6 +1821,13 @@ def run_job(job_id, payload):
             # 字幕字体（hei/yahei/kaiti/song/fangsong；可选，不传则脚本默认黑体）
             if payload.get("subtitle_font"):
                 args += ["--font", resolve_font(payload["subtitle_font"])]
+        elif mode == "motion":
+            # 幕后音·智能图解：对话稿 → 双声 + AI 生图分镜（motion_v4 内部 TTS + 生图）
+            args = [PY310, SCRIPT_MOTION, "--script", dlg_path, "--out", out_path]
+            if payload.get("title"):
+                args += ["--title", payload["title"]]
+            style = payload.get("motion_style") or "财经严谨"
+            args += ["--style", style, "--dialogue"]
         else:  # scroll
             args = [PY310, SCRIPT_SCROLL, "--dialogue", dlg_path, "--out", out_path]
             if payload.get("title"):
@@ -2128,6 +2192,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_transcribe(data)
         if p.path == "/dissect":
             return self._handle_dissect(data)
+        if p.path == "/follow_hot":
+            return self._handle_follow_hot(data)
         if p.path == "/cancel":
             return self._handle_cancel(data)
         if p.path == "/policy_asset":
@@ -2859,6 +2925,37 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not text:
                 return self._send(400, {"ok": False, "error": "text required"})
             result = ai_dissect(text, data.get("platform"), data.get("industry"))
+            return self._send(200, result)
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            return self._send(200, {"ok": False, "error": str(e)})
+
+    # ---- 对标爆款 → 扒文案(ASR) → 财税仿写（一键闭环）----
+    def _handle_follow_hot(self, data):
+        try:
+            if not isinstance(data, dict):
+                return self._send(400, {"ok": False, "error": "invalid request body"})
+            text = (data.get("text") or "").strip()
+            source_kind = "text"
+            transcript = ""
+            # 无文案但有对标视频/音频 → ASR 扒逐字稿
+            if not text and (data.get("video_b64") or data.get("file_path") or data.get("video_url")):
+                asr = ai_transcribe(data, data.get("language", "zh"))
+                if not asr.get("ok"):
+                    return self._send(200, {"ok": False,
+                                            "error": "对标视频转文字失败：" + str(asr.get("error", ""))})
+                text = (asr.get("text") or "").strip()
+                transcript = text
+                source_kind = "asr"
+                if not text:
+                    return self._send(200, {"ok": False, "error": "视频未识别出文字"})
+            if not text:
+                return self._send(400, {"ok": False,
+                                        "error": "text 或 对标视频(file_path/video_b64/video_url) 至少一项"})
+            result = ai_follow_hot(text, data.get("platform"), data.get("industry") or "财税税务咨询")
+            result["source_kind"] = source_kind
+            if transcript:
+                result["transcript"] = transcript
             return self._send(200, result)
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
