@@ -1773,6 +1773,8 @@ def run_job(job_id, payload):
     try:
         mode = (payload.get("mode") or "scroll").lower()
         dialogue = payload.get("dialogue", "").strip()
+        # 去 BOM（\ufeff）：文件粘贴/上传常带 BOM，会导致首行"女：/男："前缀识别失败
+        dialogue = dialogue.lstrip("\ufeff")
         if not dialogue:
             _set_job(job_id, status="failed", error="dialogue required")
             return
@@ -1836,6 +1838,8 @@ def run_job(job_id, payload):
                 args += ["--subtitle", payload["subtitle"]]
             if payload.get("bg"):
                 args += ["--bg", payload["bg"]]
+            if payload.get("bg_style"):
+                args += ["--bg-style", payload["bg_style"]]
             # 真实 TTS 为默认；仅当显式 dry_tts=true 才用静音占位
             if payload.get("dry_tts"):
                 args += ["--dry-tts"]
