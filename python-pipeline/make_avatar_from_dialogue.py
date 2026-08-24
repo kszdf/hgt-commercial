@@ -195,13 +195,15 @@ def _wrap_display_by_width(display, fonts, max_width=SUBTITLE_MAX_W):
 
 
 def detect_graphics(timed):
-    """按对话内容识别「图解句」→ 生成数字人出镜时的智能图解时间轴。
-    规则（克制，只插最该视觉化的）：
-      - 含金额/数字（数字+万/%/元）→ number 数据卡（大数字）
-      - 含 风险/红线/别/不能/被查/稽查/补税/罚款/滞纳 → warn 警示卡
-      - 含 第一/第二/首先/然后/步骤/三步 → step 流程卡
-      - 含 案例/例子/一个老板/最近 → scene 场景卡（标题+说明）
-    返回 [{"start","end","kind","title","data"}, ...]，每句最多 1 段，总段数 ≤4（克制）。"""
+    """按对话内容识别「图解句」→ 生成数字人出镜时穿插的智能图解时间轴。
+    数据喂给 make_motion 的成熟渲染（真图表/AI生图/流程），非简化大字卡。
+    规则（克制，只插最该视觉化的，总段数 ≤4）：
+      - 含金额/百分比 → number 数字卡（大数字+图表）
+      - 含 风险/红线/稽查/补税/罚款/滞纳 → warn 警示卡（motion 走 quote/红卡）
+      - 含 第一/第二/首先/然后/步骤/三步 → step 流程卡（箭头串联）
+      - 含 对比/比/相比/和…差 → table 表格卡（列对比）
+      - 含 案例/一个老板/最近 → scene 场景卡（AI 生图插画）
+    返回 [{"start","end","kind","title","data"}, ...]。"""
     import re as _re
     out = []
     for start, end, display in timed:
@@ -209,23 +211,35 @@ def detect_graphics(timed):
             break
         txt = display or ""
         title = txt[:12]
-        if _re.search(r"\d+(?:\.\d+)?\s*[万亿%元]?", txt):
-            m = _re.search(r"(\d+(?:\.\d+)?\s*[万亿%元]?)", txt)
+        nums = _re.findall(r"\d+(?:\.\d+)?\s*[万亿%元]?", txt)
+        if nums:
             out.append({"start": round(start, 2), "end": round(end, 2), "kind": "number",
-                        "title": title, "data": {"num": m.group(1), "sub": "重点数据"}})
-        elif _re.search(r"风险|红线|别|不能|被查|稽查|补税|罚款|滞纳|盯上", txt):
+                        "title": title, "tone": "risk",
+                        "data": {"num": nums[0], "sub": "重点数据", "keywords": ["数据", "金额"]}})
+        elif _re.search(r"风险|红线|稽查|补税|罚款|滞纳|被查|盯上|别|不能", txt):
             kw = "、".join([w for w in ("风险", "稽查", "补税", "罚款", "滞纳", "红线")
                             if w in txt][:2]) or "注意"
-            out.append({"start": round(start, 2), "end": round(end, 2), "kind": "warn",
-                        "title": title, "data": {"kw": kw}})
+            out.append({"start": round(start, 2), "end": round(end, 2), "kind": "quote",
+                        "title": title, "tone": "risk",
+                        "data": {"quote": kw + "，别抱侥幸", "keywords": [kw]}})
         elif _re.search(r"第一|第二|首先|然后|步骤|三步|第一步|第二步|第三步", txt):
             steps = [s.strip() for s in _re.split(r"[。；;]", txt)
-                     if _re.search(r"第[一二三0-9]|第一|第二|第三", s)][:4] or ["步骤一", "步骤二", "步骤三"]
+                     if _re.search(r"第[一二三0-9]|第一|第二|第三", s)][:4] or ["停掉个人卡收款", "主动补申报", "顾问合规梳理"]
             out.append({"start": round(start, 2), "end": round(end, 2), "kind": "step",
-                        "title": title, "data": {"steps": steps}})
+                        "title": title, "tone": "safe",
+                        "data": {"steps": steps, "keywords": ["步骤"]}})
+        elif _re.search(r"对比|相比|比.*高|比.*低|和.*差|多.*少", txt):
+            head = ["项目", "说明"]
+            rows = [[txt[:6], "见详情"]]
+            out.append({"start": round(start, 2), "end": round(end, 2), "kind": "table",
+                        "title": title, "tone": "neutral",
+                        "data": {"table": {"head": head, "rows": rows}, "keywords": []}})
         elif _re.search(r"案例|例子|一个老板|最近|举例", txt):
+            prompt = ("财税顾问在办公室审阅账本，画面专业沉稳，扁平商务插画，"
+                      "低饱和配色，无文字无数字")
             out.append({"start": round(start, 2), "end": round(end, 2), "kind": "scene",
-                        "title": title, "data": {"desc": txt[:40]}})
+                        "title": title, "tone": "neutral",
+                        "data": {"prompt": prompt, "keywords": ["案例"]}})
     return out
 
 
@@ -296,10 +310,20 @@ def main():
                     choices=["dynamic", "minimal", "bubble"],
                     help="字幕风格：dynamic=逐字高亮（卡拉OK式）/ minimal=纯净白字 / bubble=气泡底衬")
     ap.add_argument("--font", default=None, help="字幕主字体路径（透传 make_avatar_video）")
+    ap.add_argument("--mono", action="store_true", default=True,
+                    help="单人单声线（默认）：去除 女：/男： 前缀，整稿用 male_voice 配音（数字人语义）")
+    ap.add_argument("--dual", action="store_true",
+                    help="保留男女对话双声（需同时传 --female-voice；默认关闭，数字人应为单声线）")
     args = ap.parse_args()
 
     with open(args.dialogue, encoding="utf-8-sig") as f:
-        segs = parse_dialogue(f.read())
+        raw = f.read()
+    if not args.dual and args.mono:
+        # 数字人统一单人独白：去掉角色前缀，整稿单一声线（与 server.py avatar 语义一致）
+        import re as _re
+        raw = _re.sub(r"^\s*(?:女|男|旁白)[:：]\s*", "", raw, flags=_re.M)
+        args.female_voice = ""   # 单声线：女声槽位清空，杜绝误用女声
+    segs = parse_dialogue(raw)
     if not segs:
         sys.exit("对话稿为空或解析失败")
 
