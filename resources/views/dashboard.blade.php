@@ -61,6 +61,75 @@
         </div>
     @endif
 
+    <!-- ========== 极简创作台（罗根式一键流水线） ========== -->
+    <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="mb-4 flex items-center gap-2">
+            <h2 class="text-lg font-bold text-slate-800">一键创作</h2>
+            <span class="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-600">粘贴文案 / 选题 → 选形式 → 出片</span>
+        </div>
+
+        <textarea id="quick-input" rows="3"
+            placeholder="粘贴对标爆款文案，或输入选题关键词。例：个人卡收款被金税四期盯上，老板们别再用个人卡收货款了…"
+            class="w-full rounded-xl border border-slate-300 p-3 text-sm text-slate-800 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
+
+        <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4" id="quick-forms">
+            <button type="button" data-form="scroll" data-target="/studio/rewrite" class="quick-form active">
+                <span class="text-xl">🎬</span>幕后音字幕卡
+            </button>
+            <button type="button" data-form="avatar" data-target="/studio/rewrite" class="quick-form">
+                <span class="text-xl">🤖</span>数字人出镜
+            </button>
+            <button type="button" data-form="motion" data-target="/studio/rewrite" class="quick-form">
+                <span class="text-xl">✨</span>智能图解
+            </button>
+            <button type="button" data-form="xhs" data-target="/studio/xhs" class="quick-form">
+                <span class="text-xl">📕</span>小红书图文
+            </button>
+        </div>
+
+        <button id="quick-go" class="mt-4 w-full rounded-xl bg-brand-600 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700">
+            🚀 一键生成
+        </button>
+        <p class="mt-2 text-center text-xs text-slate-400">对标仿写 → 配音 → 出片 → 字幕封面，全自动</p>
+    </section>
+
+    <style>
+        .quick-form { display:flex; flex-direction:column; align-items:center; gap:2px; border:1px solid #e2e8f0; border-radius:12px; padding:10px 6px; font-size:13px; color:#475569; background:#fff; transition:all .15s; }
+        .quick-form:hover { border-color:#c7d2fe; background:#f8fafc; }
+        .quick-form.active { border-color:#6366f1; background:#eef2ff; color:#4338ca; font-weight:600; box-shadow:0 0 0 3px rgba(99,102,241,.12); }
+    </style>
+
+    <script>
+        (function () {
+            var btns = document.querySelectorAll('#quick-forms .quick-form');
+            var input = document.getElementById('quick-input');
+            var go = document.getElementById('quick-go');
+            var current = 'scroll', currentTarget = '/studio/rewrite';
+            btns.forEach(function (b) {
+                b.addEventListener('click', function () {
+                    btns.forEach(function (x) { x.classList.remove('active'); });
+                    b.classList.add('active');
+                    current = b.dataset.form;
+                    currentTarget = b.dataset.target;
+                });
+            });
+            go.addEventListener('click', function () {
+                var txt = (input.value || '').trim();
+                var url = currentTarget;
+                if (current === 'xhs') {
+                    url += (txt ? '?topic=' + encodeURIComponent(txt) : '');
+                } else if (txt) {
+                    url += '?text=' + encodeURIComponent(txt);
+                }
+                // 把选中的形式带过去（scroll/avatar 走二创，motion 走图解）
+                if (current !== 'xhs') {
+                    url += (url.indexOf('?') >= 0 ? '&' : '?') + 'mode=' + current;
+                }
+                window.location.href = url;
+            });
+        })();
+    </script>
+
     <!-- ========== Hero 卡片区 ========== -->
     <section class="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <a href="/studio/topic" class="hero-card hero-blue magnetic group cursor-pointer">
