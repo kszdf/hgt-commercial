@@ -63,15 +63,18 @@
                                 <button type="button" onclick="startOauth({{ $a->id }})"
                                     class="rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1 text-[11px] text-brand-700 hover:bg-brand-100">去授权</button>
                             @endif
+                            @php
+                                $editData = [
+                                    'id' => $a->id,
+                                    'platform' => $a->platform,
+                                    'account_name' => $a->account_name,
+                                    'remark' => $a->remark,
+                                    'content_tags' => $a->content_tags ?? [],
+                                    'daily_limit' => $a->daily_limit,
+                                ];
+                            @endphp
                             <button type="button"
-                                onclick='openAccountModal("edit", @json([
-                                    "id" => $a->id,
-                                    "platform" => $a->platform,
-                                    "account_name" => $a->account_name,
-                                    "remark" => $a->remark,
-                                    "content_tags" => $a->content_tags ?? [],
-                                    "daily_limit" => $a->daily_limit,
-                                ]))'
+                                onclick='openAccountModal("edit", @json($editData))'
                                 class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 hover:bg-slate-50">编辑</button>
                             <form method="POST" action="{{ route('studio.accounts.destroy', $a) }}" onsubmit="return confirm('确认删除该渠道备忘？删除后不可恢复。')">
                                 @csrf
