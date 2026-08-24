@@ -86,15 +86,15 @@ def check_text_overflow(path, title, subtitle):
                 if mx < w - 6:
                     continue
                 # 贴边段长度：从右往左数连续亮像素。
-                # 真文字笔画右缘一般 3~40px；孤立噪点/身体边缘 1~2px；大色块 ≥60px。
+                # 真文字笔画右缘一般 6~40px；身体/桌面边缘过渡带 1~5px；大色块 ≥60px。
                 seg = 0
                 for x in range(mx, -1, -1):
                     if 0.299 * px[x, y][0] + 0.587 * px[x, y][1] + 0.114 * px[x, y][2] > 170:
                         seg += 1
                     else:
                         break
-                if seg < 3 or seg >= 60:
-                    continue  # 孤立亮点(数字人身体边缘) 或 连续大色块，均非文字
+                if seg < 6 or seg >= 60:
+                    continue  # 身体边缘过渡带(1-5px) 或 连续大色块(≥60px)，均非文字
                 issues.append(f"{label}文字贴右边缘溢出({sec:.0f}s)")
                 break
         os.remove(out)
