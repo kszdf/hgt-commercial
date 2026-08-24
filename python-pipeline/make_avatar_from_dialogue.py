@@ -243,6 +243,47 @@ def detect_graphics(timed):
     return out
 
 
+def annotate_face_positions(gfx, video_path, fps=30):
+    """数字人图解浮层自适应：渲染后抽每段起始帧，用 Haar 人脸检测定位数字人主体，
+    把 face=(x,y,w,h) 写进每段 graphics，供 finalize 半透明叠加时避让/变尺寸。
+    cv2 不可用时跳过（finalize 退化为底部固定浮层）。"""
+    try:
+        import cv2  # noqa: F401
+        import numpy as np  # noqa: F401
+    except Exception:  # noqa: BLE001
+        print("[avatar] cv2 不可用，图解浮层退化为固定底部位置")
+        return gfx
+    cascade = cv2.CascadeClassifier(
+        os.path.join(GPT_SOVITS, "haarcascade_frontalface_default.xml"))
+    for g in gfx:
+        sec = float(g.get("start", 0))
+        frame = os.path.join(tempfile.gettempdir(), "face_%s_%s.png" % (
+            os.path.basename(video_path), uuid.uuid4().hex[:6]))
+        try:
+            subprocess.run(
+                [FFMPEG, "-y", "-ss", str(max(0, sec - 0.3)), "-i", video_path,
+                 "-frames:v", "1", frame],
+                capture_output=True, timeout=30, check=True)
+            if os.path.exists(frame):
+                img = cv2.imread(frame)
+                if img is not None:
+                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    faces = cascade.detectMultiScale(gray, scaleFactor=1.1,
+                                                    minNeighbors=5, minSize=(80, 80))
+                    big = [f for f in faces if f[2] >= 200]
+                    if big:
+                        fx, fy, fw, fh = max(big, key=lambda f: f[2] * f[3])
+                        g["face"] = [int(fx), int(fy), int(fw), int(fh)]
+        except Exception as e:  # noqa: BLE001
+            print(f"  [WARN] 人脸检测失败 @{sec}s: {e}")
+        finally:
+            try:
+                os.remove(frame)
+            except OSError:
+                pass
+    return gfx
+
+
 def build_karaoke(timed, style):
     """根据每句配音时长，按比例把每个可见字符摊到时间轴，产出逐字高亮所需 sidecar。
     结构：{"style":..., "events":[{"start","end","lines":[[{c,s,e}...]...]}]}。
