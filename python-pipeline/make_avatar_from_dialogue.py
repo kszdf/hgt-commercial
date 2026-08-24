@@ -407,11 +407,28 @@ def main():
            "--graphics", graphics_path]
     if args.font:
         cmd += ["--font", args.font]
-    r = subprocess.run(cmd, cwd=GPT_SOVITS, capture_output=True, text=True,
-                       encoding="utf-8", errors="ignore")
-    if r.returncode != 0:
-        sys.stderr.write((r.stdout or "") + "\n" + (r.stderr or ""))
-        sys.exit(f"make_avatar_video 失败 (rc={r.returncode})")
+    # 长视频稳定输出：整体重试（HEYGEM 渲染偶发失败/超时自动重跑，最多 3 次，无需人盯）
+    # 已修复：渲染轮询/落盘等待按音频时长动态（长口播 300s+ 需 30 分钟，不再被固定 480s 掐死）
+    max_tries = 3
+    last_err = ""
+    for attempt in range(1, max_tries + 1):
+        if attempt > 1:
+            print(f"\n[avatar] 渲染第 {attempt}/{max_tries} 次重试（上次失败: {last_err[:80]}）")
+            # 重试前清掉可能的残留产物，避免读到半截文件
+            try:
+                if os.path.exists(out):
+                    os.remove(out)
+            except OSError:
+                pass
+        r = subprocess.run(cmd, cwd=GPT_SOVITS, capture_output=True, text=True,
+                           encoding="utf-8", errors="ignore")
+        if r.returncode == 0 and os.path.exists(out):
+            break
+        last_err = (r.stderr or r.stdout or "")[-300:]
+        print(f"[avatar] 第 {attempt} 次失败: {last_err[:120]}")
+    else:
+        sys.stderr.write(last_err + "\n")
+        sys.exit(f"make_avatar_video 失败（重试 {max_tries} 次后仍失败）")
     if not os.path.exists(out):
         sys.exit("成品未生成")
     print(f"\n成品: {out}  ({os.path.getsize(out)//1024} KB)")
