@@ -8,24 +8,18 @@
 from __future__ import annotations
 
 from .base import BasePublisher
-from .youtube import YouTubePublisher
-from .bilibili import BilibiliPublisher
 from .douyin import DouyinPublisher
 from .shipinhao import ShipinhaoPublisher
 from .xiaohongshu import XiaohongshuPublisher
 from .wechat import WechatMpPublisher
-from .kuaishou import KuaishouPublisher
 
 _REGISTRY: dict[str, type[BasePublisher]] = {
-    YouTubePublisher.platform_key: YouTubePublisher,
-    BilibiliPublisher.platform_key: BilibiliPublisher,
     # 自动/半自动（OAuth2 或 client_credential），supports_auto=True：
     DouyinPublisher.platform_key: DouyinPublisher,       # 抖音：OAuth 授权码
     XiaohongshuPublisher.platform_key: XiaohongshuPublisher,  # 小红书：OAuth 授权码（笔记）
     WechatMpPublisher.platform_key: WechatMpPublisher,   # 公众号：AppID/AppSecret → 草稿箱
     # 人工（无稳定公开 API / 未接入），supports_auto=False → MANUAL_REQUIRED：
     ShipinhaoPublisher.platform_key: ShipinhaoPublisher,  # 视频号：无公开 API
-    KuaishouPublisher.platform_key: KuaishouPublisher,    # 快手：未接入开放平台
 }
 
 

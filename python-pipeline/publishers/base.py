@@ -45,7 +45,7 @@ class PublishRequest:
     二者至少填其一；适配器按字段是否存在决定笔记类型。
     """
     tenant_id: int                 # 租户 ID（隔离 + 凭证归属）
-    platform: str                 # 规范平台键：douyin/shipinhao/xiaohongshu/bilibili/youtube
+    platform: str                 # 规范平台键：douyin/shipinhao/xiaohongshu/wechat
     video_path: Optional[str] = None               # 本地视频文件绝对路径（视频笔记用）
     image_paths: Optional[list] = None             # 本地图片文件绝对路径列表（图文笔记用，1~9 张）
     title: str = ""                # 作品标题

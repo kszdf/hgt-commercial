@@ -1442,7 +1442,7 @@ def _publish_job(job_id, platforms, data):
         results = []
         account_key = str(data.get("account_key") or "")
         # 账号级 OAuth token 仅抖音/小红书需要（授权码模式）；其余平台直接进适配器：
-        #   wechat 走 extra 的 client_credential，shipinhao/bilibili/youtube/kuaishou 返回 MANUAL_REQUIRED
+        #   wechat 走 extra 的 client_credential，shipinhao 返回 MANUAL_REQUIRED
         oauth_token_platforms = ("douyin", "xiaohongshu")
         for p in platforms:
             if account_key and p in oauth_token_platforms:
@@ -1547,7 +1547,7 @@ def _publish_job(job_id, platforms, data):
 
     account_key = str(data.get("account_key") or "")
     # 账号级 OAuth token 仅抖音/小红书需要（授权码模式）；其余平台直接进适配器：
-    #   wechat 走 extra 的 client_credential，shipinhao/bilibili/youtube/kuaishou 返回 MANUAL_REQUIRED
+    #   wechat 走 extra 的 client_credential，shipinhao 返回 MANUAL_REQUIRED
     oauth_token_platforms = ("douyin", "xiaohongshu")
 
     results = []

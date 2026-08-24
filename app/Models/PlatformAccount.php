@@ -38,15 +38,12 @@ class PlatformAccount extends Model
         'douyin' => '抖音',
         'shipinhao' => '视频号',
         'xiaohongshu' => '小红书',
-        'kuaishou' => '快手',
-        'bilibili' => 'B站',
-        'youtube' => 'YouTube',
         'wechat' => '公众号',
         'manual' => '手动',
     ];
 
     /** 人工发布平台：无稳定公开 API / 未接入，一键发布走「待人工发布」而非报错。 */
-    public const MANUAL_PLATFORMS = ['shipinhao', 'bilibili', 'youtube', 'kuaishou'];
+    public const MANUAL_PLATFORMS = ['shipinhao'];
 
     /** 内容定位标签（选题/改写页「重点方向」同源）。 */
     public const CONTENT_TAGS = [

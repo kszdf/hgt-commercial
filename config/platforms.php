@@ -18,10 +18,7 @@ return [
      */
     'platforms' => [
         'douyin'      => ['label' => '抖音',   'spec' => [1080, 1920], 'topic' => true,  'publish' => 'api'],
-        'shipinhao'   => ['label' => '视频号', 'spec' => [1080, 1920], 'topic' => true,  'publish' => 'api'],
+        'shipinhao'   => ['label' => '视频号', 'spec' => [1080, 1920], 'topic' => true,  'publish' => 'manual'],
         'xiaohongshu' => ['label' => '小红书', 'spec' => [1080, 1440], 'topic' => true,  'publish' => 'api'],
-        'kuaishou'    => ['label' => '快手',   'spec' => [1080, 1920], 'topic' => true,  'publish' => 'api'],
-        'bilibili'    => ['label' => 'B站',    'spec' => [1920, 1080], 'topic' => false, 'publish' => 'manual'],
-        'youtube'     => ['label' => 'YouTube','spec' => [1920, 1080], 'topic' => false, 'publish' => 'auto'],
     ],
 ];

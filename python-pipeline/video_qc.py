@@ -25,7 +25,7 @@ FFPROBE = r"D:\ffmpeg\ffmpeg-8.1.2-full_build\bin\ffprobe.exe"
 
 PLATFORM_SPECS = {
     "douyin": (1080, 1920), "shipinhao": (1080, 1920), "video": (1080, 1920),
-    "xiaohongshu": (1080, 1440), "xhs": (1080, 1440), "kuaishou": (1080, 1920),
+    "xiaohongshu": (1080, 1440), "xhs": (1080, 1440),
 }
 
 

@@ -17,9 +17,9 @@ use Illuminate\Http\Request;
  */
 class AccountController extends Controller
 {
-    /** 可登记的平台（wechat=公众号，shipinhao=视频号）。 */
+    /** 可登记的平台：精简到主流4个（视频号/抖音/小红书/公众号），后续按需扩充。 */
     private const PLATFORM_KEYS = [
-        'douyin', 'shipinhao', 'xiaohongshu', 'kuaishou', 'bilibili', 'youtube', 'wechat',
+        'douyin', 'shipinhao', 'xiaohongshu', 'wechat',
     ];
 
     /** 账号管理页：本租户全部渠道备忘 + 今日余量。 */
