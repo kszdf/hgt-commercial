@@ -164,7 +164,54 @@ class WechatMpPublisher(BasePublisher):
                 raw={"stage": "draft", "thumb_media_id": thumb_id, "dry": False},
             )
 
-        # ---- 视频笔记：上传永久视频素材 → 待后台群发（公众号视频群发有额度，走半自动） ----
+        # ---- 图文文章：标题 + 正文(description 多段) + 封面图 thumb → draft/add 入草稿箱 ----
+        if not req.video_path and ((req.description or "").strip() or req.cover_path):
+            extra = req.extra or {}
+            paragraphs = [p.strip() for p in (req.description or "").split("\n") if p.strip()]
+            if not paragraphs:
+                return PublishResult(platform=self.platform_key, status=PublishStatus.FAILED,
+                                     error_code="EMPTY_CONTENT", error_message="正文不能为空")
+            thumb_id = ""
+            if req.cover_path and os.path.exists(req.cover_path):
+                thumb_id, terr = self._upload_material(token, req.cover_path, "image")
+                if terr:
+                    return PublishResult(platform=self.platform_key, status=PublishStatus.FAILED,
+                                         error_code="THUMB_ERROR", error_message="封面图上传失败: " + terr)
+            if not thumb_id:
+                return PublishResult(platform=self.platform_key, status=PublishStatus.FAILED,
+                                     error_code="NO_COVER", error_message="请提供封面图（公众号草稿必须指定封面）")
+            content = "".join(f"<p>{p}</p>" for p in paragraphs)
+            digest = extra.get("digest") or paragraphs[0][:120]
+            payload = {
+                "articles": [{
+                    "title": req.title or "财税文章",
+                    "author": extra.get("author", ""),
+                    "digest": digest,
+                    "content": content,
+                    "content_source_url": extra.get("content_source_url", ""),
+                    "thumb_media_id": thumb_id,
+                    "need_open_comment": 0,
+                    "only_fans_can_comment": 0,
+                }]
+            }
+            r = requests.post(f"{_WX_API}/cgi-bin/draft/add",
+                              params={"access_token": token}, json=payload, timeout=_TIMEOUT)
+            d = r.json()
+            if d.get("errcode", 0) != 0:
+                return PublishResult(platform=self.platform_key, status=PublishStatus.FAILED,
+                                     error_code=str(d.get("errcode")),
+                                     error_message="公众号草稿创建失败: " + d.get("errmsg", ""),
+                                     raw={"thumb_media_id": thumb_id})
+            draft_id = d.get("media_id", "")
+            return PublishResult(
+                platform=self.platform_key,
+                status=PublishStatus.PUBLISHED,
+                platform_post_id=draft_id,
+                platform_url="",  # 草稿无外链，需后台群发后才有 URL
+                raw={"stage": "draft", "thumb_media_id": thumb_id, "dry": False},
+            )
+
+        # ---- 视频素材：上传永久视频 → 待后台群发（公众号视频群发有额度，走半自动） ----
         media_id, verr = self._upload_material(token, req.video_path, "video")
         if verr:
             return PublishResult(platform=self.platform_key, status=PublishStatus.FAILED,

@@ -143,6 +143,12 @@
                         <span>发布助手</span>
                     </a>
                 </li>
+                <li>
+                    <a href="/studio/article" class="{{ request()->is('studio/article*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-emerald">
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <span>公众号发文</span>
+                    </a>
+                </li>
             </ul>
 
             <!-- 分组：素材中心（默认收起） -->

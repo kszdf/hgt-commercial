@@ -118,8 +118,9 @@ class PublishRunner
     /**
      * 公众号（wechat）账号级凭证：解密 account_info 转 8500 的 extra（appid/appsecret）。
      * 其余平台（OAuth/手动）不传，避免明文在内部链路无谓扩散。
+     * public：供 PublishController 的公众号文章发布复用。
      */
-    private function credentialsExtra(PlatformAccount $account): array
+    public function credentialsExtra(PlatformAccount $account): array
     {
         if ($account->platform !== 'wechat') {
             return [];

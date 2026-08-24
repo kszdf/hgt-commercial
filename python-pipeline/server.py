@@ -1481,6 +1481,48 @@ def _publish_job(job_id, platforms, data):
             _set_job(job_id, publish_results=results)
         return results
 
+    # ---- 公众号图文文章：标题 + 正文 + 封面 → draft/add 入草稿箱（不依赖视频 job） ----
+    if mode == "article":
+        title = str(data.get("title") or "")
+        content = str(data.get("description") or data.get("content") or "")
+        if not content.strip():
+            return [{"error": "content required for mode=article"}]
+        cover = data.get("cover_path") or ""
+        unknown = [p for p in platforms if p not in supported]
+        if unknown:
+            return [{"error": f"unsupported platform(s): {unknown}", "supported": supported_platforms()}]
+        tenant_id = str(data.get("tenant_id") or "default")
+        cred_ref = data.get("credential_ref")
+
+        def _cb_a(platform, jk, status, detail):
+            _merge_job(job_id, "publish", platform, {"status": status.value, "detail": detail})
+
+        results = []
+        for p in platforms:
+            try:
+                pub = get_publisher(p, status_callback=_cb_a)
+                req = PublishRequest(
+                    tenant_id=tenant_id, platform=p,
+                    title=title, description=content, cover_path=cover,
+                    credential_ref=cred_ref, extra=data.get("extra") or {},
+                )
+                res = pub.publish(req, job_id)
+                raw = res.raw or {}
+                dry = bool(raw.get("dry"))
+                results.append({
+                    "platform": p,
+                    "status": "simulated" if dry else res.status.value,
+                    "post_id": "" if dry else res.platform_post_id,
+                    "url": "" if dry else res.platform_url,
+                    "error": res.error_message,
+                    "simulated": dry or bool(raw.get("simulated")),
+                })
+            except Exception as exc:  # noqa: BLE001
+                results.append({"platform": p, "status": "failed", "error": str(exc)})
+        if job_id:
+            _set_job(job_id, publish_results=results)
+        return results
+
     # ---- 视频笔记：需 done 状态成片 ----
     j = jobs.get(job_id)
     if not j:
@@ -2270,9 +2312,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
         无凭证时各适配器降级 dry 模拟（status=published + 模拟 post_id/url）。
         """
         mode = str(data.get("mode") or "video").lower()
-        job_id = data.get("job_id") or ("xhs_" + secrets.token_hex(8) if mode == "image" else "")
-        if mode != "image" and not job_id:
-            return self._send(400, {"error": "job_id required"})
+        # 图文/文章发布不依赖视频 job：无 job_id 时生成占位 id（仅用于回写 publish_results）
+        if mode == "article":
+            job_id = data.get("job_id") or ("article_" + secrets.token_hex(8))
+        elif mode == "image":
+            job_id = data.get("job_id") or ("xhs_" + secrets.token_hex(8))
+        else:
+            job_id = data.get("job_id") or ""
+            if not job_id:
+                return self._send(400, {"error": "job_id required"})
         platforms = data.get("platforms") or []
         if not platforms:
             return self._send(400, {
