@@ -234,10 +234,11 @@
                     <p class="mt-2 text-center text-[11px] text-slate-400">预览为示意，实际以出片为准</p>
                 </details>
 
-                <!-- 配音感情/快慢调节（分声线） -->
-                <details class="rounded-lg studio-card studio-card-sm">
+                <!-- 配音感情/快慢调节（分声线）— 已隐藏：韵律由系统按情绪自动调教（v4 定稿），
+                     滑块 DOM 保留供 JS 读取默认值，避免 getElementById 报错；如需手动微调再取消 hidden -->
+                <details class="rounded-lg studio-card studio-card-sm" hidden>
                     <summary class="cursor-pointer text-sm font-medium text-slate-600 select-none">🎚 配音感情 / 快慢调节（高级）</summary>
-                    <p class="mt-2 text-xs text-slate-400">语速越低越慢；音调越高越亮/尖；音量 0-100。男声默认沉稳慢、女声默认略亮亲和。</p>
+                    <p class="mt-2 text-xs text-slate-400">已启用自动韵律：语速/音调/音量/停顿由系统按每句情绪自动调教（专业版），无需手动调节。</p>
                     <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div class="space-y-1">
                             <div class="flex justify-between text-xs text-slate-500"><span>男声·语速</span><span id="v_male_rate" class="font-mono text-brand-600">0.98</span></div>
@@ -245,13 +246,13 @@
                                 oninput="document.getElementById('v_male_rate').textContent=this.value">
                         </div>
                         <div class="space-y-1">
-                            <div class="flex justify-between text-xs text-slate-500"><span>女声·语速</span><span id="v_female_rate" class="font-mono text-brand-600">0.98</span></div>
-                            <input type="range" id="female_rate" min="0.5" max="2" step="0.01" value="0.98" class="w-full accent-brand-500"
+                            <div class="flex justify-between text-xs text-slate-500"><span>女声·语速</span><span id="v_female_rate" class="font-mono text-brand-600">0.96</span></div>
+                            <input type="range" id="female_rate" min="0.5" max="2" step="0.01" value="0.96" class="w-full accent-brand-500"
                                 oninput="document.getElementById('v_female_rate').textContent=this.value">
                         </div>
                         <div class="space-y-1">
-                            <div class="flex justify-between text-xs text-slate-500"><span>男声·音调</span><span id="v_male_pitch" class="font-mono text-brand-600">0.95</span></div>
-                            <input type="range" id="male_pitch" min="0.5" max="2" step="0.01" value="0.95" class="w-full accent-brand-500"
+                            <div class="flex justify-between text-xs text-slate-500"><span>男声·音调</span><span id="v_male_pitch" class="font-mono text-brand-600">0.97</span></div>
+                            <input type="range" id="male_pitch" min="0.5" max="2" step="0.01" value="0.97" class="w-full accent-brand-500"
                                 oninput="document.getElementById('v_male_pitch').textContent=this.value">
                         </div>
                         <div class="space-y-1">
@@ -270,12 +271,13 @@
                                 oninput="document.getElementById('v_female_vol').textContent=this.value">
                         </div>
                     </div>
-                    <label class="mt-3 flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs text-brand-700 cursor-pointer hover:bg-brand-100 transition">
-                        <input type="checkbox" id="natural" class="accent-brand-500 rounded">
-                        🗣 专家自然口吻（女声专业发问 / 男声权威解答，自然对话节奏与停顿，结尾留咨询钩子；已去除口语哼嗯与填充词）
-                    </label>
-                    <button type="button" onclick="resetVoice()" class="mt-2.5 text-xs text-brand-500 hover:text-brand-700 hover:underline">恢复默认（男声略快自然 / 女声略亮亲和）</button>
                 </details>
+
+                <!-- 专家自然口吻（v4 定稿：语气词按语义适配 + 自动韵律，用户只需勾选这一项） -->
+                <label class="mt-2 flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs text-brand-700 cursor-pointer hover:bg-brand-100 transition">
+                    <input type="checkbox" id="natural" class="accent-brand-500 rounded">
+                    🗣 专家自然口吻（女声专业发问 / 男声权威解答，自动匹配语气词与韵律起伏，去 AI 机械感；推荐勾选）
+                </label>
 
                 <p id="quotaHint" class="text-xs text-slate-400"></p>
                 <p id="durationHint" class="mt-2 text-xs text-slate-400"></p>
@@ -1058,7 +1060,8 @@ fetchQueueEstimate();
 setInterval(fetchQueueEstimate, 20000);
 
 function resetVoice() {
-    const defs = {male_rate:0.98, female_rate:0.98, male_pitch:0.95, female_pitch:1.02, male_vol:53, female_vol:49};
+    // v4 定稿默认（与 make_scroll_video.py 保持一致）：女声 0.96 略慢、男声音调 0.97 不闷
+    const defs = {male_rate:0.98, female_rate:0.96, male_pitch:0.97, female_pitch:1.02, male_vol:53, female_vol:49};
     for (const k in defs) {
         const el = document.getElementById(k);
         if (el) { el.value = defs[k]; const v = document.getElementById('v_' + k); if (v) v.textContent = defs[k].toFixed(2).replace(/\.?0+$/, '') || defs[k]; }
@@ -1233,12 +1236,8 @@ async function handleGenerate(e) {
                 title: document.getElementById('title').value,
                 subtitle: document.getElementById('subtitle').value,
                 dry_tts: false,
-                male_rate: parseFloat(document.getElementById('male_rate').value),
-                female_rate: parseFloat(document.getElementById('female_rate').value),
-                male_pitch: parseFloat(document.getElementById('male_pitch').value),
-                female_pitch: parseFloat(document.getElementById('female_pitch').value),
-                male_vol: parseInt(document.getElementById('male_vol').value, 10),
-                female_vol: parseInt(document.getElementById('female_vol').value, 10),
+                // 韵律参数不向前端发送：声调/快慢/音量由后端脚本按情绪自动调教（v4 定稿），
+                // 避免前端硬编码默认值覆盖专业调好的自动韵律
                 natural: document.getElementById('natural').checked,
                 male_voice: (currentMode === 'avatar' || (currentMode === 'scroll' && voiceForm === 'mono'))
                     ? (document.getElementById('singleVoice').value || null)
