@@ -194,6 +194,41 @@ def _wrap_display_by_width(display, fonts, max_width=SUBTITLE_MAX_W):
     return "\n".join(out_lines)
 
 
+def detect_graphics(timed):
+    """按对话内容识别「图解句」→ 生成数字人出镜时的智能图解时间轴。
+    规则（克制，只插最该视觉化的）：
+      - 含金额/数字（数字+万/%/元）→ number 数据卡（大数字）
+      - 含 风险/红线/别/不能/被查/稽查/补税/罚款/滞纳 → warn 警示卡
+      - 含 第一/第二/首先/然后/步骤/三步 → step 流程卡
+      - 含 案例/例子/一个老板/最近 → scene 场景卡（标题+说明）
+    返回 [{"start","end","kind","title","data"}, ...]，每句最多 1 段，总段数 ≤4（克制）。"""
+    import re as _re
+    out = []
+    for start, end, display in timed:
+        if len(out) >= 4:
+            break
+        txt = display or ""
+        title = txt[:12]
+        if _re.search(r"\d+(?:\.\d+)?\s*[万亿%元]?", txt):
+            m = _re.search(r"(\d+(?:\.\d+)?\s*[万亿%元]?)", txt)
+            out.append({"start": round(start, 2), "end": round(end, 2), "kind": "number",
+                        "title": title, "data": {"num": m.group(1), "sub": "重点数据"}})
+        elif _re.search(r"风险|红线|别|不能|被查|稽查|补税|罚款|滞纳|盯上", txt):
+            kw = "、".join([w for w in ("风险", "稽查", "补税", "罚款", "滞纳", "红线")
+                            if w in txt][:2]) or "注意"
+            out.append({"start": round(start, 2), "end": round(end, 2), "kind": "warn",
+                        "title": title, "data": {"kw": kw}})
+        elif _re.search(r"第一|第二|首先|然后|步骤|三步|第一步|第二步|第三步", txt):
+            steps = [s.strip() for s in _re.split(r"[。；;]", txt)
+                     if _re.search(r"第[一二三0-9]|第一|第二|第三", s)][:4] or ["步骤一", "步骤二", "步骤三"]
+            out.append({"start": round(start, 2), "end": round(end, 2), "kind": "step",
+                        "title": title, "data": {"steps": steps}})
+        elif _re.search(r"案例|例子|一个老板|最近|举例", txt):
+            out.append({"start": round(start, 2), "end": round(end, 2), "kind": "scene",
+                        "title": title, "data": {"desc": txt[:40]}})
+    return out
+
+
 def build_karaoke(timed, style):
     """根据每句配音时长，按比例把每个可见字符摊到时间轴，产出逐字高亮所需 sidecar。
     结构：{"style":..., "events":[{"start","end","lines":[[{c,s,e}...]...]}]}。
@@ -290,12 +325,21 @@ def main():
         json.dump(build_karaoke(timed, args.subtitle_style), kf, ensure_ascii=False)
     print(f"[avatar] 配音 {len(segs)} 句，总时长 {timed[-1][1]:.1f}s，字幕已生成（风格={args.subtitle_style}）")
 
+    # 智能图解：按内容识别"数据/警示/流程/案例"句 → 数字人出镜时穿插图解卡
+    graphics_path = os.path.join(tmp, "sub.graphics.json")
+    gfx = detect_graphics(timed)
+    with open(graphics_path, "w", encoding="utf-8") as gf:
+        json.dump(gfx, gf, ensure_ascii=False)
+    if gfx:
+        print(f"[avatar] 智能图解 {len(gfx)} 段: " + ", ".join(f"{g['kind']}@{g['start']}s" for g in gfx))
+
     out = os.path.abspath(args.out)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     tag = "hgt_" + uuid.uuid4().hex[:6]
     cmd = [PY310, MAKE_AVATAR, "--audio", audio_wav, "--ass", ass_path,
            "--model", args.model, "--out", out, "--name", tag,
-           "--subtitle-style", args.subtitle_style, "--karaoke", karaoke_path]
+           "--subtitle-style", args.subtitle_style, "--karaoke", karaoke_path,
+           "--graphics", graphics_path]
     if args.font:
         cmd += ["--font", args.font]
     r = subprocess.run(cmd, cwd=GPT_SOVITS, capture_output=True, text=True,
