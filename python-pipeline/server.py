@@ -1441,10 +1441,10 @@ def _publish_job(job_id, platforms, data):
 
         results = []
         account_key = str(data.get("account_key") or "")
-        # 仅 OAuth 授权码平台（抖音/小红书）走账号级 token 缓存；公众号走 extra 的 client_credential
-        oauth_platforms = ("douyin", "xiaohongshu")
+        # 仅公众号（wechat）走 extra 的 client_credential 凭证，不依赖账号级 OAuth token；
+        # 其余平台保留原逻辑：带 account_key 时先取账号级 token，取不到则 simulated（绝不假发）。
         for p in platforms:
-            if account_key and p in oauth_platforms:
+            if account_key and p != "wechat":
                 tok = matrix_publish.get_account_token(p, account_key)
                 if not tok:
                     results.append({"platform": p, "status": "published", "post_id": "",
@@ -1503,12 +1503,12 @@ def _publish_job(job_id, platforms, data):
         _merge_job(job_id, "publish", platform, {"status": status.value, "detail": detail})
 
     account_key = str(data.get("account_key") or "")
-    # 仅 OAuth 授权码平台（抖音/小红书）走账号级 token 缓存；公众号走 extra 的 client_credential
-    oauth_platforms = ("douyin", "xiaohongshu")
+    # 仅公众号（wechat）走 extra 的 client_credential 凭证，不依赖账号级 OAuth token；
+    # 其余平台保留原逻辑：带 account_key 时先取账号级 token，取不到则 simulated（绝不假发）。
 
     results = []
     for p in platforms:
-        if account_key and p in oauth_platforms:
+        if account_key and p != "wechat":
             tok = matrix_publish.get_account_token(p, account_key)
             if not tok:
                 results.append({"platform": p, "status": "published", "post_id": "",
