@@ -70,16 +70,33 @@ def check_text_overflow(path, title, subtitle):
         im = Image.open(out).convert("RGB")
         px = im.load()
         # 标题区(上 1/4) 和字幕区(下 2/3) 的亮文字边界
+        # 修复1：按行统计，忽略"整行装饰带/浅色背景"（亮度高但占满全宽，非文字）。
+        # 修复2：忽略"连续大亮块"（数字人身体/浅色背景形成的 ≥60px 连续亮段），
+        #        只把"行内亮占比 <75% 且贴边段是文字级笔画(<60px)"的真实文字判为溢出。
         for label, (y0, y1) in (("标题", (0, h // 4)), ("字幕", (h // 3, h - 60))):
-            xs = []
             for y in range(y0, y1, 4):
-                for x in range(w):
-                    r, g, b = px[x, y]
-                    lum = 0.299 * r + 0.587 * g + 0.114 * b
-                    if lum > 170:
-                        xs.append(x)
-            if xs and max(xs) >= w - 6:
+                xs = [x for x in range(w)
+                      if 0.299 * px[x, y][0] + 0.587 * px[x, y][1] + 0.114 * px[x, y][2] > 170]
+                if not xs:
+                    continue
+                # 整行装饰带：亮像素几乎占满全宽，判定为背景/装饰而非文字
+                if len(xs) >= w * 0.75:
+                    continue
+                mx = max(xs)
+                if mx < w - 6:
+                    continue
+                # 贴边段长度：从右往左数连续亮像素。
+                # 真文字笔画右缘一般 3~40px；孤立噪点/身体边缘 1~2px；大色块 ≥60px。
+                seg = 0
+                for x in range(mx, -1, -1):
+                    if 0.299 * px[x, y][0] + 0.587 * px[x, y][1] + 0.114 * px[x, y][2] > 170:
+                        seg += 1
+                    else:
+                        break
+                if seg < 3 or seg >= 60:
+                    continue  # 孤立亮点(数字人身体边缘) 或 连续大色块，均非文字
                 issues.append(f"{label}文字贴右边缘溢出({sec:.0f}s)")
+                break
         os.remove(out)
     return {"ok": not issues, "issues": issues}
 

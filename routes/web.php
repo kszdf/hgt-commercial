@@ -147,9 +147,6 @@ Route::middleware('auth')->group(function () {
     // 发布助手（一键发布：自动/半自动分发 + 人工平台存待发清单 + 导出素材）
     Route::get('/studio/publish', [PublishController::class, 'index'])->name('studio.publish');
     Route::post('/studio/publish/{videoJob}', [PublishController::class, 'publish'])->name('studio.publish.send');
-    // 公众号图文文章发布（标题 + 正文 + 封面 → 草稿箱）
-    Route::get('/studio/article', [PublishController::class, 'article'])->name('studio.article');
-    Route::post('/studio/article', [PublishController::class, 'articleSend'])->name('studio.article.send');
 
     // 平台账号管理（多账号矩阵发布：账号属性 / 每日上限 / 授权态）
     Route::get('/studio/accounts', [AccountController::class, 'index'])->name('studio.accounts');

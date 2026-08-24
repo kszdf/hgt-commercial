@@ -9,9 +9,8 @@
         <div class="text-sm font-semibold text-slate-700">发布渠道</div>
         <ul class="mt-1 space-y-1 text-sm text-slate-500">
             <li>· 登记你在各平台的发布账号（名称 / 标签 / 每日上限），统一管理。</li>
-            <li>· <strong>公众号</strong>：填 AppID/AppSecret（加密保存）即可自动发布入草稿箱。</li>
             <li>· <strong>抖音 / 小红书</strong>：点「去授权」扫码授权即可，无需手填凭证。</li>
-            <li>· <strong>视频号 / B站 / 快手 / YouTube</strong>：无稳定公开 API，人工发布，无需填凭证。</li>
+            <li>· <strong>视频号</strong>：无稳定公开 API，人工发布，无需填凭证。</li>
         </ul>
     </div>
 
@@ -145,24 +144,6 @@
                 <label class="mb-1 block text-slate-600">备注（选填）</label>
                 <input type="text" name="remark" id="remark" maxlength="120" placeholder="例如：主推留资转化、粉丝 1.2w"
                     class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700">
-            </div>
-
-            {{-- 公众号凭证（加密保存，仅公众号需要） --}}
-            <div id="credentialArea" class="hidden border-t border-slate-100 pt-3">
-                <div class="mb-2 text-xs font-semibold text-slate-500">公众号凭证（用于自动发布入草稿箱，加密保存）</div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label id="credLabel1" class="mb-1 block text-slate-600">AppID</label>
-                        <input type="text" name="account_info[app_id]" id="cred1" placeholder="公众号 AppID"
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700">
-                    </div>
-                    <div>
-                        <label id="credLabel2" class="mb-1 block text-slate-600">AppSecret</label>
-                        <input type="text" name="account_info[app_secret]" id="cred2" placeholder="公众号 AppSecret"
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700">
-                    </div>
-                </div>
-                <p id="credHint" class="mt-1 text-xs text-slate-400"></p>
             </div>
 
             <div class="flex justify-end gap-2 pt-2">
