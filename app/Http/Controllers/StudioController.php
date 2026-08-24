@@ -189,6 +189,27 @@ class StudioController extends Controller
         return response()->json($resp->json());
     }
 
+    /** 对标爆款 → 财税仿写（极简创作台一键生成用）。代理 8500 /follow_hot。 */
+    public function followHot(Request $request)
+    {
+        $data = $request->validate([
+            'text'     => ['required', 'string'],
+            'industry' => ['nullable', 'string', 'max:50'],
+            'platform' => ['nullable', 'string', 'max:20'],
+        ]);
+        $data = array_filter($data, fn ($v) => $v !== null && $v !== '');
+
+        try {
+            $resp = app(PipelineClient::class)->post('/follow_hot', $data, 120);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '对标仿写服务暂时不可用，请稍后重试'], 503);
+        }
+        if (! $resp->successful()) {
+            return response()->json(['error' => '对标仿写服务暂不可用，请确认微服务已启动'], 502);
+        }
+        return response()->json($resp->json());
+    }
+
     public function qcGenerate(Request $request)
     {
         $data = $request->validate([

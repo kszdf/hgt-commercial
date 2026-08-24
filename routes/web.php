@@ -89,6 +89,7 @@ Route::middleware('auth')->group(function () {
     // 原始稿二创：用户自有文案/口播稿的自由改写入口，与选题上下文隔离
     Route::get('/studio/rewrite-original', [StudioController::class, 'rewriteOriginal'])->name('studio.rewrite-original');
     Route::post('/studio/rewrite/generate', [StudioController::class, 'rewriteGenerate']);
+    Route::post('/studio/follow-hot', [StudioController::class, 'followHot']);
 
     // 爆款拆解（输入→提取文案→结构拆解→潜力评估→去二创→数字人出片）
     Route::get('/studio/dissect', [StudioController::class, 'dissect'])->name('studio.dissect');

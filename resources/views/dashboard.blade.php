@@ -91,6 +91,17 @@
             🚀 一键生成
         </button>
         <p class="mt-2 text-center text-xs text-slate-400">对标仿写 → 配音 → 出片 → 字幕封面，全自动</p>
+
+        {{-- 对标仿写结果区 --}}
+        <div id="quick-result" style="display:none" class="mt-4 rounded-xl border border-brand-200 bg-brand-50 p-4">
+            <div class="text-xs font-semibold uppercase tracking-wide text-brand-600">对标仿写结果</div>
+            <div id="qr-title" class="mt-1 text-base font-bold text-slate-800"></div>
+            <div id="qr-body" class="mt-2 max-h-40 overflow-y-auto whitespace-pre-line text-sm text-slate-600"></div>
+            <div class="mt-3 flex flex-wrap gap-2">
+                <a href="/studio/scroll" class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700">去出片 →</a>
+                <a href="/studio/rewrite" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">去二创编辑</a>
+            </div>
+        </div>
     </section>
 
     <style>
@@ -104,28 +115,54 @@
             var btns = document.querySelectorAll('#quick-forms .quick-form');
             var input = document.getElementById('quick-input');
             var go = document.getElementById('quick-go');
-            var current = 'scroll', currentTarget = '/studio/rewrite';
+            var resultBox = document.getElementById('quick-result');
+            var current = 'scroll';
+
             btns.forEach(function (b) {
                 b.addEventListener('click', function () {
                     btns.forEach(function (x) { x.classList.remove('active'); });
                     b.classList.add('active');
                     current = b.dataset.form;
-                    currentTarget = b.dataset.target;
                 });
             });
+
             go.addEventListener('click', function () {
                 var txt = (input.value || '').trim();
-                var url = currentTarget;
+                if (!txt) { alert('请先粘贴对标文案或输入选题关键词'); return; }
+                // 小红书图文走独立入口
                 if (current === 'xhs') {
-                    url += (txt ? '?topic=' + encodeURIComponent(txt) : '');
-                } else if (txt) {
-                    url += '?text=' + encodeURIComponent(txt);
+                    window.location.href = '/studio/xhs?topic=' + encodeURIComponent(txt);
+                    return;
                 }
-                // 把选中的形式带过去（scroll/avatar 走二创，motion 走图解）
-                if (current !== 'xhs') {
-                    url += (url.indexOf('?') >= 0 ? '&' : '?') + 'mode=' + current;
-                }
-                window.location.href = url;
+                go.disabled = true; go.textContent = '⏳ 对标仿写中…';
+                var csrf = document.querySelector('meta[name="csrf-token"]');
+                fetch('/studio/follow-hot', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrf ? csrf.getAttribute('content') : '',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ text: txt, industry: '财税税务咨询' })
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    go.disabled = false; go.textContent = '🚀 一键生成';
+                    if (!d || !d.ok) { alert('对标仿写失败：' + ((d && d.error) || '服务未响应')); return; }
+                    var rw = d.rewrite || {};
+                    var full = ((rw.opening || '') + '\n' + (rw.body || '') + '\n' + (rw.ending || '')).trim();
+                    document.getElementById('qr-title').textContent = rw.title || '';
+                    document.getElementById('qr-body').textContent = full;
+                    resultBox.style.display = 'block';
+                    // 存 sessionStorage，出片/二创页预填
+                    sessionStorage.setItem('follow_script', full);
+                    sessionStorage.setItem('follow_title', rw.title || '');
+                    sessionStorage.setItem('follow_mode', current);
+                })
+                .catch(function (e) {
+                    go.disabled = false; go.textContent = '🚀 一键生成';
+                    alert('请求失败：' + e.message);
+                });
             });
         })();
     </script>
