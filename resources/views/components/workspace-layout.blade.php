@@ -149,6 +149,18 @@
                         <span>公众号发文</span>
                     </a>
                 </li>
+                <li>
+                    <a href="/studio/accounts" class="{{ request()->is('studio/accounts*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                        <span>发布渠道</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/studio/schedule" class="{{ request()->is('studio/schedule*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        <span>发布排期</span>
+                    </a>
+                </li>
             </ul>
 
             <!-- 分组：素材中心（默认收起） -->
@@ -199,18 +211,6 @@
                     <a href="/studio/review" class="{{ request()->is('studio/review*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-indigo">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                         <span>人工审核</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="/studio/accounts" class="{{ request()->is('studio/accounts*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                        <span>发布渠道</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="/studio/schedule" class="{{ request()->is('studio/schedule*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                        <span>发布排期</span>
                     </a>
                 </li>
             </ul>
