@@ -1459,11 +1459,15 @@ def _publish_job(job_id, platforms, data):
                     tags=tags, credential_ref=cred_ref,
                 )
                 res = pub.publish(req, job_id)
+                raw = res.raw or {}
+                dry = bool(raw.get("dry"))
                 results.append({
-                    "platform": p, "status": res.status.value,
-                    "post_id": res.platform_post_id, "url": res.platform_url,
+                    "platform": p,
+                    "status": "simulated" if dry else res.status.value,
+                    "post_id": "" if dry else res.platform_post_id,
+                    "url": "" if dry else res.platform_url,
                     "error": res.error_message,
-                    "simulated": bool(res.raw.get("simulated")) if res.raw else False,
+                    "simulated": dry or bool(raw.get("simulated")),
                 })
             except Exception as exc:  # noqa: BLE001
                 results.append({"platform": p, "status": "failed", "error": str(exc)})
@@ -1516,13 +1520,15 @@ def _publish_job(job_id, platforms, data):
                 cover_path=cover, credential_ref=cred_ref,
             )
             res = pub.publish(req, job_id)
+            raw = res.raw or {}
+            dry = bool(raw.get("dry"))
             results.append({
                 "platform": p,
-                "status": res.status.value,
-                "post_id": res.platform_post_id,
-                "url": res.platform_url,
+                "status": "simulated" if dry else res.status.value,
+                "post_id": "" if dry else res.platform_post_id,
+                "url": "" if dry else res.platform_url,
                 "error": res.error_message,
-                "simulated": bool(res.raw.get("simulated")) if res.raw else False,
+                "simulated": dry or bool(raw.get("simulated")),
             })
         except Exception as exc:  # noqa: BLE001
             results.append({"platform": p, "status": "failed", "error": str(exc)})
