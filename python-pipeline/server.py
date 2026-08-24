@@ -30,8 +30,10 @@
          }
     GET  /status/{job_id}            -> {"job_id","status","result","error"}
     GET  /download/{job_id}          -> video/mp4 流
-    # POST /publish 已停用（2026-08-20）：自动发布改为「导出素材 + 各平台手动发布」
-    # 原 /oauth/* 授权路由亦已停用。
+    GET  /oauth/authorize/{platform} -> OAuth2 授权跳转（douyin/xiaohongshu，?account_id= 可选）
+    GET  /oauth/callback/{platform}  -> OAuth2 授权回调（换 token 并落账号级缓存）
+    GET  /oauth/status/{platform}    -> 授权态查询（?account_key= 可选，公众号 client_credential 走 env）
+    # POST /publish 已恢复：自动发布按平台适配器真实/模拟透明分发（见 publishers/）。
     POST /strategist                 -> P4 获客军师：{"potential_score","level","hook_suggest","industry_fit","improvements"}
          body: {"title","script","industry":"可选","platform":"可选"}
     POST /deai                       -> P4 去AI痕迹：{"rewritten","changes","removed_markers"}
@@ -1439,8 +1441,10 @@ def _publish_job(job_id, platforms, data):
 
         results = []
         account_key = str(data.get("account_key") or "")
+        # 仅 OAuth 授权码平台（抖音/小红书）走账号级 token 缓存；公众号走 extra 的 client_credential
+        oauth_platforms = ("douyin", "xiaohongshu")
         for p in platforms:
-            if account_key:
+            if account_key and p in oauth_platforms:
                 tok = matrix_publish.get_account_token(p, account_key)
                 if not tok:
                     results.append({"platform": p, "status": "published", "post_id": "",
@@ -1457,6 +1461,7 @@ def _publish_job(job_id, platforms, data):
                     tenant_id=tenant_id, platform=p,
                     image_paths=image_paths, title=title, description=desc,
                     tags=tags, credential_ref=cred_ref,
+                    extra=data.get("extra") or {},
                 )
                 res = pub.publish(req, job_id)
                 raw = res.raw or {}
@@ -1498,10 +1503,12 @@ def _publish_job(job_id, platforms, data):
         _merge_job(job_id, "publish", platform, {"status": status.value, "detail": detail})
 
     account_key = str(data.get("account_key") or "")
+    # 仅 OAuth 授权码平台（抖音/小红书）走账号级 token 缓存；公众号走 extra 的 client_credential
+    oauth_platforms = ("douyin", "xiaohongshu")
 
     results = []
     for p in platforms:
-        if account_key:
+        if account_key and p in oauth_platforms:
             tok = matrix_publish.get_account_token(p, account_key)
             if not tok:
                 results.append({"platform": p, "status": "published", "post_id": "",
@@ -1518,6 +1525,7 @@ def _publish_job(job_id, platforms, data):
                 tenant_id=tenant_id, platform=p, video_path=out_path,
                 title=title, description=desc, tags=tags,
                 cover_path=cover, credential_ref=cred_ref,
+                extra=data.get("extra") or {},
             )
             res = pub.publish(req, job_id)
             raw = res.raw or {}
@@ -2145,8 +2153,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._send(200, {"ok": True, "mode": "seed",
                                     "count": len(seed), "hotspots": seed})
 
-        # ---- OAuth2 授权已停用（2026-08-20）：改为导出素材 + 各平台手动发布 ----
-        # 原 /oauth/authorize|callback|status 路由已移除（handler 保留备用）。
+        # ---- OAuth2 授权（抖音 / 小红书 授权码模式；公众号 / 视频号走 client_credential）----
+        # 恢复（功能包一）：账号级授权，query 可带 account_id（platform_accounts.id）。
+        if p.path.startswith("/oauth/authorize/"):
+            platform = p.path.rsplit("/", 1)[-1]
+            return self._handle_oauth_authorize(platform, p.query or "")
+        if p.path.startswith("/oauth/callback/"):
+            platform = p.path.rsplit("/", 1)[-1]
+            return self._handle_oauth_callback(platform, p.query or "")
+        if p.path.startswith("/oauth/status/"):
+            platform = p.path.rsplit("/", 1)[-1]
+            return self._handle_oauth_status(platform, p.query or "")
 
         return self._send(404, {"error": "not found"})
 
@@ -2571,12 +2588,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             authorized = matrix_publish.is_account_authorized(platform, account_key)
             return self._send(200, {"platform": platform, "account_key": account_key,
                                     "authorized": authorized, "mode": "oauth_account"})
-        """供前端徽章实时查询真实授权状态（OAuth 模式读 token 缓存，client_credential 模式读 env）。"""
-        if platform == "wechat":  # Laravel 侧叫 wechat，8500 侧叫 shipinhao，统一
-            platform = "shipinhao"
+        # 平台级授权态：OAuth 模式读 token 缓存，client_credential 模式读 env
         if platform == "douyin" or platform == "xiaohongshu":
             authorized = get_oauth_token(platform) is not None
             mode = "oauth"
+        elif platform == "wechat":  # 公众号：AppID/AppSecret client_credential（与 shipinhao 视频号分离）
+            appid = os.environ.get("WECHAT_MP_APPID", "")
+            secret = os.environ.get("WECHAT_MP_APPSECRET", "")
+            authorized = bool(appid and secret)
+            mode = "client_credential"
         elif platform == "shipinhao":
             appid = os.environ.get("WECHAT_APPID", "")
             secret = os.environ.get("WECHAT_APPSECRET", "")

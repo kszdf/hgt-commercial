@@ -153,6 +153,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/accounts', [AccountController::class, 'store']);
     Route::post('/studio/accounts/{account}', [AccountController::class, 'update'])->name('studio.accounts.update');
     Route::delete('/studio/accounts/{account}', [AccountController::class, 'destroy'])->name('studio.accounts.destroy');
+    // OAuth 授权（抖音/小红书）：入口取 authorize_url + 授权后确认标记
+    Route::post('/studio/accounts/{account}/oauth', [AccountController::class, 'oauthAuthorize'])->name('studio.accounts.oauth');
+    Route::post('/studio/accounts/{account}/oauth-confirm', [AccountController::class, 'oauthConfirm'])->name('studio.accounts.oauth-confirm');
 
     // 数据效果（数据回流 · 半自动：手动速填 / 抖音自动同步 / 未同步清单）
     Route::get('/studio/metrics', [MetricsController::class, 'index'])->name('studio.metrics');

@@ -13,6 +13,7 @@ from .bilibili import BilibiliPublisher
 from .douyin import DouyinPublisher
 from .shipinhao import ShipinhaoPublisher
 from .xiaohongshu import XiaohongshuPublisher
+from .wechat import WechatMpPublisher
 
 _REGISTRY: dict[str, type[BasePublisher]] = {
     YouTubePublisher.platform_key: YouTubePublisher,
@@ -23,6 +24,7 @@ _REGISTRY: dict[str, type[BasePublisher]] = {
     DouyinPublisher.platform_key: DouyinPublisher,       # 优先级 1
     ShipinhaoPublisher.platform_key: ShipinhaoPublisher,  # 优先级 2
     XiaohongshuPublisher.platform_key: XiaohongshuPublisher,  # 优先级 3（3:4 竖屏）
+    WechatMpPublisher.platform_key: WechatMpPublisher,   # 公众号：图文草稿箱 + 素材上传
 }
 
 

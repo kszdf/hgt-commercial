@@ -42,12 +42,15 @@ class PublishRunner
 
         // —— 调 8500 账号级发布 ——
         try {
-            $resp = app(PipelineClient::class)->postJson('/publish', [
+            $payload = [
                 'job_id' => $job->job_id,
                 'platforms' => [$account->platform],
                 'account_key' => $account->platform . ':' . $account->id,
                 'title' => $title ?: ($job->title ?: '短视频'),
-            ], 180);
+            ];
+            // 公众号（client_credential）：解密 account_info 经 extra 传给 8500，明文不出 Laravel 容器
+            $payload = array_merge($payload, $this->credentialsExtra($account));
+            $resp = app(PipelineClient::class)->postJson('/publish', $payload, 180);
         } catch (PipelineUnavailableException $e) {
             return $this->fail($job, $account, $tenant, '出片服务不可达：' . $e->getMessage());
         }
@@ -108,5 +111,23 @@ class PublishRunner
         ]);
 
         return ['ok' => false, 'simulated' => false, 'record' => $record, 'reason' => $reason];
+    }
+
+    /**
+     * 公众号（wechat）账号级凭证：解密 account_info 转 8500 的 extra（appid/appsecret）。
+     * 其余平台（OAuth/手动）不传，避免明文在内部链路无谓扩散。
+     */
+    private function credentialsExtra(PlatformAccount $account): array
+    {
+        if ($account->platform !== 'wechat') {
+            return [];
+        }
+        $info = $account->account_info ?: [];
+        $appid = $info['appid'] ?? $info['app_id'] ?? '';
+        $secret = $info['secret'] ?? $info['app_secret'] ?? '';
+        if ($appid === '' || $secret === '') {
+            return [];
+        }
+        return ['extra' => ['appid' => $appid, 'appsecret' => $secret]];
     }
 }

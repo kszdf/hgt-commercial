@@ -41,7 +41,7 @@ class PlatformAccount extends Model
         'kuaishou' => '快手',
         'bilibili' => 'B站',
         'youtube' => 'YouTube',
-        'wechat' => '视频号',
+        'wechat' => '公众号',
         'manual' => '手动',
     ];
 

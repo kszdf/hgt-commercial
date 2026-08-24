@@ -6,11 +6,11 @@
 
     {{-- 说明 --}}
     <div class="mb-5 rounded-xl border border-slate-200 bg-white px-4 py-3">
-        <div class="text-sm font-semibold text-slate-700">发布渠道备忘</div>
+        <div class="text-sm font-semibold text-slate-700">发布渠道</div>
         <ul class="mt-1 space-y-1 text-sm text-slate-500">
-            <li>· 这里只记录你<strong>在哪些平台发布</strong>（账号名 / 标签 / 备注 / 每日建议上限），方便统一管理与打标签。</li>
-            <li>· 不收集任何账号密码等敏感信息；正式发布在各平台 App 内手动完成。</li>
-            <li>· 自动发布（OAuth 授权 / 一键群发）已停用：多数平台需企业资质且基本不对外开放，手动发布最稳、最合规。</li>
+            <li>· 登记你在各平台的发布账号（名称 / 标签 / 每日上限 / 应用凭证），统一管理。</li>
+            <li>· 应用凭证（Client Key / AppID 等）<strong>加密保存</strong>，仅用于对接开放平台，不明文展示。</li>
+            <li>· 抖音 / 公众号可全自动发布；小红书跳草稿箱半自动；视频号无 API，手动导出发布。</li>
         </ul>
     </div>
 
@@ -39,6 +39,7 @@
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="font-medium text-slate-800">{{ $a->account_name ?: $a->platformLabel() }}</span>
                                 <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{{ $a->platformLabel() }}</span>
+                                <span class="rounded px-2 py-0.5 text-xs {{ $a->isAuthorized() ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600' }}">{{ $a->isAuthorized() ? '已授权' : '未授权' }}</span>
                                 <span class="text-xs text-slate-400">建议 ≤ {{ $a->daily_limit }} 条/天</span>
                             </div>
                             @if($a->remark)
@@ -53,6 +54,10 @@
                             @endif
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
+                            @if(in_array($a->platform, ['douyin', 'xiaohongshu'], true) && ! $a->isAuthorized())
+                                <button type="button" onclick="startOauth({{ $a->id }})"
+                                    class="rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1 text-[11px] text-brand-700 hover:bg-brand-100">去授权</button>
+                            @endif
                             <button type="button"
                                 onclick='openAccountModal("edit", @json([
                                     "id" => $a->id,
@@ -134,6 +139,24 @@
                     class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700">
             </div>
 
+            {{-- 应用凭证（加密保存，仅自动发布平台的账号需要） --}}
+            <div id="credentialArea" class="hidden border-t border-slate-100 pt-3">
+                <div class="mb-2 text-xs font-semibold text-slate-500">应用凭证（用于自动/半自动发布，加密保存）</div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label id="credLabel1" class="mb-1 block text-slate-600">Client Key</label>
+                        <input type="text" name="account_info[app_id]" id="cred1" placeholder="开放平台应用凭证"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700">
+                    </div>
+                    <div>
+                        <label id="credLabel2" class="mb-1 block text-slate-600">Client Secret</label>
+                        <input type="text" name="account_info[app_secret]" id="cred2" placeholder="开放平台应用密钥"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700">
+                    </div>
+                </div>
+                <p id="credHint" class="mt-1 text-xs text-slate-400"></p>
+            </div>
+
             <div class="flex justify-end gap-2 pt-2">
                 <button type="button" onclick="closeAccountModal()" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">取消</button>
                 <button type="submit" class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">保存</button>
@@ -177,6 +200,18 @@
             document.getElementById('remark').value = '';
         }
 
+        // 凭证字段：编辑时留空（已保存凭证不明文回显），新增时清空
+        document.getElementById('cred1').value = '';
+        document.getElementById('cred2').value = '';
+        if (mode === 'edit') {
+            document.getElementById('cred1').placeholder = '已保存凭证，留空则不修改';
+            document.getElementById('cred2').placeholder = '已保存凭证，留空则不修改';
+        } else {
+            document.getElementById('cred1').placeholder = '开放平台应用凭证';
+            document.getElementById('cred2').placeholder = '开放平台应用密钥';
+        }
+        onPlatformChange(document.getElementById('platformSelect').value);
+
         renderTags();
         document.getElementById('accountModal').classList.remove('hidden');
     }
@@ -185,8 +220,25 @@
         document.getElementById('accountModal').classList.add('hidden');
     }
 
+    const CRED_LABELS = {
+        douyin: ['Client Key', 'Client Secret', '抖音开放平台 developer.open-douyin.com → 应用 → 凭证管理'],
+        xiaohongshu: ['App ID', 'App Secret', '小红书开放平台 open.xiaohongshu.com → 应用 → App ID / App Secret'],
+        wechat: ['公众号 AppID', 'AppSecret', '微信公众平台 mp.weixin.qq.com → 设置与开发 → 基本配置'],
+        shipinhao: ['AppID', 'AppSecret', '微信服务号/视频号助手 → AppID / AppSecret（视频号无开放 API，仅登记）'],
+        kuaishou: ['App ID', 'App Secret', '快手开放平台 open.kuaishou.com → 应用 → App ID / App Secret'],
+    };
+
     function onPlatformChange(platform) {
-        // 平台切换无需动态字段（已不收集账号密码）
+        const area = document.getElementById('credentialArea');
+        const labels = CRED_LABELS[platform];
+        if (labels) {
+            area.classList.remove('hidden');
+            document.getElementById('credLabel1').textContent = labels[0];
+            document.getElementById('credLabel2').textContent = labels[1];
+            document.getElementById('credHint').textContent = labels[2];
+        } else {
+            area.classList.add('hidden');
+        }
     }
 
     function renderTags() {
@@ -253,6 +305,49 @@
             method.name = '_method';
             method.value = 'PUT';
             this.appendChild(method);
+        }
+    });
+
+    // ---- OAuth 授权（抖音/小红书）----
+    function csrfToken() {
+        return document.querySelector('meta[name="csrf-token"]')?.content || '';
+    }
+
+    async function startOauth(accountId) {
+        try {
+            const r = await fetch(`/studio/accounts/${accountId}/oauth`, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            });
+            const data = await r.json();
+            if (! r.ok || ! data.authorize_url) {
+                alert(data.error || '获取授权地址失败，请重试');
+                return;
+            }
+            window.open(data.authorize_url, 'oauth_authorize', 'width=640,height=760');
+        } catch (e) {
+            alert('网络错误，无法发起授权');
+        }
+    }
+
+    window.addEventListener('message', async function (e) {
+        if (! e.data || e.data.type !== 'oauth_authorized') return;
+        const accountId = e.data.account_id;
+        if (! accountId) { window.location.reload(); return; }
+        try {
+            const r = await fetch(`/studio/accounts/${accountId}/oauth-confirm`, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            });
+            const data = await r.json();
+            if (r.ok && data.authorized) {
+                window.location.reload();
+            } else {
+                alert(data.error || '授权确认失败，请重试');
+                window.location.reload();
+            }
+        } catch (e) {
+            window.location.reload();
         }
     });
 </script>
