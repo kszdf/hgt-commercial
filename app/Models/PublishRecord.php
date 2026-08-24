@@ -35,4 +35,26 @@ class PublishRecord extends Model
     {
         return $this->status === 'success';
     }
+
+    /** 平台中文名（复用 PlatformAccount 的标签表）。 */
+    public function platformLabel(): string
+    {
+        return PlatformAccount::PLATFORM_LABELS[$this->platform] ?? $this->platform;
+    }
+
+    /** 是否「待人工发布」（无 API 平台，一键发布后存入待发清单）。 */
+    public function isManual(): bool
+    {
+        return $this->status === 'manual';
+    }
+
+    public function statusLabel(): string
+    {
+        return match ($this->status) {
+            'success' => '已发布',
+            'manual' => '待人工发布',
+            'failed' => '失败',
+            default => $this->status,
+        };
+    }
 }

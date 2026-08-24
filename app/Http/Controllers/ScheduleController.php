@@ -91,8 +91,10 @@ class ScheduleController extends Controller
     public function toggleAuto(Request $request, PublishSchedule $schedule)
     {
         $this->assertTenantOwner($request, $schedule->tenant_id);
-        $schedule->update(['auto_publish' => false]);
-        return redirect()->route('studio.schedule')->with('info', '自动发布已停用，排期仅作提醒，请手动发布。');
+        $next = ! $schedule->auto_publish;
+        $schedule->update(['auto_publish' => $next]);
+        return redirect()->route('studio.schedule')
+            ->with('success', $next ? '已开启自动发布，到点自动分发到账号。' : '已取消自动发布，到点仅提醒。');
     }
 
     /** 立即执行某条排期（手动）。 */
@@ -105,8 +107,36 @@ class ScheduleController extends Controller
             return redirect()->route('studio.schedule')->with('error', '该排期已终态（' . $schedule->statusLabel() . '），不能重复执行。');
         }
 
-        // 自动发布已停用（2026-08-20）：排期仅作发布提醒，执行请到「发布助手」下载成片后手动发布。
-        return redirect()->route('studio.schedule')->with('info', '自动发布已停用，请到「发布助手」下载成片，在各平台 App 手动发布。');
+        $job = $schedule->videoJob;
+        $account = $schedule->account;
+
+        if (! $job || $job->status !== 'done') {
+            $schedule->update(['status' => PublishSchedule::STATUS_FAILED, 'error' => '视频未完成渲染或已删除']);
+            return redirect()->route('studio.schedule')->with('error', '视频未完成渲染或已删除，无法发布。');
+        }
+        if (! $account) {
+            $schedule->update(['status' => PublishSchedule::STATUS_FAILED, 'error' => '未指定发布账号']);
+            return redirect()->route('studio.schedule')->with('error', '该排期未指定发布账号，请编辑或重新创建。');
+        }
+
+        $schedule->update(['status' => PublishSchedule::STATUS_PUBLISHING]);
+        $r = app(PublishRunner::class)->run($job, $account, $schedule->tenant);
+
+        $schedule->update([
+            'status' => $r['ok'] ? PublishSchedule::STATUS_PUBLISHED : PublishSchedule::STATUS_FAILED,
+            'published_at' => $r['ok'] ? now() : null,
+            'error' => $r['ok'] ? null : ($r['reason'] ?? '发布失败'),
+        ]);
+
+        if (! empty($r['ok'])) {
+            return redirect()->route('studio.schedule')
+                ->with('success', '发布成功' . (! empty($r['simulated']) ? '（模拟发布，未真正发出）' : '') . '。');
+        }
+        if (! empty($r['manual'])) {
+            return redirect()->route('studio.schedule')
+                ->with('info', '已存入「待人工发布」清单，请下载成片后到各平台 App 手动发表。');
+        }
+        return redirect()->route('studio.schedule')->with('error', '发布失败：' . ($r['reason'] ?? '未知错误'));
     }
 
     public function destroy(Request $request, PublishSchedule $schedule)

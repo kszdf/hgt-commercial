@@ -45,6 +45,9 @@ class PlatformAccount extends Model
         'manual' => '手动',
     ];
 
+    /** 人工发布平台：无稳定公开 API / 未接入，一键发布走「待人工发布」而非报错。 */
+    public const MANUAL_PLATFORMS = ['shipinhao', 'bilibili', 'youtube', 'kuaishou'];
+
     /** 内容定位标签（选题/改写页「重点方向」同源）。 */
     public const CONTENT_TAGS = [
         '风险警示', '政策解读', '实操指南', '案例故事', '避坑指南', '留资转化', '通用',
@@ -68,6 +71,18 @@ class PlatformAccount extends Model
     public function isAuthorized(): bool
     {
         return $this->status === 'authorized';
+    }
+
+    /** 是否人工发布平台（无需 OAuth/凭证授权，一键发布走「待人工发布」）。 */
+    public function isManualPlatform(): bool
+    {
+        return in_array($this->platform, self::MANUAL_PLATFORMS, true);
+    }
+
+    /** 是否可一键发布（人工平台恒可，自动平台需已授权）。 */
+    public function isPublishable(): bool
+    {
+        return $this->isManualPlatform() || $this->isAuthorized();
     }
 
     public function platformLabel(): string

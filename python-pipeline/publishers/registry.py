@@ -14,17 +14,18 @@ from .douyin import DouyinPublisher
 from .shipinhao import ShipinhaoPublisher
 from .xiaohongshu import XiaohongshuPublisher
 from .wechat import WechatMpPublisher
+from .kuaishou import KuaishouPublisher
 
 _REGISTRY: dict[str, type[BasePublisher]] = {
     YouTubePublisher.platform_key: YouTubePublisher,
     BilibiliPublisher.platform_key: BilibiliPublisher,
-    # 抖音 / 视频号 / 小红书：已实装适配器骨架（OAuth2 + 发布流程），supports_auto=True。
-    # 真正全自动需租户在对应开放平台注册应用 + 企业资质 + 授权后填入凭证（见各适配器文件头）。
-    # 未配置凭证时降级为 dry 模拟（返回 PUBLISHED 模拟值），便于流程联调。
-    DouyinPublisher.platform_key: DouyinPublisher,       # 优先级 1
-    ShipinhaoPublisher.platform_key: ShipinhaoPublisher,  # 优先级 2
-    XiaohongshuPublisher.platform_key: XiaohongshuPublisher,  # 优先级 3（3:4 竖屏）
-    WechatMpPublisher.platform_key: WechatMpPublisher,   # 公众号：图文草稿箱 + 素材上传
+    # 自动/半自动（OAuth2 或 client_credential），supports_auto=True：
+    DouyinPublisher.platform_key: DouyinPublisher,       # 抖音：OAuth 授权码
+    XiaohongshuPublisher.platform_key: XiaohongshuPublisher,  # 小红书：OAuth 授权码（笔记）
+    WechatMpPublisher.platform_key: WechatMpPublisher,   # 公众号：AppID/AppSecret → 草稿箱
+    # 人工（无稳定公开 API / 未接入），supports_auto=False → MANUAL_REQUIRED：
+    ShipinhaoPublisher.platform_key: ShipinhaoPublisher,  # 视频号：无公开 API
+    KuaishouPublisher.platform_key: KuaishouPublisher,    # 快手：未接入开放平台
 }
 
 

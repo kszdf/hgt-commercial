@@ -8,9 +8,10 @@
     <div class="mb-5 rounded-xl border border-slate-200 bg-white px-4 py-3">
         <div class="text-sm font-semibold text-slate-700">发布渠道</div>
         <ul class="mt-1 space-y-1 text-sm text-slate-500">
-            <li>· 登记你在各平台的发布账号（名称 / 标签 / 每日上限 / 应用凭证），统一管理。</li>
-            <li>· 应用凭证（Client Key / AppID 等）<strong>加密保存</strong>，仅用于对接开放平台，不明文展示。</li>
-            <li>· 抖音 / 公众号可全自动发布；小红书跳草稿箱半自动；视频号无 API，手动导出发布。</li>
+            <li>· 登记你在各平台的发布账号（名称 / 标签 / 每日上限），统一管理。</li>
+            <li>· <strong>公众号</strong>：填 AppID/AppSecret（加密保存）即可自动发布入草稿箱。</li>
+            <li>· <strong>抖音 / 小红书</strong>：点「去授权」扫码授权即可，无需手填凭证。</li>
+            <li>· <strong>视频号 / B站 / 快手 / YouTube</strong>：无稳定公开 API，人工发布，无需填凭证。</li>
         </ul>
     </div>
 
@@ -39,7 +40,11 @@
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="font-medium text-slate-800">{{ $a->account_name ?: $a->platformLabel() }}</span>
                                 <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{{ $a->platformLabel() }}</span>
-                                <span class="rounded px-2 py-0.5 text-xs {{ $a->isAuthorized() ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600' }}">{{ $a->isAuthorized() ? '已授权' : '未授权' }}</span>
+                                @if($a->isManualPlatform())
+                                    <span class="rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-600">人工发布</span>
+                                @else
+                                    <span class="rounded px-2 py-0.5 text-xs {{ $a->isAuthorized() ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600' }}">{{ $a->isAuthorized() ? '已授权' : '未授权' }}</span>
+                                @endif
                                 <span class="text-xs text-slate-400">建议 ≤ {{ $a->daily_limit }} 条/天</span>
                             </div>
                             @if($a->remark)
@@ -139,18 +144,18 @@
                     class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700">
             </div>
 
-            {{-- 应用凭证（加密保存，仅自动发布平台的账号需要） --}}
+            {{-- 公众号凭证（加密保存，仅公众号需要） --}}
             <div id="credentialArea" class="hidden border-t border-slate-100 pt-3">
-                <div class="mb-2 text-xs font-semibold text-slate-500">应用凭证（用于自动/半自动发布，加密保存）</div>
+                <div class="mb-2 text-xs font-semibold text-slate-500">公众号凭证（用于自动发布入草稿箱，加密保存）</div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label id="credLabel1" class="mb-1 block text-slate-600">Client Key</label>
-                        <input type="text" name="account_info[app_id]" id="cred1" placeholder="开放平台应用凭证"
+                        <label id="credLabel1" class="mb-1 block text-slate-600">AppID</label>
+                        <input type="text" name="account_info[app_id]" id="cred1" placeholder="公众号 AppID"
                             class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700">
                     </div>
                     <div>
-                        <label id="credLabel2" class="mb-1 block text-slate-600">Client Secret</label>
-                        <input type="text" name="account_info[app_secret]" id="cred2" placeholder="开放平台应用密钥"
+                        <label id="credLabel2" class="mb-1 block text-slate-600">AppSecret</label>
+                        <input type="text" name="account_info[app_secret]" id="cred2" placeholder="公众号 AppSecret"
                             class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700">
                     </div>
                 </div>
@@ -221,11 +226,9 @@
     }
 
     const CRED_LABELS = {
-        douyin: ['Client Key', 'Client Secret', '抖音开放平台 developer.open-douyin.com → 应用 → 凭证管理'],
-        xiaohongshu: ['App ID', 'App Secret', '小红书开放平台 open.xiaohongshu.com → 应用 → App ID / App Secret'],
+        // 仅公众号走 AppID/AppSecret（client_credential）；抖音/小红书走 OAuth 授权、无需手填凭证，
+        // 视频号/B站/快手/YouTube 无稳定公开 API，人工发布，均不显示凭证框。
         wechat: ['公众号 AppID', 'AppSecret', '微信公众平台 mp.weixin.qq.com → 设置与开发 → 基本配置'],
-        shipinhao: ['AppID', 'AppSecret', '微信服务号/视频号助手 → AppID / AppSecret（视频号无开放 API，仅登记）'],
-        kuaishou: ['App ID', 'App Secret', '快手开放平台 open.kuaishou.com → 应用 → App ID / App Secret'],
     };
 
     function onPlatformChange(platform) {

@@ -33,7 +33,7 @@ class PublishRunner
         if (empty($job->job_id)) {
             return $this->fail($job, $account, $tenant, '缺少 8500 job_id，无法发布');
         }
-        if (! $account->isAuthorized()) {
+        if (! $account->isPublishable()) {
             return $this->fail($job, $account, $tenant, '该账号尚未授权，请先在「平台账号」中授权');
         }
         if (! $account->canPublishToday()) {
@@ -67,6 +67,7 @@ class PublishRunner
         // 双保险判模拟
         $simulated = ! empty($result['simulated'])
             || ($platStatus === 'published' && empty($result['post_id']) && empty($result['url']));
+        $manual = $platStatus === 'manual_required'; // 无 API 平台：待人工发布
         $ok = $platStatus === 'published';
 
         $record = PublishRecord::create([
@@ -75,12 +76,12 @@ class PublishRunner
             'platform' => $account->platform,
             'platform_account_id' => $account->id,
             'account_name_snapshot' => $account->account_name,
-            'status' => $ok ? 'success' : 'failed',
+            'status' => $ok ? 'success' : ($manual ? 'manual' : 'failed'),
             'simulated' => $simulated,
             'platform_status' => $platStatus,
             'external_id' => ($result['post_id'] ?? '') ?: ($result['url'] ?? ''),
             'post_url' => $result['url'] ?? null,
-            'error' => $result['error'] ?? null,
+            'error' => $manual ? ($result['error'] ?? '待人工发布') : ($result['error'] ?? null),
             'published_at' => now(),
         ]);
 
@@ -91,9 +92,10 @@ class PublishRunner
 
         return [
             'ok' => $ok,
+            'manual' => $manual,
             'simulated' => $simulated,
             'record' => $record,
-            'reason' => $ok ? null : ($result['error'] ?? '平台返回失败'),
+            'reason' => $ok ? null : ($manual ? ($result['error'] ?? '待人工发布') : ($result['error'] ?? '平台返回失败')),
         ];
     }
 
@@ -110,7 +112,7 @@ class PublishRunner
             'published_at' => now(),
         ]);
 
-        return ['ok' => false, 'simulated' => false, 'record' => $record, 'reason' => $reason];
+        return ['ok' => false, 'manual' => false, 'simulated' => false, 'record' => $record, 'reason' => $reason];
     }
 
     /**

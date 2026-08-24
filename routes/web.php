@@ -144,8 +144,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/review/{videoJob}/approve', [ReviewController::class, 'approve'])->name('studio.review.approve');
     Route::post('/studio/review/{videoJob}/reject', [ReviewController::class, 'reject'])->name('studio.review.reject');
 
-    // 发布助手（导出素材 + 各平台手动发布中心）
+    // 发布助手（一键发布：自动/半自动分发 + 人工平台存待发清单 + 导出素材）
     Route::get('/studio/publish', [PublishController::class, 'index'])->name('studio.publish');
+    Route::post('/studio/publish/{videoJob}', [PublishController::class, 'publish'])->name('studio.publish.send');
 
     // 平台账号管理（多账号矩阵发布：账号属性 / 每日上限 / 授权态）
     Route::get('/studio/accounts', [AccountController::class, 'index'])->name('studio.accounts');
