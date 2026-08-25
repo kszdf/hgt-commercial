@@ -400,6 +400,27 @@ def concat_mp4(parts, out):
     return out
 
 
+def _concat_intro_once(out):
+    """对拼接成品拼一次品牌片头（复用 finalize_v2_pil.concat_intro）。
+    分段流水线中各段 --no-intro（避免拼接处插片头静音），由这里统一补一次片头。"""
+    try:
+        sys.path.insert(0, GPT_SOVITS)
+        import finalize_v2_pil as _fin
+        intro = os.path.join(GPT_SOVITS, "covers", "intro.mp4")
+        if not os.path.exists(intro):
+            print("[avatar] 片头不存在，跳过拼片头")
+            return out
+        tmp = tempfile.mkdtemp(prefix="avatar_intro_")
+        out_with_intro = os.path.join(tmp, "final_with_intro.mp4")
+        _fin.concat_intro(Path(intro), Path(out), Path(out_with_intro))
+        # 替换成品
+        os.replace(out_with_intro, out)
+        print(f"[avatar] 整片片头拼接完成: {out}")
+    except Exception as e:  # noqa: BLE001
+        print(f"[avatar] ⚠ 片头拼接失败(跳过，成品保留无片头): {e}")
+    return out
+
+
 def _prep_segment(timed, args, tmpdir):
     """写某段（或整稿）的 ass/karaoke/graphics 到 tmpdir，返回 (ass, karaoke, graphics, wrapped_timed)。
     所有渲染路径共用：保证字幕预处理（按 720 画布换行）只写一份。"""
@@ -429,7 +450,7 @@ def _prep_segment(timed, args, tmpdir):
     return ass_path, karaoke_path, graphics_path, timed
 
 
-def _mav_cmd(audio, ass, karaoke, graphics, tag, out, args, stage="full", result=None):
+def _mav_cmd(audio, ass, karaoke, graphics, tag, out, args, stage="full", result=None, no_intro=False):
     """组装 make_avatar_video.py 命令行。stage: full=渲染+后期 / render=只渲染 / post=只后期。"""
     cmd = [PY310, MAKE_AVATAR, "--audio", audio, "--ass", ass,
            "--model", args.model, "--out", out, "--name", tag,
@@ -439,6 +460,8 @@ def _mav_cmd(audio, ass, karaoke, graphics, tag, out, args, stage="full", result
         cmd += ["--font", args.font]
     if stage == "post":
         cmd += ["--result", result]
+    if no_intro:
+        cmd += ["--no-intro"]
     return cmd
 
 
@@ -545,7 +568,8 @@ def render_segments_pipeline(chunks, segs_full, args, tag, out):
         result_path = _run_render_stage(cmd_render, result_out)
         print(f"[avatar]   段{i+1} 渲染就绪: {os.path.basename(result_path)} → 后台启动后期")
         cmd_post = _mav_cmd(seg_audios[i], ass_path, karaoke_path, graphics_path,
-                            seg_tag, seg_out, args, stage="post", result=result_path)
+                            seg_tag, seg_out, args, stage="post", result=result_path,
+                            no_intro=True)
         post_procs.append(subprocess.Popen(cmd_post, cwd=GPT_SOVITS))
     # 等所有后期完成
     for i, p in enumerate(post_procs):
@@ -554,7 +578,10 @@ def render_segments_pipeline(chunks, segs_full, args, tag, out):
             sys.exit(f"段{i+1} 后期失败（rc={rc}）")
         print(f"[avatar]   段{i+1} 后期完成: {seg_outs[i]}")
     concat_mp4(seg_outs, out)
-    print(f"\n成品: {out}  ({os.path.getsize(out)//1024} KB)（{len(seg_outs)} 段拼接，流水线并行）")
+    # 分段时各段已 --no-intro 不拼片头（否则段2 片头会在拼接处造成 3s 静音），
+    # 拼接完成后对整片拼一次品牌片头
+    _concat_intro_once(out)
+    print(f"\n成品: {out}  ({os.path.getsize(out)//1024} KB)（{len(seg_outs)} 段拼接，流水线并行 + 整片片头）")
     return out
 
 
