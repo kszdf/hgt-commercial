@@ -400,9 +400,9 @@ def concat_mp4(parts, out):
     return out
 
 
-def render_one(timed, audio_wav, tag, out, args, tmpdir):
-    """渲染单段（或整稿）：字幕预处理 -> ass/karaoke/graphics -> make_avatar_video -> 成品。
-    返回成品路径。机制A1：tag 确定性 → 同段重跑命中 HEYGEM 产物复用（省 30 分钟渲染）。"""
+def _prep_segment(timed, args, tmpdir):
+    """写某段（或整稿）的 ass/karaoke/graphics 到 tmpdir，返回 (ass, karaoke, graphics, wrapped_timed)。
+    所有渲染路径共用：保证字幕预处理（按 720 画布换行）只写一份。"""
     base = Path(GPT_SOVITS)
     font_main = _load_sub_font(args.font, SUBTITLE_FONT_SIZE) if args.font else None
     font_fallback = _load_sub_font(str(base / "fonts/simhei.ttf"), SUBTITLE_FONT_SIZE)
@@ -418,7 +418,7 @@ def render_one(timed, audio_wav, tag, out, args, tmpdir):
     karaoke_path = os.path.join(tmpdir, "sub.ass.karaoke.json")
     with open(karaoke_path, "w", encoding="utf-8") as kf:
         json.dump(build_karaoke(timed, args.subtitle_style), kf, ensure_ascii=False)
-    print(f"[avatar] 配音 {len(timed)} 句，时长 {timed[-1][1]:.1f}s，字幕已生成（风格={args.subtitle_style}）")
+    print(f"[avatar] 字幕 {len(timed)} 句，时长 {timed[-1][1]:.1f}s（风格={args.subtitle_style}）")
 
     graphics_path = os.path.join(tmpdir, "sub.graphics.json")
     gfx = detect_graphics(timed)
@@ -426,14 +426,28 @@ def render_one(timed, audio_wav, tag, out, args, tmpdir):
         json.dump(gfx, gf, ensure_ascii=False)
     if gfx:
         print(f"[avatar] 智能图解 {len(gfx)} 段: " + ", ".join(f"{g['kind']}@{g['start']}s" for g in gfx))
+    return ass_path, karaoke_path, graphics_path, timed
 
-    os.makedirs(os.path.dirname(out), exist_ok=True)
-    cmd = [PY310, MAKE_AVATAR, "--audio", audio_wav, "--ass", ass_path,
+
+def _mav_cmd(audio, ass, karaoke, graphics, tag, out, args, stage="full", result=None):
+    """组装 make_avatar_video.py 命令行。stage: full=渲染+后期 / render=只渲染 / post=只后期。"""
+    cmd = [PY310, MAKE_AVATAR, "--audio", audio, "--ass", ass,
            "--model", args.model, "--out", out, "--name", tag,
-           "--subtitle-style", args.subtitle_style, "--karaoke", karaoke_path,
-           "--graphics", graphics_path]
+           "--subtitle-style", args.subtitle_style, "--karaoke", karaoke,
+           "--graphics", graphics, "--stage", stage]
     if args.font:
         cmd += ["--font", args.font]
+    if stage == "post":
+        cmd += ["--result", result]
+    return cmd
+
+
+def render_one(timed, audio_wav, tag, out, args, tmpdir):
+    """渲染单段（或整稿）：字幕预处理 -> ass/karaoke/graphics -> make_avatar_video(full) -> 成品。
+    返回成品路径。机制A1：tag 确定性 → 同段重跑命中 HEYGEM 产物复用（省 30 分钟渲染）。"""
+    ass_path, karaoke_path, graphics_path, _ = _prep_segment(timed, args, tmpdir)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    cmd = _mav_cmd(audio_wav, ass_path, karaoke_path, graphics_path, tag, out, args, stage="full")
     # 长视频稳定输出：整体重试（HEYGEM 渲染偶发失败/超时自动重跑，最多 3 次，无需人盯）
     max_tries = 3
     last_err = ""
@@ -456,6 +470,91 @@ def render_one(timed, audio_wav, tag, out, args, tmpdir):
         sys.exit(f"make_avatar_video 失败（重试 {max_tries} 次后仍失败）")
     if not os.path.exists(out):
         sys.exit("成品未生成")
+    return out
+
+
+def _run_render_stage(cmd_render, result_out):
+    """render 阶段同步执行（含 3 次重试），返回就绪产物路径。"""
+    max_tries = 3
+    last_err = ""
+    for attempt in range(1, max_tries + 1):
+        if attempt > 1:
+            print(f"\n[avatar] 渲染第 {attempt}/{max_tries} 次重试（上次失败: {last_err[:80]}）")
+        r = subprocess.run(cmd_render, cwd=GPT_SOVITS, capture_output=True, text=True,
+                           encoding="utf-8", errors="ignore")
+        if r.returncode == 0 and os.path.exists(result_out):
+            with open(result_out, encoding="utf-8") as f:
+                res = f.read().strip()
+            if res and os.path.exists(res):
+                return res
+        last_err = (r.stderr or r.stdout or "")[-300:]
+        print(f"[avatar] render 第 {attempt} 次失败: {last_err[:120]}")
+    sys.exit(f"make_avatar_video render 失败（重试 {max_tries} 次后仍失败）: {last_err[-200:]}")
+
+
+def _run_post_stage(cmd_post, out):
+    """post 阶段同步执行（本地 CPU 后期，含重试），返回成品路径。"""
+    max_tries = 3
+    last_err = ""
+    for attempt in range(1, max_tries + 1):
+        if attempt > 1:
+            print(f"\n[avatar] 后期第 {attempt}/{max_tries} 次重试（上次失败: {last_err[:80]}）")
+            try:
+                if os.path.exists(out):
+                    os.remove(out)
+            except OSError:
+                pass
+        r = subprocess.run(cmd_post, cwd=GPT_SOVITS, capture_output=True, text=True,
+                           encoding="utf-8", errors="ignore")
+        if r.returncode == 0 and os.path.exists(out):
+            return out
+        last_err = (r.stderr or r.stdout or "")[-300:]
+        print(f"[avatar] post 第 {attempt} 次失败: {last_err[:120]}")
+    sys.exit(f"make_avatar_video post 失败（重试 {max_tries} 次后仍失败）: {last_err[-200:]}")
+
+
+def render_segments_pipeline(chunks, segs_full, args, tag, out):
+    """机制B1+流水线并行：多段渲染+拼接。
+    渲染占 HEYGEM 容器（单任务，必须串行），后期占本地 CPU（可并行）→
+    段 i 渲染时并行跑段 i-1 的后期，总时长从「Σ(渲染+后期)」压到「Σ渲染+最后一段后期」。
+    306s 稿：渲染 17+17 + 后期 12 ≈ 46 分钟（vs 串行 58 分钟）。"""
+    seg_dir = os.path.join(os.path.dirname(out), "_segs_pipeline")
+    os.makedirs(seg_dir, exist_ok=True)
+    # 预合成每段音频 + 字幕（TTS 缓存命中 → 秒回），并组装 render/post 命令
+    seg_audios, seg_assets, seg_outs = [], [], []
+    for i, seg_segs in enumerate(chunks):
+        seg_tmp = os.path.join(seg_dir, f"seg{i}")
+        os.makedirs(seg_tmp, exist_ok=True)
+        seg_audio, seg_timed = synth_concat(seg_segs, args.male_voice, args.female_voice, seg_tmp)
+        seg_dur = seg_timed[-1][1] if seg_timed else 0
+        print(f"[avatar]   段{i+1}/{len(chunks)}: {len(seg_segs)} 句, {seg_dur:.1f}s")
+        ass_path, karaoke_path, graphics_path, _ = _prep_segment(seg_timed, args, seg_tmp)
+        seg_out = os.path.join(seg_dir, f"seg{i}.mp4")
+        result_out = os.path.join(seg_tmp, "result.path")
+        seg_tag = f"{tag}_p{i}"
+        seg_audios.append(seg_audio)
+        seg_outs.append(seg_out)
+        seg_assets.append((ass_path, karaoke_path, graphics_path, seg_tag, seg_out, result_out))
+    # 流水线：逐段渲染（串行，容器单任务），渲染完立即后台起后期；渲染下一段时上一段后期并行跑
+    post_procs = []
+    for i in range(len(chunks)):
+        ass_path, karaoke_path, graphics_path, seg_tag, seg_out, result_out = seg_assets[i]
+        print(f"[avatar]   ⏳ 渲染段{i+1}/{len(chunks)}（容器）...")
+        cmd_render = _mav_cmd(seg_audios[i], ass_path, karaoke_path, graphics_path,
+                              seg_tag, seg_out, args, stage="render") + ["--result-out", result_out]
+        result_path = _run_render_stage(cmd_render, result_out)
+        print(f"[avatar]   段{i+1} 渲染就绪: {os.path.basename(result_path)} → 后台启动后期")
+        cmd_post = _mav_cmd(seg_audios[i], ass_path, karaoke_path, graphics_path,
+                            seg_tag, seg_out, args, stage="post", result=result_path)
+        post_procs.append(subprocess.Popen(cmd_post, cwd=GPT_SOVITS))
+    # 等所有后期完成
+    for i, p in enumerate(post_procs):
+        rc = p.wait()
+        if rc != 0 or not os.path.exists(seg_outs[i]):
+            sys.exit(f"段{i+1} 后期失败（rc={rc}）")
+        print(f"[avatar]   段{i+1} 后期完成: {seg_outs[i]}")
+    concat_mp4(seg_outs, out)
+    print(f"\n成品: {out}  ({os.path.getsize(out)//1024} KB)（{len(seg_outs)} 段拼接，流水线并行）")
     return out
 
 
@@ -510,21 +609,7 @@ def main():
     if total_dur > SEG_MAX:
         chunks = split_segments(segs, timed, seg_max=SEG_MAX)
         print(f"[avatar] ⚠ 口播 {total_dur:.0f}s 超过单段上限 {SEG_MAX:.0f}s → 自动分段 {len(chunks)} 段渲染+拼接")
-        seg_outs = []
-        seg_dir = os.path.join(tmp, "segs")
-        os.makedirs(seg_dir, exist_ok=True)
-        for i, seg_segs in enumerate(chunks):
-            seg_tmp = os.path.join(seg_dir, f"seg{i}")
-            os.makedirs(seg_tmp, exist_ok=True)
-            # 段内重新合成（TTS 缓存命中 → 秒回），时间轴从 0 起
-            seg_audio, seg_timed = synth_concat(seg_segs, args.male_voice, args.female_voice, seg_tmp)
-            seg_dur = seg_timed[-1][1] if seg_timed else 0
-            print(f"[avatar]   段{i+1}/{len(chunks)}: {len(seg_segs)} 句, {seg_dur:.1f}s")
-            seg_out = os.path.join(seg_dir, f"seg{i}.mp4")
-            render_one(seg_timed, seg_audio, f"{tag}_p{i}", seg_out, args, seg_tmp)
-            seg_outs.append(seg_out)
-        concat_mp4(seg_outs, out)
-        print(f"\n成品: {out}  ({os.path.getsize(out)//1024} KB)（{len(seg_outs)} 段拼接）")
+        render_segments_pipeline(chunks, segs, args, tag, out)
     else:
         render_one(timed, audio_wav, tag, out, args, tmp)
         print(f"\n成品: {out}  ({os.path.getsize(out)//1024} KB)")
