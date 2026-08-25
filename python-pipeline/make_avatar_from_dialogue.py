@@ -131,11 +131,13 @@ def synth_concat(segs, male_voice, female_voice, tmpdir, gap=0.25):
     return total, timed
 
 
-# 目标视频为竖屏 720x1280；finalize_v2_pil 里 SUB_SIZE=42，左右各留 40px 安全边距
-SUBTITLE_VIDEO_W = 720
-SUBTITLE_FONT_SIZE = 42
+# 目标视频为竖屏 1080x1920；finalize_v2_pil 里 SUB_SIZE=34，左右各留 40px 安全边距
+# 修复：此前按旧 720p 用 640px 换行 → karaoke 行数(20行)与渲染行数不一致 → 逐行失效；
+#       改为 1000px（1080-80），与 finalize 渲染宽度对齐，行边界完全匹配。
+SUBTITLE_VIDEO_W = 1080
+SUBTITLE_FONT_SIZE = 34
 SUBTITLE_HMARGIN = 40
-SUBTITLE_MAX_W = SUBTITLE_VIDEO_W - SUBTITLE_HMARGIN * 2   # 640px
+SUBTITLE_MAX_W = SUBTITLE_VIDEO_W - SUBTITLE_HMARGIN * 2   # 1000px
 
 
 def _load_sub_font(path, size):
