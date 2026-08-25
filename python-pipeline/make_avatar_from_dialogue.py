@@ -370,6 +370,13 @@ def main():
 
     tmp = tempfile.mkdtemp(prefix="avatar_")
     audio_wav, timed = synth_concat(segs, args.male_voice, args.female_voice, tmp)
+    total_dur = timed[-1][1] if timed else 0
+    # 机制二：时长上限（HEYGEM 单段稳定 ≤170s；超长提示分段，仍尝试整段渲染+产物复用）
+    SEG_MAX = 170.0
+    if total_dur > SEG_MAX:
+        print(f"[avatar] ⚠ 口播 {total_dur:.0f}s 超过数字人单段稳定上限 {SEG_MAX:.0f}s：")
+        print(f"         HEYGEM 将渲染较久（约 {total_dur/10:.0f} 分钟），且中途失败需重跑。")
+        print(f"         自动分段机制(≤{SEG_MAX:.0f}s/段)建设中，当前仍按整段渲染（产物复用可省重渲染）。")
 
     # 预处理字幕：按目标视频宽度自动换行，从源头避免溢出；保持 karaoke 同步
     base = Path(GPT_SOVITS)
