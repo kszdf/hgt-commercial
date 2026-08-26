@@ -476,13 +476,13 @@ def _prep_segment(timed, args, tmpdir):
     print(f"[avatar] 字幕 {len(timed)} 句，时长 {timed[-1][1]:.1f}s（风格={args.subtitle_style}）")
 
     graphics_path = os.path.join(tmpdir, "sub.graphics.json")
-    gfx = detect_graphics(timed) if not getattr(args, "no_graphics", False) else []
+    gfx = detect_graphics(timed) if getattr(args, "graphics", False) else []
     with open(graphics_path, "w", encoding="utf-8") as gf:
         json.dump(gfx, gf, ensure_ascii=False)
     if gfx:
         print(f"[avatar] 智能图解 {len(gfx)} 段: " + ", ".join(f"{g['kind']}@{g['start']}s" for g in gfx))
-    elif getattr(args, "no_graphics", False):
-        print("[avatar] 智能图解已关闭（--no-graphics）：仅字幕，不穿插配图卡")
+    elif not getattr(args, "graphics", False):
+        print("[avatar] 智能图解默认关闭（仅字幕，不穿插配图卡；如需配图加 --graphics）")
     return ass_path, karaoke_path, graphics_path, timed
 
 
@@ -640,8 +640,9 @@ def main():
                     help="保留男女对话双声（需同时传 --female-voice；默认关闭，数字人应为单声线）")
     ap.add_argument("--max-seg", type=float, default=170.0,
                     help="数字人单段稳定渲染上限（秒），超过自动分段（机制B1）")
-    ap.add_argument("--no-graphics", action="store_true",
-                    help="关闭智能图解配图卡：只保留字幕（高亮+重点词放大），不穿插配图（配图易显粗劣时用）")
+    ap.add_argument("--graphics", action="store_true",
+                    help="开启智能图解配图卡（默认关闭）：数字人出镜时按内容穿插图表/警示/流程卡。"
+                         "默认仅字幕（高亮+重点词放大），配图卡当前为简化 PIL 大字卡，质量一般")
     ap.add_argument("--no-punct", action="store_true",
                     help="无标点字幕：去掉所有标点符号（断句结构保留），逐行跟读更干净（对标头部财税IP）")
     args = ap.parse_args()
