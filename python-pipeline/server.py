@@ -47,6 +47,8 @@
 说明:
     - dry_tts=false（默认）走真实 TTS，需 model_keys.env 中的 dashscope key 与联网。
   - scroll 模式：多声（女：/男：）滚动字幕卡，不出镜。
+  - motion 模式：幕后音·动态画面（对标视频号「建筑财税张老师」风格）——男声/女声/男女对话配音 +
+    底部大字字幕 + 动态GIF/生图场景（已取消"智能图解"信息卡），不出镜。
   - avatar 模式：单人独白（统一单声线，取消男女对话）；数字人形象为单人出镜，「女：/男：」对话前缀会被自动忽略，整稿用所选单一声线配音。
     - Laravel 容器经 host.docker.internal:8500 调用本服务，服务本身不对外暴露。
 """
@@ -1686,6 +1688,35 @@ def estimate_duration_sec(dialogue):
     return max(1, round(chars / 4.5))
 
 
+def _child_env_with_proxy():
+    """构造子进程环境：继承当前 env，并显式注入本机代理（127.0.0.1:7897 等），
+    保证以 LocalSystem 运行的 8500 服务 spawn 的 python 子进程也能走代理访问外网。
+    背景：dashscope TTS 走 WebSocket 流式，LocalSystem 无用户代理配置 → WS 连接失败
+    → call() 返回 None → 服务端任务 TTS 必失败（本机手动跑因当前用户有代理而成功）。"""
+    import copy
+    env = copy.copy(os.environ)
+    # 从当前用户注册表读代理（服务是 LocalSystem，读不到 HKCU）
+    proxy = ""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            r"Software\Microsoft\Windows\CurrentVersion\Internet Settings") as k:
+            enabled, _ = winreg.QueryValueEx(k, "ProxyEnable")
+            server, _ = winreg.QueryValueEx(k, "ProxyServer")
+            if enabled and server:
+                proxy = server if "://" in server else f"http://{server}"
+    except Exception:  # noqa: BLE001
+        pass
+    if not proxy:
+        proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY") or ""
+    if proxy:
+        env.setdefault("HTTP_PROXY", proxy)
+        env.setdefault("HTTPS_PROXY", proxy)
+        env.setdefault("http_proxy", proxy)
+        env.setdefault("https_proxy", proxy)
+    return env
+
+
 def run_with_timeout(args, cwd, timeout, log_path=None):
     """Windows 安全的带超时进程运行；输出落盘而非缓冲在内存（防长任务内存膨胀）。
     超时杀进程树，防 ffmpeg 等子进程变孤儿。返回 (rc, out, err)。"""
@@ -1699,6 +1730,7 @@ def run_with_timeout(args, cwd, timeout, log_path=None):
     stdout_t = logf if logf else subprocess.DEVNULL
     proc = subprocess.Popen(
         args, cwd=cwd, stdout=stdout_t, stderr=subprocess.STDOUT,
+        env=_child_env_with_proxy(),
         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
     )
     try:
@@ -1883,12 +1915,18 @@ def run_job(job_id, payload):
             if payload.get("subtitle_font"):
                 args += ["--font", resolve_font(payload["subtitle_font"])]
         elif mode == "motion":
-            # 幕后音·智能图解：对话稿 → 双声 + AI 生图分镜（motion_v4 内部 TTS + 生图）
+            # 幕后音·动态画面（对标视频号「建筑财税张老师」风格）：
+            # 男声/女声/男女对话 → 双声 TTS + 动态GIF/生图场景 + 底部大字字幕（motion_v4 内部完成，已取消智能图解信息卡）
             args = [PY310, SCRIPT_MOTION, "--script", dlg_path, "--out", out_path]
             if payload.get("title"):
                 args += ["--title", payload["title"]]
             style = payload.get("motion_style") or "财经严谨"
             args += ["--style", style, "--dialogue"]
+            # 性能可调: 并行渲染/并行TTS 通过环境变量覆盖(不设则脚本自动: 渲染12进程、TTS4并发)
+            if os.environ.get("MOTION_WORKERS"):
+                args += ["--workers", str(int(os.environ["MOTION_WORKERS"]))]
+            if os.environ.get("MOTION_TTS_WORKERS"):
+                args += ["--tts-workers", str(int(os.environ["MOTION_TTS_WORKERS"]))]
         else:  # scroll
             args = [PY310, SCRIPT_SCROLL, "--dialogue", dlg_path, "--out", out_path]
             if payload.get("title"):
