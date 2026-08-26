@@ -72,10 +72,11 @@ class VideoController extends Controller
         }
 
         $data = $request->validate([
-            'mode' => ['sometimes', 'in:scroll,avatar'],
+            'mode' => ['sometimes', 'in:scroll,avatar,motion'],
             'dialogue' => ['required', 'string'],
             'title' => ['nullable', 'string', 'max:20'],
             'subtitle' => ['nullable', 'string', 'max:40'],
+            'motion_style' => ['sometimes', 'nullable', 'string', 'in:财经严谨,带货活力,简约高级'],
             // 分声线感情/快慢（可选；不传则用脚本默认值）
             'male_rate' => ['sometimes', 'numeric', 'between:0.5,2.0'],
             'female_rate' => ['sometimes', 'numeric', 'between:0.5,2.0'],
@@ -210,6 +211,7 @@ class VideoController extends Controller
             'dialogue' => $data['dialogue'],
             'title' => $title,
             'subtitle' => $data['subtitle'] ?? null,
+            'motion_style' => $request->input('motion_style', '财经严谨'),
             'dry_tts' => (bool) $request->input('dry_tts', false),
             'male_voice' => $request->input('male_voice') ?: $tenant->default_male_voice,
             'female_voice' => $request->input('female_voice') ?: $tenant->default_female_voice,

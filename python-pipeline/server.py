@@ -1916,12 +1916,30 @@ def run_job(job_id, payload):
                 args += ["--font", resolve_font(payload["subtitle_font"])]
         elif mode == "motion":
             # 幕后音·动态画面（对标视频号「建筑财税张老师」风格）：
-            # 男声/女声/男女对话 → 双声 TTS + 动态GIF/生图场景 + 底部大字字幕（motion_v4 内部完成，已取消智能图解信息卡）
+            # 男声/女声/男女对话 → 双声 TTS + 动态GIF/生图场景 + 中部滚动字幕（motion_v4 内部完成）
+            # 声线形式与 scroll 一致：male_mono/female_mono 去角色前缀成单声，dialogue 保留双声
+            voice_form = payload.get("voice_form") or "dialogue"
+            if voice_form in ("male_mono", "female_mono"):
+                dialogue = re.sub(r'^\s*(?:女|男|旁白)[:：]\s*', '', dialogue, flags=re.M)
+                with open(dlg_path, "w", encoding="utf-8") as f:
+                    f.write(dialogue)
             args = [PY310, SCRIPT_MOTION, "--script", dlg_path, "--out", out_path]
             if payload.get("title"):
                 args += ["--title", payload["title"]]
             style = payload.get("motion_style") or "财经严谨"
             args += ["--style", style, "--dialogue"]
+            # 租户音色（工作台可传男/女声线；不传则用引擎默认克隆音）
+            mv = payload.get("male_voice")
+            fv = payload.get("female_voice")
+            if voice_form == "male_mono" and mv:
+                args += ["--male-voice", mv]
+            elif voice_form == "female_mono" and fv:
+                args += ["--female-voice", fv]
+            elif voice_form == "dialogue":
+                if mv:
+                    args += ["--male-voice", mv]
+                if fv:
+                    args += ["--female-voice", fv]
             # 性能可调: 并行渲染/并行TTS 通过环境变量覆盖(不设则脚本自动: 渲染12进程、TTS4并发)
             if os.environ.get("MOTION_WORKERS"):
                 args += ["--workers", str(int(os.environ["MOTION_WORKERS"]))]

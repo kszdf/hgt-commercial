@@ -8,9 +8,18 @@
     <!-- 出片形式快捷切换 -->
     <div class="mb-4 flex flex-wrap gap-2">
         <button type="button" data-form="avatar" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('avatar')">数字人出镜（本地 HEYGEM）</button>
-        <button type="button" data-form="male_mono" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('male_mono')">男声幕后音</button>
-        <button type="button" data-form="female_mono" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('female_mono')">女声幕后音</button>
-        <button type="button" data-form="dialogue" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('dialogue')">男女对话幕后音</button>
+        <button type="button" data-form="male_mono" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('male_mono')">男声幕后音·动态画面</button>
+        <button type="button" data-form="female_mono" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('female_mono')">女声幕后音·动态画面</button>
+        <button type="button" data-form="dialogue" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('dialogue')">男女对话幕后音·动态画面</button>
+    </div>
+    <!-- 幕后音·动态画面：包装主题 -->
+    <div class="mb-4 flex flex-wrap items-center gap-2" id="motionStyleWrap">
+        <span class="text-xs text-slate-400">幕后音·动态画面包装主题：</span>
+        <select id="motion_style" name="motion_style" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600">
+            <option value="财经严谨">财经严谨（深色专业·金点缀）</option>
+            <option value="带货活力">带货活力</option>
+            <option value="简约高级">简约高级</option>
+        </select>
     </div>
 
     <!-- 常用预设档：点一个按钮整组套用「出片形式 + 配音声线」 -->
@@ -387,9 +396,9 @@ function setBtnLoading(isLoading, text) {
                 }
                 const dm = {
                     'avatar':        { mode: 'avatar', voiceForm: null },
-                    'scroll_male':   { mode: 'scroll', voiceForm: 'male_mono' },
-                    'scroll_female': { mode: 'scroll', voiceForm: 'female_mono' },
-                    'scroll_dual':   { mode: 'scroll', voiceForm: 'dialogue' }
+                    'scroll_male':   { mode: 'motion', voiceForm: 'male_mono' },
+                    'scroll_female': { mode: 'motion', voiceForm: 'female_mono' },
+                    'scroll_dual':   { mode: 'motion', voiceForm: 'dialogue' }
                 }[d.mode];
                 if (dm) {
                     setMode(dm.mode);
@@ -427,9 +436,9 @@ function setBtnLoading(isLoading, text) {
         // 新呈现形式值：直接决定出片模式与声线形式，不再按文本反推
         const displayModeMap = {
             'avatar':        { mode: 'avatar', voiceForm: null,          label: '单人数字人出镜' },
-            'scroll_male':   { mode: 'scroll', voiceForm: 'male_mono',   label: '男声幕后音' },
-            'scroll_female': { mode: 'scroll', voiceForm: 'female_mono', label: '女声幕后音' },
-            'scroll_dual':   { mode: 'scroll', voiceForm: 'dialogue',    label: '男女对话幕后音' }
+            'scroll_male':   { mode: 'motion', voiceForm: 'male_mono',   label: '男声幕后音·动态画面' },
+            'scroll_female': { mode: 'motion', voiceForm: 'female_mono', label: '女声幕后音·动态画面' },
+            'scroll_dual':   { mode: 'motion', voiceForm: 'dialogue',    label: '男女对话幕后音·动态画面' }
         };
 
         if (displayModeMap[mode]) {
@@ -437,7 +446,7 @@ function setBtnLoading(isLoading, text) {
             reason = '已在「' + srcInfo.label + '」选择「' + displayModeMap[mode].label + '」，已自动匹配出片模式';
             setMode(recommendedMode);
             modeInitializedByUrl = true;
-            if (recommendedMode === 'scroll' && displayModeMap[mode].voiceForm) {
+            if ((recommendedMode === 'scroll' || recommendedMode === 'motion') && displayModeMap[mode].voiceForm) {
                 setVoiceForm(displayModeMap[mode].voiceForm);
             }
         } else {
@@ -567,25 +576,25 @@ function setMode(m) {
     }
 }
 
-// 出片形式快捷按钮组：数字人出镜 / 男声幕后 / 女声幕后 / 男女对话
+// 出片形式快捷按钮组：数字人出镜 / 男声幕后·动态画面 / 女声幕后·动态画面 / 男女对话·动态画面
 const FORM_MAP = {
     avatar:      { mode: 'avatar', vf: null },
-    male_mono:   { mode: 'scroll', vf: 'male_mono' },
-    female_mono: { mode: 'scroll', vf: 'female_mono' },
-    dialogue:    { mode: 'scroll', vf: 'dialogue' },
+    male_mono:   { mode: 'motion', vf: 'male_mono' },
+    female_mono: { mode: 'motion', vf: 'female_mono' },
+    dialogue:    { mode: 'motion', vf: 'dialogue' },
 };
 function selectForm(form) {
     const cfg = FORM_MAP[form];
     if (!cfg) return;
     setMode(cfg.mode);
-    if (cfg.mode === 'scroll' && cfg.vf) setVoiceForm(cfg.vf);
+    if (cfg.vf) setVoiceForm(cfg.vf);
     highlightForm();
 }
 function highlightForm() {
     document.querySelectorAll('.form-btn').forEach(b => {
         const f = b.dataset.form;
         const active = (f === 'avatar' && currentMode === 'avatar') ||
-                       (f !== 'avatar' && currentMode === 'scroll' && voiceForm === f);
+                       (f !== 'avatar' && currentMode === 'motion' && voiceForm === f);
         b.className = 'form-btn rounded-lg px-4 py-2 text-sm font-medium transition ' +
             (active ? 'border border-brand-500 bg-brand-50 text-brand-700'
                     : 'border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700');
@@ -611,7 +620,7 @@ function detectVoiceForm(text) {
     return 'mono';
 }
 function applyVoiceFormAuto(text) {
-    if (voiceFormManual || currentMode !== 'scroll') return;
+    if (voiceFormManual || (currentMode !== 'scroll' && currentMode !== 'motion')) return;
     const inferred = detectVoiceForm(text);
     if (inferred !== voiceForm) setVoiceForm(inferred);
 }
@@ -999,7 +1008,7 @@ function highlightPreset(key) {
 }
 function applyQuickVoice(needle, which, btn) {
     // 对话模式下快捷按钮不适用（对话需两个声线，用组合按钮），跳过
-    if (currentMode === 'scroll' && voiceForm === 'dialogue') return;
+    if ((currentMode === 'scroll' || currentMode === 'motion') && voiceForm === 'dialogue') return;
     const sv = document.getElementById('singleVoice');
     if (!sv) return;
     let hit = false;
@@ -1235,6 +1244,7 @@ async function handleGenerate(e) {
                 dialogue: document.getElementById('dialogue').value,
                 title: document.getElementById('title').value,
                 subtitle: document.getElementById('subtitle').value,
+                motion_style: document.getElementById('motion_style')?.value || '财经严谨',
                 dry_tts: false,
                 // 韵律参数不向前端发送：声调/快慢/音量由后端脚本按情绪自动调教（v4 定稿），
                 // 避免前端硬编码默认值覆盖专业调好的自动韵律
