@@ -2258,6 +2258,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._send(200, {"ok": True, "mode": "seed",
                                     "count": len(seed), "hotspots": seed})
 
+        # ---- 每日热点·双题材：读最近一次 daily_hot.json 结果（前端轮询）----
+        if p.path == "/hot-daily-result":
+            return self._handle_hot_daily_result()
+
         # ---- OAuth2 授权（抖音 / 小红书 授权码模式；公众号 / 视频号走 client_credential）----
         # 恢复（功能包一）：账号级授权，query 可带 account_id（platform_accounts.id）。
         if p.path.startswith("/oauth/authorize/"):
