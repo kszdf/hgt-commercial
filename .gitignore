@@ -83,3 +83,6 @@ auto_push.log
 
 # ===== 运行时 watchdog 日志（非源码，守护进程每次运行都会更新）=====
 runtime-logs/heygem_watchdog.log
+
+jobs/
+python-pipeline/jobs/
