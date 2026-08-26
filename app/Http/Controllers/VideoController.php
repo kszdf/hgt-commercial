@@ -38,7 +38,9 @@ class VideoController extends Controller
             ->where('gender', 'female')->where('status', 'ready')
             ->orderByDesc('is_default')->orderByDesc('created_at')
             ->get(['id', 'name', 'voice_id', 'is_default']);
-        return view('studio.scroll', compact('maleVoices', 'femaleVoices'));
+        // 出片页自用默认参数（config/studio.php，owner 可经 .env 调优，用户端不暴露滑块）
+        $subDefaults = config('studio.subtitle_defaults');
+        return view('studio.scroll', compact('maleVoices', 'femaleVoices', 'subDefaults'));
     }
 
     public function generate(Request $request)

@@ -186,53 +186,55 @@
                     </p>
                 </div>
 
-                <!-- 字幕样式调试（实时预览） -->
-                <details class="rounded-lg studio-card studio-card-sm">
+                <!-- 字幕样式调试（字号 / 行数 / 描边 / 位置 / 风格 / 字体）— 已隐藏：
+                     出片使用 config/studio.php 的默认值（owner 可经 .env 调优，用户端不暴露滑块）；
+                     DOM 保留供 JS 读取当前值，避免 getElementById 报错；如需手动微调再取消 hidden -->
+                <details class="rounded-lg studio-card studio-card-sm" hidden>
                     <summary class="cursor-pointer text-sm font-medium text-slate-600 select-none">字幕样式调试（字号 / 行数 / 描边 / 位置）</summary>
-                    <p class="mt-2 text-xs text-slate-400">拖动滑块实时预览字幕效果；不调则使用平台默认样式。</p>
+                    <p class="mt-2 text-xs text-slate-400">已启用平台默认字幕样式，无需手动调节。</p>
                     <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div class="space-y-1">
-                            <div class="flex justify-between text-xs text-slate-500"><span>字号</span><span id="v_sub_size" class="font-mono text-brand-600">92</span></div>
-                            <input type="range" id="subtitle_size" min="48" max="140" step="1" value="92" class="w-full accent-brand-500"
+                            <div class="flex justify-between text-xs text-slate-500"><span>字号</span><span id="v_sub_size" class="font-mono text-brand-600">{{ $subDefaults['size'] }}</span></div>
+                            <input type="range" id="subtitle_size" min="48" max="140" step="1" value="{{ $subDefaults['size'] }}" class="w-full accent-brand-500"
                                 oninput="document.getElementById('v_sub_size').textContent=this.value;updateSubPreview()">
                         </div>
                         <div class="space-y-1">
-                            <div class="flex justify-between text-xs text-slate-500"><span>描边</span><span id="v_sub_outline" class="font-mono text-brand-600">5</span></div>
-                            <input type="range" id="subtitle_outline" min="0" max="10" step="1" value="5" class="w-full accent-brand-500"
+                            <div class="flex justify-between text-xs text-slate-500"><span>描边</span><span id="v_sub_outline" class="font-mono text-brand-600">{{ $subDefaults['outline'] }}</span></div>
+                            <input type="range" id="subtitle_outline" min="0" max="10" step="1" value="{{ $subDefaults['outline'] }}" class="w-full accent-brand-500"
                                 oninput="document.getElementById('v_sub_outline').textContent=this.value;updateSubPreview()">
                         </div>
                         <div class="space-y-1">
                             <label class="block text-xs text-slate-500">单条字幕行数</label>
                             <select id="subtitle_lines" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700" onchange="updateSubPreview()">
-                                <option value="1">1 行</option>
-                                <option value="2">2 行</option>
-                                <option value="3" selected>3 行（默认）</option>
+                                <option value="1" {{ $subDefaults['lines'] == 1 ? 'selected' : '' }}>1 行</option>
+                                <option value="2" {{ $subDefaults['lines'] == 2 ? 'selected' : '' }}>2 行</option>
+                                <option value="3" {{ $subDefaults['lines'] == 3 ? 'selected' : '' }}>3 行（默认）</option>
                             </select>
                         </div>
                         <div class="space-y-1">
                             <label class="block text-xs text-slate-500">字幕位置</label>
                             <select id="subtitle_position" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700" onchange="updateSubPreview()">
-                                <option value="bottom" selected>底部（默认）</option>
-                                <option value="center">居中</option>
+                                <option value="bottom" {{ $subDefaults['position'] === 'bottom' ? 'selected' : '' }}>底部（默认）</option>
+                                <option value="center" {{ $subDefaults['position'] === 'center' ? 'selected' : '' }}>居中</option>
                             </select>
                         </div>
                         <div class="space-y-1 sm:col-span-2">
                             <label class="block text-xs text-slate-500">字幕风格</label>
                             <select id="subtitle_style" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700" onchange="updateSubPreview()">
-                                <option value="dynamic" selected>逐字高亮（卡拉OK式·推荐）</option>
-                                <option value="minimal">纯净白字（无高亮）</option>
-                                <option value="bubble">气泡底衬（高反差场景）</option>
+                                <option value="dynamic" {{ $subDefaults['style'] === 'dynamic' ? 'selected' : '' }}>逐字高亮（卡拉OK式·推荐）</option>
+                                <option value="minimal" {{ $subDefaults['style'] === 'minimal' ? 'selected' : '' }}>纯净白字（无高亮）</option>
+                                <option value="bubble" {{ $subDefaults['style'] === 'bubble' ? 'selected' : '' }}>气泡底衬（高反差场景）</option>
                             </select>
                             <p class="text-[11px] text-slate-400">逐字高亮会让读到的字变金色，字幕跟着配音走；数字人出镜与滚动字幕卡均支持。</p>
                         </div>
                         <div class="space-y-1 sm:col-span-2">
                             <label class="block text-xs text-slate-500">字幕字体</label>
                             <select id="subtitle_font" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700" onchange="updateSubPreview()">
-                                <option value="hei" selected>黑体（默认·稳重）</option>
-                                <option value="yahei">微软雅黑（现代·清晰）</option>
-                                <option value="kaiti">楷体（手写·亲和）</option>
-                                <option value="song">宋体（正式·传统）</option>
-                                <option value="fangsong">仿宋（公文·规整）</option>
+                                <option value="hei" {{ $subDefaults['font'] === 'hei' ? 'selected' : '' }}>黑体（默认·稳重）</option>
+                                <option value="yahei" {{ $subDefaults['font'] === 'yahei' ? 'selected' : '' }}>微软雅黑（现代·清晰）</option>
+                                <option value="kaiti" {{ $subDefaults['font'] === 'kaiti' ? 'selected' : '' }}>楷体（手写·亲和）</option>
+                                <option value="song" {{ $subDefaults['font'] === 'song' ? 'selected' : '' }}>宋体（正式·传统）</option>
+                                <option value="fangsong" {{ $subDefaults['font'] === 'fangsong' ? 'selected' : '' }}>仿宋（公文·规整）</option>
                             </select>
                             <p class="text-[11px] text-slate-400">像剪映一样选字幕字体；数字人出镜与滚动字幕卡均支持。</p>
                         </div>
