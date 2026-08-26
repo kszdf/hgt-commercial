@@ -26,6 +26,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -192,23 +193,47 @@ def _wrap_display_by_count(display, max_chars):
 
 def _wrap_display_by_width(display, fonts, max_width=SUBTITLE_MAX_W):
     """按像素宽度对一句字幕自动换行，保证 finalize 阶段不会溢出屏幕。
+    语义优先：超过宽度时先回退到最近的标点（，。；！？、：）后断开，
+    绝不把句子腰斩成"上半句，/下半句"；整句无标点才按宽度硬断。
     保持字符顺序，不影响 karaoke 逐字高亮同步。"""
     if not HAS_PIL:
         # 无 PIL 时保守按字符数截断（每行最多 12 个汉字）
         return _wrap_display_by_count(display, 12)
     tmp = Image.new("RGB", (1, 1))
     draw = ImageDraw.Draw(tmp)
+    # 断行标点：在这些字符【之后】断开（行尾保留标点，下一行从完整语义开始）
+    BREAK_AFTER = "，。；！？、：)）】》\"”"
     out_lines = []
     for raw_line in display.split("\n"):
         chars, w = [], 0.0
-        for ch in raw_line:
+        last_break = -1   # 最近一个可断点（标点后的位置）
+        for idx, ch in enumerate(raw_line):
             cw = _char_pixel_width(draw, ch, fonts)
             if w + cw > max_width and chars:
-                out_lines.append("".join(chars))
-                chars, w = [ch], cw
-            else:
+                # 超宽：优先回退到最近标点后断开；无标点才硬断
+                if last_break >= 0:
+                    break_at = last_break + 1
+                    out_lines.append("".join(chars[:break_at]))
+                    chars = chars[break_at:]
+                    w = sum(_char_pixel_width(draw, c, fonts) for c in chars)
+                    last_break = -1
+                    # 重算断点（剩余部分重新扫描）
+                    for k, c in enumerate(chars):
+                        if c in BREAK_AFTER:
+                            last_break = k
+                else:
+                    out_lines.append("".join(chars))
+                    chars, w = [ch], cw
+                # 当前字符入新行
                 chars.append(ch)
-                w += cw
+                w += _char_pixel_width(draw, ch, fonts)
+                if ch in BREAK_AFTER:
+                    last_break = len(chars) - 1
+                continue
+            chars.append(ch)
+            w += cw
+            if ch in BREAK_AFTER:
+                last_break = len(chars) - 1
         if chars:
             out_lines.append("".join(chars))
     return "\n".join(out_lines)
@@ -421,6 +446,12 @@ def _concat_intro_once(out):
     return out
 
 
+def _strip_punct_line(line):
+    """去掉一行字幕里的所有标点（仅保留文字与空格），用于 --no-punct 无标点字幕。
+    断句结构（\n）由调用方在 strip 前按语义标点切好，这里只清行内标点符号。"""
+    return re.sub(r"[，。；！？、：,.;!?()（）\[\]【】\"'“”‘’…—\-～~·]", "", line)
+
+
 def _prep_segment(timed, args, tmpdir):
     """写某段（或整稿）的 ass/karaoke/graphics 到 tmpdir，返回 (ass, karaoke, graphics, wrapped_timed)。
     所有渲染路径共用：保证字幕预处理（按 720 画布换行）只写一份。"""
@@ -431,6 +462,9 @@ def _prep_segment(timed, args, tmpdir):
     wrapped = []
     for start, end, display in timed:
         txt = _wrap_display_by_width(display, fonts)
+        if getattr(args, "no_punct", False):
+            # 无标点字幕：断句结构保留（按原标点位置换行），但行内标点全部去掉
+            txt = "\n".join(_strip_punct_line(ln) for ln in txt.split("\n"))
         wrapped.append((start, end, txt))
     timed = wrapped
 
@@ -442,11 +476,13 @@ def _prep_segment(timed, args, tmpdir):
     print(f"[avatar] 字幕 {len(timed)} 句，时长 {timed[-1][1]:.1f}s（风格={args.subtitle_style}）")
 
     graphics_path = os.path.join(tmpdir, "sub.graphics.json")
-    gfx = detect_graphics(timed)
+    gfx = detect_graphics(timed) if not getattr(args, "no_graphics", False) else []
     with open(graphics_path, "w", encoding="utf-8") as gf:
         json.dump(gfx, gf, ensure_ascii=False)
     if gfx:
         print(f"[avatar] 智能图解 {len(gfx)} 段: " + ", ".join(f"{g['kind']}@{g['start']}s" for g in gfx))
+    elif getattr(args, "no_graphics", False):
+        print("[avatar] 智能图解已关闭（--no-graphics）：仅字幕，不穿插配图卡")
     return ass_path, karaoke_path, graphics_path, timed
 
 
@@ -604,6 +640,10 @@ def main():
                     help="保留男女对话双声（需同时传 --female-voice；默认关闭，数字人应为单声线）")
     ap.add_argument("--max-seg", type=float, default=170.0,
                     help="数字人单段稳定渲染上限（秒），超过自动分段（机制B1）")
+    ap.add_argument("--no-graphics", action="store_true",
+                    help="关闭智能图解配图卡：只保留字幕（高亮+重点词放大），不穿插配图（配图易显粗劣时用）")
+    ap.add_argument("--no-punct", action="store_true",
+                    help="无标点字幕：去掉所有标点符号（断句结构保留），逐行跟读更干净（对标头部财税IP）")
     args = ap.parse_args()
 
     with open(args.dialogue, encoding="utf-8-sig") as f:
