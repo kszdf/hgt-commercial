@@ -84,6 +84,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/studio/topic', [StudioController::class, 'topic'])->name('studio.topic');
     Route::post('/studio/topic/generate', [StudioController::class, 'topicGenerate']);
     Route::post('/studio/topic/hotspots', [StudioController::class, 'hotspotTopics']);
+    Route::post('/studio/topic/hot-daily', [StudioController::class, 'hotDaily']);
+    Route::get('/studio/topic/hot-daily-result', [StudioController::class, 'hotDailyResult']);
     // 选题二创：仅承接从「智能选题」选中的选题，不处理自由原始稿
     Route::get('/studio/rewrite', [StudioController::class, 'rewrite'])->name('studio.rewrite');
     // 原始稿二创：用户自有文案/口播稿的自由改写入口，与选题上下文隔离

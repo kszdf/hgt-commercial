@@ -2321,6 +2321,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_suggest_title(data)
         if p.path == "/hotspot":
             return self._handle_hotspot(data)
+        if p.path == "/hot-daily":
+            return self._handle_hot_daily(data)
+        if p.path == "/hot-daily-result":
+            return self._handle_hot_daily_result()
         if p.path == "/transcribe":
             return self._handle_transcribe(data)
         if p.path == "/dissect":
@@ -3011,6 +3015,43 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
             return self._send(200, {"ok": False, "error": str(e)})
+
+    # ---- 每日热点·双题材（daily_hot：平台热榜 → 财税/大事 + 爆款方案）----
+    _HOT_STATE = {"running": False}
+    _HOT_LOCK = threading.Lock()
+
+    def _handle_hot_daily(self, data):
+        """POST /hot-daily：触发后台抓取 微博/百度/头条热榜 → LLM 双题材过滤 → 爆款方案。"""
+        with self._HOT_LOCK:
+            if self._HOT_STATE.get("running"):
+                return self._send(200, {"ok": True, "running": True})
+            self._HOT_STATE["running"] = True
+
+        def _run():
+            try:
+                import daily_hot
+                daily_hot.run_daily(finance_top=4, event_top=4, per_source=30)
+            except Exception as e:  # noqa: BLE001
+                print(f"[hot-daily] 失败: {e}", flush=True)
+            finally:
+                with self._HOT_LOCK:
+                    self._HOT_STATE["running"] = False
+
+        threading.Thread(target=_run, daemon=True).start()
+        return self._send(200, {"ok": True, "running": True})
+
+    def _handle_hot_daily_result(self):
+        """GET /hot-daily-result：读最近一次每日热点结果 daily_hot.json。"""
+        p = os.path.join(os.environ.get("HOT_DAILY_OUT", r"D:\heygem_data\runtime-logs\daily_hot.json"))
+        result = None
+        if os.path.exists(p):
+            try:
+                result = json.load(open(p, encoding="utf-8"))
+            except Exception:  # noqa: BLE001
+                result = None
+        with self._HOT_LOCK:
+            running = self._HOT_STATE.get("running", False)
+        return self._send(200, {"running": running, "result": result})
 
     # ---- 全网财税热点选题（代理到 ai_hotspot：tavily 真实时 + deepseek 角度）----
     def _handle_hotspot(self, data):

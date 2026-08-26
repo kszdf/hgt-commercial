@@ -156,6 +156,16 @@
                 <p class="text-xs text-slate-400">热点来源为公开财税资讯聚合，建议结合自身解读二次创作。</p>
             </form>
         </section>
+
+        <!-- ===== 每日热点·双题材（微博/百度/头条热榜 → 财税/大事 + 爆款方案） ===== -->
+        <section class="luxury-glass p-5">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-semibold text-slate-700">每日热点·双题材 <span class="text-[10px] font-normal text-slate-400">微博/百度/头条热榜 · 财税相关 + 重大热点事件 + 爆款方案</span></h3>
+                <button type="button" id="hdRefreshBtn" class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-600 disabled:opacity-50">🔄 刷新今日热点</button>
+            </div>
+            <p class="mb-2 text-xs text-slate-400">只保留「财税直接相关」与「重大热点事件」两类，每条附爆款方案（标题/钩子/结构/留资），点「用此选题」进入二创。</p>
+            <div id="hdResult" class="space-y-3 text-sm text-slate-600">加载中…</div>
+        </section>
         </div><!-- /左侧空间 -->
 
         <!-- ===== 结果区 ===== -->
@@ -722,5 +732,156 @@ document.getElementById('hsBatchRewrite')?.addEventListener('click', function ()
             hgtToast('info', '已带入模板选题方向，可直接生成');
         }
     } catch (e) {}
+})();
+
+// ===== 每日热点·双题材：触发 8500 /hot-daily 抓榜 → 轮询结果 → 渲染财税/大事双组卡片 =====
+(function () {
+    const btn = document.getElementById('hdRefreshBtn');
+    const box = document.getElementById('hdResult');
+    if (!btn || !box) return;
+    let timer = null;
+    let busy = false;
+
+    function csrf() {
+        return document.querySelector('meta[name="csrf-token"]')?.content || '';
+    }
+
+    function setBusy(on) {
+        busy = on;
+        btn.disabled = on;
+        btn.textContent = on ? '⏳ 抓取中…' : '🔄 刷新今日热点';
+    }
+
+    // 单条选题卡片：原标题/来源 + 爆款方案(成片标题/钩子/结构/留资) + 用此选题
+    function planCard(t, catLabel) {
+        const p = (t && t.plan && typeof t.plan === 'object') ? t.plan : null;
+        const hook = (p && p.hook_line) ? p.hook_line : '';
+        const cta = (p && p.cta) ? p.cta : '';
+        const struct = (p && Array.isArray(p.structure)) ? p.structure.filter(Boolean) : [];
+        const structHtml = struct.length
+            ? '<ol class="mt-1.5 space-y-1">' + struct.map(function (s, i) {
+                return '<li class="flex gap-1.5 text-xs leading-relaxed text-slate-500"><span class="shrink-0 font-medium text-brand-600">' + (i + 1) + '.</span><span>' + escapeHtml(s) + '</span></li>';
+              }).join('') + '</ol>'
+            : '';
+        const srcLink = (t.url ? '<a href="' + escapeHtml(t.url) + '" target="_blank" rel="noopener" class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500 hover:text-brand-600">看原文 ↗</a>' : '');
+        return '<div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm" data-title="' + escapeHtml(t.title || '') + '" data-source="' + escapeHtml(t.source || '') + '" data-url="' + escapeHtml(t.url || '') + '" data-plan="' + escapeHtml(JSON.stringify(p || {})) + '">' +
+            '<div class="mb-1.5 flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-400">' +
+                '<span><span class="rounded bg-brand-50 px-1.5 py-0.5 font-medium text-brand-600">' + catLabel + '</span>　' + escapeHtml(t.source || '') + '</span>' +
+                srcLink +
+            '</div>' +
+            '<h4 class="text-sm font-semibold text-slate-800">' + escapeHtml(t.title || '') + '</h4>' +
+            (p && p.title ? '<p class="mt-1 text-xs font-medium text-brand-600">成片标题：' + escapeHtml(p.title) + '</p>' : '') +
+            (hook ? '<p class="mt-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-xs leading-relaxed text-amber-700">开头钩子：' + escapeHtml(hook) + '</p>' : '') +
+            structHtml +
+            (cta ? '<p class="mt-1.5 rounded-lg bg-emerald-50 px-2 py-1.5 text-xs leading-relaxed text-emerald-700">留资钩子：' + escapeHtml(cta) + '</p>' : '') +
+            '<div class="mt-3 border-t border-slate-100 pt-2.5 text-right">' +
+                '<button type="button" class="hd-go rounded-md bg-brand-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-brand-600">用此选题 →</button>' +
+            '</div>' +
+        '</div>';
+    }
+
+    function renderGroup(title, items, catLabel) {
+        const wrap = document.createElement('div');
+        const h = document.createElement('h4');
+        h.className = 'mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400';
+        h.textContent = title + '（' + items.length + '）';
+        wrap.appendChild(h);
+        const grid = document.createElement('div');
+        grid.className = 'grid gap-3 md:grid-cols-2';
+        items.forEach(function (t) { grid.insertAdjacentHTML('beforeend', planCard(t, catLabel)); });
+        wrap.appendChild(grid);
+        return wrap;
+    }
+
+    function renderResult(data) {
+        const r = (data && data.result) ? data.result : null;
+        if (!r) {
+            box.innerHTML = '<div class="rounded-lg border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">今日热点尚未生成，点「🔄 刷新今日热点」抓取微博/百度/头条热榜并生成爆款方案（约 1-3 分钟）。</div>';
+            return;
+        }
+        const fin = r.finance || [];
+        const ev = r.event || [];
+        box.innerHTML = '';
+        const meta = document.createElement('p');
+        meta.className = 'mb-3 text-xs text-slate-400';
+        meta.textContent = '数据日期 ' + (r.date || '') + ' · 生成于 ' + (r.generated_at || '') + ' · 共抓取 ' + (r.raw_count != null ? r.raw_count : '?') + ' 条 · 来源 ' + ((r.sources || []).join(' / ') || '—');
+        box.appendChild(meta);
+        if (!fin.length && !ev.length) {
+            box.insertAdjacentHTML('beforeend', '<div class="rounded-lg border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">本次没有过滤出符合条件的选题，可稍后重试。</div>');
+            return;
+        }
+        if (fin.length) box.appendChild(renderGroup('财税直接相关', fin, '财税'));
+        if (ev.length) box.appendChild(renderGroup('重大热点事件', ev, '大事'));
+    }
+
+    // 轮询结果：running 时继续等，否则渲染
+    function poll() {
+        clearTimeout(timer);
+        fetch('/studio/topic/hot-daily-result', { headers: { 'Accept': 'application/json' } })
+            .then(function (resp) { return resp.json().catch(function () { return {}; }); })
+            .then(function (data) {
+                if (data && data.running) {
+                    box.innerHTML = '<div class="rounded-lg border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-700">⏳ 正在抓取热榜并生成爆款方案，请稍候…</div>';
+                    timer = setTimeout(poll, 3000);
+                } else {
+                    setBusy(false);
+                    renderResult(data);
+                }
+            })
+            .catch(function () {
+                setBusy(false);
+                box.innerHTML = '<div class="rounded-lg border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">读取每日热点结果失败，请稍后重试。</div>';
+            });
+    }
+
+    btn.addEventListener('click', function () {
+        if (busy) return;
+        setBusy(true);
+        box.innerHTML = '<div class="rounded-lg border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-700">⏳ 正在触发抓取…</div>';
+        fetch('/studio/topic/hot-daily', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrf()
+            },
+            body: JSON.stringify({})
+        })
+            .then(function (resp) { return resp.json().catch(function () { return {}; }); })
+            .then(function (data) {
+                if (data && data.running) {
+                    timer = setTimeout(poll, 2500);
+                } else {
+                    setBusy(false);
+                    box.innerHTML = '<div class="rounded-lg border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">' + escapeHtml((data && data.error) || '触发失败，请确认 8500 微服务已启动') + '</div>';
+                }
+            })
+            .catch(function () {
+                setBusy(false);
+                box.innerHTML = '<div class="rounded-lg border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">触发失败：网络错误，请稍后重试。</div>';
+            });
+    });
+
+    // 卡片「用此选题」→ 二创（事件委托）
+    box.addEventListener('click', function (e) {
+        const go = e.target.closest('.hd-go');
+        if (!go) return;
+        const card = go.closest('[data-title]');
+        if (!card) return;
+        let plan = {};
+        try { plan = JSON.parse(card.dataset.plan || '{}'); } catch (err) { plan = {}; }
+        sessionStorage.setItem('hgt_topic_title', plan.title || card.dataset.title || '');
+        sessionStorage.setItem('hgt_topic_summary', card.dataset.title || '');
+        sessionStorage.setItem('hgt_topic_angle', [plan.hook_line, (plan.structure || []).join('；')].filter(Boolean).join('\n'));
+        sessionStorage.setItem('hgt_topic_hook', plan.cta || '');
+        sessionStorage.setItem('hgt_topic_form', '');
+        sessionStorage.setItem('hgt_topic_source_url', card.dataset.url || '');
+        sessionStorage.setItem('hgt_topic_matched_sub', card.dataset.source || '');
+        sessionStorage.setItem('hgt_topic_from', 'daily-hot');
+        window.location.href = '/studio/rewrite?from=daily-hot';
+    });
+
+    // 打开页面先读一次已有结果
+    poll();
 })();
 </script>

@@ -133,6 +133,32 @@ class StudioController extends Controller
     }
 
     /**
+     * 每日热点·双题材：触发 8500 /hot-daily 后台抓取 微博/百度/头条热榜 → 财税/大事双题材 + 爆款方案。
+     */
+    public function hotDaily()
+    {
+        try {
+            $resp = app(PipelineClient::class)->post('/hot-daily', [], 5);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '每日热点服务暂不可用，请稍后重试'], 503);
+        }
+        return response()->json($resp->json());
+    }
+
+    /**
+     * 每日热点结果：读 8500 /hot-daily-result（daily_hot.json）。
+     */
+    public function hotDailyResult()
+    {
+        try {
+            $resp = app(PipelineClient::class)->get('/hot-daily-result', 10);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '每日热点服务暂不可用，请稍后重试'], 503);
+        }
+        return response()->json($resp->json());
+    }
+
+    /**
      * 8500 微服务心跳探测：GET /health，连接失败/超时/异常返回 {ok:false}。
      * 供前端全局轮询显示红字预警（出片/拆解/选题等功能依赖 8500）。
      */
