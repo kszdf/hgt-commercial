@@ -82,12 +82,6 @@
                         <span>智能选题</span>
                     </a>
                 </li>
-                <li>
-                    <a href="/studio/matrix" class="{{ request()->is('studio/matrix*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-fresh">
-                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17m0 0c-5.523 0-10-4.477-10-10S6.477 0 12 0s10 4.477 10 10-4.477 10-10 10z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l3 3 4-4"/></svg>
-                        <span>内容矩阵</span>
-                    </a>
-                </li>
                 <li class="space-y-0.5">
                     <button type="button" onclick="toggleSub(this)"
                         class="ws-nav-item w-full font-medium ws-nav-violet {{ (request()->is('studio/rewrite') || request()->is('studio/rewrite-original*')) ? 'ws-nav-active' : '' }}">
@@ -277,13 +271,7 @@
                         @endif
                     </a>
                 @endif
-                <button onclick="location.href='/studio/settings/appearance'" title="外观设置"
-                    class="rounded-lg border border-slate-200 bg-white p-2 text-slate-400 transition hover:border-brand-300 hover:text-brand-500 hover:shadow-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4 2 2 0 000-4zm0 10v-2m0 2a2 2 0 100 4 2 2 0 000-4zm-6 0H4m2 0a2 2 0 104 0 2 2 0 00-4 0zm12 0h-2m2 0a2 2 0 10-4 0 2 2 0 014 0zM6 6H4m2 0a2 2 0 114 0 2 2 0 01-4 0zm12 0h-2m2 0a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                </button>
-                {{-- 用户菜单（计费/外观/账号安全/退出，替代原"系统"组） --}}
+                {{-- 用户菜单（计费/账号安全/退出，替代原"系统"组） --}}
                 <details class="relative">
                     <summary class="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-sm transition hover:border-brand-300">
                         <div class="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 text-[11px] font-bold text-white ring-2 ring-white">
@@ -301,7 +289,6 @@
                     </summary>
                     <div class="absolute right-0 top-11 z-40 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
                         <a href="/admin/billing" class="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">计费订阅</a>
-                        <a href="/studio/settings/appearance" class="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">外观设置</a>
                         @if($isAdmin)
                             <div class="my-1 border-t border-slate-100"></div>
                             <a href="/admin/tenants" class="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">租户管理</a>

@@ -285,13 +285,9 @@ function renderResult(data) {
     // 操作按钮
     html += '<div class="luxury-glass flex flex-wrap gap-2 p-4">'
         + '<button onclick="goRewrite()" class="zw-btn rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">去二创</button>'
-        + '<button onclick="goDeai()" class="zw-btn rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">去 AI 痕迹</button>'
         + '<button onclick="goScroll()" class="zw-btn rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">直接出片</button>'
         + '<button onclick="goScrollWith(\'scroll_female\',\'jiang\')" class="zw-btn rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700">江老师·女声出片</button>'
         + '</div>';
-
-    // 去 AI 痕迹结果容器
-    html += '<div id="deaiBox" class="hidden"></div>';
 
     area.innerHTML = html;
 }
@@ -313,7 +309,7 @@ function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 }
 
-// ---------- 联动：去二创 ----------
+// ---------- 去二创 ----------
 function goRewrite() {
     if (!currentDissect) return;
     const title = (document.getElementById('title').value.trim()) || currentDissect.hook_type || '爆款拆解二创';
@@ -340,46 +336,6 @@ function goScrollWith(forceForm, forceVoice) {
     let voice = forceVoice;
     if (!voice) voice = (form === 'scroll_female') ? 'jiang' : 'zhang';
     location.href = '/studio/scroll?src=dissect&mode=' + form + '&voice=' + voice;
-}
-
-// ---------- 去 AI 痕迹 ----------
-async function goDeai() {
-    if (!currentText) return;
-    const box = document.getElementById('deaiBox');
-    box.classList.remove('hidden');
-    box.innerHTML = '<div class="luxury-glass p-4"><span class="zw-spinner mr-2"></span><span class="text-sm text-slate-500">正在去 AI 痕迹…</span></div>';
-    const signal = HGTAbort.begin('中止：去 AI 痕迹中…');
-    try {
-        const resp = await fetch('/studio/deai', {
-            method: 'POST',
-            signal,
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
-            body: JSON.stringify({ text: currentText }),
-        });
-        const data = await resp.json();
-        if (!resp.ok || data.error) { box.innerHTML = '<div class="luxury-glass p-4 text-sm text-rose-600">去 AI 痕迹失败：' + esc(data.error || '') + '</div>'; return; }
-        const rewritten = data.rewritten || currentText;
-        box.innerHTML = '<section class="luxury-glass p-4"><h3 class="mb-2 text-sm font-semibold text-slate-800">去 AI 痕迹结果</h3>'
-            + '<textarea id="deaiText" rows="6" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700">' + esc(rewritten) + '</textarea>'
-            + '<div class="mt-2 flex gap-2"><button onclick="useDeai()" class="zw-btn rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">用此文案去二创</button>'
-            + '<button onclick="copyDeai()" class="zw-btn rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300">复制</button></div></section>';
-    } catch (e) {
-        if (e && e.name === 'AbortError') { hgtToast('warn', '已中止去 AI 痕迹'); return; }
-        box.innerHTML = '<div class="luxury-glass p-4 text-sm text-rose-600">网络错误：' + esc(e.message) + '</div>';
-    } finally {
-        HGTAbort.end();
-    }
-}
-function useDeai() {
-    const t = document.getElementById('deaiText').value;
-    sessionStorage.setItem('hgt_dissect_title', '去 AI 痕迹二创');
-    sessionStorage.setItem('hgt_dissect_text', t);
-    sessionStorage.setItem('hgt_dissect_form', document.getElementById('form').value);
-    location.href = '/studio/rewrite?from=dissect';
-}
-function copyDeai() {
-    const t = document.getElementById('deaiText').value;
-    navigator.clipboard?.writeText(t);
 }
 </script>
 </x-workspace-layout>

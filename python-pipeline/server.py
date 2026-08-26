@@ -2190,6 +2190,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                                     "versions": j.get("versions") or []})
 
         # ---- P4 实时预览帧（从当前成片抽一帧；渲染中则返回进度占位）----
+        # DEPRECATED：无任何调用方（Laravel 与 8385 均未引用），保留仅为兼容旧链路。
         if p.path.startswith("/preview/"):
             jid = p.path.rsplit("/", 1)[-1]
             with lock:
@@ -2212,6 +2213,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._send(503, {"error": "preview gen failed"})
 
         # ---- P4 留资钩子库（行业中性化模板）----
+        # DEPRECATED：无任何调用方（Laravel 与 8385 均未引用），保留仅为兼容旧链路。
         if p.path == "/hooks":
             q = p.query or ""
             typ = ""
@@ -2223,6 +2225,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._send(200, {"ok": True, "count": len(libs), "hooks": libs})
 
         # ---- P4 数据看板（聚合指标）----
+        # DEPRECATED：无任何调用方（Laravel 与 8385 均未引用），保留仅为兼容旧链路。
         if p.path == "/stats":
             with lock:
                 js = list(jobs.values())
@@ -2247,6 +2250,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             })
 
         # ---- P4 热点追踪（dry 种子 + 可选 LLM  enrichment）----
+        # DEPRECATED：Laravel 已改用真实检索版 /hotspot，此 seed 端点无调用方。
         if p.path == "/hotspots":
             q = p.query or ""
             plat = ""
@@ -2302,10 +2306,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if p.path == "/qc-video":
             return self._handle_qc_video(data)
         if p.path == "/qc-asset":
+            # DEPRECATED：无任何调用方（Laravel 与 8385 均未引用），保留仅为兼容旧链路。
             return self._handle_qc_asset(data)
         if p.path == "/process-asset":
+            # DEPRECATED：无任何调用方（Laravel 与 8385 均未引用），保留仅为兼容旧链路。
             return self._handle_process_asset(data)
         if p.path == "/delete-asset":
+            # DEPRECATED：无任何调用方（Laravel 与 8385 均未引用），保留仅为兼容旧链路。
             return self._handle_delete_asset(data)
         if p.path == "/clone_voice":
             return self._handle_clone_voice(data)
@@ -2318,8 +2325,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if p.path == "/strategist":
             return self._handle_strategist(data)
         if p.path == "/moment":
+            # DEPRECATED：唯一调用方（Laravel 内容矩阵页）已下线，保留仅为兼容旧链路。
             return self._handle_moment(data)
         if p.path == "/deai":
+            # DEPRECATED：Laravel「去AI痕迹」功能已下线，保留仅为兼容旧链路。
             return self._handle_deai(data)
         if p.path == "/suggest-title":
             return self._handle_suggest_title(data)
@@ -2338,10 +2347,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if p.path == "/cancel":
             return self._handle_cancel(data)
         if p.path == "/policy_asset":
+            # DEPRECATED：无任何调用方（Laravel 与 8385 均未引用），保留仅为兼容旧链路。
             return self._handle_policy_asset(data)
         if p.path == "/publish":
             return self._handle_publish(data)
         if p.path == "/clone":
+            # DEPRECATED：无任何调用方（Laravel 与 8385 均未引用），保留仅为兼容旧链路。
             return self._handle_clone(data)
         if p.path == "/metrics/fetch":
             return self._send(200, {"ok": True, "results": fetch_batch((data or {}).get("items") or [])})
@@ -2443,7 +2454,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
              "count": <总张数>}
         总张数封顶 9（封面1 + 内文≤8）。
         """
-        brand = (data.get("brand") or "慧根堂 · 老张讲财税").strip()
+        brand = (data.get("brand") or "追梦短视频").strip()
+        # 注：brand 由 Laravel 侧按租户传入（settings.brand 或租户名），此处仅为无调用方兜底。
         cover_seed = int(data.get("seed") or secrets.randbelow(100000))
 
         note = data.get("note")
@@ -2491,7 +2503,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         cover = data.get("cover") or {}
         if not (cover.get("title") or cover.get("subtitle")):
             return self._send(400, {"error": "cover title/subtitle required"})
-        brand = (data.get("brand") or "慧根堂 · 老张讲财税").strip()
+        brand = (data.get("brand") or "追梦短视频").strip()
+        # 注：brand 由 Laravel 侧按租户传入（settings.brand 或租户名），此处仅为无调用方兜底。
         seed = int(data.get("seed") or secrets.randbelow(100000))
         topic = (data.get("topic") or "").strip()
         selling = (data.get("selling_points") or "").strip()

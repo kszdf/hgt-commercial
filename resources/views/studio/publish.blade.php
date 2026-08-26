@@ -14,15 +14,6 @@
         </ul>
     </div>
 
-    {{-- 公众号图文文章发文入口 --}}
-    <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-        <div>
-            <div class="text-sm font-semibold text-emerald-800">公众号图文文章</div>
-            <div class="text-xs text-emerald-700">写好标题 + 正文 + 封面，一键进公众号草稿箱，去后台群发即可。</div>
-        </div>
-        <a href="{{ route('studio.article') }}" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700">去写公众号文章 →</a>
-    </div>
-
     {{-- 视频成片 --}}
     <section class="mb-8">
         <h3 class="mb-3 text-sm font-semibold text-slate-700">视频成片（{{ $videos->count() }}）</h3>

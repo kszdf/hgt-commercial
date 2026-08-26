@@ -340,58 +340,6 @@ class StudioController extends Controller
         return $out;
     }
 
-    /** 外观设置页：展示预设方案 + 当前租户已保存的 DIY 覆盖。 */
-    public function appearance()
-    {
-        $tenant = $this->studioTenant(request());
-        $preset = in_array($tenant->theme_preset, ['indigo', 'warm', 'teal'], true) ? $tenant->theme_preset : 'indigo';
-        $ov = is_array($tenant->theme_overrides) ? $tenant->theme_overrides : (json_decode($tenant->theme_overrides ?? '{}', true) ?: []);
-        $density = in_array($ov['density'] ?? null, ['comfortable', 'compact'], true) ? $ov['density'] : 'comfortable';
-
-        $presets = [
-            'indigo' => ['label' => '靛蓝商务', 'desc' => '经典科技靛蓝，专业稳重', 'accent' => '#4f46e5', 'page' => '#ffffff'],
-            'warm'   => ['label' => '暖阳亲和', 'desc' => '暖橙底色，温暖亲切', 'accent' => '#d97706', 'page' => '#fdfaf5'],
-            'teal'   => ['label' => '青翠清新', 'desc' => '清新青绿，轻快自然', 'accent' => '#0d9488', 'page' => '#f0fdfa'],
-        ];
-
-        return view('studio.settings-appearance', [
-            'preset'   => $preset,
-            'density'  => $density,
-            'accent'   => $ov['accent'] ?? '',
-            'pageTint' => $ov['page_tint'] ?? '',
-            'presets'  => $presets,
-        ]);
-    }
-
-    /** 保存外观设置：预设 + 可选 DIY 覆盖（强调色 / 页面底色 / 密度）。 */
-    public function appearanceUpdate(Request $request)
-    {
-        $tenant = $this->studioTenant(request());
-
-        $data = $request->validate([
-            'theme_preset' => ['required', 'string', 'in:indigo,warm,teal'],
-            'accent'       => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'page_tint'    => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'density'      => ['required', 'string', 'in:comfortable,compact'],
-        ]);
-
-        $overrides = ['density' => $data['density']];
-        if (! empty($data['accent'])) {
-            $overrides['accent'] = $data['accent'];
-        }
-        if (! empty($data['page_tint'])) {
-            $overrides['page_tint'] = $data['page_tint'];
-        }
-
-        $tenant->update([
-            'theme_preset'    => $data['theme_preset'],
-            'theme_overrides' => $overrides,
-        ]);
-
-        return redirect()->route('studio.settings.appearance')
-            ->with('success', '外观设置已保存');
-    }
-
     /**
      * 活动心跳上报：前端每 20s 上报当前所处环节（topic/rewrite/video），
      * 覆盖式写入 user_activities（同用户仅一条），并刷新 users.last_seen_at。
@@ -498,18 +446,6 @@ class StudioController extends Controller
         } catch (PipelineUnavailableException $e) {
             return response()->json(['error' => '拆解服务暂时不可用，请稍后重试'], 503);
         }
-    }
-
-    /** 去AI痕迹（唤醒沉睡的 /deai 端点）。 */
-    public function deai(Request $request)
-    {
-        $data = $request->validate(['text' => ['required', 'string', 'max:20000']]);
-        try {
-            $resp = app(PipelineClient::class)->post('/deai', ['text' => $data['text']], 120);
-        } catch (PipelineUnavailableException $e) {
-            return response()->json(['error' => '去AI痕迹服务暂不可用'], 503);
-        }
-        return response()->json($resp->json());
     }
 
     /** 获客军师 / 潜力评估（唤醒沉睡的 /strategist 端点，供页面单独调用）。 */

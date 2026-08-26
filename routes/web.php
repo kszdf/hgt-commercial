@@ -14,7 +14,6 @@ use App\Http\Controllers\CoverAssetController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\MetricsController;
 use App\Http\Controllers\ScheduleController;
-use App\Http\Controllers\MatrixController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\XhsController;
 use Illuminate\Support\Facades\Route;
@@ -96,8 +95,7 @@ Route::middleware('auth')->group(function () {
     // 爆款拆解（输入→提取文案→结构拆解→潜力评估→去二创→数字人出片）
     Route::get('/studio/dissect', [StudioController::class, 'dissect'])->name('studio.dissect');
     Route::post('/studio/dissect/analyze', [StudioController::class, 'dissectAnalyze']);
-    // 唤醒沉睡端点：去AI痕迹 / 获客军师（潜力评估）
-    Route::post('/studio/deai', [StudioController::class, 'deai']);
+    // 获客军师（潜力评估，拆解页单独调用）
     Route::post('/studio/strategist', [StudioController::class, 'suggestStrategist']);
 
     // 实时活动心跳上报（选题 / 二创 / 出片在线态，供超级管理员监控大盘）
@@ -172,12 +170,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/schedule/{schedule}/run', [ScheduleController::class, 'runNow'])->name('studio.schedule.run');
     Route::delete('/studio/schedule/{schedule}', [ScheduleController::class, 'destroy'])->name('studio.schedule.destroy');
 
-    // 内容矩阵（一个选题 → 视频稿 + 小红书图文 + 朋友圈文案）
-    Route::get('/studio/matrix', [MatrixController::class, 'index'])->name('studio.matrix');
-    Route::post('/studio/matrix/video', [MatrixController::class, 'generateVideo'])->name('studio.matrix.video');
-    Route::post('/studio/matrix/xhs', [MatrixController::class, 'generateXhs'])->name('studio.matrix.xhs');
-    Route::post('/studio/matrix/moment', [MatrixController::class, 'generateMoment'])->name('studio.matrix.moment');
-
     // 话术模板市场（财税垂类：钩子/开头/避坑/结尾/选题角度）
     Route::get('/studio/templates', [TemplateController::class, 'index'])->name('studio.templates');
     Route::post('/studio/templates', [TemplateController::class, 'store']);
@@ -202,10 +194,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/tenants', [AdminController::class, 'storeTrial'])->name('admin.tenants.store');
         Route::post('/tenants/{tenant}/trial', [AdminController::class, 'updateTrial'])->name('admin.tenants.update-trial');
     });
-
-    // 外观设置（多主题预设 + 租户 DIY 覆盖）
-    Route::get('/studio/settings/appearance', [StudioController::class, 'appearance'])->name('studio.settings.appearance');
-    Route::post('/studio/settings/appearance', [StudioController::class, 'appearanceUpdate']);
 });
 
 // 支付异步回调（微信/支付宝服务器直连，CSRF 豁免）

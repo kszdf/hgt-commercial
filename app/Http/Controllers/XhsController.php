@@ -16,6 +16,21 @@ use App\Services\PipelineClient;
  */
 class XhsController extends Controller
 {
+    /**
+     * 出图品牌：优先取租户 settings.brand，回退租户名。
+     * 多租户平台严禁硬编码单一租户品牌（此前写死"慧根堂"会打到别的租户图上）。
+     */
+    private function defaultBrand(): string
+    {
+        $tenant = $this->studioTenant(request());
+        $settings = is_array($tenant->settings) ? $tenant->settings : [];
+        $brand = trim((string) ($settings['brand'] ?? ''));
+        if ($brand !== '') {
+            return $brand;
+        }
+        return $tenant->name ?: '追梦短视频';
+    }
+
     public function index()
     {
         $user = Auth::user();
@@ -79,7 +94,7 @@ class XhsController extends Controller
         }
 
         $payload = [
-            'brand' => $request->input('brand', '慧根堂 · 老张讲财税'),
+            'brand' => $request->input('brand', $this->defaultBrand()),
             'pages' => (int) ($request->input('pages') ?? 4),
         ];
         if ($request->has('note')) {
@@ -130,7 +145,7 @@ class XhsController extends Controller
                 'topic' => $request->input('topic', ''),
                 'selling_points' => $request->input('selling_points', ''),
                 'audience' => $request->input('audience', ''),
-                'brand' => $request->input('brand', '慧根堂 · 老张讲财税'),
+                'brand' => $request->input('brand', $this->defaultBrand()),
             ], 120);
         } catch (\Exception $e) {
             return response()->json(['error' => '出片微服务不可达：' . $e->getMessage()], 503);
