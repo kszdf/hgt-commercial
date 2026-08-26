@@ -86,3 +86,4 @@ runtime-logs/heygem_watchdog.log
 
 jobs/
 python-pipeline/jobs/
+python-pipeline/hotspot_debug.txt
