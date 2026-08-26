@@ -1928,6 +1928,11 @@ def run_job(job_id, payload):
                 args += ["--title", payload["title"]]
             style = payload.get("motion_style") or "财经严谨"
             args += ["--style", style, "--dialogue"]
+            # 无角色前缀文本的默认声线: 男独白→M, 女独白→F
+            if voice_form == "male_mono":
+                args += ["--default-role", "M"]
+            elif voice_form == "female_mono":
+                args += ["--default-role", "F"]
             # 租户音色（工作台可传男/女声线；不传则用引擎默认克隆音）
             mv = payload.get("male_voice")
             fv = payload.get("female_voice")
