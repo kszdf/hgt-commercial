@@ -96,7 +96,9 @@ class VideoJob extends Model
             return false;
         }
         $remote = $json['status'] ?? null;
-        if (! in_array($remote, ['done', 'failed'], true)) {
+        // cancelled 也是终态（用户中止 / 看门狗超时取消）：必须回写本地，
+        // 否则残留 queued 会永久占用租户并发槽，后续提交全部 429。
+        if (! in_array($remote, ['done', 'failed', 'cancelled'], true)) {
             return false;
         }
         // 成片时长（秒）：8500 /status 返回的 duration 字段（浮点）。用于试用累计总时长计量。
@@ -148,7 +150,7 @@ class VideoJob extends Model
     /** 是否已到达终态（不再参与并发闸计数）。 */
     public function isTerminal(): bool
     {
-        return in_array($this->status, ['done', 'failed'], true);
+        return in_array($this->status, ['done', 'failed', 'cancelled'], true);
     }
 
     /**

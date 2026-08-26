@@ -887,3 +887,31 @@ deepseek_content_len=3041 generated_count=4
   topic matched=True reason=syn hit: 税务稽查 title=稽查风暴下，老板如何自保？ tags=['税务稽查', '企业合规', '风险应对']
   topic matched=True reason=syn hit: 税务稽查 title=阴阳合同转让股权，稽查一眼看穿 tags=['税务稽查', '股权转让', '阴阳合同']
   topic matched=True reason=syn hit: 税务稽查 title=近期税务稽查重点，老板必看 tags=['税务稽查', '重点领域', '行业聚焦']
+=== 2026-08-26 23:48:47.831932 days=1 subs=['税务筹划', '发票'] ===
+tavily_key_present=True
+tavily ok query=发票 税务 政策 热点 案例 results=6
+tavily ok query=税务筹划 税务 政策 热点 案例 results=6
+after tavily: realtime=True raw_items=8
+=== 2026-08-26 23:48:47.831932 days=1 subs=['税务筹划', '发票'] ===
+tavily_key_present=True
+tavily ok query=发票 税务 政策 热点 案例 results=6
+tavily ok query=税务筹划 税务 政策 热点 案例 results=6
+before deepseek prompt_len=3648
+deepseek ok content_len=4681
+=== 2026-08-26 23:49:39.004684 days=1 subs=['税务筹划', '发票'] ===
+realtime=True raw_items_count=8
+  raw: 多起热点税务举报背后—企业发票管理合规指引 - 专业文章 - 上海市锦天城律师事务所
+  raw: 2021年税收热点问题之回顾、展望与战略建议 - 金杜律师事务所
+  raw: 国家税务总局天津市税务局
+  raw: 国家税务总局曝光8起虚开发票违法典型案例----中国科学院计算机网络信息中心
+  raw: 数字中国建设典型案例之十二 | 全国推广数字化电子发票-国家数据局
+  raw: 国家税务总局政策法规库
+  raw: 税务筹划经典案例：策略与应用-CSDN博客
+  raw: 《税务筹划实务指引：优惠与风险》 - 专业著作 - 上海市锦天城律师事务所
+deepseek_content_len=4681 generated_count=6
+  topic matched=True reason=syn hit: 发票 title=私账收款被举报？发票合规别大意 tags=['发票', '税务合规', '税务稽查']
+  topic matched=True reason=syn hit: 发票 title=虚开发票后果多严重？老板必看 tags=['发票', '虚开增值税发票', '税务稽查']
+  topic matched=True reason=syn hit: 发票 title=数电发票全面推行，老板要知道这3点 tags=['发票', '数电发票', '税务数字化']
+  topic matched=True reason=syn hit: 税务筹划 title=税务筹划这样做，合法又省税 tags=['税务筹划', '税收优惠', '合规降负']
+  topic matched=True reason=syn hit: 税务筹划 title=税务筹划的坑，老板们千万要避开 tags=['税务筹划', '金税四期', '涉税风险']
+  topic matched=True reason=syn hit: 发票 title=发票问题频发，金税四期下如何自保 tags=['发票', '虚开增值税发票', '金税四期']
