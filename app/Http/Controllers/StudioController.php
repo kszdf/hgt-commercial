@@ -199,6 +199,7 @@ class StudioController extends Controller
             'role_mode'         => ['sometimes', 'nullable', 'string', 'max:40'],
             'role_note'         => ['nullable', 'string', 'max:500'],
             'keep_manual_roles' => ['sometimes', 'nullable', 'boolean'],
+            'industry'          => ['sometimes', 'nullable', 'string', 'max:40'],
         ]);
 
         // 空值过滤，避免把无效字段透传到 8500；布尔真值保留

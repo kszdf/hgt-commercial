@@ -348,12 +348,14 @@ function getFormLabel(form) {
         const title = sessionStorage.getItem('hgt_topic_title') || '';
         const hook = sessionStorage.getItem('hgt_topic_hook') || '';
         const form = sessionStorage.getItem('hgt_topic_form') || '';
+        window.__topicIndustry = sessionStorage.getItem('hgt_topic_industry') || '';
         if (title) {
             setTextFromTopic(title, hook, mapTopicFormToMode(form));
             showSourceBanner('topic', 1);
             sessionStorage.removeItem('hgt_topic_title');
             sessionStorage.removeItem('hgt_topic_hook');
             sessionStorage.removeItem('hgt_topic_form');
+            sessionStorage.removeItem('hgt_topic_industry');
         } else {
             document.getElementById('noSourceBox')?.classList.remove('hidden');
         }
@@ -714,6 +716,7 @@ async function callRewrite({mode, text, focus, target_duration, preserve, role_m
             role_mode: role_mode || undefined,
             role_note: role_note || undefined,
             keep_manual_roles: keep_manual_roles ? true : undefined,
+            industry: window.__topicIndustry || undefined,
         })
     });
     const data = await resp.json();
@@ -1081,6 +1084,7 @@ function goScrollFromBatch(idx) {
     const r = batchResults.find(x => x.index === idx);
     if (!r || !r.ok || !r.data.cleaned) return;
     sessionStorage.setItem('hgt_rewrite_cleaned', r.data.cleaned);
+    sessionStorage.setItem('hgt_rewrite_industry', window.__topicIndustry || '');
     const displayMode = document.getElementById('mode').value;
     sessionStorage.setItem('hgt_rewrite_mode', displayMode);
     const voice = (displayMode === 'scroll_female') ? 'jiang' : 'zhang';
@@ -1093,6 +1097,7 @@ document.getElementById('btnGoScroll')?.addEventListener('click', function () {
     saveRewriteState();
     const displayMode = document.getElementById('mode').value;
     sessionStorage.setItem('hgt_rewrite_cleaned', lastResult.cleaned);
+    sessionStorage.setItem('hgt_rewrite_industry', window.__topicIndustry || '');
     sessionStorage.setItem('hgt_rewrite_mode', displayMode);
     const voice = (displayMode === 'scroll_female') ? 'jiang' : 'zhang';
     window.location.href = '/studio/scroll?from=rewrite&src=topic&mode=' + encodeURIComponent(displayMode) + '&voice=' + voice;

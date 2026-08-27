@@ -155,7 +155,7 @@ document.querySelectorAll('.pack-btn').forEach(function (btn) {
                 'Accept': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
             },
-            body: JSON.stringify({ job_id: jobId, industry: '财税', use_photo: (document.getElementById('libUsePhoto')?.checked || false) })
+            body: JSON.stringify({ job_id: jobId, use_photo: (document.getElementById('libUsePhoto')?.checked || false) })
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {

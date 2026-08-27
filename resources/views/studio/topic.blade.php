@@ -6,40 +6,29 @@
         <div class="space-y-4">
         <section class="luxury-glass p-5">
             <form id="topicForm" class="space-y-4">
-                <!-- 行业选择：下拉框（15个常见行业） -->
+                <!-- 行业选择：财税老板行业分群（11项，替代原15个通用行业） -->
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">
-                        行业领域
+                        老板行业
                         <span class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500">选填</span>
                     </label>
                     <select id="industry" name="industry"
                         class="w-full rounded-lg studio-card studio-card-sm.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
-                        <option value="">不限行业</option>
-                        <optgroup label="── 商业服务 ──">
-                            <option value="企业管理">企业管理咨询</option>
-                            <option value="法律咨询">法律咨询</option>
-                            <option value="企业服务">企业服务</option>
-                            <option value="教育培训">教育培训</option>
-                        </optgroup>
-                        <optgroup label="── 零售消费 ──">
-                            <option value="电商带货">电商带货</option>
-                            <option value="餐饮美食">餐饮 / 美食</option>
-                            <option value="美妆护肤">美妆 / 护肤</option>
-                            <option value="服装时尚">服装 / 时尚</option>
-                        </optgroup>
-                        <optgroup label="── 生活服务 ──">
-                            <option value="本地生活">本地生活</option>
-                            <option value="房产家居">房产 / 家居</option>
-                            <option value="汽车服务">汽车服务</option>
-                            <option value="旅游出行">旅游 / 出行</option>
-                        </optgroup>
-                        <optgroup label="── 知识科技 ──">
-                            <option value="知识科普">知识科普</option>
-                            <option value="医疗健康">医疗 / 健康</option>
-                            <option value="互联网/科技">互联网 / 科技</option>
+                        <option value="">不限行业（通用财税）</option>
+                        <optgroup label="── 财税老板分群 ──">
+                            <option value="餐饮">餐饮美食</option>
+                            <option value="电商直播">电商 / 直播</option>
+                            <option value="制造业">生产制造</option>
+                            <option value="建筑劳务">建筑工程</option>
+                            <option value="贸易">商贸批发</option>
+                            <option value="物流">物流运输</option>
+                            <option value="零售">零售门店</option>
+                            <option value="医疗">医疗健康</option>
+                            <option value="教育">教育培训</option>
+                            <option value="个体户">个体户 / 小老板</option>
                         </optgroup>
                     </select>
-                    <p class="mt-1 text-xs text-slate-400">选择行业后 AI 将生成该领域的垂直选题；不选则按通用方向推荐。</p>
+                    <p class="mt-1 text-xs text-slate-400">选择老板行业后，AI 将生成该行业的财税垂直选题（如「餐饮」→ 个人卡收款、员工社保）；不选则按通用财税方向推荐。</p>
                 </div>
 
                 <!-- 维度筛选（2x2 网格，移除目标平台） -->
@@ -409,6 +398,7 @@ function renderTopics(topics) {
             sessionStorage.setItem('hgt_topic_title', topic.title);
             sessionStorage.setItem('hgt_topic_hook', topic.hook || '');
             sessionStorage.setItem('hgt_topic_form', topic.form || '');
+            sessionStorage.setItem('hgt_topic_industry', document.getElementById('industry').value || '');
             window.location.href = '/studio/rewrite?from=topic';
         });
     });

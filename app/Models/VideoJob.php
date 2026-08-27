@@ -13,7 +13,7 @@ class VideoJob extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'tenant_id', 'user_id', 'job_id', 'mode', 'title', 'status',
+        'tenant_id', 'user_id', 'job_id', 'mode', 'title', 'industry', 'status',
         'qc_status', 'publish_status', 'review_note', 'cover_asset_id', 'batch_id',
         'heartbeat_at', 'dedupe_key', 'dialogue', 'render_config', 'is_hit',
         'last_pipeline_step', 'step_changed_at', 'last_progress', 'progress_changed_at',

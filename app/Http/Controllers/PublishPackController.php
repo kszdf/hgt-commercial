@@ -57,6 +57,10 @@ class PublishPackController extends Controller
                 if ($text === '' && ! empty($job->dialogue)) {
                     $text = $job->dialogue;
                 }
+                // 行业贯穿：出片任务的老板行业（选题→二创→出片→包装同一口径）
+                if (empty($data['industry']) && ! empty($job->industry)) {
+                    $data['industry'] = $job->industry;
+                }
                 $pipeline = rtrim((string) env('PYTHON_PIPELINE_URL', 'http://host.docker.internal:8500'), '/');
                 $out = storage_path('..') . '/python-pipeline/jobs/' . basename((string) $data['job_id']) . '/out.mp4';
                 if (is_file($out)) {

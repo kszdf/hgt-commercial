@@ -1276,6 +1276,7 @@ async function handleGenerate(e) {
                 subtitle_position: document.getElementById('subtitle_position').value,
                 subtitle_style: document.getElementById('subtitle_style').value,
                 subtitle_font: document.getElementById('subtitle_font')?.value || 'hei',
+                industry: sessionStorage.getItem('hgt_rewrite_industry') || '',
             })
         });
         // 防护：后端可能返回HTML异常页而非JSON

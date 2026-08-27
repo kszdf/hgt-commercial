@@ -101,6 +101,7 @@ class VideoController extends Controller
             'female_voice' => ['nullable', 'string', 'max:120'],
             'voice_form' => ['sometimes', 'nullable', 'string', 'in:dialogue,male_mono,female_mono,mono'],
             'batch_id' => ['nullable', 'string', 'max:36'],
+            'industry' => ['sometimes', 'nullable', 'string', 'max:40'],   // 财税老板行业分群（选题贯穿）
         ]);
 
         // —— 单次时长上限（后端硬约束）——
@@ -189,6 +190,7 @@ class VideoController extends Controller
             'batch_id' => $data['batch_id'] ?? null,
             'mode' => $mode,
             'title' => $title,
+            'industry' => $data['industry'] ?? null,   // 老板行业（发布包装读取, 缺省'财税'）
             'dialogue' => $data['dialogue'],
             'status' => 'queued',
             'heartbeat_at' => now(),  // 创建即记一次心跳，避免新建任务立即被误判为孤儿

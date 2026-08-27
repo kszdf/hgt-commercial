@@ -757,12 +757,15 @@ def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, 
         dim_hints.append(f"呈现形式：{form}（每条选题的 form 字段固定为「{form}」）")
     dim_block = "\n".join(f"- {h}" for h in dim_hints) if dim_hints else ""
     prompt = (
-        f"你是资深短视频选题策划。面向「{industry or '你的行业'}」行业的内容创作者与商家，"
-        f"结合关键词「{keywords or '行业热点、用户痛点、产品卖点'}」，"
-        f"生成 {cnt} 个高转化短视频选题。\n"
-        + (f"维度约束（必须满足）：\n{dim_block}\n" if dim_block else "")
+        f"你是资深财税短视频选题策划，服务对象是「{industry or '中小企业'}」老板/企业主。\n"
+        f"结合关键词「{keywords or '该行业老板的真实经营场景、财税痛点'}」，"
+        f"生成 {cnt} 个面向该行业老板的财税垂直选题。\n"
+        "硬性要求：\n"
+        "- 选题必须与财税直接相关（税务/发票/成本/利润/合规/稽查/社保/个税/现金流等），围绕该行业老板的真实经营场景；\n"
+        "- 选题语气像给老板提醒风险或讲清楚一件事，不空泛、不脱离财税；\n"
+        + (f"- 维度约束（必须满足）：\n{dim_block}\n" if dim_block else "")
         + "每个选题严格按 JSON 数组输出，元素结构：\n"
-        '{"title":"标题(吸睛、戳痛点,≤18字)","angle":"切入角度/痛点","potential":"爆款潜力理由","hook":"结尾留资钩子建议","form":"建议形式:单声口播/双声对话"}\n'
+        '{"title":"标题(吸睛、戳老板痛点,≤18字)","angle":"切入角度/财税痛点","potential":"爆款潜力理由","hook":"结尾留资钩子建议","form":"建议形式:单声口播/双声对话"}\n'
         "只输出 JSON 数组，不要任何解释或代码块标记。"
     )
     raw = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
@@ -937,9 +940,16 @@ def _compress_to_target(text, max_chars, cfg=None):
 
 
 def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
-               role_mode=None, role_note=None, keep_manual_roles=None):
+               role_mode=None, role_note=None, keep_manual_roles=None, industry=None):
     """智能二创：多模式改写 + 角色/声音分配 + 违禁词标红/清洗。返回含元数据的完整结果。"""
     cfg = get_text_config()
+
+    # 行业背景（选题带行业 → 二创保持同一口径：餐饮老板/电商老板…）
+    ind_hint = ""
+    if industry and str(industry).strip():
+        ind_hint = (f"\n【行业背景】：这是面向「{str(industry).strip()}」老板的财税口播稿，"
+                    f"请贴合该行业老板的真实经营场景与财税痛点（如该行业的收款方式、发票、成本、用工等），"
+                    f"例子与措辞用该行业老板听得懂的话，但保持财税专业准确、不编造数据。\n")
 
     # 风格基调（由 mode 控制）
     if mode == "single":
@@ -986,6 +996,7 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
     prompt = (
         f"你是资深短视频脚本编辑。请把下面的稿子改写为「{style}」的自然口语稿。\n"
         f"{dur_hint}"  # 目标时长约束放在最前面、最显眼
+        f"{ind_hint}"  # 行业背景（选题行业贯穿到二创）
         f"【角色与声音分配】\n{role_instruction}\n"
         f"{focus_hint}{preserve_hint}"
         "要求：彻底去除AI机械感与书面腔，但保持专业准确性、不编造数据、不改原意；"
@@ -3338,7 +3349,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._send(200, ai_rewrite(
                 text, data.get("mode", "dual"), data.get("focus"),
                 data.get("target_duration"), data.get("preserve"),
-                data.get("role_mode"), data.get("role_note"), data.get("keep_manual_roles")))
+                data.get("role_mode"), data.get("role_note"), data.get("keep_manual_roles"),
+                data.get("industry")))
         except Exception as e:  # noqa: BLE001
             return self._send(200, {"ok": False, "error": str(e)})
 
