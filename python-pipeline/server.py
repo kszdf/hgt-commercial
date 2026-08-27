@@ -2092,6 +2092,50 @@ def run_job(job_id, payload):
                     del active_by_tenant[tenant_id]
 
 
+def _black_gold_cover(title, subtitle, brand="追梦"):
+    """无成片视频时的黑金纯文字封面兜底（1080×1920，对标头部财税IP：深底+金线+大字）。
+    版式：顶部品牌小字(字距拉开) → 细金线 → 中部衬线大字标题(≤2行) → 金线 → 副标题小字。"""
+    from PIL import Image, ImageDraw, ImageFont
+    W, H = 1080, 1920
+    img = Image.new("RGB", (W, H), (10, 12, 18))
+    d = ImageDraw.Draw(img)
+    top, bot = (16, 18, 26), (6, 8, 14)
+    for y in range(H):
+        t = y / H
+        c = tuple(int(a + (b - a) * t) for a, b in zip(top, bot))
+        d.line([(0, y), (W, y)], fill=c)
+    gold = (212, 175, 92)
+    try:
+        f_brand = ImageFont.truetype(r"C:/Windows/Fonts/simhei.ttf", 44)
+        f_title = ImageFont.truetype(r"C:/Windows/Fonts/NotoSerifSC-VF.ttf", 118)
+        f_sub = ImageFont.truetype(r"C:/Windows/Fonts/simhei.ttf", 52)
+    except Exception:
+        f_brand = f_title = f_sub = ImageFont.load_default()
+    brand_txt = "   ".join(brand) if len(brand) <= 6 else brand
+    d.text((W // 2, 330), brand_txt, font=f_brand, fill=gold, anchor="mm")
+    d.line([(W // 2 - 190, 420), (W // 2 + 190, 420)], fill=gold, width=2)
+    d2 = ImageDraw.Draw(img)
+    max_w = W - 200
+    lines, cur = [], ""
+    for ch in title:
+        if d2.textlength(cur + ch, font=f_title) > max_w:
+            lines.append(cur)
+            cur = ch
+        else:
+            cur += ch
+    if cur:
+        lines.append(cur)
+    lines = lines[:2]
+    y = 760
+    for ln in lines:
+        d.text((W // 2, y), ln, font=f_title, fill=(245, 240, 230), anchor="mm")
+        y += 170
+    d.line([(W // 2 - 260, y + 10), (W // 2 + 260, y + 10)], fill=gold, width=2)
+    d.text((W // 2, y + 120), subtitle, font=f_sub, fill=(168, 172, 184), anchor="mm")
+    d.text((W // 2, H - 180), "每日财税干货 · 关注不迷路", font=f_sub, fill=(90, 96, 110), anchor="mm")
+    return img
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
     def _send(self, code, obj=None, body=None, ctype="application/json; charset=utf-8"):
         self.send_response(code)
@@ -2404,57 +2448,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
             return self._send(200, {"ok": False, "error": str(e)})
-
-    # ---- 发布包装：标题 + 副标题 + 高级感封面（对标主流财税IP，拒绝简单堆砌）----
-def _black_gold_cover(title, subtitle, brand="追梦"):
-    """无成片视频时的黑金纯文字封面兜底（1080×1920，对标头部财税IP：深底+金线+大字）。
-    版式：顶部品牌小字(字距拉开) → 细金线 → 中部衬线大字标题(≤2行) → 金线 → 副标题小字。"""
-    from PIL import Image, ImageDraw, ImageFont
-    W, H = 1080, 1920
-    img = Image.new("RGB", (W, H), (10, 12, 18))
-    d = ImageDraw.Draw(img)
-    # 深色竖向渐变（近黑 → 深蓝黑）
-    top, bot = (16, 18, 26), (6, 8, 14)
-    for y in range(H):
-        t = y / H
-        c = tuple(int(a + (b - a) * t) for a, b in zip(top, bot))
-        d.line([(0, y), (W, y)], fill=c)
-    gold = (212, 175, 92)
-    try:
-        f_brand = ImageFont.truetype(r"C:/Windows/Fonts/simhei.ttf", 44)
-        f_title = ImageFont.truetype(r"C:/Windows/Fonts/NotoSerifSC-VF.ttf", 118)
-        f_sub = ImageFont.truetype(r"C:/Windows/Fonts/simhei.ttf", 52)
-    except Exception:
-        f_brand = f_title = f_sub = ImageFont.load_default()
-    # 顶部品牌（字距拉开）
-    brand_txt = "   ".join(brand) if len(brand) <= 6 else brand
-    d.text((W // 2, 330), brand_txt, font=f_brand, fill=gold, anchor="mm")
-    d.line([(W // 2 - 190, 420), (W // 2 + 190, 420)], fill=gold, width=2)
-    # 中部大字标题（自动换行 ≤2 行，防溢出）
-    d2 = ImageDraw.Draw(img)
-    max_w = W - 200
-    # 按像素换行
-    lines, cur = [], ""
-    for ch in title:
-        if d2.textlength(cur + ch, font=f_title) > max_w:
-            lines.append(cur)
-            cur = ch
-        else:
-            cur += ch
-    if cur:
-        lines.append(cur)
-    lines = lines[:2]
-    y = 760
-    for ln in lines:
-        d.text((W // 2, y), ln, font=f_title, fill=(245, 240, 230), anchor="mm")
-        y += 170
-    d.line([(W // 2 - 260, y + 10), (W // 2 + 260, y + 10)], fill=gold, width=2)
-    # 副标题
-    d.text((W // 2, y + 120), subtitle, font=f_sub, fill=(168, 172, 184), anchor="mm")
-    # 底部小字
-    d.text((W // 2, H - 180), "每日财税干货 · 关注不迷路", font=f_sub, fill=(90, 96, 110), anchor="mm")
-    return img
-
 
     # ---- 发布包装：标题 + 副标题 + 高级感封面（对标主流财税IP，拒绝简单堆砌）----
     def _handle_publish_pack(self, data):
