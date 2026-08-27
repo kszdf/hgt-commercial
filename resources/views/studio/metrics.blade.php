@@ -122,7 +122,7 @@
         {{-- 手动速填 --}}
         <div class="luxury-glass p-5" id="record-form">
             <h3 class="mb-3 text-sm font-semibold text-slate-700">手动录入数据</h3>
-            <p class="mb-3 text-xs text-slate-400">已发布但平台无数据接口（小红书/视频号）的视频，请到创作者后台看数字后填到这里（只填 6 个数，1 分钟搞定）。</p>
+            <p class="mb-3 text-xs text-slate-400">无数据接口的平台（小红书/视频号），请从创作者后台获取数据后手动速填 6 项指标。</p>
             <form method="POST" action="{{ route('studio.metrics.record') }}" class="grid grid-cols-2 gap-3 text-sm">
                 @csrf
                 <div class="col-span-2">
@@ -163,7 +163,7 @@
         <div class="luxury-glass p-5">
             <h3 class="mb-3 text-sm font-semibold text-slate-700">待回填（已发布 · 暂无数据）</h3>
             @if($unSynced->isEmpty())
-                <p class="py-6 text-center text-sm text-slate-400">太棒了，近 30 天发布的视频都有数据了。</p>
+                <p class="py-6 text-center text-sm text-slate-400">近 30 天发布的视频均已回填数据。</p>
             @else
                 <div class="max-h-96 space-y-2 overflow-y-auto">
                     @foreach($unSynced as $rec)

@@ -79,7 +79,7 @@
     <section class="mt-4">
         <h3 class="mb-3 text-sm font-semibold text-slate-700">已上传封面（{{ $assets->count() }}）</h3>
         @if($assets->isEmpty())
-            <p class="rounded-lg studio-card studio-card-sm text-sm text-slate-400">还没有上传任何封面，先上传一张试试。</p>
+            <p class="rounded-lg studio-card studio-card-sm text-sm text-slate-400">暂无封面素材，请上传一张开始使用。</p>
         @else
             <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                 @foreach($assets as $a)

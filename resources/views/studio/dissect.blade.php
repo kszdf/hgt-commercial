@@ -3,7 +3,7 @@
 <div class="mx-auto max-w-6xl p-6">
     <div class="mb-5">
         <h1 class="text-xl font-bold text-slate-800">爆款拆解 · 结构复用</h1>
-        <p class="mt-1 text-sm text-slate-500">把爆款短视频的逐字稿拆成「结构骨架 + 选题角度 + 同款运镜建议」，再用你的数字人产出原创版本。仅借鉴结构，人物/声音/具体案例必须替换。</p>
+        <p class="mt-1 text-sm text-slate-500">把爆款短视频逐字稿拆解为「结构骨架 + 选题角度 + 运镜建议」，用于创作原创版本。</p>
     </div>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">

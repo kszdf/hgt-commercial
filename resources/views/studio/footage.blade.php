@@ -97,7 +97,7 @@
 
             {{-- 发布包装结果（标题/副标题/封面） --}}
             <div id="packBox" class="mt-4 hidden rounded-xl border border-amber-200 bg-amber-50/60 p-4">
-                <p class="mb-2 text-xs font-semibold text-amber-700">发布包装（对标主流财税IP · 高级感）</p>
+                <p class="mb-2 text-xs font-semibold text-amber-700">发布包装（标题 + 封面）</p>
                 <div class="flex flex-wrap gap-4">
                     <img id="packCover" alt="封面" class="h-72 rounded-lg border border-slate-200 shadow-sm">
                     <div class="min-w-56 flex-1 space-y-2">
@@ -115,7 +115,7 @@
                             <a id="packCoverLink" href="#" download
                                class="rounded-md bg-white px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-200 hover:border-amber-300">下载封面</a>
                         </div>
-                        <p class="text-[11px] text-amber-600/80">提示：封面由成片智能选帧 + 人脸构图生成，标题/副标题已按财税垂类规则过滤。</p>
+                        <p class="text-[11px] text-amber-600/80">封面由智能选帧与人脸构图生成，文案已按合规规则过滤。</p>
                     </div>
                 </div>
             </div>

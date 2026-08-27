@@ -8,7 +8,7 @@
     <div class="mb-5 rounded-xl border border-slate-200 bg-white px-4 py-3">
         <div class="text-sm font-semibold text-slate-700">财税垂类话术库</div>
         <ul class="mt-1 space-y-1 text-sm text-slate-500">
-            <li>· 留资钩子 / 爆款开头 / 避坑清单 / 结尾引导 / 选题角度——拿来就用，复制到你的选题、二创或发布文案里。</li>
+            <li>· 留资钩子 / 爆款开头 / 避坑清单 / 结尾引导 / 选题角度——可直接引用至选题、二创或发布文案。</li>
             <li>· 模板均按合规标准编写（不承诺避税、不诱导虚开、不用绝对化用语）。</li>
             <li>· 喜欢哪条点「收藏」，就会存到你的「我的模板」里，可自由编辑成自己的风格。</li>
         </ul>

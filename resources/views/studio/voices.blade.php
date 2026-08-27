@@ -62,7 +62,7 @@
     <section class="mt-4">
         <h3 class="mb-3 text-sm font-semibold text-slate-700">声音库（男声 {{ $maleCount }} · 女声 {{ $femaleCount }}）</h3>
         @if($voices->isEmpty())
-            <p class="rounded-lg studio-card studio-card-sm text-sm text-slate-400">还没有克隆任何声音，上传一段参考音频开始克隆吧。</p>
+            <p class="rounded-lg studio-card studio-card-sm text-sm text-slate-400">暂无克隆音色，请上传参考音频开始克隆。</p>
         @else
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach($voices as $v)

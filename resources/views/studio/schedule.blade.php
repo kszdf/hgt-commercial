@@ -55,7 +55,7 @@
             <div class="luxury-glass p-5">
                 <h3 class="mb-3 text-sm font-semibold text-slate-700">今日待发</h3>
                 @if($todayDue->isEmpty())
-                    <p class="py-4 text-center text-sm text-slate-400">今天没有到期排期，安排一条吧。</p>
+                    <p class="py-4 text-center text-sm text-slate-400">今日暂无到期排期。</p>
                 @else
                     <div class="max-h-64 space-y-2 overflow-y-auto">
                         @foreach($todayDue as $s)

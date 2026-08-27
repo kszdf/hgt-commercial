@@ -59,7 +59,7 @@
     <section class="mt-4">
         <h3 class="mb-3 text-sm font-semibold text-slate-700">已上传素材（{{ $assets->count() }}）</h3>
         @if($assets->isEmpty())
-            <p class="rounded-lg studio-card studio-card-sm text-sm text-slate-400">还没有上传任何模特，先上传一个试试。</p>
+            <p class="rounded-lg studio-card studio-card-sm text-sm text-slate-400">暂无数字人形象，请上传一条驱动视频开始使用。</p>
         @else
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach($assets as $a)

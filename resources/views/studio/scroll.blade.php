@@ -249,7 +249,7 @@
                      滑块 DOM 保留供 JS 读取默认值，避免 getElementById 报错；如需手动微调再取消 hidden -->
                 <details class="rounded-lg studio-card studio-card-sm" hidden>
                     <summary class="cursor-pointer text-sm font-medium text-slate-600 select-none">🎚 配音感情 / 快慢调节（高级）</summary>
-                    <p class="mt-2 text-xs text-slate-400">已启用自动韵律：语速/音调/音量/停顿由系统按每句情绪自动调教（专业版），无需手动调节。</p>
+                    <p class="mt-2 text-xs text-slate-400">已启用自动韵律：语速/音调/音量/停顿由系统按内容情绪自动调节，无需手动配置。</p>
                     <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div class="space-y-1">
                             <div class="flex justify-between text-xs text-slate-500"><span>男声·语速</span><span id="v_male_rate" class="font-mono text-brand-600">0.98</span></div>
@@ -294,7 +294,7 @@
                 <p id="durationHint" class="mt-2 text-xs text-slate-400"></p>
                 <p id="queueHint" class="mt-2 text-xs text-slate-400"></p>
                 <p class="flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                    <span>⏱</span><span>真实配音约需 <b>5–10 分钟</b>（逐句克隆音 + 字幕卡合成）。提交后本页自动刷新状态，您也可先去其他页面，回来会自动续接进度。</span>
+                    <span>⏱</span><span>真实配音约需 <b>1–5 分钟</b>（视内容长度与并发而定）。提交后可在其他页面继续操作，完成后回来查看进度。</span>
                 </p>
                 <button type="button" id="genBtn" onclick="handleGenerate(event)"
                     class="w-full rounded-lg bg-brand-500 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed">
