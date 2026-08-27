@@ -82,7 +82,7 @@
             <!-- 找回密码兜底入口：大号独立按钮，避免密码框旁的小链接被忽略 -->
             <a href="/forgot-password" class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-                忘记密码，用手机号/邮箱重置
+                忘记密码，用邮箱重置
             </a>
         </form>
 

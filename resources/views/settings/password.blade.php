@@ -14,7 +14,7 @@
 
     <section class="studio-card">
         <h3 class="studio-section-title mb-4">修改登录密码</h3>
-        <p class="mb-5 text-sm text-slate-400">为安全起见，修改密码需先验证当前密码。新密码至少 6 位，且需含大小写字母，或数字与特殊字符组合。</p>
+        <p class="mb-5 text-sm text-slate-400">为安全起见，修改密码需先验证当前密码。为安全起见，修改密码需先验证当前密码。新密码8-16 位，且由大写字母、小写字母、数字、特殊字符中至少两种组合。</p>
 
         <form class="space-y-4" method="POST" action="/settings/password">
             @csrf

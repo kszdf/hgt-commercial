@@ -33,7 +33,7 @@
             <flux:input label="邮箱登录 / Email Login" name="email" type="email" placeholder="you@company.com" required value="{{ old('email') }}" />
             <flux:input label="手机号" name="phone" type="tel" placeholder="11 位手机号，用于登录与找回密码" required value="{{ old('phone') }}" />
             <flux:input label="密码" name="password" type="password" placeholder="••••••••" required />
-            <p class="text-xs text-slate-400 -mt-2">至少 6 位；需含大小写字母，或数字与特殊字符组合。</p>
+            <p class="text-xs text-slate-400 -mt-2">8-16 位，且由大写字母、小写字母、数字、特殊字符中至少两种组合。</p>
             <flux:input label="确认密码" name="password_confirmation" type="password" placeholder="••••••••" required />
 
             <flux:button variant="primary" type="submit" class="w-full !bg-brand-500 hover:!bg-brand-600 !shadow-sm mt-2 mb-safe">

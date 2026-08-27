@@ -52,17 +52,10 @@ class AuthController extends Controller
             'email' => ['required', 'email', 'unique:users,email'],
             // 手机号必填：合法大陆手机号且全局唯一（用于手机登录与找回密码）。
             'phone' => ['required', 'string', 'regex:/^1[3-9]\d{9}$/', 'unique:users,phone'],
-            // 至少 6 位；且需含大小写字母，或含数字与特殊字符组合。
-            // 用闭包自定义规则：跨版本兼容，且规避正则中 | 被规则分隔符误拆的问题。
+            // 密码：至少 6 位；且由 大写/小写/数字/特殊字符 中至少两种组合（StrongPassword 规则类）。
             'password' => [
-                'required', 'confirmed', 'string', 'min:6',
-                function ($attribute, $value, $fail) {
-                    $hasMixedCase = preg_match('/^(?=.*[a-z])(?=.*[A-Z]).*$/', $value);
-                    $hasNumSymbol = preg_match('/^(?=.*\d)(?=.*[^A-Za-z0-9]).*$/', $value);
-                    if (! ($hasMixedCase || $hasNumSymbol)) {
-                        $fail('密码需含大小写字母，或数字与特殊字符组合。');
-                    }
-                },
+                'required', 'confirmed', 'string', 'min:8', 'max:16',
+                new \App\Rules\StrongPassword(),
             ],
         ], [
             'tenant_name.required' => '请填写企业 / 团队名称。',
@@ -75,8 +68,9 @@ class AuthController extends Controller
             'phone.unique' => '该手机号已注册。',
             'password.required' => '请设置登录密码。',
             'password.confirmed' => '两次输入的密码不一致，请重新输入密码。',
-            'password.min' => '密码至少 6 位。',
-            'password.regex' => '密码需含大小写字母，或数字与特殊字符组合。',
+            'password.min' => '密码至少 8 位。',
+            'password.max' => '密码最多 16 位。',
+            'password.regex' => '密码至少 6 位，且需由大写字母、小写字母、数字、特殊字符中至少两种组合。',
         ]);
 
         if ($validator->fails()) {
@@ -148,21 +142,16 @@ class AuthController extends Controller
         $request->validate([
             'current_password' => ['required'],
             'password' => [
-                'required', 'confirmed', 'string', 'min:6',
-                function ($attribute, $value, $fail) {
-                    $hasMixedCase = preg_match('/^(?=.*[a-z])(?=.*[A-Z]).*$/', $value);
-                    $hasNumSymbol = preg_match('/^(?=.*\d)(?=.*[^A-Za-z0-9]).*$/', $value);
-                    if (! ($hasMixedCase || $hasNumSymbol)) {
-                        $fail('密码需含大小写字母，或数字与特殊字符组合。');
-                    }
-                },
+                'required', 'confirmed', 'string', 'min:8', 'max:16',
+                new \App\Rules\StrongPassword(),
             ],
         ], [
             'current_password.required' => '请填写当前密码。',
             'password.required' => '请设置新密码。',
             'password.confirmed' => '两次输入的密码不一致。',
-            'password.min' => '密码至少 6 位。',
-            'password.regex' => '密码需含大小写字母，或数字与特殊字符组合。',
+            'password.min' => '密码至少 8 位。',
+            'password.max' => '密码最多 16 位。',
+            'password.regex' => '密码至少 6 位，且需由大写字母、小写字母、数字、特殊字符中至少两种组合。',
         ]);
 
         if (! Hash::check($request->current_password, $user->password)) {
