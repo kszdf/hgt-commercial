@@ -29,14 +29,14 @@
         <button type="button" data-preset="zhang_male" class="preset-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300" onclick="applyPreset('zhang_male')">老张·男声幕后</button>
     </div>
 
-    <!-- 成片包装（仅数字人出镜：二次剪辑 = 片尾留资卡 + 画面微动感；幕后音已自带剪辑） -->
-    <div class="mb-4 flex flex-wrap items-center gap-2 hidden" id="editStyleWrap">
+    <!-- 成片包装（数字人出镜 / 幕后音·动态画面 均适用：二次剪辑 = 片尾留资卡 + 轻BGM + 转场） -->
+    <div class="mb-4 flex flex-wrap items-center gap-2" id="editStyleWrap">
         <span class="text-xs text-slate-400">成片包装：</span>
         <select id="edit_style" name="edit_style" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600">
-            <option value="fast">快节奏卡点（推荐：片尾留资卡 + 画面动感）</option>
+            <option value="fast">快节奏卡点（推荐：片尾留资卡 + 轻BGM + 转场）</option>
             <option value="">标准（不二次剪辑）</option>
         </select>
-        <span class="text-[11px] text-slate-400">为成片追加片尾留资卡与轻动感，更接近头部财税 IP 成品。</span>
+        <span class="text-[11px] text-slate-400">为成片追加「关注昆山老张讲财税」留资片尾与轻背景音乐。</span>
     </div>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -550,9 +550,6 @@ function setBtnLoading(isLoading, text) {
 function setMode(m) {
     currentMode = m;
     highlightForm();
-
-    // 成片包装：仅数字人出镜显示（幕后音已自带剪辑）
-    document.getElementById('editStyleWrap')?.classList.toggle('hidden', m !== 'avatar');
 
     // 模特区域切换
     document.getElementById('modelHint').classList.toggle('hidden', m !== 'scroll');
@@ -1259,7 +1256,7 @@ async function handleGenerate(e) {
                 title: document.getElementById('title').value,
                 subtitle: document.getElementById('subtitle').value,
                 motion_style: document.getElementById('motion_style')?.value || '财经严谨',
-                edit_style: (currentMode === 'avatar' && document.getElementById('edit_style')?.value) || '',
+                edit_style: document.getElementById('edit_style')?.value || '',
                 dry_tts: false,
                 // 韵律参数不向前端发送：声调/快慢/音量由后端脚本按情绪自动调教（v4 定稿），
                 // 避免前端硬编码默认值覆盖专业调好的自动韵律
