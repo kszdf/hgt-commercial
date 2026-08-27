@@ -1796,8 +1796,11 @@ def _post_process(job_id, payload, out_path, job_dir, edit_style):
         edit_args = [PY310, SCRIPT_EDIT, "--input", out_path,
                      "--output", edited_path, "--edit-style", str(edit_style)]
         # 数字人/幕后音成片已自带片头：跳过 auto_edit 片头卡，避免双重片头
-        # （保留 Ken Burns 动感 + CTA 留资片尾 + 转场）
+        # （保留 CTA 留资片尾 + 转场）
         edit_args += ["--no-intro"]
+        # 数字人已自带运动：跳过 Ken Burns 缩放（缩放会裁切已烧录字幕，QC 误判贴边）
+        if str(payload.get("mode") or "") == "avatar":
+            edit_args += ["--no-kenburns"]
         nt = payload.get("name_tag")
         if nt:
             edit_args += ["--name-tag", str(nt)]
