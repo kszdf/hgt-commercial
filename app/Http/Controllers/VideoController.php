@@ -93,6 +93,7 @@ class VideoController extends Controller
             'subtitle_style' => ['sometimes', 'string', 'in:dynamic,minimal,bubble'],
             'subtitle_font' => ['sometimes', 'string', 'in:hei,yahei,kaiti,song,fangsong'],
             'natural' => ['sometimes', 'boolean'],
+            'edit_style' => ['sometimes', 'nullable', 'string', 'in:fast,artistic,vlog'],
             'model' => ['nullable', 'string', 'max:120'],
             'scene' => ['nullable', 'string', 'max:40', 'in:office_a,office_b'],
             'cover_id' => ['nullable', 'integer', 'exists:cover_assets,id'],
@@ -219,6 +220,7 @@ class VideoController extends Controller
             'female_voice' => $request->input('female_voice') ?: $tenant->default_female_voice,
             'voice_form' => $request->input('voice_form', 'dialogue'),
             'natural' => (bool) $request->input('natural', false),
+            'edit_style' => $request->input('edit_style') ?: null,   // 成片包装：fast=Ken Burns+片尾留资卡+转场
             'model' => $modelInput,   // 仅数字人模式使用；已解析 User:{id}->containerPath，否则透传场景名；字幕卡模式为 null，微服务自动跳过
             'scene' => $request->input('scene'),   // 数字人出镜场景（office_a / office_b）
             'tenant_id' => (string) $tenant->id,   // 透传给 8500 做并发护栏（无租户上下文则无法区分）
