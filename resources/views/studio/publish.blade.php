@@ -4,14 +4,26 @@
 
     @include('components.flash')
 
-    <!-- 模式说明（常显） -->
+    {{-- 发布状态提示（状态驱动，替代长篇模式说明） --}}
     <div class="mb-5 rounded-xl border border-slate-200 bg-white px-4 py-3">
-        <div class="text-sm font-semibold text-slate-700">发布助手 · 一键发布 + 手动兜底</div>
-        <ul class="mt-1 space-y-1 text-sm text-slate-500">
-            <li>· <strong>自动发布</strong>：公众号（入草稿箱）、抖音、小红书 —— 选账号点「发布」即可。</li>
-            <li>· <strong>人工发布</strong>：视频号 / B站 / 快手 / YouTube 无稳定公开 API，点「存待发清单」后下载成片到各平台 App 手动发。</li>
-            <li>· 发布前需先在「人工审核」通过该视频；未通过的视频不能外发。</li>
-        </ul>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="text-sm font-semibold text-slate-700">发布助手</div>
+            <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-500">已审核通过的成片可外发</span>
+        </div>
+        @if($accountCount === 0)
+            <div class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                尚未添加发布渠道：请先到「发布渠道」添加账号并完成授权（抖音/小红书走 OAuth），
+                否则发布会进入「模拟记录」或「待人工发布」清单，不会真正发出。
+                <a href="/studio/accounts" class="font-medium underline hover:text-amber-800">去配置 →</a>
+            </div>
+        @elseif($authorizedCount === 0)
+            <div class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                已添加 {{ $accountCount }} 个渠道，但尚未完成授权：抖音/小红书需 OAuth 授权后才能自动发布；
+                未授权平台的发布将记为「模拟」或存入「待人工发布」清单。
+                <a href="/studio/accounts" class="font-medium underline hover:text-amber-800">去授权 →</a>
+            </div>
+        @endif
+        <p class="mt-2 text-xs text-slate-400">自动发布：抖音/小红书（授权后）；人工发布：视频号等无开放接口平台，下载成片到 App 手动发。</p>
     </div>
 
     {{-- 视频成片 --}}

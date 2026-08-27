@@ -192,7 +192,7 @@ async function doGenerate() {
             selling_points: document.getElementById('xhsSelling').value.trim(),
             audience: document.getElementById('xAudience').value.trim(),
             pages: parseInt(document.getElementById('xPages').value),
-            brand: '慧根堂 · 老张讲财税',
+            brand: '昆山老张讲财税',
         };
         // 如果已有完整 note 结构，优先用它（保留用户在 textarea 的修改）
         if (_note && _note.cover && Array.isArray(_note.pages) && _note.pages.length > 0) {

@@ -61,11 +61,11 @@
         </div>
     @endif
 
-    <!-- ========== 极简创作台（罗根式一键流水线） ========== -->
+    <!-- ========== 快捷创作（极简入口：填文案 → 选形式 → 出片；完整流程见左侧菜单） ========== -->
     <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div class="mb-4 flex items-center gap-2">
-            <h2 class="text-lg font-bold text-slate-800">一键创作</h2>
-            <span class="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-600">粘贴文案 / 选题 → 选形式 → 出片</span>
+            <h2 class="text-lg font-bold text-slate-800">快捷创作</h2>
+            <span class="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-600">粘贴文案 → 选形式 → 出片</span>
         </div>
 
         <textarea id="quick-input" rows="3"

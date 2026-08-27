@@ -80,9 +80,9 @@
                             @if($job->canPublish())
                                 <a href="/studio/publish" class="rounded-lg border border-brand-300 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-50">去发布</a>
                             @endif
-                            @if($job->isRendered() && $job->dialogue)
+                            @if(($job->isRendered() || $job->status === 'failed') && $job->dialogue)
                                 <a href="/studio/scroll?src=clone&job_id={{ $job->id }}" title="复用此条的文稿与形式去出片"
-                                   class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">↻ 复刻</a>
+                                   class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">{{ $job->status === 'failed' ? '↻ 重新出片' : '↻ 复刻' }}</a>
                                 <button type="button" class="pack-btn rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs text-amber-600 hover:bg-amber-50"
                                         data-job="{{ $job->job_id }}" title="生成发布标题+副标题+高级感封面">✨ 包装</button>
                             @endif

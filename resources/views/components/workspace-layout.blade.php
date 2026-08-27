@@ -73,9 +73,9 @@
                 <span class="font-semibold">工作总览</span>
             </a>
 
-            <!-- 分组：内容生产（默认收起，极简：核心创作走顶部一键创作台） -->
-            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>内容生产</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
-            <ul class="space-y-0.5 ws-group-body collapsed">
+            <!-- 分组：内容创作（主线，默认展开） -->
+            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>内容创作</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+            <ul class="space-y-0.5 ws-group-body">
                 <li>
                     <a href="/studio/topic" class="{{ request()->is('studio/topic*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-sky">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
@@ -122,8 +122,8 @@
                 </li>
             </ul>
 
-            <!-- 分组：发布分发（默认展开） -->
-            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>发布分发</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+            <!-- 分组：制作与发布（主线，默认展开） -->
+            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>制作与发布</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
             <ul class="space-y-0.5 ws-group-body">
                 <li>
                     <a href="/studio/scroll{{ Request::has('from') ? '?from=' . Request::get('from') : '' }}" class="{{ (request()->is('studio/scroll*') && !request()->is('studio/scroll/qc*')) ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-fresh">
@@ -134,7 +134,7 @@
                 <li>
                     <a href="/studio/videos" class="{{ request()->is('studio/videos*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-teal">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
-                        <span>我的视频</span>
+                        <span>视频库</span>
                     </a>
                 </li>
                 <li>
@@ -169,8 +169,8 @@
                 </li>
             </ul>
 
-            <!-- 分组：素材中心（默认收起） -->
-            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>素材中心</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+            <!-- 分组：素材与声音（默认收起） -->
+            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>素材与声音</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
             <ul class="space-y-0.5 ws-group-body collapsed">
                 <li>
                     <a href="/studio/voices" class="{{ request()->is('studio/voices*') || request()->is('voice-clone*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-violet">
@@ -187,7 +187,7 @@
                 <li>
                     <a href="/studio/models" class="{{ request()->is('studio/models*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-amber">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                        <span>数字人模特</span>
+                        <span>数字人形象</span>
                     </a>
                 </li>
                 <li>
@@ -198,8 +198,8 @@
                 </li>
             </ul>
 
-            <!-- 分组：数据中心（默认收起） -->
-            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>数据中心</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+            <!-- 分组：数据与账户（默认收起） -->
+            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>数据与账户</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
             <ul class="space-y-0.5 ws-group-body collapsed">
                 <li>
                     <a href="/studio/metrics" class="{{ request()->is('studio/metrics*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-teal">
@@ -207,11 +207,6 @@
                         <span>数据效果</span>
                     </a>
                 </li>
-            </ul>
-
-            <!-- 分组：账户中心（默认收起） -->
-            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>账户中心</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
-            <ul class="space-y-0.5 ws-group-body collapsed">
                 <li>
                     <a href="/settings/password" class="{{ request()->is('settings/password*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-violet">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
@@ -220,20 +215,14 @@
                 </li>
             </ul>
 
-            <!-- 分组：管理超管（仅超级管理员，默认收起） -->
+            <!-- 分组：系统管理（仅超级管理员，默认收起） -->
             @if(auth()->user()->isGlobalAdmin())
-            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>管理超管</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>系统管理</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
             <ul class="space-y-0.5 ws-group-body collapsed">
                 <li>
                     <a href="/admin/tenants" class="{{ request()->is('admin/tenants*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a3 3 0 10-2.5-4.5"/></svg>
                         <span>租户管理</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="/admin/monitor" class="{{ request()->is('admin/monitor*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
-                        <span>监控大盘</span>
                     </a>
                 </li>
             </ul>
@@ -295,10 +284,10 @@
                     </summary>
                     <div class="absolute right-0 top-11 z-40 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
                         <a href="/admin/billing" class="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">计费订阅</a>
+                        <a href="/studio/help" class="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">帮助中心</a>
                         @if($isAdmin)
                             <div class="my-1 border-t border-slate-100"></div>
                             <a href="/admin/tenants" class="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">租户管理</a>
-                            <a href="/admin/monitor" class="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">监控大盘</a>
                         @endif
                         <div class="my-1 border-t border-slate-100"></div>
                         <form method="POST" action="/logout">

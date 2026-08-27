@@ -34,6 +34,11 @@ class PublishController extends Controller
             ->get()
             ->filter(fn ($a) => $a->isPublishable());
 
+        // 账号统计（页面状态提示用）：总账号数 / 已授权数
+        $accountCount = PlatformAccount::where('tenant_id', $tenant->id)->count();
+        $authorizedCount = PlatformAccount::where('tenant_id', $tenant->id)
+            ->where('status', 'authorized')->count();
+
         // 各视频的发布记录（按 video_job_id 分组，供前端展示已发/待人工）
         $publishRecords = PublishRecord::where('tenant_id', $tenant->id)
             ->whereIn('video_job_id', $videos->pluck('id'))
@@ -41,7 +46,7 @@ class PublishController extends Controller
             ->get()
             ->groupBy('video_job_id');
 
-        return view('studio.publish', compact('videos', 'accounts', 'publishRecords'));
+        return view('studio.publish', compact('videos', 'accounts', 'publishRecords', 'accountCount', 'authorizedCount'));
     }
 
     /** 一键发布：视频 × 账号 → PublishRunner → 自动/待人工/失败。 */

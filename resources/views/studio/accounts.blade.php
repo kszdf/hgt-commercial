@@ -116,7 +116,7 @@
                 </div>
                 <div>
                     <label class="mb-1 block text-slate-600">账号名称 <span class="text-red-500">*</span></label>
-                    <input type="text" name="account_name" id="accountName" required maxlength="60" placeholder="例如：慧根堂主号"
+                    <input type="text" name="account_name" id="accountName" required maxlength="60" placeholder="例如：昆山老张讲财税主号"
                         class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700">
                 </div>
             </div>

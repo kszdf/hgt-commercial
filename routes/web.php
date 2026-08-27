@@ -111,6 +111,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/publish-pack/photo', [PublishPackController::class, 'uploadPhoto'])->name('studio.publish-pack.photo');
     Route::get('/studio/publish-pack/portrait', [PublishPackController::class, 'portrait'])->name('studio.publish-pack.portrait');
 
+    // 帮助中心（商用必备：FAQ / 使用说明）
+    Route::view('/studio/help', 'studio.help')->name('studio.help');
+
     // 实时活动心跳上报（选题 / 二创 / 出片在线态，供超级管理员监控大盘）
     Route::post('/studio/activity', [StudioController::class, 'activityPing']);
 
