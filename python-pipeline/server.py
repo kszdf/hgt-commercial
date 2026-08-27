@@ -2464,7 +2464,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._send(400, {"error": "invalid request body"})
             text = (data.get("text") or "").strip()
             video = (data.get("video_path") or "").strip()
-            if not text and not (video and os.path.exists(video)):
+            cover_photo = (data.get("cover_photo") or "").strip()
+            if not text and not (video and os.path.exists(video)) and not (cover_photo and os.path.exists(cover_photo)):
                 return self._send(400, {"error": "text 或 video_path 至少一项"})
             industry = (data.get("industry") or "").strip() or "财税"
             brand = (data.get("brand") or "").strip() or "追梦"
@@ -2498,9 +2499,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not subtitle:
                 subtitle = industry + " · 老板必看"
 
-            # 2) 封面
+            # 2) 封面：优先个人形象照（海马体等专业肖像，人脸居中零变形）；
+            #    无形象照时用成片智能选帧；两者都没有则黑金纯文字兜底。
             cover = ""
-            if video and os.path.exists(video):
+            if cover_photo and os.path.exists(cover_photo):
+                try:
+                    vdir = os.path.dirname(cover_photo)
+                    cover = os.path.join(vdir, "portrait_pack_cover.jpg")
+                    from make_cover import compose_from_photo
+                    compose_from_photo(cover_photo, cover, title, subtitle)
+                    if not os.path.exists(cover):
+                        cover = ""
+                except Exception:
+                    cover = ""
+            if not cover and video and os.path.exists(video):
                 vdir = os.path.dirname(video)
                 stem = os.path.splitext(os.path.basename(video))[0]
                 cover = os.path.join(vdir, stem + "_pack_cover.jpg")

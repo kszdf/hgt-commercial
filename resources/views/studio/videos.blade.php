@@ -112,6 +112,15 @@
             <button type="button" onclick="document.getElementById('packModal').classList.add('hidden')" class="rounded-md px-2 py-1 text-slate-400 hover:bg-slate-100">✕</button>
         </div>
         <div id="packLoading" class="py-8 text-center text-sm text-slate-500">⏳ 正在生成标题与封面（智能选帧中）…</div>
+        <div class="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+            <label class="flex cursor-pointer items-center gap-1.5 text-xs text-slate-600">
+                <input type="checkbox" id="libUsePhoto" class="accent-amber-500"> 📷 用我的形象照做封面底图
+            </label>
+            <label class="cursor-pointer text-xs text-brand-600 hover:underline">
+                <span id="libPhotoText">上传形象照</span>
+                <input type="file" id="libPhotoFile" accept="image/jpeg,image/png,image/webp" class="hidden">
+            </label>
+        </div>
         <div id="packBody" class="hidden">
             <div class="flex flex-wrap gap-4">
                 <img id="packCover" alt="封面" class="h-64 rounded-lg border border-slate-200 shadow-sm">
@@ -146,7 +155,7 @@ document.querySelectorAll('.pack-btn').forEach(function (btn) {
                 'Accept': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
             },
-            body: JSON.stringify({ job_id: jobId, industry: '财税' })
+            body: JSON.stringify({ job_id: jobId, industry: '财税', use_photo: (document.getElementById('libUsePhoto')?.checked || false) })
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
@@ -170,6 +179,27 @@ function copyPackLib() {
     const s = document.getElementById('packSubtitle').textContent;
     navigator.clipboard?.writeText('标题：' + t + '\n副标题：' + s).then(() => hgtToast('info', '已复制'));
 }
+// 上传个人形象照（视频库浮层）
+document.getElementById('libPhotoFile')?.addEventListener('change', async function () {
+    const file = this.files && this.files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('_token', document.querySelector('meta[name="csrf-token"]')?.content || '');
+    const label = document.getElementById('libPhotoText');
+    label.textContent = '上传中…';
+    try {
+        const resp = await fetch('/studio/publish-pack/photo', { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } });
+        const data = await resp.json();
+        if (!resp.ok || data.error) throw new Error(data.error || '上传失败');
+        label.textContent = '✓ 已上传';
+        document.getElementById('libUsePhoto').checked = true;
+        hgtToast('success', '形象照已上传，生成封面时将使用它');
+    } catch (e) {
+        label.textContent = '上传形象照';
+        hgtToast('error', '上传失败：' + (e.message || ''));
+    }
+});
 </script>
 </x-workspace-layout>
 </x-app-layout>

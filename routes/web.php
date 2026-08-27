@@ -108,6 +108,8 @@ Route::middleware('auth')->group(function () {
     // 发布包装（标题 + 副标题 + 高级感封面）：精剪产物或自动生成成片通用
     Route::post('/studio/publish-pack', [PublishPackController::class, 'generate'])->name('studio.publish-pack');
     Route::get('/studio/publish-pack/cover/{file}', [PublishPackController::class, 'cover'])->name('studio.publish-pack.cover');
+    Route::post('/studio/publish-pack/photo', [PublishPackController::class, 'uploadPhoto'])->name('studio.publish-pack.photo');
+    Route::get('/studio/publish-pack/portrait', [PublishPackController::class, 'portrait'])->name('studio.publish-pack.portrait');
 
     // 实时活动心跳上报（选题 / 二创 / 出片在线态，供超级管理员监控大盘）
     Route::post('/studio/activity', [StudioController::class, 'activityPing']);

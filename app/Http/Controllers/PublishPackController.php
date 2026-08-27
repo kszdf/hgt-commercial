@@ -28,10 +28,17 @@ class PublishPackController extends Controller
             'job_id'   => ['nullable', 'string', 'max:80'],      // 自动生成出片
             'text'     => ['nullable', 'string', 'max:4000'],
             'industry' => ['nullable', 'string', 'max:40'],
+            'use_photo' => ['sometimes', 'boolean'],             // 用个人形象照做封面底图
         ]);
 
         $text = trim((string) ($data['text'] ?? ''));
         $videoHost = '';
+        $coverPhoto = '';
+        $portrait = $this->portraitPath($request->user()->tenant_id);
+
+        if (! empty($data['use_photo']) && $portrait && is_file($portrait)) {
+            $coverPhoto = $this->hostPath($portrait);
+        }
 
         if (! empty($data['uuid'])) {
             // 精剪产物：storage/app/footage/{uuid}_edited.mp4
@@ -64,9 +71,10 @@ class PublishPackController extends Controller
 
         try {
             $resp = app(PipelineClient::class)->post('/publish-pack', [
-                'text'       => mb_substr($text, 0, 4000),
-                'video_path' => $videoHost,
-                'industry'   => $data['industry'] ?? '财税',
+                'text'        => mb_substr($text, 0, 4000),
+                'video_path'  => $videoHost,
+                'cover_photo' => $coverPhoto,
+                'industry'    => $data['industry'] ?? '财税',
             ], 240);
         } catch (PipelineUnavailableException $e) {
             return response()->json(['error' => '包装服务暂不可用，请确认 8500 已重启加载最新代码'], 503);
@@ -86,6 +94,54 @@ class PublishPackController extends Controller
             'subtitle' => $r['subtitle'] ?? '',
             'cover_name' => $coverName,
         ]);
+    }
+
+    /** 个人形象照（海马体等专业肖像）路径：storage/app/covers/portrait/{tenant_id}.jpg */
+    private function portraitPath($tenantId): string
+    {
+        return storage_path('app/covers/portrait/' . (int) $tenantId . '.jpg');
+    }
+
+    /** 上传个人形象照（≤10MB 图片），作为封面底图素材。 */
+    public function uploadPhoto(Request $request)
+    {
+        $data = $request->validate([
+            'file' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
+        ]);
+        $tenantId = $request->user()->tenant_id;
+        if ($tenantId === null) {
+            // 超管：借用第一个租户的目录存储（个人形象照按租户隔离）
+            $tenantId = \App\Models\Tenant::whereIn('plan', ['pro', 'enterprise'])->value('id') ?? 1;
+        }
+        $dir = storage_path('app/covers/portrait');
+        if (! is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        $file = $request->file('file');
+        $target = $dir . '/' . (int) $tenantId . '.jpg';
+        // 统一转成 JPG（PIL 风格：白底正装照直接可用，不改变构图）
+        try {
+            $img = \Intervention\Image\ImageManager::gd()->read($file->getRealPath());
+            $img->orient()->encode('jpg', 90)->save($target);
+        } catch (\Throwable $e) {
+            // 无 Intervention 时退回原样存储
+            $file->move($dir, (int) $tenantId . '.' . $file->extension());
+        }
+        if (! is_file($target) && ! is_file($dir . '/' . (int) $tenantId . '.' . $file->extension())) {
+            return response()->json(['error' => '保存失败'], 500);
+        }
+        return response()->json(['ok' => true, 'name' => (int) $tenantId . '.jpg']);
+    }
+
+    /** 展示个人形象照。 */
+    public function portrait(Request $request)
+    {
+        $tenantId = $request->user()->tenant_id ?? \App\Models\Tenant::whereIn('plan', ['pro', 'enterprise'])->value('id') ?? 1;
+        $full = realpath(storage_path('app/covers/portrait/' . (int) $tenantId . '.jpg'));
+        if (! $full || ! is_file($full)) {
+            abort(404);
+        }
+        return response()->file($full, ['Content-Type' => 'image/jpeg']);
     }
 
     /** 精剪产物的字幕稿（readme 同目录 *.ass / 由会话带入，这里兜底读 ass 文本）。 */

@@ -81,6 +81,14 @@
                         class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-600">
                     ✨ 生成发布标题 + 封面
                 </button>
+                <label class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 hover:border-amber-300">
+                    <input type="checkbox" id="packUsePhoto" class="accent-amber-500">
+                    📷 用我的形象照做封面底图
+                </label>
+                <label class="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 hover:border-amber-300">
+                    <span id="packPhotoText">上传形象照</span>
+                    <input type="file" id="packPhotoFile" accept="image/jpeg,image/png,image/webp" class="hidden">
+                </label>
                 <a href="{{ route('studio.rewrite-original') }}"
                    class="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800">去二创改写文案</a>
                 <a href="{{ route('studio.publish') }}"
@@ -131,6 +139,7 @@ document.getElementById('packBtn')?.addEventListener('click', async function () 
     try {
         const uuid = @json($result['uuid'] ?? '');
         const text = @json($result['transcript'] ?? '');
+        const usePhoto = document.getElementById('packUsePhoto')?.checked || false;
         const resp = await fetch('/studio/publish-pack', {
             method: 'POST',
             headers: {
@@ -138,7 +147,7 @@ document.getElementById('packBtn')?.addEventListener('click', async function () 
                 'Accept': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
             },
-            body: JSON.stringify({ uuid: uuid, text: text, industry: '财税' })
+            body: JSON.stringify({ uuid: uuid, text: text, industry: '财税', use_photo: usePhoto })
         });
         const data = await resp.json();
         if (!resp.ok || data.error) throw new Error(data.error || ('HTTP ' + resp.status));
@@ -153,6 +162,28 @@ document.getElementById('packBtn')?.addEventListener('click', async function () 
         hgtToast('error', '生成失败：' + (e.message || '未知错误'));
     } finally {
         btn.disabled = false; btn.textContent = '✨ 生成发布标题 + 封面';
+    }
+});
+
+// 上传个人形象照
+document.getElementById('packPhotoFile')?.addEventListener('change', async function () {
+    const file = this.files && this.files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('_token', document.querySelector('meta[name="csrf-token"]')?.content || '');
+    const label = document.getElementById('packPhotoText');
+    label.textContent = '上传中…';
+    try {
+        const resp = await fetch('/studio/publish-pack/photo', { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } });
+        const data = await resp.json();
+        if (!resp.ok || data.error) throw new Error(data.error || '上传失败');
+        label.textContent = '✓ 形象照已上传（勾选上方开关即可用作封面）';
+        document.getElementById('packUsePhoto').checked = true;
+        hgtToast('success', '形象照已上传，下次生成封面将使用它');
+    } catch (e) {
+        label.textContent = '上传形象照';
+        hgtToast('error', '上传失败：' + (e.message || ''));
     }
 });
 
