@@ -21,8 +21,10 @@ class FootageController extends Controller
 
     private function hostPath(string $containerPath): string
     {
-        // 容器 /var/www → 宿主 D:\heygem_data\hgt-commercial（docker compose 挂载）
-        return str_replace('/var/www', rtrim(base_path(), '/'), $containerPath);
+        // 容器 /var/www → 宿主 D:/heygem_data/hgt-commercial（docker compose 挂载 .:/var/www）
+        // 8500 与宿主同机，直接读宿主绝对路径；可用 FOOTAGE_HOST_BASE 覆盖。
+        $hostBase = rtrim((string) env('FOOTAGE_HOST_BASE', 'D:/heygem_data/hgt-commercial'), '/\\');
+        return $hostBase . str_replace('/var/www', '', $containerPath);
     }
 
     public function index(Request $request)
@@ -64,13 +66,15 @@ class FootageController extends Controller
             return back()->with('error', '精剪失败：' . ($r['error'] ?? '未知错误'));
         }
 
-        // 编辑产物文件名（供播放/下载路由安全映射）
-        $outName = basename((string) $r['out_mp4']);
+        // 编辑产物文件名（供播放/下载路由安全映射；8500 路径混用 / 与 \，
+        // 容器内 Linux basename 不认反斜杠，这里手动按两种分隔符截取）
+        $baseName = fn ($p) => preg_replace('/^.*[\/\\\\]/', '', (string) $p);
+        $outName = $baseName($r['out_mp4']);
         $result = [
             'ok' => true,
             'uuid' => $uuid,
             'out_name' => $outName,
-            'cover_name' => $r['cover'] ? basename((string) $r['cover']) : '',
+            'cover_name' => $r['cover'] ? $baseName($r['cover']) : '',
             'duration_before' => $r['duration_before'] ?? null,
             'duration_after' => $r['duration_after'] ?? null,
             'segments_kept' => $r['segments_kept'] ?? null,
