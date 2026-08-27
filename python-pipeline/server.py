@@ -2468,7 +2468,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not text and not (video and os.path.exists(video)) and not (cover_photo and os.path.exists(cover_photo)):
                 return self._send(400, {"error": "text 或 video_path 至少一项"})
             industry = (data.get("industry") or "").strip() or "财税"
-            brand = (data.get("brand") or "").strip() or "追梦"
+            brand = (data.get("brand") or "").strip() or "昆山老张讲财税"
 
             # 1) LLM 标题/副标题（对标头部财税IP · 高级感）
             prompt = (
@@ -2507,7 +2507,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     vdir = os.path.dirname(cover_photo)
                     cover = os.path.join(vdir, "portrait_pack_cover.jpg")
                     from make_cover import compose_from_photo
-                    compose_from_photo(cover_photo, cover, title, subtitle)
+                    compose_from_photo(cover_photo, cover, title, subtitle, brand=brand)
                     if not os.path.exists(cover):
                         cover = ""
                 except Exception:
@@ -2519,7 +2519,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 try:
                     subprocess.run([PY310, SCRIPT_COVER, "--input", video, "--output", cover,
                                     "--title", title, "--subtitle", subtitle,
-                                    "--platform", "video"],
+                                    "--platform", "video", "--brand", brand],
                                    capture_output=True, text=True, encoding="utf-8",
                                    errors="replace", timeout=180, cwd=GPT_SOVITS)
                     if not os.path.exists(cover):

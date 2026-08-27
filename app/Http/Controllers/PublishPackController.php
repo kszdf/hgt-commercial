@@ -75,6 +75,7 @@ class PublishPackController extends Controller
                 'video_path'  => $videoHost,
                 'cover_photo' => $coverPhoto,
                 'industry'    => $data['industry'] ?? '财税',
+                'brand'       => $this->tenantBrand($request),
             ], 240);
         } catch (PipelineUnavailableException $e) {
             return response()->json(['error' => '包装服务暂不可用，请确认 8500 已重启加载最新代码'], 503);
@@ -94,6 +95,16 @@ class PublishPackController extends Controller
             'subtitle' => $r['subtitle'] ?? '',
             'cover_name' => $coverName,
         ]);
+    }
+
+    /** 租户品牌（settings.brand，用于封面水印/黑金兜底；默认昆山老张讲财税）。 */
+    private function tenantBrand(Request $request): string
+    {
+        $tenant = $request->user()->isGlobalAdmin()
+            ? \App\Models\Tenant::whereIn('plan', ['pro', 'enterprise'])->first()
+            : $request->user()->tenant;
+        $settings = $tenant ? (is_array($tenant->settings) ? $tenant->settings : []) : [];
+        return trim((string) ($settings['brand'] ?? '')) ?: '昆山老张讲财税';
     }
 
     /** 个人形象照（海马体等专业肖像）路径：storage/app/covers/portrait/{tenant_id}.jpg */
