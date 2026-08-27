@@ -1887,6 +1887,9 @@ def run_job(job_id, payload):
             with open(dlg_path, "w", encoding="utf-8") as f:
                 f.write(dialogue)
             args = [PY310, SCRIPT_AVATAR, "--dialogue", dlg_path, "--out", out_path]
+            # 口语化润色（自然口吻）：avatar 脚本内插语气词，去念稿感
+            if payload.get("natural"):
+                args += ["--natural"]
             mv = payload.get("male_voice") or payload.get("voice") or d_mv
             args += ["--male-voice", mv]
             # 注：数字人不传 --female-voice，强制单人单声线

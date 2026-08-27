@@ -63,6 +63,39 @@ def _clean(text):
     return text.replace("**", "")
 
 
+def chatify(text):
+    """口语化润色（自然聊天感，去念稿感）：适当插入语气词。
+    保守策略：每句最多 1 处语气词、句间偶插轻顿词（嗯/对），
+    财税术语/数字/法规表述原样保留，绝不改变专业内容。"""
+    import re as _re
+    sentences = [s.strip() for s in _re.split(r'(?<=[。！？!?])', text) if s.strip()]
+    out = []
+    for i, s in enumerate(sentences):
+        n = i + 1
+        # 句首软化（非首句、且原句不是转折/连词开头时，每 3 句插一个"那"）
+        if n > 1 and n % 3 == 0 and not _re.match(r'^(那|但|而且|如果|其实|所以|当然|不过|嗯|对)', s):
+            s = "那" + s
+        endch = s[-1]
+        if endch in ("？", "?"):
+            # 疑问句：没带语气词时加"呢"，更像聊天
+            if not _re.search(r'[呢吗吧啊么]$', s):
+                s = s[:-1] + "呢？"
+        elif endch in ("。", "."):
+            # 建议/提醒句 → "吧"；一般陈述每 2 句加"啊"（克制，不油腻）
+            if _re.search(r'(要|应该|记得|别|一定|必须|建议|注意|留好|一定要)', s):
+                s = s[:-1] + "吧。"
+            elif n % 2 == 0:
+                s = s[:-1] + "啊。"
+        # 口语化小转换（安全表，不动专业词）
+        s = s.replace("不要", "别")
+        s = _re.sub(r'要(小心|注意|记得)', r'得\1', s)
+        out.append(s)
+        # 句间轻顿词（每 3 句后插一个"嗯，"或"对，"模拟思考停顿）
+        if n % 3 == 0 and n < len(sentences):
+            out.append("嗯，" if (n // 3) % 2 else "对，")
+    return "".join(out)
+
+
 def parse_dialogue(text):
     """解析对话/独白稿，返回 [(gender, txt), ...]。
     gender: 'female'（女：/女: 行）/ 'male'（男：/男: 行）/ None（纯文本行，独白或混合）。
@@ -645,6 +678,8 @@ def main():
                          "默认仅字幕（高亮+重点词放大），配图卡当前为简化 PIL 大字卡，质量一般")
     ap.add_argument("--no-punct", action="store_true",
                     help="无标点字幕：去掉所有标点符号（断句结构保留），逐行跟读更干净（对标头部财税IP）")
+    ap.add_argument("--natural", action="store_true",
+                    help="口语化润色：适当插入语气词（呢/吧/啊/嗯/那），去念稿感，像聊天")
     args = ap.parse_args()
 
     with open(args.dialogue, encoding="utf-8-sig") as f:
@@ -654,6 +689,12 @@ def main():
         import re as _re
         raw = _re.sub(r"^\s*(?:女|男|旁白)[:：]\s*", "", raw, flags=_re.M)
         args.female_voice = ""   # 单声线：女声槽位清空，杜绝误用女声
+    # 口语化润色（--natural）：在配音与字幕前改写稿子，让 TTS 读出聊天感
+    if args.natural:
+        raw = chatify(raw)
+        with open(args.dialogue + ".chat.txt", "w", encoding="utf-8") as f:
+            f.write(raw)
+        print("[avatar] 口语化润色已应用（语气词稿见 dialogue.txt.chat.txt）", flush=True)
     segs = parse_dialogue(raw)
     if not segs:
         sys.exit("对话稿为空或解析失败")
