@@ -64,39 +64,29 @@ def _clean(text):
 
 
 def chatify(text):
-    """口语化润色（自然聊天感，去念稿感）：适当插入语气词。
-    保守策略：每句最多 1 处语气词、句间偶插轻顿词（嗯/对），
-    财税术语/数字/法规表述原样保留，绝不改变专业内容。"""
-    import re as _re
-    sentences = [s.strip() for s in _re.split(r'(?<=[。！？!?])', text) if s.strip()]
-    out = []
-    for i, s in enumerate(sentences):
-        n = i + 1
-        # 句首软化（非首句、且原句不是转折/连词开头时，每 3 句插一个"那"）
-        if n > 1 and n % 3 == 0 and not _re.match(r'^(那|但|而且|如果|其实|所以|当然|不过|嗯|对)', s):
-            s = "那" + s
-        endch = s[-1]
-        if endch in ("？", "?"):
-            # 疑问句：没带语气词时加"呢"，更像聊天
-            if not _re.search(r'[呢吗吧啊么]$', s):
-                s = s[:-1] + "呢？"
-        elif endch in ("。", "."):
-            # 建议/提醒句 → "吧"；一般陈述每 2 句加"啊"（克制，不油腻）
-            if _re.search(r'(要|应该|记得|别|一定|必须|建议|注意|留好|一定要)', s):
-                s = s[:-1] + "吧。"
-            elif n % 2 == 0:
-                s = s[:-1] + "啊。"
-        # 口语化小转换（安全表，不动专业词）
-        s = s.replace("不要", "别")
-        s = _re.sub(r'要(小心|注意|记得)', r'得\1', s)
-        out.append(s)
-        # 句间轻顿词（每 3 句后插一个"嗯，"或"对，"模拟思考停顿；
-        # 下句以连词/转折开头时不插，避免"嗯，而且/但是"类生硬衔接）
-        if n % 3 == 0 and n < len(sentences):
-            nxt = sentences[n]
-            if not _re.match(r'^(而且|但是|所以|因为|不过|同时|并且|如果)', nxt):
-                out.append("嗯，" if (n // 3) % 2 else "对，")
-    return "".join(out)
+    """自然口语化（v2 定稿）：用 LLM 把稿子改写成「像真人聊天」的自然口语，
+    不刻意堆语气词、不插"嗯/对"停顿——用户明确要求不要念稿感也不要刻意做作。
+    保留全部财税事实/数字/术语；LLM 失败时回退原文，绝不因润色改错内容。"""
+    try:
+        from model_providers import ensure_env, deepseek_chat, get_text_config
+        ensure_env()
+        cfg = get_text_config()
+        prompt = (
+            "把下面这段财税口播稿改写成【自然口语】版本，要求：\n"
+            "1. 像真人在跟老板面对面聊天一样自然：句子短、顺口、符合说话节奏，不书面化；\n"
+            "2. 不要刻意添加语气词（啊/呢/吧/嘛）和停顿词（嗯/对/那/诶），原来怎么顺口就怎么说；\n"
+            "3. 严禁改动任何财税事实、数字、比例、政策表述和专有名词（如20%、进项税、核定征收、滞纳金、视同分红等）；\n"
+            "4. 不增删实质内容，只做口语化表达；直接输出改写后的完整稿子，不要任何解释。\n\n"
+            "原稿：\n" + text
+        )
+        out = deepseek_chat(prompt, model=cfg["model"], key=cfg["key"], base_url=cfg["base_url"])
+        out = (out or "").strip().lstrip("\ufeff")
+        # 防呆：改写结果太短（疑似截断/幻觉）时回退原文
+        if len(out) < max(20, int(len(text) * 0.5)):
+            return text
+        return out
+    except Exception:
+        return text
 
 
 def parse_dialogue(text):
@@ -692,12 +682,12 @@ def main():
         import re as _re
         raw = _re.sub(r"^\s*(?:女|男|旁白)[:：]\s*", "", raw, flags=_re.M)
         args.female_voice = ""   # 单声线：女声槽位清空，杜绝误用女声
-    # 口语化润色（--natural）：在配音与字幕前改写稿子，让 TTS 读出聊天感
+    # 自然口语化（--natural）：LLM 改写成真人聊天口吻（不刻意加语气词/停顿），让 TTS 读出自然感
     if args.natural:
         raw = chatify(raw)
         with open(args.dialogue + ".chat.txt", "w", encoding="utf-8") as f:
             f.write(raw)
-        print("[avatar] 口语化润色已应用（语气词稿见 dialogue.txt.chat.txt）", flush=True)
+        print("[avatar] 自然口语化已应用（改写稿见 dialogue.txt.chat.txt）", flush=True)
     segs = parse_dialogue(raw)
     if not segs:
         sys.exit("对话稿为空或解析失败")
