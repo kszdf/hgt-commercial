@@ -1,5 +1,5 @@
 <x-app-layout>
-<div class="flex min-h-screen items-center justify-center p-6">
+<div class="flex min-h-screen flex-col items-center justify-center p-6">
     <div class="luxury-glass w-full max-w-md p-8">
         <!-- 品牌区 -->
         <div class="relative mb-7 text-center">
@@ -92,7 +92,7 @@
         </p>
     </div>
 
-    <p class="absolute bottom-5 left-0 right-0 text-center text-xs text-slate-300">
+    <p class="mt-6 shrink-0 text-center text-xs text-slate-300">
         © 2026 追梦 · 短视频智能生产平台<br>
         <a href="https://beian.miit.gov.cn" target="_blank" rel="nofollow" class="underline hover:text-white">苏ICP备2026023229号-2</a>
         <span class="mx-1">·</span>

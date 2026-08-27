@@ -1,5 +1,5 @@
 <x-app-layout>
-<div class="flex min-h-screen items-center justify-center p-6">
+<div class="flex min-h-screen flex-col items-center justify-center p-6">
     <div class="luxury-glass w-full max-w-md p-8">
         <div class="relative mb-7 text-center">
             <div class="absolute right-0 top-0">
@@ -56,10 +56,12 @@
 
         <p class="mt-5 text-center text-sm text-slate-400">
             <a href="/login" class="font-medium text-brand-500 hover:underline">返回登录</a>
+            <span class="mx-2 text-slate-300">·</span>
+            <a href="/reset-password" class="font-medium text-brand-500 hover:underline">已有验证码？直接去重置密码</a>
         </p>
     </div>
 
-    <p class="absolute bottom-5 left-0 right-0 text-center text-xs text-slate-300">
+    <p class="mt-6 shrink-0 text-center text-xs text-slate-300">
         © 2026 追梦 · 短视频智能生产平台<br>
         <a href="https://beian.miit.gov.cn" target="_blank" rel="nofollow" class="underline hover:text-white">苏ICP备2026023229号-2</a>
     </p>
