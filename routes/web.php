@@ -16,6 +16,7 @@ use App\Http\Controllers\MetricsController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\XhsController;
+use App\Http\Controllers\FootageController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -97,6 +98,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/dissect/analyze', [StudioController::class, 'dissectAnalyze']);
     // 获客军师（潜力评估，拆解页单独调用）
     Route::post('/studio/strategist', [StudioController::class, 'suggestStrategist']);
+
+    // 真人素材精剪（上传真人出镜视频 → 自动去气口/停顿/重复句 + 字幕 + 封面）
+    Route::get('/studio/footage', [FootageController::class, 'index'])->name('studio.footage');
+    Route::post('/studio/footage/edit', [FootageController::class, 'edit'])->name('studio.footage.edit');
+    Route::get('/studio/footage/play/{file}', [FootageController::class, 'play'])->name('studio.footage.play');
 
     // 实时活动心跳上报（选题 / 二创 / 出片在线态，供超级管理员监控大盘）
     Route::post('/studio/activity', [StudioController::class, 'activityPing']);

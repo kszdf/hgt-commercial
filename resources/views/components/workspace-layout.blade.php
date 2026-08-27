@@ -109,6 +109,12 @@
                     </a>
                 </li>
                 <li>
+                    <a href="/studio/footage" class="{{ request()->is('studio/footage*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-amber">
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 13M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                        <span>真人素材精剪</span>
+                    </a>
+                </li>
+                <li>
                     <a href="/studio/xhs" class="{{ request()->is('studio/xhs*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-red">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17m0 0c-5.523 0-10-4.477-10-10S6.477 0 12 0s10 4.477 10 10-4.477 10-10 10z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l3 3 4-4"/></svg>
                         <span>小红书图文</span>

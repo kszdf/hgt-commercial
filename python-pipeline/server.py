@@ -91,6 +91,7 @@ from publishers.base import PublishRequest, PublishStatus  # noqa: E402
 from publishers._token_cache import set_oauth_token, get_oauth_token  # noqa: E402
 import matrix_publish  # noqa: E402
 from metrics_adapter import fetch_batch  # noqa: E402
+from footage_edit import edit_footage  # noqa: E402  （真人素材自动精剪：去气口/停顿/重复+字幕+封面）
 import requests  # noqa: E402
 import secrets  # noqa: E402
 
@@ -2345,6 +2346,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_transcribe(data)
         if p.path == "/dissect":
             return self._handle_dissect(data)
+        if p.path == "/footage-edit":
+            return self._handle_footage_edit(data)
         if p.path == "/follow_hot":
             return self._handle_follow_hot(data)
         if p.path == "/cancel":
@@ -2380,6 +2383,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
             j["cancelled"] = True
             _save_job(job_id, j)
         return self._send(200, {"ok": True, "status": "cancelled"})
+
+    # ---- 真人出镜素材自动精剪：去气口/停顿/重复句 + 字幕 + 封面 ----
+    def _handle_footage_edit(self, data):
+        """POST /footage-edit
+        {"file_path": "<宿主绝对路径>", "language": "zh"}
+        → 精剪后 {out_mp4, cover, ass, duration_before/after, silences_removed, dups_removed, transcript}
+        """
+        try:
+            if not isinstance(data, dict):
+                return self._send(400, {"error": "invalid request body"})
+            fp = (data.get("file_path") or "").strip()
+            if not fp or not os.path.exists(fp):
+                return self._send(400, {"error": "file_path required / not exist"})
+            lang = str(data.get("language") or "zh")
+            result = edit_footage(fp, lang)
+            return self._send(200, result)
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            return self._send(200, {"ok": False, "error": str(e)})
 
     # ---- 自动发布：调 publishers 适配器把成片分发到指定平台 ----
     def _handle_publish(self, data):
