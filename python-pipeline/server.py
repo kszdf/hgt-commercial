@@ -2348,6 +2348,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_dissect(data)
         if p.path == "/footage-edit":
             return self._handle_footage_edit(data)
+        if p.path == "/publish-pack":
+            return self._handle_publish_pack(data)
         if p.path == "/follow_hot":
             return self._handle_follow_hot(data)
         if p.path == "/cancel":
@@ -2399,6 +2401,131 @@ class Handler(http.server.BaseHTTPRequestHandler):
             lang = str(data.get("language") or "zh")
             result = edit_footage(fp, lang)
             return self._send(200, result)
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            return self._send(200, {"ok": False, "error": str(e)})
+
+    # ---- 发布包装：标题 + 副标题 + 高级感封面（对标主流财税IP，拒绝简单堆砌）----
+def _black_gold_cover(title, subtitle, brand="追梦"):
+    """无成片视频时的黑金纯文字封面兜底（1080×1920，对标头部财税IP：深底+金线+大字）。
+    版式：顶部品牌小字(字距拉开) → 细金线 → 中部衬线大字标题(≤2行) → 金线 → 副标题小字。"""
+    from PIL import Image, ImageDraw, ImageFont
+    W, H = 1080, 1920
+    img = Image.new("RGB", (W, H), (10, 12, 18))
+    d = ImageDraw.Draw(img)
+    # 深色竖向渐变（近黑 → 深蓝黑）
+    top, bot = (16, 18, 26), (6, 8, 14)
+    for y in range(H):
+        t = y / H
+        c = tuple(int(a + (b - a) * t) for a, b in zip(top, bot))
+        d.line([(0, y), (W, y)], fill=c)
+    gold = (212, 175, 92)
+    try:
+        f_brand = ImageFont.truetype(r"C:/Windows/Fonts/simhei.ttf", 44)
+        f_title = ImageFont.truetype(r"C:/Windows/Fonts/NotoSerifSC-VF.ttf", 118)
+        f_sub = ImageFont.truetype(r"C:/Windows/Fonts/simhei.ttf", 52)
+    except Exception:
+        f_brand = f_title = f_sub = ImageFont.load_default()
+    # 顶部品牌（字距拉开）
+    brand_txt = "   ".join(brand) if len(brand) <= 6 else brand
+    d.text((W // 2, 330), brand_txt, font=f_brand, fill=gold, anchor="mm")
+    d.line([(W // 2 - 190, 420), (W // 2 + 190, 420)], fill=gold, width=2)
+    # 中部大字标题（自动换行 ≤2 行，防溢出）
+    d2 = ImageDraw.Draw(img)
+    max_w = W - 200
+    # 按像素换行
+    lines, cur = [], ""
+    for ch in title:
+        if d2.textlength(cur + ch, font=f_title) > max_w:
+            lines.append(cur)
+            cur = ch
+        else:
+            cur += ch
+    if cur:
+        lines.append(cur)
+    lines = lines[:2]
+    y = 760
+    for ln in lines:
+        d.text((W // 2, y), ln, font=f_title, fill=(245, 240, 230), anchor="mm")
+        y += 170
+    d.line([(W // 2 - 260, y + 10), (W // 2 + 260, y + 10)], fill=gold, width=2)
+    # 副标题
+    d.text((W // 2, y + 120), subtitle, font=f_sub, fill=(168, 172, 184), anchor="mm")
+    # 底部小字
+    d.text((W // 2, H - 180), "每日财税干货 · 关注不迷路", font=f_sub, fill=(90, 96, 110), anchor="mm")
+    return img
+
+
+    # ---- 发布包装：标题 + 副标题 + 高级感封面（对标主流财税IP，拒绝简单堆砌）----
+    def _handle_publish_pack(self, data):
+        """POST /publish-pack
+        {"text": "<稿子/字幕>", "video_path": "<宿主绝对路径,可选>", "industry": "财税", "brand": "追梦"}
+        → {ok, title, subtitle, cover_path}
+        1) DeepSeek 生成 主标题(≤10字,数字/痛点/反常识) + 副标题(≤20字,补充钩子)，
+           风格对标头部财税IP（张琦式大字+痛点，克制、高级，无标题党堆砌）；
+        2) make_cover.py 对成片智能选帧 + 人脸构图 + 自动对比度出封面（QC 门禁）；
+           无视频时用 PIL 黑金纯文字封面兜底。
+        """
+        try:
+            if not isinstance(data, dict):
+                return self._send(400, {"error": "invalid request body"})
+            text = (data.get("text") or "").strip()
+            video = (data.get("video_path") or "").strip()
+            if not text and not (video and os.path.exists(video)):
+                return self._send(400, {"error": "text 或 video_path 至少一项"})
+            industry = (data.get("industry") or "").strip() or "财税"
+            brand = (data.get("brand") or "").strip() or "追梦"
+
+            # 1) LLM 标题/副标题（对标头部财税IP · 高级感）
+            prompt = (
+                f"为{industry}短视频生成1组「封面标题 + 副标题」，对标头部财税IP的高级封面文案（如'私户收款，正在被重点比对''年底了，老板别再借钱给公司'）。\n"
+                "铁律：\n"
+                "1. 主标题≤10字：用数字/痛点/反常识/警示抓人，前5字让人懂讲什么，绝不堆砌形容词；\n"
+                "2. 副标题≤20字：补充一个具体价值/钩子，不重复主标题；\n"
+                "3. 高级感：克制、留白、像大号财经号，拒绝'震惊/重磅/速看/马上'式标题党，拒绝多个感叹号；\n"
+                "4. 禁违禁词：最/第一/唯一/100%/根治/必看/暴富/躺赚/包过；\n"
+                f'5. 严格只输出JSON:{{"title":"主标题","subtitle":"副标题"}}，不要其他内容。\n\n【文稿】\n{text[:400]}'
+            )
+            cfg = get_text_config()
+            raw = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=25)
+            if isinstance(raw, dict):
+                raw = raw.get("content") or json.dumps(raw, ensure_ascii=False)
+            content = (raw or "").strip()
+            if content.startswith("```"):
+                content = content.strip("`")
+                if content[:4].lower() == "json":
+                    content = content[4:]
+                content = content.strip()
+            m = re.search(r"\{.*\}", content, re.S)
+            obj = json.loads(m.group(0)) if m else {}
+            title = str(obj.get("title") or "").strip()
+            subtitle = str(obj.get("subtitle") or "").strip()
+            if not title:
+                title = text[:10]
+            if not subtitle:
+                subtitle = industry + " · 老板必看"
+
+            # 2) 封面
+            cover = ""
+            if video and os.path.exists(video):
+                vdir = os.path.dirname(video)
+                stem = os.path.splitext(os.path.basename(video))[0]
+                cover = os.path.join(vdir, stem + "_pack_cover.jpg")
+                try:
+                    subprocess.run([PY310, SCRIPT_COVER, "--input", video, "--output", cover,
+                                    "--title", title, "--subtitle", subtitle,
+                                    "--platform", "video"],
+                                   capture_output=True, text=True, encoding="utf-8",
+                                   errors="replace", timeout=180, cwd=GPT_SOVITS)
+                    if not os.path.exists(cover):
+                        cover = ""
+                except Exception:
+                    cover = ""
+            if not cover:
+                cover = _black_gold_cover(title, subtitle, brand)
+
+            return self._send(200, {"ok": True, "title": title, "subtitle": subtitle,
+                                    "cover_path": cover})
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
             return self._send(200, {"ok": False, "error": str(e)})

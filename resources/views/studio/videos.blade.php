@@ -83,6 +83,8 @@
                             @if($job->isRendered() && $job->dialogue)
                                 <a href="/studio/scroll?src=clone&job_id={{ $job->id }}" title="复用此条的文稿与形式去出片"
                                    class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">↻ 复刻</a>
+                                <button type="button" class="pack-btn rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs text-amber-600 hover:bg-amber-50"
+                                        data-job="{{ $job->job_id }}" title="生成发布标题+副标题+高级感封面">✨ 包装</button>
                             @endif
                             <form action="{{ route('studio.videos.hit', $job) }}" method="POST">
                                 @csrf
@@ -101,5 +103,73 @@
         </div>
     @endif
 </div>
+
+{{-- 发布包装结果浮层 --}}
+<div id="packModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
+    <div class="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl">
+        <div class="mb-3 flex items-center justify-between">
+            <p class="text-sm font-semibold text-slate-700">✨ 发布包装（标题 + 封面）</p>
+            <button type="button" onclick="document.getElementById('packModal').classList.add('hidden')" class="rounded-md px-2 py-1 text-slate-400 hover:bg-slate-100">✕</button>
+        </div>
+        <div id="packLoading" class="py-8 text-center text-sm text-slate-500">⏳ 正在生成标题与封面（智能选帧中）…</div>
+        <div id="packBody" class="hidden">
+            <div class="flex flex-wrap gap-4">
+                <img id="packCover" alt="封面" class="h-64 rounded-lg border border-slate-200 shadow-sm">
+                <div class="min-w-52 flex-1 space-y-2">
+                    <p id="packTitle" class="text-lg font-bold text-slate-800"></p>
+                    <p id="packSubtitle" class="text-sm text-slate-600"></p>
+                    <div class="flex gap-2 pt-1">
+                        <button type="button" onclick="copyPackLib()" class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-amber-300">复制文案</button>
+                        <a id="packCoverLink" href="#" download class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-amber-300">下载封面</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="packError" class="hidden rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600"></div>
+    </div>
+</div>
+
+<script>
+document.querySelectorAll('.pack-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        const jobId = btn.dataset.job;
+        const modal = document.getElementById('packModal');
+        const loading = document.getElementById('packLoading');
+        const body = document.getElementById('packBody');
+        const err = document.getElementById('packError');
+        modal.classList.remove('hidden'); modal.classList.add('flex');
+        loading.classList.remove('hidden'); body.classList.add('hidden'); err.classList.add('hidden');
+        fetch('/studio/publish-pack', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({ job_id: jobId, industry: '财税' })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.error) throw new Error(data.error);
+            document.getElementById('packTitle').textContent = data.title;
+            document.getElementById('packSubtitle').textContent = data.subtitle;
+            const url = '/studio/publish-pack/cover/' + encodeURIComponent(data.cover_name);
+            document.getElementById('packCover').src = url;
+            document.getElementById('packCoverLink').href = url;
+            loading.classList.add('hidden'); body.classList.remove('hidden');
+        })
+        .catch(function (e) {
+            loading.classList.add('hidden');
+            err.textContent = '生成失败：' + (e.message || '未知错误');
+            err.classList.remove('hidden');
+        });
+    });
+});
+function copyPackLib() {
+    const t = document.getElementById('packTitle').textContent;
+    const s = document.getElementById('packSubtitle').textContent;
+    navigator.clipboard?.writeText('标题：' + t + '\n副标题：' + s).then(() => hgtToast('info', '已复制'));
+}
+</script>
 </x-workspace-layout>
 </x-app-layout>

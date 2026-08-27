@@ -77,10 +77,39 @@
             <div class="mt-4 flex flex-wrap gap-2">
                 <a href="{{ route('studio.footage.play', $result['out_name']) }}"
                    class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600">⬇ 下载成片</a>
+                <button type="button" id="packBtn"
+                        class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-600">
+                    ✨ 生成发布标题 + 封面
+                </button>
                 <a href="{{ route('studio.rewrite-original') }}"
                    class="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800">去二创改写文案</a>
                 <a href="{{ route('studio.publish') }}"
                    class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700">去发布</a>
+            </div>
+
+            {{-- 发布包装结果（标题/副标题/封面） --}}
+            <div id="packBox" class="mt-4 hidden rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+                <p class="mb-2 text-xs font-semibold text-amber-700">发布包装（对标主流财税IP · 高级感）</p>
+                <div class="flex flex-wrap gap-4">
+                    <img id="packCover" alt="封面" class="h-72 rounded-lg border border-slate-200 shadow-sm">
+                    <div class="min-w-56 flex-1 space-y-2">
+                        <div>
+                            <p class="text-xs text-slate-400">主标题</p>
+                            <p id="packTitle" class="text-lg font-bold text-slate-800"></p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400">副标题</p>
+                            <p id="packSubtitle" class="text-sm text-slate-600"></p>
+                        </div>
+                        <div class="flex gap-2 pt-1">
+                            <button type="button" onclick="copyPack()"
+                                    class="rounded-md bg-white px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-200 hover:border-amber-300">复制文案</button>
+                            <a id="packCoverLink" href="#" download
+                               class="rounded-md bg-white px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-200 hover:border-amber-300">下载封面</a>
+                        </div>
+                        <p class="text-[11px] text-amber-600/80">提示：封面由成片智能选帧 + 人脸构图生成，标题/副标题已按财税垂类规则过滤。</p>
+                    </div>
+                </div>
             </div>
         </div>
     @endif
@@ -93,6 +122,45 @@ document.getElementById('footageForm')?.addEventListener('submit', function () {
     if (btn) { btn.disabled = true; btn.textContent = '精剪中…'; }
     if (hint) hint.classList.remove('hidden');
 });
+
+// 发布包装：标题 + 副标题 + 高级感封面
+document.getElementById('packBtn')?.addEventListener('click', async function () {
+    const btn = this;
+    const box = document.getElementById('packBox');
+    btn.disabled = true; btn.textContent = '生成中…';
+    try {
+        const uuid = @json($result['uuid'] ?? '');
+        const text = @json($result['transcript'] ?? '');
+        const resp = await fetch('/studio/publish-pack', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({ uuid: uuid, text: text, industry: '财税' })
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.error) throw new Error(data.error || ('HTTP ' + resp.status));
+        document.getElementById('packTitle').textContent = data.title;
+        document.getElementById('packSubtitle').textContent = data.subtitle;
+        const coverUrl = '/studio/publish-pack/cover/' + encodeURIComponent(data.cover_name);
+        document.getElementById('packCover').src = coverUrl;
+        document.getElementById('packCoverLink').href = coverUrl;
+        box.classList.remove('hidden');
+        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (e) {
+        hgtToast('error', '生成失败：' + (e.message || '未知错误'));
+    } finally {
+        btn.disabled = false; btn.textContent = '✨ 生成发布标题 + 封面';
+    }
+});
+
+function copyPack() {
+    const title = document.getElementById('packTitle').textContent;
+    const subtitle = document.getElementById('packSubtitle').textContent;
+    navigator.clipboard?.writeText('标题：' + title + '\n副标题：' + subtitle).then(() => hgtToast('info', '已复制标题/副标题'));
+}
 </script>
 </x-workspace-layout>
 </x-app-layout>

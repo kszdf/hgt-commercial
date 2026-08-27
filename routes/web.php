@@ -17,6 +17,7 @@ use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\XhsController;
 use App\Http\Controllers\FootageController;
+use App\Http\Controllers\PublishPackController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -103,6 +104,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/studio/footage', [FootageController::class, 'index'])->name('studio.footage');
     Route::post('/studio/footage/edit', [FootageController::class, 'edit'])->name('studio.footage.edit');
     Route::get('/studio/footage/play/{file}', [FootageController::class, 'play'])->name('studio.footage.play');
+
+    // 发布包装（标题 + 副标题 + 高级感封面）：精剪产物或自动生成成片通用
+    Route::post('/studio/publish-pack', [PublishPackController::class, 'generate'])->name('studio.publish-pack');
+    Route::get('/studio/publish-pack/cover/{file}', [PublishPackController::class, 'cover'])->name('studio.publish-pack.cover');
 
     // 实时活动心跳上报（选题 / 二创 / 出片在线态，供超级管理员监控大盘）
     Route::post('/studio/activity', [StudioController::class, 'activityPing']);
