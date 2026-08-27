@@ -90,9 +90,12 @@ def chatify(text):
         s = s.replace("不要", "别")
         s = _re.sub(r'要(小心|注意|记得)', r'得\1', s)
         out.append(s)
-        # 句间轻顿词（每 3 句后插一个"嗯，"或"对，"模拟思考停顿）
+        # 句间轻顿词（每 3 句后插一个"嗯，"或"对，"模拟思考停顿；
+        # 下句以连词/转折开头时不插，避免"嗯，而且/但是"类生硬衔接）
         if n % 3 == 0 and n < len(sentences):
-            out.append("嗯，" if (n // 3) % 2 else "对，")
+            nxt = sentences[n]
+            if not _re.match(r'^(而且|但是|所以|因为|不过|同时|并且|如果)', nxt):
+                out.append("嗯，" if (n // 3) % 2 else "对，")
     return "".join(out)
 
 
