@@ -840,8 +840,17 @@ def _build_role_instruction(role_mode, role_note, keep_manual_roles, mode):
     mapping = {
         "single_male": single_male_inst,
         "single_female": single_female_inst,
-        "dual_female_lead": "男女双声对话，女声先开口、抛疑问/场景，男声解答。每行以「女：」或「男：」开头，交替自然。",
-        "dual_male_lead": "男女双声对话，男声先开口、引出话题，女声提问/补充，男声解答。每行以「男：」或「女：」开头，交替自然。",
+        "dual_female_lead": (
+            "男女双声对话，**永远女问男答**：女声只负责开场问好、提问、抛场景、追问确认，绝不解答专业问题；"
+            "所有专业解答、法条引用、结论建议一律由男声（张老师，资深财税专家）给出，体现男声的专家形象。"
+            "女声可以称呼男声为「张老师」（如「张老师，我有个事想问您」「张老师您看这样行吗」），"
+            "开头或关键处称呼即可，不必每轮都叫。每行以「女：」或「男：」开头，交替自然。"
+        ),
+        "dual_male_lead": (
+            "男女双声对话，男声（张老师，资深财税专家）开口引出话题，女声提问/补充，男声解答。"
+            "所有专业解答一律由男声给出，女声只提问与承接，可以称呼「张老师」。"
+            "每行以「男：」或「女：」开头，交替自然。"
+        ),
         "narrator_male": narrator_male_inst,
         "narrator_female": narrator_female_inst,
         "auto": "请根据内容自动判断：若适合男女对话，用「男：」「女：」前缀区分角色；若适合单人讲述，直接输出纯口播稿，不要默认加「男：」「女：」角色前缀。",
@@ -987,7 +996,8 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
     elif mode == "script":
         style = ("单人数字人出镜口播稿（保留行业术语与权威感，结构清晰、重点突出，适合直接配音）。\n" + EXPERT_TONE)
     else:
-        style = ("双声对话：女声(抛疑问/场景，语气亲切自然)，男声(耐心解答，像真人在跟客户聊，专业可信)。\n"
+        style = ("双声对话：**永远女问男答**——女声(亲切提问/抛场景/称呼'张老师')，"
+                 "男声(资深财税专家'张老师'，负责所有专业解答，权威可信)。\n"
                  + EXPERT_TONE)
 
     role_instruction = _build_role_instruction(role_mode, role_note, keep_manual_roles, mode)
