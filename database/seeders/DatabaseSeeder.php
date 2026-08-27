@@ -11,7 +11,7 @@ class DatabaseSeeder extends Seeder
 {
     /**
      * 预置默认租户 huigentang（慧根堂）与管理员，
-     * 使平台开箱即可登录测试：2864225@qq.com / admin888
+     * 使平台开箱即可登录测试：28642235@qq.com / admin888
      */
     public function run(): void
     {
@@ -37,7 +37,7 @@ class DatabaseSeeder extends Seeder
 
         // 超级管理员账号：全局超管判定靠 tenant_id === null，故 tenant_id 必须显式设为 null（否则只是普通租户成员，看不了监控大盘）。
         // 密码从 .env 的 ADMIN_PASSWORD 读取，生产必须配置强密码；未配置时回退 admin888（仅本地测试）。
-        $adminEmail = '2864225@qq.com';
+        $adminEmail = '28642235@qq.com';
         $admin = User::updateOrCreate(
             ['email' => $adminEmail],
             [
