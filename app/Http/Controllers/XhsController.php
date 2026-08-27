@@ -18,7 +18,7 @@ class XhsController extends Controller
 {
     /**
      * 出图品牌：优先取租户 settings.brand，回退租户名。
-     * 多租户平台严禁硬编码单一租户品牌（此前写死"慧根堂"会打到别的租户图上）。
+     * 多租户平台严禁硬编码单一租户品牌（此前写死单一品牌会打到别的租户图上）。
      */
     private function defaultBrand(): string
     {
