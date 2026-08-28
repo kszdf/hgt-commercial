@@ -4,7 +4,7 @@
 
     <div class="luxury-glass p-5">
         <h3 class="text-sm font-semibold text-slate-700">帮助中心 · 常见问题</h3>
-        <p class="mt-1 text-xs text-slate-400">「追梦」是短视频创作平台；「昆山老张讲财税」是你的内容 IP，封面与发布落款使用 IP 名。</p>
+        <p class="mt-1 text-xs text-slate-400">「追梦」是短视频创作平台；「{{ auth()->user()->tenant?->ip_name ?: '昆山老张讲财税' }}」是你的内容 IP，封面与发布落款使用 IP 名。</p>
     </div>
 
     <div class="mt-4 space-y-3">

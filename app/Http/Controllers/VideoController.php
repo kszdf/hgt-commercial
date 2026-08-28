@@ -38,9 +38,17 @@ class VideoController extends Controller
             ->where('gender', 'female')->where('status', 'ready')
             ->orderByDesc('is_default')->orderByDesc('created_at')
             ->get(['id', 'name', 'voice_id', 'is_default']);
+        // 租户默认配置(P1-⑦ 多租户SaaS): 默认声线/IP名称/默认形象, 前端快捷预设/片尾品牌读取
+        $tenant = \App\Models\Tenant::find($tenantId);
+        $defaults = [
+            'maleVoice'   => $tenant->default_male_voice ?? '',
+            'femaleVoice' => $tenant->default_female_voice ?? '',
+            'ipName'      => $tenant->ip_name ?: '昆山老张讲财税',
+            'avatar'      => $tenant->default_avatar ?? '',
+        ];
         // 出片页自用默认参数（config/studio.php，owner 可经 .env 调优，用户端不暴露滑块）
         $subDefaults = config('studio.subtitle_defaults');
-        return view('studio.scroll', compact('maleVoices', 'femaleVoices', 'subDefaults'));
+        return view('studio.scroll', compact('maleVoices', 'femaleVoices', 'subDefaults', 'defaults'));
     }
 
     public function generate(Request $request)

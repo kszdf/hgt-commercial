@@ -101,14 +101,15 @@ class PublishPackController extends Controller
         ]);
     }
 
-    /** 租户品牌（settings.brand，用于封面水印/黑金兜底；默认昆山老张讲财税）。 */
+    /** 租户品牌（settings.brand 旧通道 → tenants.ip_name 新字段；默认昆山老张讲财税）。 */
     private function tenantBrand(Request $request): string
     {
         $tenant = $request->user()->isGlobalAdmin()
             ? \App\Models\Tenant::whereIn('plan', ['pro', 'enterprise'])->first()
             : $request->user()->tenant;
         $settings = $tenant ? (is_array($tenant->settings) ? $tenant->settings : []) : [];
-        return trim((string) ($settings['brand'] ?? '')) ?: '昆山老张讲财税';
+        $brand = trim((string) ($settings['brand'] ?? ''));
+        return $brand ?: trim((string) ($tenant->ip_name ?? '')) ?: '昆山老张讲财税';
     }
 
     /** 个人形象照（海马体等专业肖像）路径：storage/app/covers/portrait/{tenant_id}.jpg */

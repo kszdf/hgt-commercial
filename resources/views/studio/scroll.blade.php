@@ -24,9 +24,9 @@
     <!-- 常用预设档：点一个按钮整组套用「出片形式 + 配音声线」 -->
     <div class="mb-4 flex flex-wrap items-center gap-2">
         <span class="text-xs text-slate-400">常用预设：</span>
-        <button type="button" data-preset="zhang_avatar" class="preset-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300" onclick="applyPreset('zhang_avatar')">老张·单人出镜</button>
-        <button type="button" data-preset="jiang_female" class="preset-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300" onclick="applyPreset('jiang_female')">江老师·女声幕后</button>
-        <button type="button" data-preset="zhang_male" class="preset-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300" onclick="applyPreset('zhang_male')">老张·男声幕后</button>
+        <button type="button" data-preset="male_avatar" class="preset-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300" onclick="applyPreset('male_avatar')">男声·单人数字人</button>
+        <button type="button" data-preset="female_mono" class="preset-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300" onclick="applyPreset('female_mono')">女声·幕后音</button>
+        <button type="button" data-preset="male_mono" class="preset-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300" onclick="applyPreset('male_mono')">男声·幕后音</button>
     </div>
 
     <!-- 成片包装（数字人出镜 / 幕后音·动态画面 均适用：二次剪辑 = 片尾留资卡 + 轻BGM + 转场） -->
@@ -36,7 +36,7 @@
             <option value="fast">快节奏卡点（推荐：片尾留资卡 + 轻BGM + 转场）</option>
             <option value="">标准（不二次剪辑）</option>
         </select>
-        <span class="text-[11px] text-slate-400">为成片追加「关注昆山老张讲财税」留资片尾与轻背景音乐。</span>
+        <span class="text-[11px] text-slate-400">为成片追加「关注 <span id="ipNameLabel">{{ ($defaults['ipName'] ?? '昆山老张讲财税') }}</span>」留资片尾与轻背景音乐。</span>
     </div>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -145,15 +145,15 @@
                     <!-- 独白模式快捷（男声独白/女声独白/单声线/数字人）：老张或江老师二选一 -->
                     <div id="quickVoiceSingle" class="mb-2 flex flex-wrap items-center gap-2">
                         <span class="text-xs text-slate-400">快捷：</span>
-                        <button type="button" id="quickVoiceZhang" class="quick-voice-btn rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:border-brand-300">老张（本人真声）</button>
-                        <button type="button" id="quickVoiceJiang" class="quick-voice-btn rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:border-brand-300">江老师（克隆声）</button>
+                        <button type="button" id="quickVoiceZhang" class="quick-voice-btn rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:border-brand-300">默认男声</button>
+                        <button type="button" id="quickVoiceJiang" class="quick-voice-btn rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:border-brand-300">默认女声</button>
                     </div>
                     <!-- 对话模式快捷（男女对话）：一键填入男声+女声组合 -->
                     <div id="quickVoiceDialogue" class="mb-2 hidden flex flex-wrap items-center gap-2">
                         <span class="text-xs text-slate-400">常用组合：</span>
-                        <button type="button" id="quickComboZJ" class="quick-combo-btn rounded-lg border border-brand-300 bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700 hover:border-brand-400 hover:bg-brand-100">🎙️ 老张（男）+ 江老师（女）</button>
-                        <button type="button" id="quickComboZZ" class="quick-combo-btn rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:border-slate-300">👨 老张（男）+ 其他女声</button>
-                        <button type="button" id="quickComboJJ" class="quick-combo-btn rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:border-slate-300">👩 江老师（女）+ 其他男声</button>
+                        <button type="button" id="quickComboZJ" class="quick-combo-btn rounded-lg border border-brand-300 bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700 hover:border-brand-400 hover:bg-brand-100">🎙️ 默认男声 + 默认女声</button>
+                        <button type="button" id="quickComboZZ" class="quick-combo-btn rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:border-slate-300">👨 默认男声 + 其他女声</button>
+                        <button type="button" id="quickComboJJ" class="quick-combo-btn rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:border-slate-300">👩 默认女声 + 其他男声</button>
                     </div>
                     <!-- dualVoiceWrap：滚动字幕模式下男/女双声线下拉容器（数字人模式隐藏）；独白时由 setVoiceForm 控制单声线显隐 -->
                     <div id="dualVoiceWrap" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -344,6 +344,13 @@
 </div>
 
 <script>
+// 租户默认配置(P1-⑦): 默认声线/IP名/形象, 快捷预设与片尾品牌从配置读取(多租户各配各的)
+window.__tenantDefaults = @json($defaults ?? [
+    'maleVoice' => 'cosyvoice-v3-plus-zhangc2-28a7c3541e1c45518a03046c11baeb1d',
+    'femaleVoice' => 'cosyvoice-v3-plus-jiangnv3-991b204c1d564ac7a60f0cb9a8fd78bd',
+    'ipName' => '昆山老张讲财税',
+    'avatar' => '',
+]);
 let currentMode = 'motion';    // 默认「幕后音·动态画面」(motion 引擎), 配合 voiceForm='dialogue'(男女对话) 首屏即有高亮(P0-3 修复)
 let currentJobId = null;      // 当前出片任务 job_id，供「进度记录」弹窗读取
 window.__hgt_pollNow = false; // visibilitychange/手动刷新打断轮询 sleep 的标志
@@ -970,8 +977,8 @@ if (!modeInitializedByUrl) setMode('scroll');   // URL 已指定模式时不再�
     const sv = document.getElementById('singleVoice');
     if (!sv) return;
     let needle = voiceParam;
-    if (voiceParam === 'zhang') needle = 'zhangc2';
-    else if (voiceParam === 'jiang') needle = 'jiangnv3';
+    if (voiceParam === 'zhang') needle = TD.maleVoice || 'zhangc2';
+    else if (voiceParam === 'jiang') needle = TD.femaleVoice || 'jiangnv3';
     for (const opt of sv.options) {
         if (opt.value.includes(needle)) { sv.value = opt.value; break; }
     }
@@ -993,10 +1000,12 @@ function highlightQuickVoice(which) {
 }
 
 // 常用预设档：整组套用「出片形式 + 配音声线」，一步到位
+// P1-⑦ 多租户SaaS: 声线用租户默认(tenants.default_male/female_voice), 不再硬编码老张/江老师
+const TD = window.__tenantDefaults || {};
 const PRESETS = {
-    zhang_avatar:  { form: 'avatar',      voice: 'zhangc2', who: 'zhang' },  // 老张·单人数字人出镜
-    jiang_female:  { form: 'female_mono', voice: 'jiangnv3', who: 'jiang' },  // 江老师·女声幕后音
-    zhang_male:    { form: 'male_mono',   voice: 'zhangc2', who: 'zhang' },  // 老张·男声幕后音
+    male_avatar: { form: 'avatar',      voice: TD.maleVoice || 'zhangc2', who: 'male' },   // 默认男声·单人数字人出镜
+    female_mono: { form: 'female_mono', voice: TD.femaleVoice || 'jiangnv3', who: 'female' }, // 默认女声·幕后音
+    male_mono:   { form: 'male_mono',   voice: TD.maleVoice || 'zhangc2', who: 'male' },   // 默认男声·幕后音
 };
 function applyPreset(key) {
     const p = PRESETS[key];
@@ -1029,13 +1038,13 @@ function applyQuickVoice(needle, which, btn) {
     }
     if (hit) highlightQuickVoice(which);
 }
-document.getElementById('quickVoiceZhang').addEventListener('click', e => applyQuickVoice('zhangc2', 'zhang', e.currentTarget));
-document.getElementById('quickVoiceJiang').addEventListener('click', e => applyQuickVoice('jiangnv3', 'jiang', e.currentTarget));
+document.getElementById('quickVoiceZhang').addEventListener('click', e => applyQuickVoice(TD.maleVoice || 'zhangc2', 'male', e.currentTarget));
+document.getElementById('quickVoiceJiang').addEventListener('click', e => applyQuickVoice(TD.femaleVoice || 'jiangnv3', 'female', e.currentTarget));
 // 手动改单人声线下拉时同步高亮
 document.getElementById('singleVoice').addEventListener('change', () => {
     const v = document.getElementById('singleVoice').value;
-    if (v.includes('zhangc2')) highlightQuickVoice('zhang');
-    else if (v.includes('jiangnv3')) highlightQuickVoice('jiang');
+    if (v.includes(TD.maleVoice || 'zhangc2')) highlightQuickVoice('male');
+    else if (v.includes(TD.femaleVoice || 'jiangnv3')) highlightQuickVoice('female');
     else highlightQuickVoice(null);
 });
 
@@ -1068,9 +1077,9 @@ function applyVoiceCombo(maleNeedle, femaleNeedle, comboId) {
     }
     highlightQuickCombo(comboId);
 }
-document.getElementById('quickComboZJ').addEventListener('click', () => applyVoiceCombo('zhangc2', 'jiangnv3', 'quickComboZJ'));
-document.getElementById('quickComboZZ').addEventListener('click', () => applyVoiceCombo('zhangc2', '', 'quickComboZZ'));
-document.getElementById('quickComboJJ').addEventListener('click', () => applyVoiceCombo('', 'jiangnv3', 'quickComboJJ'));
+document.getElementById('quickComboZJ').addEventListener('click', () => applyVoiceCombo(TD.maleVoice || 'zhangc2', TD.femaleVoice || 'jiangnv3', 'quickComboZJ'));
+document.getElementById('quickComboZZ').addEventListener('click', () => applyVoiceCombo(TD.maleVoice || 'zhangc2', '', 'quickComboZZ'));
+document.getElementById('quickComboJJ').addEventListener('click', () => applyVoiceCombo('', TD.femaleVoice || 'jiangnv3', 'quickComboJJ'));
 
 updateDurationHint();
 autoSuggest();
