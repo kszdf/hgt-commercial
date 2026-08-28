@@ -756,9 +756,9 @@ function suggestTitleSmart(text) {
 function suggestTitleFull(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     if (!lines.length) return '';
-    // 首句完整句（去角色前缀、合并空白），放宽到 30 字
+    // 首句完整句（去角色前缀、合并空白）；2026-08-28 与输入框 maxlength=15 对齐
     let first = stripRolePrefix(lines[0]).replace(/\s+/g, ' ').trim();
-    return first.slice(0, 30);
+    return first.slice(0, 15);
 }
 function suggestTitleSuspense(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
@@ -770,8 +770,8 @@ function suggestTitleSuspense(text) {
         hook + '？这三点必须提前知道',
         '别等吃亏才懂：' + hook,
     ];
-    for (const t of tpl) if (t.length <= 30) return t;
-    return tpl[0].slice(0, 30);
+    for (const t of tpl) if (t.length <= 15) return t;   // 与 maxlength=15 对齐
+    return tpl[0].slice(0, 15);
 }
 function suggestTitle(text) {
     if (titleStyle === 'full') return suggestTitleFull(text);
@@ -781,10 +781,10 @@ function suggestTitle(text) {
 function suggestSubtitle(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     if (!lines.length) return '';
-    // 合并前两句（去角色前缀），截 40 字以内，作为内容钩子
+    // 合并前两句（去角色前缀），截 30 字以内（与输入框 maxlength=30 对齐）
     let body = lines.slice(0, 2).map(stripRolePrefix).join(' ');
     body = body.replace(/[\s，。！？!?；;、…\.,]+/g, ' ').trim();
-    return body.slice(0, 40);
+    return body.slice(0, 30);
 }
 
 // AI 智能生成标题+副标题：调用后端 /studio/scroll/suggest-title（代理到 8500）
@@ -822,8 +822,9 @@ async function aiSuggestTitle() {
         if (!resp.ok || data.error) {
             throw new Error(data.error || ('生成失败（HTTP ' + resp.status + '）'));
         }
-        if (data.title) { document.getElementById('title').value = data.title; titleDirty = true; }
-        if (data.subtitle) { document.getElementById('subtitle').value = data.subtitle; subtitleDirty = true; }
+        // AI 结果优先，不再用本地启发式覆盖；截断到输入框上限(maxlength=15/30)防后端422
+        if (data.title) { document.getElementById('title').value = String(data.title).slice(0, 15); titleDirty = true; }
+        if (data.subtitle) { document.getElementById('subtitle').value = String(data.subtitle).slice(0, 30); subtitleDirty = true; }
         // AI 结果优先，不再用本地启发式覆盖
         if (hint) { hint.textContent = '✓ AI 已生成（' + {smart:'智能提取', full:'首句完整', suspense:'悬念式'}[titleStyle] + '），可直接修改'; hint.className = 'text-[11px] text-emerald-600'; }
     } catch (err) {
@@ -1516,6 +1517,7 @@ async function pollStatus(jobId) {
                     '  <video src="/studio/scroll/download/' + jobId + '" controls class="max-h-[55vh] w-full rounded-lg bg-black"></video>' +
                     '  <div class="mt-3 flex flex-wrap gap-2">' +
                     '    <a href="/studio/scroll/download/' + jobId + '" download class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">⬇ 下载视频</a>' +
+                    '    <a href="/studio/qc?job_id=' + jobId + '" class="rounded-lg border border-amber-500 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100">去智能质检</a>' +
                     '    <a href="/studio/review" class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">去审核</a>' +
                     '    <span title="完成人工审核通过后可发布" class="cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-400">去发布</span>' +
                     '    <a href="/studio/scroll" onclick="sessionStorage.removeItem(\'hgt_rewrite_cleaned\'); sessionStorage.removeItem(\'hgt_rewrite_mode\');" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 hover:bg-slate-50">↻ 再出一条</a>' +

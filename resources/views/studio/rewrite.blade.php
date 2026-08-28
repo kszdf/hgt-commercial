@@ -267,7 +267,8 @@ function highlight(text, hits){
 function updateCharCount() {
     const txt = document.getElementById('text').value.replace(/\s/g, '');
     const chars = txt.length;
-    const sec = Math.max(1, Math.round(chars / 4.5));
+    // 2026-08-28 语速口径统一: 4.5字/秒(270字/分)修正为 2.4字/秒(145字/分), 与出片页/后端一致
+    const sec = Math.max(1, Math.round(chars / 2.4));
     const fmt = sec >= 60 ? Math.floor(sec/60)+'分'+(sec%60)+'秒' : '约'+sec+'秒';
     document.getElementById('charCounter').textContent = chars + ' 字 · 预计 ' + fmt;
 }
@@ -348,14 +349,18 @@ function getFormLabel(form) {
         const title = sessionStorage.getItem('hgt_topic_title') || '';
         const hook = sessionStorage.getItem('hgt_topic_hook') || '';
         const form = sessionStorage.getItem('hgt_topic_form') || '';
+        const angle = sessionStorage.getItem('hgt_topic_angle') || '';
+        const potential = sessionStorage.getItem('hgt_topic_potential') || '';
         window.__topicIndustry = sessionStorage.getItem('hgt_topic_industry') || '';
         if (title) {
-            setTextFromTopic(title, hook, mapTopicFormToMode(form));
+            setTextFromTopic(title, hook, mapTopicFormToMode(form), angle + (potential ? '\n\n（爆款潜力：' + potential + '）' : ''));
             showSourceBanner('topic', 1);
             sessionStorage.removeItem('hgt_topic_title');
             sessionStorage.removeItem('hgt_topic_hook');
             sessionStorage.removeItem('hgt_topic_form');
             sessionStorage.removeItem('hgt_topic_industry');
+            sessionStorage.removeItem('hgt_topic_angle');
+            sessionStorage.removeItem('hgt_topic_potential');
         } else {
             document.getElementById('noSourceBox')?.classList.remove('hidden');
         }

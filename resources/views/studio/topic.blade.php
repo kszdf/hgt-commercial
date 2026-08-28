@@ -399,6 +399,8 @@ function renderTopics(topics) {
             sessionStorage.setItem('hgt_topic_hook', topic.hook || '');
             sessionStorage.setItem('hgt_topic_form', topic.form || '');
             sessionStorage.setItem('hgt_topic_industry', document.getElementById('industry').value || '');
+            sessionStorage.setItem('hgt_topic_angle', topic.angle || '');
+            sessionStorage.setItem('hgt_topic_potential', topic.potential || '');
             window.location.href = '/studio/rewrite?from=topic';
         });
     });

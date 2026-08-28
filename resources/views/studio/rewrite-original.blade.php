@@ -189,7 +189,7 @@ function highlight(text, hits){
 function updateCharCount() {
     const txt = document.getElementById('text').value.replace(/\s/g, '');
     const chars = txt.length;
-    const sec = Math.max(1, Math.round(chars / 4.5));
+    const sec = Math.max(1, Math.round(chars / 2.4));   // 2026-08-28 语速口径统一 2.4字/秒(145字/分)
     const fmt = sec >= 60 ? Math.floor(sec/60)+'分'+(sec%60)+'秒' : '约'+sec+'秒';
     document.getElementById('charCounter').textContent = chars + ' 字 · 预计 ' + fmt;
 }
