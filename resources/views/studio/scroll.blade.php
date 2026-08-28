@@ -345,12 +345,7 @@
 
 <script>
 // 租户默认配置(P1-⑦): 默认声线/IP名/形象, 快捷预设与片尾品牌从配置读取(多租户各配各的)
-window.__tenantDefaults = @json($defaults ?? [
-    'maleVoice' => 'cosyvoice-v3-plus-zhangc2-28a7c3541e1c45518a03046c11baeb1d',
-    'femaleVoice' => 'cosyvoice-v3-plus-jiangnv3-991b204c1d564ac7a60f0cb9a8fd78bd',
-    'ipName' => '昆山老张讲财税',
-    'avatar' => '',
-]);
+window.__tenantDefaults = @json($defaults ?? []);   // showScroll 总注入; 兜底空对象由 JS 侧回退默认
 let currentMode = 'motion';    // 默认「幕后音·动态画面」(motion 引擎), 配合 voiceForm='dialogue'(男女对话) 首屏即有高亮(P0-3 修复)
 let currentJobId = null;      // 当前出片任务 job_id，供「进度记录」弹窗读取
 window.__hgt_pollNow = false; // visibilitychange/手动刷新打断轮询 sleep 的标志
