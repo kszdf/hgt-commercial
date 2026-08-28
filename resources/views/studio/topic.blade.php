@@ -843,7 +843,7 @@ document.getElementById('hsBatchRewrite')?.addEventListener('click', function ()
                     timer = setTimeout(poll, 2500);
                 } else {
                     setBusy(false);
-                    box.innerHTML = '<div class="rounded-lg border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">' + escapeHtml((data && data.error) || '触发失败，请确认 8500 微服务已启动') + '</div>';
+                    box.innerHTML = '<div class="rounded-lg border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">' + escapeHtml((data && data.error) || '触发失败，服务暂时不可用，请稍后重试') + '</div>';
                 }
             })
             .catch(function () {

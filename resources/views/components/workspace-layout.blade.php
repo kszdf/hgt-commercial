@@ -328,7 +328,7 @@
 
 <!-- 8500 微服务宕机红字预警（全局，心跳轮询触发） -->
 <div id="pipelineDownBanner" class="hidden px-4 py-2 text-center text-sm font-medium" style="position:fixed;top:0;left:0;right:0;z-index:70;background:#dc2626;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);">
-    <span>⚠ 出片微服务（8500）无响应，选题 / 二创 / 出片 / 爆款拆解等功能暂不可用。请重启 Windows 服务 <b>HGTCommercial8500</b> 后刷新本页。</span>
+    <span>⚠ 出片服务暂时不可用，选题 / 二创 / 出片 / 爆款拆解等功能暂不可用。请稍后刷新重试；如持续异常请联系客服。</span>
 </div>
 
 <!-- 品牌化删除/操作二次确认模态（z-50） -->

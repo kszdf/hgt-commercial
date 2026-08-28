@@ -7,7 +7,7 @@
 
     <!-- 出片形式快捷切换 -->
     <div class="mb-4 flex flex-wrap gap-2">
-        <button type="button" data-form="avatar" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('avatar')">数字人出镜（本地 HEYGEM）</button>
+        <button type="button" data-form="avatar" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('avatar')">数字人出镜（真人形象）</button>
         <button type="button" data-form="male_mono" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('male_mono')">男声幕后音·动态画面</button>
         <button type="button" data-form="female_mono" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('female_mono')">女声幕后音·动态画面</button>
         <button type="button" data-form="dialogue" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('dialogue')">男女对话幕后音·动态画面</button>
@@ -97,7 +97,7 @@
 
                 <!-- 模特选择（按出片模式条件显示） -->
                 <div id="modelHint" class="rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-700">
-                    滚动字幕卡模式：无需选模特，已自动跳过。
+                    幕后音·动态画面模式：无需选模特，已自动跳过。
                 </div>
                 <div id="modelSelectWrap" class="hidden rounded-lg studio-card studio-card-sm">
                     <label class="mb-1.5 block text-sm font-medium text-slate-600">选择数字人模特</label>
@@ -108,7 +108,7 @@
                         <optgroup label="我的模特" id="userModelsGroup"></optgroup>
                     </select>
                     <p class="mt-1.5 flex items-center justify-between text-xs text-slate-400">
-                        <span>数字人模特已含出镜场景，配合您的克隆声线合成口播；滚动字幕卡模式此步自动跳过。</span>
+                        <span>数字人模特已含出镜场景，配合您的克隆声线合成口播；幕后音·动态画面模式此步自动跳过。</span>
                         <a href="/studio/models" class="text-brand-600 hover:underline">管理我的模特 →</a>
                     </p>
                 </div>
@@ -234,7 +234,7 @@
                                 <option value="minimal" {{ $subDefaults['style'] === 'minimal' ? 'selected' : '' }}>纯净白字（无高亮）</option>
                                 <option value="bubble" {{ $subDefaults['style'] === 'bubble' ? 'selected' : '' }}>气泡底衬（高反差场景）</option>
                             </select>
-                            <p class="text-[11px] text-slate-400">逐字高亮会让读到的字变金色，字幕跟着配音走；数字人出镜与滚动字幕卡均支持。</p>
+                            <p class="text-[11px] text-slate-400">逐字高亮会让读到的字变金色，字幕跟着配音走；数字人出镜与幕后音·动态画面均支持。</p>
                         </div>
                         <div class="space-y-1 sm:col-span-2">
                             <label class="block text-xs text-slate-500">字幕字体</label>
@@ -245,7 +245,7 @@
                                 <option value="song" {{ $subDefaults['font'] === 'song' ? 'selected' : '' }}>宋体（正式·传统）</option>
                                 <option value="fangsong" {{ $subDefaults['font'] === 'fangsong' ? 'selected' : '' }}>仿宋（公文·规整）</option>
                             </select>
-                            <p class="text-[11px] text-slate-400">像剪映一样选字幕字体；数字人出镜与滚动字幕卡均支持。</p>
+                            <p class="text-[11px] text-slate-400">像剪映一样选字幕字体；数字人出镜与幕后音·动态画面均支持。</p>
                         </div>
                     </div>
                     <div class="mt-3 flex justify-center">
@@ -344,7 +344,7 @@
 </div>
 
 <script>
-let currentMode = 'scroll';
+let currentMode = 'motion';    // 默认「幕后音·动态画面」(motion 引擎), 配合 voiceForm='dialogue'(男女对话) 首屏即有高亮(P0-3 修复)
 let currentJobId = null;      // 当前出片任务 job_id，供「进度记录」弹窗读取
 window.__hgt_pollNow = false; // visibilitychange/手动刷新打断轮询 sleep 的标志
 let titleDirty = false;       // 用户是否已手动编辑过标题
@@ -468,10 +468,10 @@ function setBtnLoading(isLoading, text) {
 
             if (mode === 'dual' && isDialogue) {
                 recommendedMode = 'scroll';
-                reason = '检测到对话格式 + 双声改写模式，推荐「滚动字幕卡」（男女对话）';
+                reason = '检测到对话格式 + 双声改写模式，推荐「幕后音·动态画面」（男女对话）';
             } else if (mode === 'dual' && !isDialogue) {
                 recommendedMode = 'scroll';
-                reason = '双声改写但文本非标准对话格式，推荐「滚动字幕卡」';
+                reason = '双声改写但文本非标准对话格式，推荐「幕后音·动态画面」';
             } else if (mode === 'single' || mode === 'script') {
                 recommendedMode = 'avatar';
                 reason = '单声口播模式，适合「数字人出镜」（单人独白）';
@@ -579,7 +579,7 @@ function setMode(m) {
         hint.className = 'text-[11px] font-normal text-emerald-600';
         checkDialogueFormat(ta.value, warning);
     } else {
-        // 滚动字幕卡：接受任意格式
+        // 幕后音·动态画面：接受任意格式
         label.innerHTML = '文稿内容（<span class="text-slate-400">支持对话 / 独白 / 改写稿，自动适配</span>）';
         hint.innerHTML = '<span class="text-emerald-600">任意格式均可</span>';
         hint.className = 'text-[11px] font-normal text-emerald-600';
@@ -1744,3 +1744,4 @@ document.getElementById('jobLogModal')?.addEventListener('click', function(ev) {
 </script>
 </x-workspace-layout>
 </x-app-layout>
+
