@@ -200,7 +200,7 @@
                     <svg class="h-5 w-5 opacity-85" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                 </div>
                 <h3>视频出片</h3>
-                <p>配音频 · 配模特 · 一键生成<br/>滚动字幕卡 / 数字人出镜</p>
+                <p>配音频 · 配画面 · 一键生成<br/>幕后音·动态画面 / 数字人出镜</p>
                 <span class="hero-btn">去创作 →</span>
             </div>
         </a>

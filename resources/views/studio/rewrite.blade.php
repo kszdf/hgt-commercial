@@ -1,4 +1,4 @@
-<x-app-layout>
+﻿<x-app-layout>
 <x-workspace-layout title="选题二创">
     <div class="mx-auto max-w-5xl p-6">
 
@@ -48,9 +48,9 @@
                     <select id="mode" name="mode"
                         class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                         <option value="avatar">单人数字人出镜</option>
-                        <option value="scroll_male">男声幕后音</option>
-                        <option value="scroll_female">女声幕后音</option>
-                        <option value="scroll_dual">男女对话幕后音</option>
+                        <option value="scroll_male">男声幕后音·动态画面</option>
+                        <option value="scroll_female">女声幕后音·动态画面</option>
+                        <option value="scroll_dual">男女对话幕后音·动态画面</option>
                     </select>
                     <p class="mt-1 text-xs text-slate-400">模式已按选题页所选「呈现形式」自动匹配，可手动微调。</p>
                     <label id="forceUnifiedWrap" class="mt-2 hidden flex cursor-pointer items-center gap-2 text-xs text-slate-500">
@@ -278,8 +278,9 @@ function mapTopicFormToMode(form) {
     const f = String(form).trim();
     // 新的 4 值直接透传
     if (['avatar','scroll_male','scroll_female','scroll_dual'].includes(f)) return f;
-    // 兼容旧值/Topic API 返回值
-    if (f === '单声口播' || f === '幕后音口播_单人' || f === '单人口播' || f === 'script') return 'avatar';
+    // 兼容旧值/Topic API 返回值（2026-08-28 修复：幕后音口播_单人 曾误映射为数字人 avatar）
+    if (f === '单声口播' || f === '单人口播' || f === 'script') return 'avatar';
+    if (f === '幕后音口播_单人') return 'scroll_male';
     if (f === '幕后音口播_双人' || f === '双声对话' || f === '双人口播') return 'scroll_dual';
     return 'avatar';
 }
@@ -329,9 +330,9 @@ function setTextFromTopic(title, hook, mode, angle) {
 function getFormLabel(form) {
     const map = {
         'avatar': '数字人出镜',
-        'scroll_male': '男声幕后音',
-        'scroll_female': '女声幕后音',
-        'scroll_dual': '男女对话幕后音',
+        'scroll_male': '男声幕后音·动态画面',
+        'scroll_female': '女声幕后音·动态画面',
+        'scroll_dual': '男女对话幕后音·动态画面',
         '单声口播': '单声',
         '幕后音口播_单人': '单声',
         '幕后音口播_双人': '双声'
@@ -1171,3 +1172,5 @@ document.getElementById('jobLogModal')?.addEventListener('click', function(ev) {
 </script>
 </x-workspace-layout>
 </x-app-layout>
+
+

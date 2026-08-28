@@ -1,4 +1,4 @@
-<x-app-layout>
+﻿<x-app-layout>
 <x-workspace-layout title="原始稿二创">
 <div class="mx-auto max-w-5xl p-6">
 
@@ -17,9 +17,9 @@
                     <select id="mode" name="mode"
                         class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                         <option value="avatar">单人数字人出镜</option>
-                        <option value="scroll_male">男声幕后音</option>
-                        <option value="scroll_female">女声幕后音</option>
-                        <option value="scroll_dual">男女对话幕后音</option>
+                        <option value="scroll_male">男声幕后音·动态画面</option>
+                        <option value="scroll_female">女声幕后音·动态画面</option>
+                        <option value="scroll_dual">男女对话幕后音·动态画面</option>
                     </select>
                     <p class="mt-1 text-xs text-slate-400">选择与后续出片一致的声音/出镜形式，避免前后矛盾。</p>
                 </div>
@@ -516,3 +516,4 @@ updateCharCount();
 </script>
 </x-workspace-layout>
 </x-app-layout>
+

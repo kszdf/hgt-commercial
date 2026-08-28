@@ -1,4 +1,4 @@
-<x-app-layout>
+﻿<x-app-layout>
 <x-workspace-layout title="爆款拆解">
 <div class="mx-auto max-w-6xl p-6">
     <div class="mb-5">
@@ -88,9 +88,9 @@
                         <select id="form" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                             <option value="">不限</option>
                             <option value="avatar">单人数字人出镜</option>
-                            <option value="scroll_male">男声幕后音</option>
-                            <option value="scroll_female">女声幕后音</option>
-                            <option value="scroll_dual">男女对话幕后音</option>
+                            <option value="scroll_male">男声幕后音·动态画面</option>
+                            <option value="scroll_female">女声幕后音·动态画面</option>
+                            <option value="scroll_dual">男女对话幕后音·动态画面</option>
                         </select>
                     </div>
                 </div>
@@ -340,3 +340,4 @@ function goScrollWith(forceForm, forceVoice) {
 </script>
 </x-workspace-layout>
 </x-app-layout>
+

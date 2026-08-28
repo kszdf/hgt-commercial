@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><title>欢迎使用追梦</title></head>
 <body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
@@ -11,7 +11,7 @@
       </p>
       <ul style="font-size:14px;line-height:1.9;color:#475569;padding-left:20px;">
         <li>智能选题 / 二次改写（规避违禁词）</li>
-        <li>数字人出镜 / 滚动字幕卡一键出片</li>
+        <li>数字人出镜 / 幕后音·动态画面一键出片</li>
         <li>智能质检 + 多平台发布跟踪</li>
       </ul>
       <a href="{{ config('app.url') }}/dashboard"
@@ -25,3 +25,4 @@
   </div>
 </body>
 </html>
+
