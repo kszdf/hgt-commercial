@@ -219,21 +219,13 @@ class PublishPackController extends Controller
         if (! $video) {
             return response()->json(['error' => '成片文件不存在（可能渲染未完成）'], 404);
         }
-        // 2) 标题/副标题：调 8500 publish-pack（已有缓存则快）；失败回退任务标题
+        // 2) 标题/副标题：不调 AI（秒级打包）——用任务已有标题；副标题用对话首句实义前 20 字
         $title = $job->title ?: '财税干货';
         $subtitle = '';
-        try {
-            $resp = app(PipelineClient::class)->post('/publish-pack', [
-                'text' => mb_substr((string) $job->dialogue, 0, 4000),
-                'industry' => $job->industry ?: '财税',
-                'brand' => $tenant->ip_name ?: '昆山老张讲财税',
-            ], 240);
-            if ($resp->successful()) {
-                $r = $resp->json();
-                if (! empty($r['title'])) $title = $r['title'];
-                $subtitle = $r['subtitle'] ?? '';
-            }
-        } catch (\Throwable $e) { /* 标题失败不影响打包 */ }
+        $firstLine = trim((string) preg_replace('/^(女|男)\s*[：:]\s*/u', '', (string) $job->dialogue));
+        if ($firstLine) {
+            $subtitle = mb_substr($firstLine, 0, 20);
+        }
         // 3) 封面（make_cover 产物，若存在）
         $cover = null;
         foreach (glob($jobsDir . '/*_pack_cover.*') ?: [] as $c) {
