@@ -8,6 +8,10 @@
     </div>
 
     <div class="mt-4 space-y-3">
+        <div class="mb-3">
+            <input id="faqSearch" type="text" placeholder="🔍 搜索帮助问题，如：发布 / 密码 / 出片失败…"
+                class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
+        </div>
         @php
             $faqs = [
                 ['q' => '一条视频怎么从零做出来？', 'a' => '三步：①智能选题（或直接粘贴你的文案）→ ②智能二创润色 → ③视频出片选形式（幕后音·动态画面 / 数字人出镜）生成。生成后在视频库可质检、审核、发布。'],
@@ -23,12 +27,31 @@
             ];
         @endphp
         @foreach($faqs as $i => $faq)
-            <details class="rounded-xl border border-slate-200 bg-white shadow-sm" {{ $i === 0 ? 'open' : '' }}>
+            <details class="rounded-xl border border-slate-200 bg-white shadow-sm faq-item" data-search="{{ $faq['q'] }} {{ $faq['a'] }}" {{ $i === 0 ? 'open' : '' }}>
                 <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-slate-700 select-none">{{ $faq['q'] }}</summary>
                 <p class="px-4 pb-4 text-sm leading-relaxed text-slate-500">{{ $faq['a'] }}</p>
             </details>
         @endforeach
+        <p id="faqEmpty" class="hidden rounded-xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-400">没有匹配的问题，试试其他关键词，或联系管理员。</p>
     </div>
+
+    <script>
+    // 帮助中心即时搜索（2026-08-28 P2）
+    (function () {
+        const input = document.getElementById('faqSearch');
+        if (!input) return;
+        input.addEventListener('input', function () {
+            const kw = this.value.trim().toLowerCase();
+            let shown = 0;
+            document.querySelectorAll('.faq-item').forEach(function (item) {
+                const hit = !kw || item.dataset.search.toLowerCase().includes(kw);
+                item.classList.toggle('hidden', !hit);
+                if (hit) shown++;
+            });
+            document.getElementById('faqEmpty').classList.toggle('hidden', shown > 0);
+        });
+    })();
+    </script>
 
     <div class="mt-6 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
         仍需要帮助？请联系管理员（邮箱：<span class="text-slate-700">support@zmgen.cn</span>，或平台账号页查看联系方式）。

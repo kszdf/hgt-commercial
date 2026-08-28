@@ -74,7 +74,7 @@
             </a>
 
             <!-- 分组：内容创作（主线，默认展开） -->
-            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>内容创作</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>内容创作</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
             <ul class="space-y-0.5 ws-group-body">
                 <li>
                     <a href="/studio/topic" class="{{ request()->is('studio/topic*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-sky">
