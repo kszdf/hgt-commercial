@@ -588,14 +588,15 @@ class VideoController extends Controller
         ]);
     }
 
-    /** 视频生成列表：本租户全部未删除出片任务，按创建时间倒序。 */
-    public function library()
+    /** 视频生成列表：本租户全部未删除出片任务，按创建时间倒序，服务端分页（2026-08-28 P1）。 */
+    public function library(Request $request)
     {
         $tenant = $this->studioTenant(request());
         $jobs = VideoJob::where('tenant_id', $tenant->id)
             ->orderByDesc('created_at')
             ->with('qcReport', 'coverAsset')
-            ->get();
+            ->paginate(12)
+            ->withQueryString();
 
         return view('studio.videos', compact('jobs'));
     }

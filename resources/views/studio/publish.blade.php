@@ -1,4 +1,4 @@
-﻿<x-app-layout>
+<x-app-layout>
 <x-workspace-layout title="发布助手">
 <div class="mx-auto max-w-6xl p-6">
 
@@ -69,6 +69,9 @@
                             </div>
                             <a href="/studio/scroll/download/{{ $job->id }}"
                                 class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700">下载成片</a>
+                            <a href="/studio/videos?pack={{ $job->job_id }}"
+                                class="rounded-lg border border-brand-300 bg-brand-50 px-4 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-100"
+                                title="生成行业化标题 + 封面 + 形象照">✨ 发布包装</a>
                         </div>
 
                         {{-- 一键发布区 --}}

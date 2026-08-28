@@ -1,4 +1,4 @@
-﻿<x-app-layout>
+<x-app-layout>
 <x-workspace-layout title="视频生成列表" :breadcrumbs="[['label' => '工作台总览', 'url' => '/dashboard'], ['label' => '视频生成列表']]">
 <div class="mx-auto max-w-5xl p-6">
 
@@ -7,7 +7,7 @@
     <div class="mb-4 flex items-center justify-between">
         <div>
             <h2 class="text-lg font-semibold text-slate-800">视频生成列表</h2>
-            <p class="mt-0.5 text-sm text-slate-400">本账号全部出片记录（共 {{ $jobs->count() }} 条）。删除后进入回收站，可恢复。</p>
+            <p class="mt-0.5 text-sm text-slate-400">本账号全部出片记录（共 {{ $jobs->total() }} 条）。删除后进入回收站，可恢复。</p>
         </div>
         <div class="flex gap-2">
             <a href="/studio/recycle" class="rounded-lg studio-card studio-card-sm text-sm font-medium text-slate-600 hover:bg-slate-50">回收站</a>
@@ -101,6 +101,10 @@
             </article>
         @endforeach
         </div>
+        {{-- 分页导航（2026-08-28 P1: 数据量大后分页加载） --}}
+        <div class="mt-4">
+            {{ $jobs->links() }}
+        </div>
     @endif
 </div>
 
@@ -174,6 +178,16 @@ document.querySelectorAll('.pack-btn').forEach(function (btn) {
         });
     });
 });
+// 支持 ?pack=job_id 从「发布助手」跳转过来时自动打开包装浮层（2026-08-28 P1）
+(function () {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const jid = params.get('pack');
+        if (!jid) return;
+        const btn = document.querySelector('.pack-btn[data-job="' + jid + '"]');
+        if (btn) btn.click();
+    } catch (e) { /* 静默 */ }
+})();
 function copyPackLib() {
     const t = document.getElementById('packTitle').textContent;
     const s = document.getElementById('packSubtitle').textContent;
