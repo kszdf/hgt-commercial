@@ -74,13 +74,13 @@
 
         <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4" id="quick-forms">
             <button type="button" data-form="scroll" data-target="/studio/rewrite" class="quick-form active">
-                <span class="text-xl">🎬</span>幕后音字幕卡
+                <span class="text-xl">🎬</span>滚动字幕卡
             </button>
             <button type="button" data-form="avatar" data-target="/studio/rewrite" class="quick-form">
                 <span class="text-xl">🤖</span>数字人出镜
             </button>
             <button type="button" data-form="motion" data-target="/studio/rewrite" class="quick-form">
-                <span class="text-xl">✨</span>智能图解
+                <span class="text-xl">✨</span>幕后音·动态画面
             </button>
             <button type="button" data-form="xhs" data-target="/studio/xhs" class="quick-form">
                 <span class="text-xl">📕</span>小红书图文
