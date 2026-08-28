@@ -69,6 +69,9 @@
                             </div>
                             <a href="/studio/scroll/download/{{ $job->id }}"
                                 class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700">下载成片</a>
+                            <a href="/studio/publish-pack/material/{{ $job->job_id }}"
+                                class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100"
+                                title="打包：成片视频 + 封面 + 抖音/小红书/视频号发布文案">📦 发布物料包</a>
                             <a href="/studio/videos?pack={{ $job->job_id }}"
                                 class="rounded-lg border border-brand-300 bg-brand-50 px-4 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-100"
                                 title="生成行业化标题 + 封面 + 形象照">✨ 发布包装</a>

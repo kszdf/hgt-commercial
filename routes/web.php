@@ -110,6 +110,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/studio/publish-pack/cover/{file}', [PublishPackController::class, 'cover'])->name('studio.publish-pack.cover');
     Route::post('/studio/publish-pack/photo', [PublishPackController::class, 'uploadPhoto'])->name('studio.publish-pack.photo');
     Route::get('/studio/publish-pack/portrait', [PublishPackController::class, 'portrait'])->name('studio.publish-pack.portrait');
+    Route::get('/studio/publish-pack/material/{jobId}', [PublishPackController::class, 'material'])->name('studio.publish-pack.material');
 
     // 帮助中心（商用必备：FAQ / 使用说明）
     Route::view('/studio/help', 'studio.help')->name('studio.help');
