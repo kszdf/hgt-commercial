@@ -1453,6 +1453,7 @@ const FAILED_REASON_LABEL = {
     resource: '系统资源不足（磁盘/显存/内存）',
     format: '素材或格式问题',
     job_lost: '出片任务丢失（服务侧已无记录）',
+    lecture: '法条/政策类内容不漫剧化',
     unknown: '出片失败（原因未知）',
 };
 const FAILED_REASON_TIP = {
@@ -1461,6 +1462,7 @@ const FAILED_REASON_TIP = {
     resource: '服务器资源不足，请稍后重试或联系我们扩容。',
     format: '请检查文稿/素材格式后重新提交。',
     job_lost: '任务在服务侧已丢失，请重新提交生成。',
+    lecture: '为保证法条表述精确，漫剧不呈现法条内容。建议改用「幕后音·动态画面」或「数字人」口播形式出片。',
     unknown: '可重新提交生成，或联系技术支持。',
 };
 function escapeHtml(s) {

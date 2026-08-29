@@ -2004,6 +2004,17 @@ def run_job(job_id, payload):
                 args += ["--font", resolve_font(payload["subtitle_font"])]
         elif mode == "manga":
             # AI 漫剧(2026-08-28): 内容→类型判断(场景剧/讲解式/法条口播)→LLM分镜→固定角色生图→动效配音成片
+            # 2026-08-29: 预判内容类型——法条/政策类不漫剧化(保精确), 直接给友好提示, 不进入渲染
+            try:
+                from make_manga_storyboard import classify as _manga_classify
+                _ctype = _manga_classify(dialogue)
+            except Exception:  # noqa: BLE001
+                _ctype = None
+            if _ctype == "lecture":
+                _set_job(job_id, status="failed", failed_reason="lecture",
+                         error="该内容属于法条/政策类。为保证法条表述精确，AI 漫剧不呈现法条内容，"
+                               "建议改用「幕后音·动态画面」或「数字人」口播形式出片。")
+                return
             SCRIPT_MANGA = os.path.join(GPT_SOVITS, "make_manga_pipeline.py")
             args = [PY310, SCRIPT_MANGA, "--text", dialogue,
                     "--voice", (payload.get("male_voice") or payload.get("voice") or d_mv),

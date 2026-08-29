@@ -270,6 +270,7 @@ class VideoJob extends Model
             'resource'            => '系统资源不足（磁盘/显存/内存）',
             'format'              => '素材或格式问题',
             'job_lost'            => '出片任务丢失（服务侧已无记录）',
+            'lecture'             => '法条/政策类内容不漫剧化（建议改幕后音/数字人口播）',
             default               => '出片失败（原因未知）',
         };
     }
@@ -282,6 +283,9 @@ class VideoJob extends Model
     {
         if ($error) {
             $e = mb_strtolower($error);
+            if (preg_match('/(法条|政策类.*不漫剧化|漫剧不呈现法条)/u', $e)) {
+                return 'lecture';
+            }
             if (preg_match('/(timeout|timed out|超时|硬上限|超过.*秒|时间限制|time limit)/u', $e)) {
                 return 'timeout';
             }
