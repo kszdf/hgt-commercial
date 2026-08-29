@@ -2002,6 +2002,14 @@ def run_job(job_id, payload):
             # 字幕字体（hei/yahei/kaiti/song/fangsong；可选，不传则脚本默认黑体）
             if payload.get("subtitle_font"):
                 args += ["--font", resolve_font(payload["subtitle_font"])]
+        elif mode == "manga":
+            # AI 漫剧(2026-08-28): 内容→类型判断(场景剧/讲解式/法条口播)→LLM分镜→固定角色生图→动效配音成片
+            SCRIPT_MANGA = os.path.join(GPT_SOVITS, "make_manga_pipeline.py")
+            args = [PY310, SCRIPT_MANGA, "--text", dialogue,
+                    "--voice", (payload.get("male_voice") or payload.get("voice") or d_mv),
+                    "--out", out_path]
+            if payload.get("title"):
+                args += ["--title", str(payload["title"])]
         elif mode == "motion":
             # 幕后音·动态画面（对标视频号「建筑财税张老师」风格）：
             # 男声/女声/男女对话 → 双声 TTS + 动态GIF/生图场景 + 中部滚动字幕（motion_v4 内部完成）

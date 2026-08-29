@@ -11,6 +11,7 @@
         <button type="button" data-form="male_mono" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('male_mono')">男声幕后音·动态画面</button>
         <button type="button" data-form="female_mono" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('female_mono')">女声幕后音·动态画面</button>
         <button type="button" data-form="dialogue" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('dialogue')">男女对话幕后音·动态画面</button>
+        <button type="button" data-form="manga" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('manga')">📖 AI 漫剧</button>
     </div>
     <!-- 幕后音·动态画面：包装主题 -->
     <div class="mb-4 flex flex-wrap items-center gap-2" id="motionStyleWrap">
@@ -556,12 +557,12 @@ function setMode(m) {
     // 模特区域切换
     document.getElementById('modelHint').classList.toggle('hidden', m !== 'scroll');
     document.getElementById('modelSelectWrap').classList.toggle('hidden', m !== 'avatar');
-    // 声线形式控件：仅滚动字幕模式显示；数字人模式隐藏（单人独白）
+    // 声线形式控件：仅滚动字幕模式显示；数字人/漫剧模式隐藏
     document.getElementById('voiceFormWrap').classList.toggle('hidden', m !== 'scroll');
-    // 声线选择：数字人=单声线下拉；滚动字幕=由 setVoiceForm 决定（对话双下拉 / 独白单下拉 / 单声线）
+    // 声线选择：数字人/漫剧=单声线下拉；滚动字幕=由 setVoiceForm 决定
     const singleVW = document.getElementById('singleVoiceWrap');
     const dualVW = document.getElementById('dualVoiceWrap');
-    if (m === 'avatar') {
+    if (m === 'avatar' || m === 'manga') {
         singleVW.classList.remove('hidden');
         dualVW.classList.add('hidden');
     } else {
@@ -580,6 +581,12 @@ function setMode(m) {
         hint.innerHTML = '<span class="text-emerald-600">单人独白模式</span>';
         hint.className = 'text-[11px] font-normal text-emerald-600';
         checkDialogueFormat(ta.value, warning);
+    } else if (m === 'manga') {
+        // AI 漫剧: 输入财税内容/事件, AI 自动生成剧情分镜与旁白
+        label.innerHTML = '财税内容（<span class="text-slate-400">输入要讲的财税问题 / 事件 / 案例，AI 自动生成剧情分镜与旁白；法条政策类自动改走口播</span>）';
+        hint.innerHTML = '<span class="text-emerald-600">AI 漫剧：内容 → 分镜 → 生图 → 配音 全自动</span>';
+        hint.className = 'text-[11px] font-normal text-emerald-600';
+        warning.classList.add('hidden');
     } else {
         // 幕后音·动态画面：接受任意格式
         label.innerHTML = '文稿内容（<span class="text-slate-400">支持对话 / 独白 / 改写稿，自动适配</span>）';
@@ -595,6 +602,7 @@ const FORM_MAP = {
     male_mono:   { mode: 'motion', vf: 'male_mono' },
     female_mono: { mode: 'motion', vf: 'female_mono' },
     dialogue:    { mode: 'motion', vf: 'dialogue' },
+    manga:       { mode: 'manga', vf: null },
 };
 function selectForm(form) {
     const cfg = FORM_MAP[form];
@@ -607,7 +615,8 @@ function highlightForm() {
     document.querySelectorAll('.form-btn').forEach(b => {
         const f = b.dataset.form;
         const active = (f === 'avatar' && currentMode === 'avatar') ||
-                       (f !== 'avatar' && currentMode === 'motion' && voiceForm === f);
+                       (f === 'manga' && currentMode === 'manga') ||
+                       (f !== 'avatar' && f !== 'manga' && currentMode === 'motion' && voiceForm === f);
         b.className = 'form-btn rounded-lg px-4 py-2 text-sm font-medium transition ' +
             (active ? 'border border-brand-500 bg-brand-50 text-brand-700'
                     : 'border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700');
@@ -1261,18 +1270,18 @@ async function handleGenerate(e) {
                 title: document.getElementById('title').value,
                 subtitle: document.getElementById('subtitle').value,
                 motion_style: document.getElementById('motion_style')?.value || '财经严谨',
-                edit_style: document.getElementById('edit_style')?.value || '',
+                edit_style: currentMode === 'manga' ? '' : (document.getElementById('edit_style')?.value || ''),
                 dry_tts: false,
                 // 韵律参数不向前端发送：声调/快慢/音量由后端脚本按情绪自动调教（v4 定稿），
                 // 避免前端硬编码默认值覆盖专业调好的自动韵律
                 natural: document.getElementById('natural').checked,
-                male_voice: (currentMode === 'avatar' || (currentMode === 'scroll' && voiceForm === 'mono'))
+                male_voice: (currentMode === 'avatar' || currentMode === 'manga' || (currentMode === 'scroll' && voiceForm === 'mono'))
                     ? (document.getElementById('singleVoice').value || null)
                     : (document.getElementById('maleVoice').value || null),
-                female_voice: (currentMode === 'avatar' || (currentMode === 'scroll' && voiceForm === 'mono'))
+                female_voice: (currentMode === 'avatar' || currentMode === 'manga' || (currentMode === 'scroll' && voiceForm === 'mono'))
                     ? null
                     : (document.getElementById('femaleVoice').value || null),
-                voice_form: currentMode === 'avatar' ? null : voiceForm,
+                voice_form: currentMode === 'avatar' || currentMode === 'manga' ? null : voiceForm,
                 model: currentMode === 'avatar' ? (document.getElementById('model').value || null) : null,
                 cover_id: document.getElementById('coverId').value ? parseInt(document.getElementById('coverId').value, 10) : null,
                 subtitle_size: parseInt(document.getElementById('subtitle_size').value, 10),
