@@ -108,6 +108,7 @@ class VideoController extends Controller
             'male_voice' => ['nullable', 'string', 'max:120'],
             'female_voice' => ['nullable', 'string', 'max:120'],
             'voice_form' => ['sometimes', 'nullable', 'string', 'in:dialogue,male_mono,female_mono,mono'],
+            'i2v' => ['sometimes', 'boolean'],   // 漫剧 AI 图生视频动效模式(每幕约0.24元/秒)
             'batch_id' => ['nullable', 'string', 'max:36'],
             'industry' => ['sometimes', 'nullable', 'string', 'max:40'],   // 财税老板行业分群（选题贯穿）
         ]);
@@ -230,6 +231,7 @@ class VideoController extends Controller
             'female_voice' => $request->input('female_voice') ?: $tenant->default_female_voice,
             'voice_form' => $request->input('voice_form', 'dialogue'),
             'natural' => (bool) $request->input('natural', false),
+            'i2v' => (bool) $request->input('i2v', false),   // 漫剧 AI 图生视频动效
             'edit_style' => $request->input('edit_style') ?: null,   // 成片包装：fast=Ken Burns+片尾留资卡+转场
             'model' => $modelInput,   // 仅数字人模式使用；已解析 User:{id}->containerPath，否则透传场景名；字幕卡模式为 null，微服务自动跳过
             'scene' => $request->input('scene'),   // 数字人出镜场景（office_a / office_b）

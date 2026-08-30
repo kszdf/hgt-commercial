@@ -300,6 +300,12 @@
                     🗣 专家自然口吻（女声专业发问 / 男声权威解答，自动匹配语气词与韵律起伏，去 AI 机械感；推荐勾选）
                 </label>
 
+                <!-- AI 动效（仅漫剧模式显示）：图生视频真动效，画面更惊艳；每幕约0.24元/秒，5幕约6元 -->
+                <label id="i2vWrap" class="mt-2 hidden items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 cursor-pointer hover:bg-amber-100 transition">
+                    <input type="checkbox" id="i2v" class="accent-amber-500 rounded">
+                    🎬 AI 动效（图生视频：人物眨眼/手势/镜头推近，画面更惊艳；<b>额外计费约 6 元/条</b>）
+                </label>
+
                 <p id="quotaHint" class="text-xs text-slate-400"></p>
                 <p id="durationHint" class="mt-2 text-xs text-slate-400"></p>
                 <p id="queueHint" class="mt-2 text-xs text-slate-400"></p>
@@ -567,6 +573,13 @@ function setMode(m) {
         dualVW.classList.add('hidden');
     } else {
         setVoiceForm(voiceForm);   // 内部会正确设置 single/dual 的显隐
+    }
+
+    // AI 动效开关: 仅漫剧模式显示(漫剧默认关=低成本Ken Burns, 勾选=图生视频惊艳动效)
+    const i2vWrap = document.getElementById('i2vWrap');
+    if (i2vWrap) {
+        i2vWrap.classList.toggle('hidden', m !== 'manga');
+        i2vWrap.classList.toggle('flex', m === 'manga');
     }
 
     // 文本格式提示与校验
@@ -1282,6 +1295,7 @@ async function handleGenerate(e) {
                     ? null
                     : (document.getElementById('femaleVoice').value || null),
                 voice_form: currentMode === 'avatar' || currentMode === 'manga' ? null : voiceForm,
+                i2v: currentMode === 'manga' ? (document.getElementById('i2v')?.checked || false) : false,
                 model: currentMode === 'avatar' ? (document.getElementById('model').value || null) : null,
                 cover_id: document.getElementById('coverId').value ? parseInt(document.getElementById('coverId').value, 10) : null,
                 subtitle_size: parseInt(document.getElementById('subtitle_size').value, 10),

@@ -2019,6 +2019,9 @@ def run_job(job_id, payload):
             args = [PY310, SCRIPT_MANGA, "--text", dialogue,
                     "--voice", (payload.get("male_voice") or payload.get("voice") or d_mv),
                     "--out", out_path]
+            # 2026-08-30: i2v=AI图生视频动效模式(惊艳, 每幕约0.24元/秒, 5幕约6元)
+            if payload.get("i2v"):
+                args += ["--i2v"]
             if payload.get("title"):
                 args += ["--title", str(payload["title"])]
         elif mode == "motion":
