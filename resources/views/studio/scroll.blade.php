@@ -12,6 +12,7 @@
         <button type="button" data-form="female_mono" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('female_mono')">女声幕后音·动态画面</button>
         <button type="button" data-form="dialogue" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('dialogue')">男女对话幕后音·动态画面</button>
         <button type="button" data-form="manga" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('manga')">📖 AI 漫剧</button>
+        <button type="button" data-form="whiteboard" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('whiteboard')">✍️ AI 白板图解</button>
     </div>
     <!-- 幕后音·动态画面：包装主题 -->
     <div class="mb-4 flex flex-wrap items-center gap-2" id="motionStyleWrap">
@@ -568,7 +569,7 @@ function setMode(m) {
     // 声线选择：数字人/漫剧=单声线下拉；滚动字幕=由 setVoiceForm 决定
     const singleVW = document.getElementById('singleVoiceWrap');
     const dualVW = document.getElementById('dualVoiceWrap');
-    if (m === 'avatar' || m === 'manga') {
+    if (m === 'avatar' || m === 'manga' || m === 'whiteboard') {
         singleVW.classList.remove('hidden');
         dualVW.classList.add('hidden');
     } else {
@@ -600,6 +601,12 @@ function setMode(m) {
         hint.innerHTML = '<span class="text-emerald-600">AI 漫剧：内容 → 分镜 → 生图 → 配音 全自动</span>';
         hint.className = 'text-[11px] font-normal text-emerald-600';
         warning.classList.add('hidden');
+    } else if (m === 'whiteboard') {
+        // AI 白板图解: 输入财税内容, AI 提炼标题/要点/警示, 手绘逐笔画出
+        label.innerHTML = '财税内容（<span class="text-slate-400">输入要讲的财税知识点 / 流程 / 风险，AI 自动提炼成白板要点图解</span>）';
+        hint.innerHTML = '<span class="text-emerald-600">AI 白板：内容 → 要点提炼 → 手绘逐笔动画 → 配音 全自动</span>';
+        hint.className = 'text-[11px] font-normal text-emerald-600';
+        warning.classList.add('hidden');
     } else {
         // 幕后音·动态画面：接受任意格式
         label.innerHTML = '文稿内容（<span class="text-slate-400">支持对话 / 独白 / 改写稿，自动适配</span>）';
@@ -616,6 +623,7 @@ const FORM_MAP = {
     female_mono: { mode: 'motion', vf: 'female_mono' },
     dialogue:    { mode: 'motion', vf: 'dialogue' },
     manga:       { mode: 'manga', vf: null },
+    whiteboard:  { mode: 'whiteboard', vf: null },
 };
 function selectForm(form) {
     const cfg = FORM_MAP[form];
@@ -629,7 +637,8 @@ function highlightForm() {
         const f = b.dataset.form;
         const active = (f === 'avatar' && currentMode === 'avatar') ||
                        (f === 'manga' && currentMode === 'manga') ||
-                       (f !== 'avatar' && f !== 'manga' && currentMode === 'motion' && voiceForm === f);
+                       (f === 'whiteboard' && currentMode === 'whiteboard') ||
+                       (f !== 'avatar' && f !== 'manga' && f !== 'whiteboard' && currentMode === 'motion' && voiceForm === f);
         b.className = 'form-btn rounded-lg px-4 py-2 text-sm font-medium transition ' +
             (active ? 'border border-brand-500 bg-brand-50 text-brand-700'
                     : 'border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700');
@@ -1283,18 +1292,18 @@ async function handleGenerate(e) {
                 title: document.getElementById('title').value,
                 subtitle: document.getElementById('subtitle').value,
                 motion_style: document.getElementById('motion_style')?.value || '财经严谨',
-                edit_style: currentMode === 'manga' ? '' : (document.getElementById('edit_style')?.value || ''),
+                edit_style: (currentMode === 'manga' || currentMode === 'whiteboard') ? '' : (document.getElementById('edit_style')?.value || ''),
                 dry_tts: false,
                 // 韵律参数不向前端发送：声调/快慢/音量由后端脚本按情绪自动调教（v4 定稿），
                 // 避免前端硬编码默认值覆盖专业调好的自动韵律
                 natural: document.getElementById('natural').checked,
-                male_voice: (currentMode === 'avatar' || currentMode === 'manga' || (currentMode === 'scroll' && voiceForm === 'mono'))
+                male_voice: (currentMode === 'avatar' || currentMode === 'manga' || currentMode === 'whiteboard' || (currentMode === 'scroll' && voiceForm === 'mono'))
                     ? (document.getElementById('singleVoice').value || null)
                     : (document.getElementById('maleVoice').value || null),
-                female_voice: (currentMode === 'avatar' || currentMode === 'manga' || (currentMode === 'scroll' && voiceForm === 'mono'))
+                female_voice: (currentMode === 'avatar' || currentMode === 'manga' || currentMode === 'whiteboard' || (currentMode === 'scroll' && voiceForm === 'mono'))
                     ? null
                     : (document.getElementById('femaleVoice').value || null),
-                voice_form: currentMode === 'avatar' || currentMode === 'manga' ? null : voiceForm,
+                voice_form: currentMode === 'avatar' || currentMode === 'manga' || currentMode === 'whiteboard' ? null : voiceForm,
                 i2v: currentMode === 'manga' ? (document.getElementById('i2v')?.checked || false) : false,
                 model: currentMode === 'avatar' ? (document.getElementById('model').value || null) : null,
                 cover_id: document.getElementById('coverId').value ? parseInt(document.getElementById('coverId').value, 10) : null,

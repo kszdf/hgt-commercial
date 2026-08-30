@@ -82,7 +82,7 @@ class VideoController extends Controller
         }
 
         $data = $request->validate([
-            'mode' => ['sometimes', 'in:scroll,avatar,motion,manga'],
+            'mode' => ['sometimes', 'in:scroll,avatar,motion,manga,whiteboard'],
             'dialogue' => ['required', 'string'],
             'title' => ['nullable', 'string', 'max:20'],
             'subtitle' => ['nullable', 'string', 'max:40'],

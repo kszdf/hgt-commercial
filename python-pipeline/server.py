@@ -2024,6 +2024,14 @@ def run_job(job_id, payload):
                 args += ["--i2v"]
             if payload.get("title"):
                 args += ["--title", str(payload["title"])]
+        elif mode == "whiteboard":
+            # AI 白板式(2026-08-30): 内容→LLM布局(标题/要点/警示,智能配色)→手绘逐笔动画→配音成片
+            SCRIPT_WB = os.path.join(GPT_SOVITS, "make_whiteboard_pipeline.py")
+            args = [PY310, SCRIPT_WB, "--text", dialogue,
+                    "--voice", (payload.get("male_voice") or payload.get("voice") or d_mv),
+                    "--out", out_path]
+            if payload.get("title"):
+                args += ["--title", str(payload["title"])]
         elif mode == "motion":
             # 幕后音·动态画面（对标视频号「建筑财税张老师」风格）：
             # 男声/女声/男女对话 → 双声 TTS + 动态GIF/生图场景 + 中部滚动字幕（motion_v4 内部完成）
