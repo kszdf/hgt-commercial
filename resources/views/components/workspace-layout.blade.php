@@ -75,7 +75,7 @@
 
             <!-- 分组：内容创作（主线，默认展开） -->
             <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>内容创作</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
-            <ul class="space-y-0.5 ws-group-body">
+            <ul class="space-y-0.5 ws-group-body" data-group="content">
                 <li>
                     <a href="/studio/topic" class="{{ request()->is('studio/topic*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-sky">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
@@ -83,12 +83,15 @@
                     </a>
                 </li>
                 <li class="space-y-0.5">
-                    <button type="button" onclick="toggleSub(this)"
-                        class="ws-nav-item w-full font-medium ws-nav-violet {{ (request()->is('studio/rewrite') || request()->is('studio/rewrite-original*')) ? 'ws-nav-active' : '' }}">
-                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                        <span>智能二创</span>
-                        <svg class="chev h-3.5 w-3.5 ml-auto text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-                    </button>
+                    <div class="flex items-center ws-nav-item-wrap">
+                        <a href="/studio/rewrite" class="ws-nav-item w-full font-medium ws-nav-violet {{ (request()->is('studio/rewrite') || request()->is('studio/rewrite-original*')) ? 'ws-nav-active' : '' }}">
+                            <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            <span>智能二创</span>
+                        </a>
+                        <button type="button" onclick="toggleSub(this)" class="ws-nav-sub-toggle" title="展开/收起子菜单" aria-label="展开或收起子菜单">
+                            <svg class="chev h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                        </button>
+                    </div>
                     <ul class="rewrite-sub ml-3.5 mt-0.5 space-y-0.5 border-l border-slate-200/60 pl-2.5">
                         <li>
                             <a href="/studio/rewrite" class="{{ request()->is('studio/rewrite') && !request()->is('studio/rewrite-original*') ? 'ws-nav-active' : 'ws-nav-item' }}">
@@ -120,11 +123,17 @@
                         <span>小红书图文</span>
                     </a>
                 </li>
+                <li>
+                    <a href="/studio/templates" class="{{ request()->is('studio/templates*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <span>话术模板</span>
+                    </a>
+                </li>
             </ul>
 
             <!-- 分组：制作与发布（主线，默认展开） -->
             <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>制作与发布</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
-            <ul class="space-y-0.5 ws-group-body">
+            <ul class="space-y-0.5 ws-group-body" data-group="publish">
                 <li>
                     <a href="/studio/scroll{{ Request::has('from') ? '?from=' . Request::get('from') : '' }}" class="{{ (request()->is('studio/scroll*') && !request()->is('studio/scroll/qc*')) ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-fresh">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
@@ -171,7 +180,7 @@
 
             <!-- 分组：素材与声音（默认收起） -->
             <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>素材与声音</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
-            <ul class="space-y-0.5 ws-group-body collapsed">
+            <ul class="space-y-0.5 ws-group-body collapsed" data-group="assets">
                 <li>
                     <a href="/studio/voices" class="{{ request()->is('studio/voices*') || request()->is('voice-clone*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-violet">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
@@ -190,17 +199,11 @@
                         <span>数字人模特</span>
                     </a>
                 </li>
-                <li>
-                    <a href="/studio/templates" class="{{ request()->is('studio/templates*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        <span>话术模板</span>
-                    </a>
-                </li>
             </ul>
 
             <!-- 分组：数据与账户（默认收起） -->
             <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>数据与账户</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" style="transform:rotate(0deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
-            <ul class="space-y-0.5 ws-group-body collapsed">
+            <ul class="space-y-0.5 ws-group-body collapsed" data-group="data">
                 <li>
                     <a href="/studio/metrics" class="{{ request()->is('studio/metrics*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-teal">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
@@ -406,6 +409,24 @@
 /* 二创折叠分组：父级保持 13px/500，子级 12px/400，层级正确 */
 .rewrite-sub.collapsed { display: none; }
 .chev { transition: transform 0.15s ease; transform: rotate(90deg); }
+.ws-nav-item-wrap { position: relative; }
+.ws-nav-item-wrap:hover > .ws-nav-item { background: var(--nav-hover-bg); }
+.ws-nav-item-wrap > .ws-nav-item.ws-nav-active:hover { background: var(--nav-active-bg); }
+.ws-nav-sub-toggle {
+    flex: none;
+    width: 1.75rem;
+    height: 1.75rem;
+    margin-left: 0.125rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+.ws-nav-sub-toggle:hover { background: var(--nav-hover-bg); color: var(--text-strong); }
 .rewrite-sub .ws-nav-item,
 .rewrite-sub .ws-nav-active {
     font-size: 0.75rem;            /* 12px：子菜单更小 */
@@ -629,13 +650,36 @@ function toggleSub(btn) {
 }
 
 // 侧栏分组折叠：点击组标题收起/展开整组，并联动箭头方向
+// 2026-08-31 修复：折叠状态持久化(localStorage)，刷新/重登后保持客户上次的选择
 function toggleGroup(btn) {
     var ul = btn.nextElementSibling;
     if (!ul || !ul.classList.contains('ws-group-body')) return;
     var collapsed = ul.classList.toggle('collapsed');
     var chev = btn.querySelector('.ws-group-chev');
     if (chev) chev.style.transform = collapsed ? 'rotate(0deg)' : 'rotate(90deg)';
+    try {
+        var key = 'hgt_group_' + (ul.dataset.group || btn.textContent.trim());
+        localStorage.setItem(key, collapsed ? '1' : '0');
+    } catch (e) {}
 }
+
+// 页面加载：恢复分组折叠状态（默认展开的内容创作/制作与发布保持展开，其余按记忆）
+(function restoreGroups() {
+    document.querySelectorAll('.ws-group-body').forEach(function (ul) {
+        var btn = ul.previousElementSibling;
+        if (!btn || !btn.classList.contains('ws-group-toggle')) return;
+        var key = 'hgt_group_' + (ul.dataset.group || btn.textContent.trim());
+        var saved = null;
+        try { saved = localStorage.getItem(key); } catch (e) {}
+        if (saved === null) return;              // 无记忆：保持默认
+        var collapsed = saved === '1';
+        if (collapsed !== ul.classList.contains('collapsed')) {
+            ul.classList.toggle('collapsed', collapsed);
+            var chev = btn.querySelector('.ws-group-chev');
+            if (chev) chev.style.transform = collapsed ? 'rotate(0deg)' : 'rotate(90deg)';
+        }
+    });
+})();
 
 // 移动端：选中导航后自动收起侧栏
 document.querySelectorAll('.ws-sidebar a').forEach(function(a) {

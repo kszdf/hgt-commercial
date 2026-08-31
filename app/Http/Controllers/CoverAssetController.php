@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\CoverAsset;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Storage;
 
@@ -16,7 +15,8 @@ class CoverAssetController extends Controller
 {
     private function tenantId(): int
     {
-        return Auth::user()->tenant_id;
+        // 超管(tenant_id=null)回退 pro/enterprise 租户作为操作上下文，避免 TypeError；与全站 studioTenant 逻辑一致
+        return $this->studioTenant(request())->id;
     }
 
     public function index()
@@ -155,8 +155,10 @@ class CoverAssetController extends Controller
 
     public function preview(CoverAsset $coverAsset)
     {
-        // 预设封面全局可读；租户封面仅本人可读
-        abort_if(! $coverAsset->is_preset && $coverAsset->tenant_id !== $this->tenantId(), 403);
+        // 预设封面全局可读；租户封面按跨租户鉴权（超管放行）
+        if (! $coverAsset->is_preset) {
+            $this->assertTenantOwner(request(), $coverAsset->tenant_id);
+        }
         $path = Storage::disk('local')->path(ltrim($coverAsset->file_path, '/'));
         abort_if(! is_file($path), 404);
         return Response::file($path);
@@ -165,7 +167,7 @@ class CoverAssetController extends Controller
     public function destroy(CoverAsset $coverAsset)
     {
         abort_if($coverAsset->is_preset, 403); // 预设封面不可删
-        abort_if($coverAsset->tenant_id !== $this->tenantId(), 403);
+        $this->assertTenantOwner(request(), $coverAsset->tenant_id);
         $path = Storage::disk('local')->path(ltrim($coverAsset->file_path, '/'));
         if (is_file($path)) {
             @unlink($path);
@@ -177,7 +179,7 @@ class CoverAssetController extends Controller
     public function reupload(Request $request, CoverAsset $coverAsset)
     {
         abort_if($coverAsset->is_preset, 403); // 预设封面不可改
-        abort_if($coverAsset->tenant_id !== $this->tenantId(), 403);
+        $this->assertTenantOwner(request(), $coverAsset->tenant_id);
         $request->validate([
             'file' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ]);

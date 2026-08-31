@@ -257,7 +257,26 @@
             <h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">最近生成的视频</h4>
 
             @if($recentJobs->isEmpty())
-                <div class="py-8 text-center text-sm text-slate-400">还没有生成记录，去 <a href="/studio/topic" class="font-medium text-brand-600 hover:underline">智能选题</a> 开始创作吧。</div>
+                <div class="py-6 text-center">
+                    <div class="text-sm text-slate-500">还没有生成记录，跟着下面三步，几分钟就能出第一条视频：</div>
+                    <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <a href="/studio/topic" class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 text-left transition hover:border-brand-300 hover:bg-brand-50/50">
+                            <div class="mb-1 flex h-7 w-7 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">1</div>
+                            <div class="text-sm font-semibold text-slate-700">智能选题</div>
+                            <div class="mt-0.5 text-xs text-slate-400">找热点、挖选题，AI 帮你筛出爆款潜力方向</div>
+                        </a>
+                        <a href="/studio/scroll" class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 text-left transition hover:border-brand-300 hover:bg-brand-50/50">
+                            <div class="mb-1 flex h-7 w-7 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">2</div>
+                            <div class="text-sm font-semibold text-slate-700">视频出片</div>
+                            <div class="mt-0.5 text-xs text-slate-400">选形式（漫剧/白板/数字人/动态画面/滚动卡）自动配音出片</div>
+                        </a>
+                        <a href="/studio/publish" class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 text-left transition hover:border-brand-300 hover:bg-brand-50/50">
+                            <div class="mb-1 flex h-7 w-7 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">3</div>
+                            <div class="text-sm font-semibold text-slate-700">发布推广</div>
+                            <div class="mt-0.5 text-xs text-slate-400">绑定渠道账号，一键发布或排期定时分发</div>
+                        </a>
+                    </div>
+                </div>
             @else
                 <div class="divide-y divide-slate-100">
                     @foreach($recentJobs as $job)
