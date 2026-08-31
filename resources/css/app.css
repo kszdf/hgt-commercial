@@ -59,6 +59,29 @@
 }
 
 /* ============================================
+   全局可读性提升（2026-08-31 用户反馈"字体吃力"）
+   统一放大常用字号：不逐页改 blade，用 CSS 覆盖全局生效。
+   ============================================ */
+html {
+    font-size: 16px;
+}
+/* Tailwind 常用字号档位整体上调一档（保持层级差）：
+   text-xs 12px→13.5px、text-sm 14px→15px、text-base 16px→16.5px */
+.text-xs { font-size: 0.84375rem !important; }   /* 13.5px */
+.text-sm { font-size: 0.9375rem !important; }    /* 15px */
+.text-base { font-size: 1.03125rem !important; } /* 16.5px */
+/* 组件层字号同步提升（表单标签/提示/输入/按钮/区块标题） */
+.studio-field-label { font-size: 14px; }
+.studio-field-hint { font-size: 12.5px; }
+.studio-input, input.studio-input, select.studio-input, textarea.studio-input { font-size: 15px; }
+.studio-btn { font-size: 15px; }
+.studio-section-title { font-size: 16px; }
+.studio-badge { font-size: 12px; }
+/* 工作台导航：主菜单 13px→14px、子菜单 12px→13px */
+.ws-nav-item, .ws-nav-active { font-size: 0.875rem; }
+.rewrite-sub .ws-nav-item, .rewrite-sub .ws-nav-active { font-size: 0.8125rem; }
+
+/* ============================================
    主题令牌层（多预设 + 租户 DIY 覆盖）
    默认（indigo 预设）与既有外观完全一致，零回归。
    [data-theme="..."] 覆盖品牌色与表面色；租户 DIY 通过
