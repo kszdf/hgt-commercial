@@ -76,9 +76,11 @@
                             class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                         <div class="mt-2 flex flex-wrap items-center gap-1.5">
                             <span class="text-[11px] text-slate-400">标题风格</span>
-                            <button type="button" data-style="smart" class="title-style-btn rounded-md border border-brand-300 bg-brand-50 px-2 py-0.5 text-[11px] text-brand-600">智能提取</button>
-                            <button type="button" data-style="full" class="title-style-btn rounded-md studio-badge studio-badge-brand">首句完整</button>
-                            <button type="button" data-style="suspense" class="title-style-btn rounded-md studio-badge studio-badge-brand">悬念式</button>
+                            <select id="titleStyle" class="title-style-sel rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] text-slate-600">
+                                <option value="smart">智能提取</option>
+                                <option value="full">首句完整</option>
+                                <option value="suspense">悬念式</option>
+                            </select>
                         </div>
                         <p id="titleHint" class="mt-1 hidden text-[11px] text-slate-400"></p>
                     </div>
@@ -303,7 +305,7 @@
                 <!-- 专家自然口吻（v4 定稿：语气词按语义适配 + 自动韵律，用户只需勾选这一项） -->
                 <label class="mt-2 flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs text-brand-700 cursor-pointer hover:bg-brand-100 transition">
                     <input type="checkbox" id="natural" class="accent-brand-500 rounded">
-                    🗣 专家自然口吻（女声专业发问 / 男声权威解答，自动匹配语气词与韵律起伏，去 AI 机械感；推荐勾选）
+                    🗣 专家自然口吻<span class="hint" data-tip="女声专业发问/男声权威解答，自动匹配语气词与韵律起伏，去 AI 机械感；推荐勾选。">?</span>
                 </label>
 
                 <!-- AI 动效（仅漫剧模式显示）：图生视频真动效，画面更惊艳；每幕约0.24元/秒，5幕约6元 -->
@@ -944,26 +946,20 @@ function autoSuggest() {
 // 用户手动编辑标题/副标题后，标记为已改，停止自动覆盖
 document.getElementById('title').addEventListener('input', () => { titleDirty = true; autoSuggest(); });
 document.getElementById('subtitle').addEventListener('input', () => { subtitleDirty = true; autoSuggest(); });
-// 标题风格分段控件：切换策略时，若未手动改过标题则按新风格重新生成
-document.querySelectorAll('.title-style-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        titleStyle = btn.dataset.style;
-        document.querySelectorAll('.title-style-btn').forEach(b => {
-            const on = b === btn;
-            b.className = 'title-style-btn rounded-md border px-2 py-0.5 text-[11px] ' +
-                (on ? 'border-brand-300 bg-brand-50 text-brand-600' : 'border-slate-200 bg-white text-slate-500');
-        });
-        // 切换风格时若已有手动/AI内容，先确认覆盖
-        const hasContent = document.getElementById('title').value.trim() || document.getElementById('subtitle').value.trim();
-        if ((titleDirty || subtitleDirty) && hasContent) {
-            if (!confirm('切换风格将按新风格重新生成标题/副标题并覆盖当前内容，是否继续？')) return;
-        }
-        titleDirty = false;
-        subtitleDirty = false;
-        autoSuggest();
-        const hint = document.getElementById('aiTitleHint');
-        if (hint) { hint.textContent = '已按「' + {smart:'智能提取', full:'首句完整', suspense:'悬念式'}[titleStyle] + '」风格生成本地建议，可点右侧按钮用 AI 重新生成'; hint.className = 'text-[11px] text-brand-600'; }
-    });
+// 标题风格下拉：切换策略时，若未手动改过标题则按新风格重新生成
+document.getElementById('titleStyle')?.addEventListener('change', function () {
+    const prev = titleStyle;
+    titleStyle = this.value;
+    // 切换风格时若已有手动/AI内容，先确认覆盖
+    const hasContent = document.getElementById('title').value.trim() || document.getElementById('subtitle').value.trim();
+    if ((titleDirty || subtitleDirty) && hasContent) {
+        if (!confirm('切换风格将按新风格重新生成标题/副标题并覆盖当前内容，是否继续？')) { this.value = prev; titleStyle = prev; return; }
+    }
+    titleDirty = false;
+    subtitleDirty = false;
+    autoSuggest();
+    const hint = document.getElementById('aiTitleHint');
+    if (hint) { hint.textContent = '已按「' + {smart:'智能提取', full:'首句完整', suspense:'悬念式'}[titleStyle] + '」风格生成本地建议，可点右侧按钮用 AI 重新生成'; hint.className = 'text-[11px] text-brand-600'; }
 });
 // 文稿变化时（去抖 300ms）自动生成建议
 document.getElementById('dialogue')?.addEventListener('input', () => {
