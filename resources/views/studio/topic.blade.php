@@ -28,7 +28,7 @@
                             <option value="个体户">个体户 / 小老板</option>
                         </optgroup>
                     </select>
-                    <p class="mt-1 text-xs text-slate-400">选择老板行业后，AI 将生成该行业的财税垂直选题（如「餐饮」→ 个人卡收款、员工社保）；不选则按通用财税方向推荐。</p>
+                    <p class="mt-1 text-xs text-slate-400">选择老板行业后，AI 将生成该行业的财税垂直选题（如「餐饮」→ 个人卡收款、员工社保），并自动联动下方财税热点子领域；不选则按通用财税方向推荐。</p>
                 </div>
 
                 <!-- 维度筛选（2x2 网格，移除目标平台） -->
@@ -141,7 +141,7 @@
                         </div>
                     </div>
                     <div class="flex flex-wrap gap-2" id="hsSubs"></div>
-                    <p id="hsSubHint" class="mt-1 text-xs text-slate-400">已选 <strong class="text-brand-600" id="hsSubCount">10</strong> 个子领域</p>
+                    <p id="hsSubHint" class="mt-1 text-xs text-slate-400">已选 <strong class="text-brand-600" id="hsSubCount">5</strong> 个子领域<span class="ml-1 text-slate-300">（默认精选核心项，可按需增选）</span></p>
                 </div>
 
                 <button type="submit" id="hsBtn" class="w-full rounded-lg bg-brand-500 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed">获取财税热点</button>
@@ -446,7 +446,10 @@ function renderTopics(topics) {
 })();
 
 // ===== 全网财税热点模块 =====
-const HS_SUBS = ['增值税','企业所得税','个人所得税','发票管理','税务稽查','金税四期','社保公积金','税收优惠政策','汇算清缴','跨境税收'];
+// 2026-08-31 对齐后端词表(HOTSPOT_SUBFIELD_SYNONYMS)：删掉金税四期/汇算清缴/跨境税收(后端不认)，
+// 补上税务合规/税务筹划/公转私(老板高频)；默认精选核心 5 项(少而准优于多而杂)
+const HS_SUBS = ['增值税','企业所得税','个人所得税','发票管理','税务稽查','税务合规','税务筹划','社保公积金','税收优惠','公转私'];
+const HS_SUBS_DEFAULT = ['增值税','企业所得税','个人所得税','发票管理','税务稽查'];  // 默认精选核心 5 项
 
 function updateHsSubHint() {
     const n = document.querySelectorAll('#hsSubs .hs-sub.active').length;
@@ -464,14 +467,16 @@ function setHsSubActive(b, active) {
     }
 }
 
-// 渲染子领域胶囊（默认全选）
+// 渲染子领域胶囊（默认精选核心 5 项，其余未选）
 (function () {
     const box = document.getElementById('hsSubs');
     if (!box) return;
     HS_SUBS.forEach(s => {
+        const isDefault = HS_SUBS_DEFAULT.includes(s);
         const b = document.createElement('button');
         b.type = 'button';
-        b.className = 'hs-sub active rounded-full border px-2.5 py-1 text-[11px] font-medium transition hover:opacity-80 active:scale-95 bg-brand-100 border-brand-300 text-brand-700';
+        b.className = 'hs-sub rounded-full border px-2.5 py-1 text-[11px] font-medium transition hover:opacity-80 active:scale-95 ' +
+            (isDefault ? 'active bg-brand-100 border-brand-300 text-brand-700' : 'bg-white border-slate-200 text-slate-600');
         b.dataset.sub = s;
         b.textContent = s;
         b.addEventListener('click', () => {
@@ -490,6 +495,29 @@ document.getElementById('hsSelectAll')?.addEventListener('click', () => {
 });
 document.getElementById('hsClearAll')?.addEventListener('click', () => {
     document.querySelectorAll('#hsSubs .hs-sub').forEach(b => setHsSubActive(b, false));
+    updateHsSubHint();
+});
+
+// 2026-08-31 行业联动：选老板行业后，自动高亮该行业高发的财税子领域
+const INDUSTRY_SUBS = {
+    '餐饮':       ['个人所得税', '发票管理', '税务稽查', '公转私'],
+    '电商直播':   ['增值税', '发票管理', '公转私', '税务稽查'],
+    '制造业':     ['增值税', '企业所得税', '发票管理', '税收优惠'],
+    '建筑劳务':   ['个人所得税', '社保公积金', '税务稽查', '发票管理'],
+    '贸易':       ['增值税', '企业所得税', '发票管理', '公转私'],
+    '物流':       ['增值税', '企业所得税', '发票管理', '税收优惠'],
+    '零售':       ['增值税', '发票管理', '个人所得税', '税务稽查'],
+    '医疗':       ['企业所得税', '税收优惠', '发票管理', '税务合规'],
+    '教育':       ['企业所得税', '税收优惠', '发票管理', '税务合规'],
+    '个体户':     ['个人所得税', '增值税', '发票管理', '税收优惠'],
+};
+document.getElementById('industry')?.addEventListener('change', function () {
+    const ind = this.value;
+    const subs = INDUSTRY_SUBS[ind];
+    if (!subs) return;  // 不限行业：保持现状
+    document.querySelectorAll('#hsSubs .hs-sub').forEach(b => {
+        setHsSubActive(b, subs.includes(b.dataset.sub));
+    });
     updateHsSubHint();
 });
 
