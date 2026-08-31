@@ -42,9 +42,9 @@
             </div>
 
             <form id="rwForm" class="space-y-4">
-                <!-- 改写模式 -->
+                <!-- 呈现形式（原"改写模式"，名实相符：选项就是出片形式） -->
                 <div>
-                    <label id="modeLabel" class="mb-1 block text-sm font-medium text-slate-600">改写模式</label>
+                    <label id="modeLabel" class="mb-1 block text-sm font-medium text-slate-600">呈现形式</label>
                     <select id="mode" name="mode"
                         class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                         <option value="avatar">单人数字人出镜</option>

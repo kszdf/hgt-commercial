@@ -165,10 +165,10 @@
                 <span id="statusBadge" class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500">待生成</span>
             </div>
 
-            <!-- Tab 切换：AI 选题建议 / 全网财税热点 -->
+            <!-- Tab 切换：AI 选题建议 / 热点选题结果 -->
             <div class="mb-3 flex gap-2" id="resultTabs">
                 <button type="button" id="tabTopic" class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white transition">AI 选题建议</button>
-                <button type="button" id="tabHotspot" class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-200">全网财税热点</button>
+                <button type="button" id="tabHotspot" class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-200">热点选题结果</button>
             </div>
 
             <div id="result" class="space-y-3">

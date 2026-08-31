@@ -1,4 +1,4 @@
-﻿<x-app-layout>
+<x-app-layout>
 <x-workspace-layout title="声音库" :breadcrumbs="[['label' => '工作台总览', 'url' => '/dashboard'], ['label' => '声音库']]">
 <div class="mx-auto max-w-5xl p-6">
         <p class="mt-0.5 text-sm text-slate-400">上传参考音频克隆专属音色，支持多个男声 / 女声，出片时可自由选择。克隆后的音色仅你本租户可用，并会原样保留你录音里的口音 / 方言——无需单独选方言。</p>
@@ -12,22 +12,24 @@
     @include('components.flash')
 
     <!-- 录音注意事项 -->
-    <section class="mb-4 rounded-xl border border-amber-200 bg-amber-50/70 p-5">
-        <h3 class="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-800">
-            <svg class="h-4 w-4 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-            录音注意事项（决定克隆音色是否清晰逼真，上传前务必浏览）
-        </h3>
-        <ul class="grid grid-cols-1 gap-x-6 gap-y-1.5 text-xs leading-relaxed text-amber-900 sm:grid-cols-2">
-            <li>· <b>环境</b>：安静无回声的室内，关闭空调/风扇等背景噪声</li>
-            <li>· <b>无配乐</b>：纯人声，不要带背景音乐或伴奏</li>
-            <li>· <b>单人</b>：画面/音轨中只有一位说话人，避免多人穿插</li>
-            <li>· <b>时长</b>：建议 10–30 秒，过短音色学不准，过长无意义</li>
-            <li>· <b>发音</b>：自然说话，咬字清晰，避免语速过快或含混</li>
-            <li>· <b>语调</b>：用你期望克隆的常态语调，避免刻意拿腔或念稿</li>
-            <li>· <b>授权</b>：仅克隆你本人或已获授权的声音，勿上传他人声音用于商用分发</li>
-            <li>· <b>方言</b>：克隆音色会原样保留你录音里的口音 / 方言，出片即该方言，平台不另设方言选项</li>
-            <li>· <b>格式</b>：wav / mp3 / m4a，单文件 ≤ 30MB</li>
-        </ul>
+    <section class="mb-4 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+        <details>
+            <summary class="flex cursor-pointer items-center gap-2 text-sm font-semibold text-amber-800">
+                <svg class="h-4 w-4 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                录音注意事项（决定克隆音色是否清晰逼真，可展开查看）
+            </summary>
+            <ul class="mt-2 grid grid-cols-1 gap-x-6 gap-y-1.5 text-xs leading-relaxed text-amber-900 sm:grid-cols-2">
+                <li>· <b>环境</b>：安静无回声的室内，关闭空调/风扇等背景噪声</li>
+                <li>· <b>无配乐</b>：纯人声，不要带背景音乐或伴奏</li>
+                <li>· <b>单人</b>：画面/音轨中只有一位说话人，避免多人穿插</li>
+                <li>· <b>时长</b>：建议 10–30 秒，过短音色学不准，过长无意义</li>
+                <li>· <b>发音</b>：自然说话，咬字清晰，避免语速过快或含混</li>
+                <li>· <b>语调</b>：用你期望克隆的常态语调，避免刻意拿腔或念稿</li>
+                <li>· <b>授权</b>：仅克隆你本人或已获授权的声音，勿上传他人声音用于商用分发</li>
+                <li>· <b>方言</b>：克隆音色会原样保留你录音里的口音 / 方言，出片即该方言，平台不另设方言选项</li>
+                <li>· <b>格式</b>：wav / mp3 / m4a，单文件 ≤ 30MB</li>
+            </ul>
+        </details>
     </section>
 
     <!-- 上传克隆 -->

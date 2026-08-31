@@ -4,6 +4,7 @@
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section class="luxury-glass p-5">
+            <h3 class="mb-3 text-sm font-semibold text-slate-700">文本质检<span class="hint" data-tip="对二创/口播稿做平台化违禁词与风险预检，出片前用。">?</span></h3>
             <form id="qcForm" class="space-y-4">
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-600">目标平台（可选，影响违禁词库）</label>
@@ -22,7 +23,7 @@
                 </div>
                 <button type="submit" id="genBtn"
                     class="w-full rounded-lg bg-brand-500 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                    开始质检
+                    文本质检
                 </button>
                 <p id="formMsg" class="text-sm text-red-500"></p>
             </form>
@@ -42,7 +43,7 @@
 
     <section class="luxury-glass mt-4 p-5">
         <div class="mb-3 flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-slate-700">对已完成出片做技术质检<span class="hint" data-tip="渲染完成的视频可手动运行技术质检（音轨/画幅/时长），结果记入质检报告。">?</span></h3>
+            <h3 class="text-sm font-semibold text-slate-700">视频技术质检<span class="hint" data-tip="对已完成渲染的视频做音轨/画幅/时长检测，结果记入质检报告。">?</span></h3>
         </div>
         <div id="jobList" class="space-y-2">
             @forelse($jobs as $j)

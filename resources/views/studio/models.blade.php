@@ -1,4 +1,4 @@
-﻿<x-app-layout>
+<x-app-layout>
 <x-workspace-layout title="数字人模特" :breadcrumbs="[['label' => '工作台总览', 'url' => '/dashboard'], ['label' => '数字人模特']]">
 <div class="mx-auto max-w-5xl p-6">
         <p class="mt-0.5 text-sm text-slate-400">上传不同场景的专属数字人驱动视频。系统自动转码静音化 + 竖屏/时长质检，通过后方可用于出片。</p>
@@ -12,22 +12,24 @@
 
     <!-- 拍摄注意事项（克隆质量的关键） -->
     <section class="mb-4 rounded-xl border border-amber-200 bg-amber-50/70 p-5">
-        <h3 class="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-800">
-            <svg class="h-4 w-4 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-            拍摄注意事项（决定克隆效果，上传前务必浏览）
-        </h3>
-        <ul class="grid grid-cols-1 gap-x-6 gap-y-1.5 text-xs leading-relaxed text-amber-900 sm:grid-cols-2">
-            <li>· <b>时长</b>：建议 5–30 秒，过短唇形学习不足，过长渲染更慢</li>
-            <li>· <b>画幅</b>：优先竖屏 9:16（1080×1920），横屏出片会被裁切</li>
-            <li>· <b>光线</b>：正面均匀打光，避免阴阳脸、强逆光、灯光频闪</li>
-            <li>· <b>角度</b>：正脸平视镜头，头部小幅自然转动可接受</li>
-            <li>· <b>人物</b>：单人出镜，画面中只有一位主角，背景尽量简洁</li>
-            <li>· <b>稳定</b>：固定机位或用支架，避免大幅晃动、快速走动</li>
-            <li>· <b>遮挡</b>：避免口罩、墨镜、手部长时间遮挡面部</li>
-            <li>· <b>表情</b>：自然放松，避免夸张肢体动作与快速转头</li>
-            <li>· <b>原声</b>：原片需含人声（用于唇形参考），出片时会替换为克隆配音</li>
-            <li>· <b>格式</b>：mp4 / mov / webm，单文件 ≤ 200MB</li>
-        </ul>
+        <details class="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <summary class="flex cursor-pointer items-center gap-2 text-sm font-semibold text-amber-800">
+                <svg class="h-4 w-4 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                拍摄注意事项（决定克隆效果，上传前可展开查看）
+            </summary>
+            <ul class="mt-2 grid grid-cols-1 gap-x-6 gap-y-1.5 text-xs leading-relaxed text-amber-900 sm:grid-cols-2">
+                <li>· <b>时长</b>：建议 5–30 秒，过短唇形学习不足，过长渲染更慢</li>
+                <li>· <b>画幅</b>：优先竖屏 9:16（1080×1920），横屏出片会被裁切</li>
+                <li>· <b>光线</b>：正面均匀打光，避免阴阳脸、强逆光、灯光频闪</li>
+                <li>· <b>角度</b>：正脸平视镜头，头部小幅自然转动可接受</li>
+                <li>· <b>人物</b>：单人出镜，画面中只有一位主角，背景尽量简洁</li>
+                <li>· <b>稳定</b>：固定机位或用支架，避免大幅晃动、快速走动</li>
+                <li>· <b>遮挡</b>：避免口罩、墨镜、手部长时间遮挡面部</li>
+                <li>· <b>表情</b>：自然放松，避免夸张肢体动作与快速转头</li>
+                <li>· <b>原声</b>：原片需含人声（用于唇形参考），出片时会替换为克隆配音</li>
+                <li>· <b>格式</b>：mp4 / mov / webm，单文件 ≤ 200MB</li>
+            </ul>
+        </details>
     </section>
 
     <section class="luxury-glass p-5">

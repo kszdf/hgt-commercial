@@ -19,9 +19,9 @@
         <button type="button" data-form="female_mono" class="form-btn rounded-lg px-3 py-2 text-sm font-medium transition" onclick="selectForm('female_mono')">女声</button>
         <button type="button" data-form="dialogue" class="form-btn rounded-lg px-3 py-2 text-sm font-medium transition" onclick="selectForm('dialogue')">男女对话</button>
     </div>
-    <!-- 幕后音·动态画面：包装主题 -->
+    <!-- 幕后音·动态画面：画面主题 -->
     <div class="mb-4 flex flex-wrap items-center gap-2" id="motionStyleWrap">
-        <span class="text-xs text-slate-400">幕后音·动态画面包装主题：</span>
+        <span class="text-xs text-slate-400">画面主题：</span>
         <select id="motion_style" name="motion_style" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600">
             <option value="财经严谨">财经严谨（深色专业·金点缀）</option>
             <option value="带货活力">带货活力</option>
@@ -36,9 +36,9 @@
         <button type="button" data-preset="male_mono" class="preset-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300" onclick="applyPreset('male_mono')">男声·幕后音</button>
     </div>
 
-    <!-- 成片包装（数字人出镜 / 幕后音·动态画面 均适用：二次剪辑 = 片尾留资卡 + 轻BGM + 转场） -->
+    <!-- 二次剪辑（数字人出镜 / 幕后音·动态画面 均适用：片尾留资卡 + 轻BGM + 转场） -->
     <div class="mb-4 flex flex-wrap items-center gap-2" id="editStyleWrap">
-        <span class="text-xs text-slate-400">成片包装：</span>
+        <span class="text-xs text-slate-400">二次剪辑：</span>
         <select id="edit_style" name="edit_style" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600">
             <option value="fast">快节奏卡点（推荐：片尾留资卡 + 轻BGM + 转场）</option>
             <option value="">标准（不二次剪辑）</option>
@@ -316,7 +316,7 @@
                 <p id="durationHint" class="mt-2 text-xs text-slate-400"></p>
                 <p id="queueHint" class="mt-2 text-xs text-slate-400"></p>
                 <p class="flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                    <span>⏱</span><span>真实配音约需 <b>1–5 分钟</b>（视内容长度与并发而定）。提交后可在其他页面继续操作，完成后回来查看进度。</span>
+                    <span>⏱</span><span>出片约需 <b>5–15 分钟</b>（AI 动效/数字人更久）。提交后可在其他页面继续操作，完成后回来查看。</span>
                 </p>
                 <button type="button" id="genBtn" onclick="handleGenerate(event)"
                     class="w-full rounded-lg bg-brand-500 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed">

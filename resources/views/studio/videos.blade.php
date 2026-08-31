@@ -84,7 +84,7 @@
                                 <a href="/studio/scroll?src=clone&job_id={{ $job->id }}" title="复用此条的文稿与形式去出片"
                                    class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">{{ $job->status === 'failed' ? '↻ 重新出片' : '↻ 复刻' }}</a>
                                 <button type="button" class="pack-btn rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs text-amber-600 hover:bg-amber-50"
-                                        data-job="{{ $job->job_id }}" title="生成发布标题+副标题+高级感封面">✨ 包装</button>
+                                        data-job="{{ $job->job_id }}" title="生成发布标题+副标题+高级感封面">✨ AI 包装</button>
                             @endif
                             <form action="{{ route('studio.videos.hit', $job) }}" method="POST">
                                 @csrf
@@ -112,7 +112,7 @@
 <div id="packModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
     <div class="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl">
         <div class="mb-3 flex items-center justify-between">
-            <p class="text-sm font-semibold text-slate-700">✨ 发布包装（标题 + 封面）</p>
+            <p class="text-sm font-semibold text-slate-700">✨ AI 包装（标题 + 封面）</p>
             <button type="button" onclick="document.getElementById('packModal').classList.add('hidden')" class="rounded-md px-2 py-1 text-slate-400 hover:bg-slate-100">✕</button>
         </div>
         <div id="packLoading" class="py-8 text-center text-sm text-slate-500">⏳ 正在生成标题与封面（智能选帧中）…</div>
