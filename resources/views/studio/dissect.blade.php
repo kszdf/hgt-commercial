@@ -287,7 +287,7 @@ function renderResult(data) {
     html += '<div class="luxury-glass flex flex-wrap gap-2 p-4">'
         + '<button onclick="goRewrite()" class="zw-btn rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">去二创</button>'
         + '<button onclick="goScroll()" class="zw-btn rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">直接出片</button>'
-        + '<button onclick="goScrollWith(\'scroll_female\',\'jiang\')" class="zw-btn rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700">江老师·女声出片</button>'
+        + '<button onclick="goScrollWith(\'scroll_female\')" class="zw-btn rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700">女声出片</button>'
         + '</div>';
 
     area.innerHTML = html;
