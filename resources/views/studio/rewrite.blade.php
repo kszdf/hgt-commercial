@@ -55,6 +55,7 @@
                         <option value="whiteboard">✍️ AI 白板图解</option>
                     </select>
                     <p class="mt-1 text-xs text-slate-400">模式已按选题页所选「呈现形式」自动匹配，可手动微调。</p>
+                    <p id="modeHint" class="mt-1 text-xs text-brand-600"></p>
                     <label id="forceUnifiedWrap" class="mt-2 hidden flex cursor-pointer items-center gap-2 text-xs text-slate-500">
                         <input type="checkbox" id="forceUnified" class="accent-brand-500 rounded">
                         强制统一形式（忽略选题自带的呈现形式，全部用上方所选）
@@ -335,6 +336,8 @@ function getFormLabel(form) {
         'scroll_male': '男声幕后音·动态画面',
         'scroll_female': '女声幕后音·动态画面',
         'scroll_dual': '男女对话幕后音·动态画面',
+        'manga': 'AI 漫剧',
+        'whiteboard': 'AI 白板图解',
         '单声口播': '单声',
         '幕后音口播_单人': '单声',
         '幕后音口播_双人': '双声'
@@ -611,10 +614,19 @@ const roleNote = document.getElementById('roleNote');
             const rm = document.getElementById('roleMode');
             if (!rm) return;
             const d = this.value;
-            if (d === 'scroll_female') rm.value = 'single_female';
-            else if (d === 'scroll_male') rm.value = 'single_male';
-            else if (d === 'scroll_dual') rm.value = 'dual_male_lead';
-            else rm.value = 'single_male'; // avatar 默认男声独白
+            if (d === 'manga' || d === 'whiteboard') {
+                // 2026-08-31: 漫剧/白板走「内容规整」，无角色声线分配
+                rm.value = 'single_male';
+                const hint = document.getElementById('modeHint');
+                if (hint) hint.textContent = 'AI 漫剧 / 白板图解：改写为「内容规整稿」（保留事件/数据/要点），供分镜或提炼直接使用';
+            } else {
+                const hint = document.getElementById('modeHint');
+                if (hint) hint.textContent = '';
+                if (d === 'scroll_female') rm.value = 'single_female';
+                else if (d === 'scroll_male') rm.value = 'single_male';
+                else if (d === 'scroll_dual') rm.value = 'dual_male_lead';
+                else rm.value = 'single_male'; // avatar 默认男声独白
+            }
             rm.dispatchEvent(new Event('change'));
         });
     }
@@ -704,10 +716,13 @@ document.getElementById('rwForm').addEventListener('submit', async function (e) 
     await runSingleRewrite();
 });
 
-// 呈现形式 → 后端改写模式（后端只认 single/dual/script）
+// 呈现形式 → 后端改写模式（后端只认 single/dual/script/content）
 function mapDisplayModeToRewriteMode(displayMode) {
     if (displayMode === 'scroll_dual') return 'dual';
-    return 'single'; // avatar / scroll_male / scroll_female / manga / whiteboard / script 都按单人稿改写
+    // 2026-08-31: AI 漫剧/白板图解走「内容规整」模式（产出内容稿供下游分镜/提炼），
+    // 而非口播稿（口播稿喂给漫剧会被 classify 判为法条类拒单或语义错配）
+    if (displayMode === 'manga' || displayMode === 'whiteboard') return 'content';
+    return 'single'; // avatar / scroll_male / scroll_female / script 都按单人稿改写
 }
 
 async function callRewrite({mode, text, focus, target_duration, preserve, role_mode, role_note, keep_manual_roles, signal}) {

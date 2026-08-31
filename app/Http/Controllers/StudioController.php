@@ -192,7 +192,7 @@ class StudioController extends Controller
     {
         $data = $request->validate([
             'text'              => ['required', 'string'],
-            'mode'              => ['sometimes', 'in:single,dual,script'],
+            'mode'              => ['sometimes', 'in:single,dual,script,content'],
             'focus'             => ['nullable', 'string', 'max:100'],
             'target_duration'   => ['nullable', 'integer', 'min:10', 'max:600'],
             'preserve'          => ['nullable', 'string', 'max:500'],

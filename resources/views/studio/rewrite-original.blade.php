@@ -24,6 +24,7 @@
                         <option value="whiteboard">✍️ AI 白板图解</option>
                     </select>
                     <p class="mt-1 text-xs text-slate-400">选择与后续出片一致的声音/出镜形式，避免前后矛盾。</p>
+                    <p id="modeHint" class="mt-1 text-xs text-brand-600"></p>
                 </div>
 
                 <!-- 角色与声音分配 -->
@@ -280,10 +281,19 @@ if (modeSelO) {
         const rm = document.getElementById('roleMode');
         if (!rm) return;
         const d = this.value;
-        if (d === 'scroll_female') rm.value = 'single_female';
-        else if (d === 'scroll_male') rm.value = 'single_male';
-        else if (d === 'scroll_dual') rm.value = 'dual_male_lead';
-        else rm.value = 'single_male';
+        if (d === 'manga' || d === 'whiteboard') {
+            // 2026-08-31: 漫剧/白板走「内容规整」，无角色声线分配
+            rm.value = 'single_male';
+            const hint = document.getElementById('modeHint');
+            if (hint) hint.textContent = 'AI 漫剧 / 白板图解：改写为「内容规整稿」（保留事件/数据/要点），供分镜或提炼直接使用';
+        } else {
+            const hint = document.getElementById('modeHint');
+            if (hint) hint.textContent = '';
+            if (d === 'scroll_female') rm.value = 'single_female';
+            else if (d === 'scroll_male') rm.value = 'single_male';
+            else if (d === 'scroll_dual') rm.value = 'dual_male_lead';
+            else rm.value = 'single_male';
+        }
         rm.dispatchEvent(new Event('change'));
     });
 }
@@ -329,10 +339,12 @@ document.getElementById('rwForm').addEventListener('submit', async function (e) 
     await runSingleRewrite();
 });
 
-// 呈现形式 → 后端改写模式（后端只认 single/dual/script）
+// 呈现形式 → 后端改写模式（后端只认 single/dual/script/content）
 function mapDisplayModeToRewriteMode(displayMode) {
     if (displayMode === 'scroll_dual') return 'dual';
-    return 'single'; // avatar / scroll_male / scroll_female / manga / whiteboard / script 都按单人稿改写
+    // 2026-08-31: AI 漫剧/白板图解走「内容规整」模式（产出内容稿供下游分镜/提炼）
+    if (displayMode === 'manga' || displayMode === 'whiteboard') return 'content';
+    return 'single'; // avatar / scroll_male / scroll_female / script 都按单人稿改写
 }
 
 async function callRewrite({mode, text, focus, target_duration, preserve, role_mode, role_note, keep_manual_roles, signal}) {
