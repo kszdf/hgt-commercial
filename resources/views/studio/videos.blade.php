@@ -73,12 +73,12 @@
                             </span>
                         </div>
 
-                        <div class="mt-auto flex items-end gap-2 pt-3">
+                        <div class="mt-auto flex flex-wrap items-end gap-2 pt-3">
                             @if($job->isRendered() && $job->isPendingReview())
-                                <a href="/studio/review" class="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700">去审核</a>
+                                <a href="/studio/review" class="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700">🎯 去审核</a>
                             @endif
                             @if($job->canPublish())
-                                <a href="/studio/publish" class="rounded-lg border border-brand-300 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-50">去发布</a>
+                                <a href="/studio/publish" class="rounded-lg border border-brand-300 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-50">📤 去发布</a>
                             @endif
                             @if(($job->isRendered() || $job->status === 'failed') && $job->dialogue)
                                 <a href="/studio/scroll?src=clone&job_id={{ $job->id }}" title="复用此条的文稿与形式去出片"
@@ -93,7 +93,7 @@
                             </form>
                             <form action="{{ route('studio.videos.destroy', $job) }}" method="POST" class="ml-auto">
                                 @csrf @method('DELETE')
-                                <button type="button" onclick="hgtDel(this)" data-msg="确定删除该视频？将移入回收站，可在回收站恢复。" class="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs text-red-600 hover:bg-red-50">删除</button>
+                                <button type="button" onclick="hgtDel(this)" data-msg="确定删除该视频？将移入回收站，可在回收站恢复。" class="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs text-red-600 hover:bg-red-50">🗑 删除</button>
                             </form>
                         </div>
                     </div>
