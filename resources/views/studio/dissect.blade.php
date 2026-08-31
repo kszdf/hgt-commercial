@@ -91,6 +91,7 @@
                             <option value="scroll_male">男声幕后音·动态画面</option>
                             <option value="scroll_female">女声幕后音·动态画面</option>
                             <option value="scroll_dual">男女对话幕后音·动态画面</option>
+                            <option value="scroll">📋 幕后音·滚动字幕</option>
                             <option value="manga">📖 AI 漫剧</option>
                             <option value="whiteboard">✍️ AI 白板图解</option>
                         </select>

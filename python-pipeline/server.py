@@ -247,7 +247,7 @@ HOTSPOT_PROMPT = """你是一位资深的财税短视频选题策划，服务对
     {
       "name": "创作角度名称（如：老板视角/案例警示/政策解读）",
       "suggestion": "针对该角度的具体拍摄建议（1-2句，写清钩子与核心信息）",
-      "form": "呈现形式，取值必须为以下之一：avatar(单人数字人出镜) / scroll_male(男声幕后音) / scroll_female(女声幕后音) / scroll_dual(男女对话幕后音)"
+      "form": "呈现形式，取值必须为以下之一：avatar(单人数字人出镜) / scroll_male(男声幕后音·动态画面) / scroll_female(女声幕后音·动态画面) / scroll_dual(男女对话幕后音·动态画面) / scroll(幕后音·滚动字幕)"
     }
   ]
 }
@@ -486,7 +486,7 @@ def ai_hotspot(days, subfields):
             if not isinstance(a, dict):
                 continue
             f = a.get("form") or ""
-            if f not in ("avatar", "scroll_male", "scroll_female", "scroll_dual"):
+            if f not in ("avatar", "scroll_male", "scroll_female", "scroll_dual", "scroll"):
                 f = "scroll_male"
             angles.append({
                 "name": str(a.get("name") or ""),

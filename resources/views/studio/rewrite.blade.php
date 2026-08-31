@@ -51,6 +51,7 @@
                         <option value="scroll_male">男声幕后音·动态画面</option>
                         <option value="scroll_female">女声幕后音·动态画面</option>
                         <option value="scroll_dual">男女对话幕后音·动态画面</option>
+                        <option value="scroll">📋 幕后音·滚动字幕</option>
                         <option value="manga">📖 AI 漫剧</option>
                         <option value="whiteboard">✍️ AI 白板图解</option>
                     </select>
@@ -276,11 +277,11 @@ function updateCharCount() {
     document.getElementById('charCounter').textContent = chars + ' 字 · 预计 ' + fmt;
 }
 function mapTopicFormToMode(form) {
-    // 选题页 form 值 → 二创页 mode 值（统一 6 种呈现形式，2026-08-31 补 manga/whiteboard）
+    // 选题页 form 值 → 二创页 mode 值（统一 7 种呈现形式，2026-08-31 补 scroll 滚动字幕）
     if (!form) return 'avatar';
     const f = String(form).trim();
-    // 6 值直接透传
-    if (['avatar','scroll_male','scroll_female','scroll_dual','manga','whiteboard'].includes(f)) return f;
+    // 7 值直接透传
+    if (['avatar','scroll_male','scroll_female','scroll_dual','scroll','manga','whiteboard'].includes(f)) return f;
     // 兼容旧值/Topic API 返回值（2026-08-28 修复：幕后音口播_单人 曾误映射为数字人 avatar）
     if (f === '单声口播' || f === '单人口播' || f === 'script') return 'avatar';
     if (f === '幕后音口播_单人') return 'scroll_male';
@@ -289,7 +290,7 @@ function mapTopicFormToMode(form) {
 }
 function setModeSelect(value) {
     const sel = document.getElementById('mode');
-    if (sel && ['avatar','scroll_male','scroll_female','scroll_dual','manga','whiteboard'].includes(value)) sel.value = value;
+    if (sel && ['avatar','scroll_male','scroll_female','scroll_dual','scroll','manga','whiteboard'].includes(value)) sel.value = value;
 }
 function showSourceBanner(type, count, sourceUrl) {
     const banner = document.getElementById('sourceBanner');
@@ -336,6 +337,7 @@ function getFormLabel(form) {
         'scroll_male': '男声幕后音·动态画面',
         'scroll_female': '女声幕后音·动态画面',
         'scroll_dual': '男女对话幕后音·动态画面',
+        'scroll': '幕后音·滚动字幕',
         'manga': 'AI 漫剧',
         'whiteboard': 'AI 白板图解',
         '单声口播': '单声',
@@ -623,7 +625,7 @@ const roleNote = document.getElementById('roleNote');
                 const hint = document.getElementById('modeHint');
                 if (hint) hint.textContent = '';
                 if (d === 'scroll_female') rm.value = 'single_female';
-                else if (d === 'scroll_male') rm.value = 'single_male';
+                else if (d === 'scroll_male' || d === 'scroll') rm.value = 'single_male';
                 else if (d === 'scroll_dual') rm.value = 'dual_male_lead';
                 else rm.value = 'single_male'; // avatar 默认男声独白
             }
@@ -722,7 +724,7 @@ function mapDisplayModeToRewriteMode(displayMode) {
     // 2026-08-31: AI 漫剧/白板图解走「内容规整」模式（产出内容稿供下游分镜/提炼），
     // 而非口播稿（口播稿喂给漫剧会被 classify 判为法条类拒单或语义错配）
     if (displayMode === 'manga' || displayMode === 'whiteboard') return 'content';
-    return 'single'; // avatar / scroll_male / scroll_female / script 都按单人稿改写
+    return 'single'; // avatar / scroll_male / scroll_female / scroll / script 都按单人稿改写
 }
 
 async function callRewrite({mode, text, focus, target_duration, preserve, role_mode, role_note, keep_manual_roles, signal}) {

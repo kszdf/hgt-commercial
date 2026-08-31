@@ -11,6 +11,7 @@
         <button type="button" data-form="male_mono" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('male_mono')">男声幕后音·动态画面</button>
         <button type="button" data-form="female_mono" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('female_mono')">女声幕后音·动态画面</button>
         <button type="button" data-form="dialogue" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('dialogue')">男女对话幕后音·动态画面</button>
+        <button type="button" data-form="scroll" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('scroll')">📋 幕后音·滚动字幕</button>
         <button type="button" data-form="manga" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('manga')">📖 AI 漫剧</button>
         <button type="button" data-form="whiteboard" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('whiteboard')">✍️ AI 白板图解</button>
     </div>
@@ -474,6 +475,7 @@ function setBtnLoading(isLoading, text) {
             'scroll_male':   { mode: 'motion', voiceForm: 'male_mono',   label: '男声幕后音·动态画面' },
             'scroll_female': { mode: 'motion', voiceForm: 'female_mono', label: '女声幕后音·动态画面' },
             'scroll_dual':   { mode: 'motion', voiceForm: 'dialogue',    label: '男女对话幕后音·动态画面' },
+            'scroll':        { mode: 'scroll', voiceForm: 'male_mono',   label: '幕后音·滚动字幕' },
             'manga':         { mode: 'manga', voiceForm: null,           label: 'AI 漫剧' },
             'whiteboard':    { mode: 'whiteboard', voiceForm: null,      label: 'AI 白板图解' }
         };
@@ -577,8 +579,8 @@ function setMode(m) {
     currentMode = m;
     highlightForm();
 
-    // 模特区域切换
-    document.getElementById('modelHint').classList.toggle('hidden', m !== 'scroll');
+    // 模特区域切换：仅数字人(avatar)需要选模特，其余形式显示"无需模特"提示
+    document.getElementById('modelHint').classList.toggle('hidden', m === 'avatar');
     document.getElementById('modelSelectWrap').classList.toggle('hidden', m !== 'avatar');
     // 声线形式控件：仅滚动字幕模式显示；数字人/漫剧模式隐藏
     document.getElementById('voiceFormWrap').classList.toggle('hidden', m !== 'scroll');
@@ -632,12 +634,13 @@ function setMode(m) {
     }
 }
 
-// 出片形式快捷按钮组：数字人出镜 / 男声幕后·动态画面 / 女声幕后·动态画面 / 男女对话·动态画面
+// 出片形式快捷按钮组：数字人出镜 / 男声幕后·动态画面 / 女声幕后·动态画面 / 男女对话·动态画面 / 滚动字幕 / 漫剧 / 白板
 const FORM_MAP = {
     avatar:      { mode: 'avatar', vf: null },
     male_mono:   { mode: 'motion', vf: 'male_mono' },
     female_mono: { mode: 'motion', vf: 'female_mono' },
     dialogue:    { mode: 'motion', vf: 'dialogue' },
+    scroll:      { mode: 'scroll', vf: 'male_mono' },
     manga:       { mode: 'manga', vf: null },
     whiteboard:  { mode: 'whiteboard', vf: null },
 };
@@ -654,7 +657,8 @@ function highlightForm() {
         const active = (f === 'avatar' && currentMode === 'avatar') ||
                        (f === 'manga' && currentMode === 'manga') ||
                        (f === 'whiteboard' && currentMode === 'whiteboard') ||
-                       (f !== 'avatar' && f !== 'manga' && f !== 'whiteboard' && currentMode === 'motion' && voiceForm === f);
+                       (f === 'scroll' && currentMode === 'scroll') ||
+                       (f !== 'avatar' && f !== 'manga' && f !== 'whiteboard' && f !== 'scroll' && currentMode === 'motion' && voiceForm === f);
         b.className = 'form-btn rounded-lg px-4 py-2 text-sm font-medium transition ' +
             (active ? 'border border-brand-500 bg-brand-50 text-brand-700'
                     : 'border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700');
