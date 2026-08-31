@@ -5,15 +5,19 @@
 /* 出片进度：渲染是黑盒子进程，无实时百分比，流动条样式(.hgt-indet)已定义在全局 workspace-layout */
 </style>
 
-    <!-- 出片形式快捷切换 -->
-    <div class="mb-4 flex flex-wrap gap-2">
-        <button type="button" data-form="avatar" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('avatar')">数字人出镜（真人形象）</button>
-        <button type="button" data-form="male_mono" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('male_mono')">男声幕后音·动态画面</button>
-        <button type="button" data-form="female_mono" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('female_mono')">女声幕后音·动态画面</button>
-        <button type="button" data-form="dialogue" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('dialogue')">男女对话幕后音·动态画面</button>
+    <!-- 出片形式快捷切换：按形式分组（核心形式 + 动态画面声线细项） -->
+    <div class="mb-4 flex flex-wrap items-center gap-2">
+        <span class="text-xs text-slate-400">出片形式：</span>
+        <button type="button" data-form="avatar" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('avatar')">🎭 数字人出镜</button>
+        <button type="button" data-form="motion" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('motion')">🎬 幕后音·动态画面</button>
         <button type="button" data-form="scroll" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('scroll')">📋 幕后音·滚动字幕</button>
         <button type="button" data-form="manga" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('manga')">📖 AI 漫剧</button>
         <button type="button" data-form="whiteboard" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('whiteboard')">✍️ AI 白板图解</button>
+        <span class="mx-1 h-4 w-px bg-slate-200"></span>
+        <span class="text-xs text-slate-400">动态画面声线：</span>
+        <button type="button" data-form="male_mono" class="form-btn rounded-lg px-3 py-2 text-sm font-medium transition" onclick="selectForm('male_mono')">男声</button>
+        <button type="button" data-form="female_mono" class="form-btn rounded-lg px-3 py-2 text-sm font-medium transition" onclick="selectForm('female_mono')">女声</button>
+        <button type="button" data-form="dialogue" class="form-btn rounded-lg px-3 py-2 text-sm font-medium transition" onclick="selectForm('dialogue')">男女对话</button>
     </div>
     <!-- 幕后音·动态画面：包装主题 -->
     <div class="mb-4 flex flex-wrap items-center gap-2" id="motionStyleWrap">
@@ -132,14 +136,14 @@
 
                 <!-- 声线形式（仅滚动字幕模式显示；数字人模式为单人独白，此控件隐藏） -->
                 <div id="voiceFormWrap" class="hidden rounded-lg border border-brand-200 bg-brand-50/60 p-3.5">
-                    <label class="mb-1.5 block text-sm font-medium text-slate-600">声线形式</label>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-600">声线形式<span class="hint" data-tip="男女对话：每行以「女：」「男：」开头，分别用女声/男声；单人独白请在下方选单一声线。">?</span></label>
                     <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="声线形式">
                         <button type="button" data-form="dialogue" class="voice-form-btn rounded-lg border border-brand-400 bg-brand-500 px-3 py-1.5 text-xs font-medium text-white">男女对话</button>
                         <button type="button" data-form="male_mono" class="voice-form-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300">男声独白</button>
                         <button type="button" data-form="female_mono" class="voice-form-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300">女声独白</button>
                         <button type="button" data-form="mono" class="voice-form-btn rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300">单声线</button>
                     </div>
-                    <p id="voiceFormHint" class="mt-1.5 text-xs text-slate-400">男女对话：每行以「女：」「男：」开头，分别用女声/男声；单人独白请在下方选单一声线。</p>
+                    <p id="voiceFormHint" class="mt-1.5 text-xs text-slate-400"></p>
                 </div>
 
                 <!-- 声音选择 -->
@@ -636,15 +640,16 @@ function setMode(m) {
     }
 }
 
-// 出片形式快捷按钮组：数字人出镜 / 男声幕后·动态画面 / 女声幕后·动态画面 / 男女对话·动态画面 / 滚动字幕 / 漫剧 / 白板
+// 出片形式快捷按钮组：核心形式 + 动态画面声线细项
 const FORM_MAP = {
     avatar:      { mode: 'avatar', vf: null },
-    male_mono:   { mode: 'motion', vf: 'male_mono' },
-    female_mono: { mode: 'motion', vf: 'female_mono' },
-    dialogue:    { mode: 'motion', vf: 'dialogue' },
+    motion:      { mode: 'motion', vf: null },
     scroll:      { mode: 'scroll', vf: 'male_mono' },
     manga:       { mode: 'manga', vf: null },
     whiteboard:  { mode: 'whiteboard', vf: null },
+    male_mono:   { mode: 'motion', vf: 'male_mono' },
+    female_mono: { mode: 'motion', vf: 'female_mono' },
+    dialogue:    { mode: 'motion', vf: 'dialogue' },
 };
 function selectForm(form) {
     const cfg = FORM_MAP[form];
@@ -656,11 +661,14 @@ function selectForm(form) {
 function highlightForm() {
     document.querySelectorAll('.form-btn').forEach(b => {
         const f = b.dataset.form;
-        const active = (f === 'avatar' && currentMode === 'avatar') ||
-                       (f === 'manga' && currentMode === 'manga') ||
-                       (f === 'whiteboard' && currentMode === 'whiteboard') ||
-                       (f === 'scroll' && currentMode === 'scroll') ||
-                       (f !== 'avatar' && f !== 'manga' && f !== 'whiteboard' && f !== 'scroll' && currentMode === 'motion' && voiceForm === f);
+        const isMotion = currentMode === 'motion';
+        let active = false;
+        if (f === 'avatar') active = currentMode === 'avatar';
+        else if (f === 'motion') active = isMotion;                          // 动态画面大按钮：模式高亮
+        else if (f === 'manga') active = currentMode === 'manga';
+        else if (f === 'whiteboard') active = currentMode === 'whiteboard';
+        else if (f === 'scroll') active = currentMode === 'scroll';
+        else if (f === 'male_mono' || f === 'female_mono' || f === 'dialogue') active = isMotion && voiceForm === f;  // 声线细项
         b.className = 'form-btn rounded-lg px-4 py-2 text-sm font-medium transition ' +
             (active ? 'border border-brand-500 bg-brand-50 text-brand-700'
                     : 'border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700');

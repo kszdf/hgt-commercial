@@ -539,6 +539,76 @@
     70%  { transform: scale(1.18); opacity: 0; }
     100% { transform: scale(1.18); opacity: 0; }
 }
+
+/* ===== 悬浮说明(tooltip)：点到才显示，不占版面（2026-08-31 全局说明改悬浮） =====
+   用法：<span class="hint" data-tip="说明文字">?</span>
+   纯 CSS 实现，hover/focus 显示，无 JS 依赖。 */
+.hint {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px; height: 15px;
+    margin-left: 5px;
+    border-radius: 9999px;
+    background: var(--color-brand-100, #e0e7ff);
+    color: var(--color-brand-700, #6d5cff);
+    font-size: 10.5px; font-weight: 700;
+    cursor: help;
+    vertical-align: middle;
+    flex: none;
+}
+.hint::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%) translateY(-2px);
+    width: max-content;
+    max-width: 260px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #1e293b;
+    color: #f8fafc;
+    font-size: 12.5px;
+    font-weight: 400;
+    line-height: 1.55;
+    text-align: left;
+    white-space: normal;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .14s ease, transform .14s ease;
+    z-index: 95;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .18);
+}
+.hint::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 2px);
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #1e293b;
+    opacity: 0;
+    transition: opacity .14s ease;
+    z-index: 95;
+}
+.hint:hover::after,
+.hint:focus::after,
+.hint:focus-visible::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+.hint:hover::before,
+.hint:focus::before,
+.hint:focus-visible::before {
+    opacity: 1;
+}
+/* 触屏适配：tap 显示 */
+.hint:active::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+.hint:active::before { opacity: 1; }
+
+/* 表单旁的内联说明已移除时，用 hint 替代的过渡类（无额外样式） */
 </style>
 
 <script>
