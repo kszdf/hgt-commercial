@@ -64,18 +64,14 @@
                 <!-- 角色与声音分配 -->
                 <div class="rounded-lg studio-card studio-card-sm">
                     <label class="mb-1.5 block text-sm font-medium text-slate-600">
-                        角色与声音
-                        <span class="font-normal text-slate-400">（按呈现形式自动分声线）</span>
+                        角色与声音<span class="hint" data-tip="声线最终在出片页确认；此处决定改写稿的角色分配方式。">?</span>
                     </label>
                     <select id="roleMode" name="role_mode"
                         class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
-                        <option value="auto">自动分配（由 AI 根据内容判断男声/女声/对话）</option>
+                        <option value="auto">自动分配（默认男声独白，对话稿自动双声）</option>
                         <option value="single_male">单人口播（男声）</option>
                         <option value="single_female">单人口播（女声）</option>
-                        <option value="dual_female_lead">男女对话（女声开头）</option>
-                        <option value="dual_male_lead">男女对话（男声开头）</option>
-                        <option value="narrator_male">男声幕后音（解说口吻）</option>
-                        <option value="narrator_female">女声幕后音（解说口吻）</option>
+                        <option value="dual_male_lead">男女对话（男声解答）</option>
                         <option value="custom">自由角色分配（按下方说明切换）</option>
                     </select>
                     <textarea id="roleNote" name="role_note" rows="2"

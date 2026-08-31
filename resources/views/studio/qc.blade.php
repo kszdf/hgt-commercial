@@ -1,4 +1,4 @@
-﻿<x-app-layout>
+<x-app-layout>
 <x-workspace-layout title="智能质检">
 <div class="mx-auto max-w-5xl p-6">
 
@@ -42,8 +42,7 @@
 
     <section class="luxury-glass mt-4 p-5">
         <div class="mb-3 flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-slate-700">对已完成出片做技术质检</h3>
-            <span class="text-xs text-slate-400">渲染完成的视频可手动运行技术质检（音轨 / 画幅 / 时长），结果记入质检报告</span>
+            <h3 class="text-sm font-semibold text-slate-700">对已完成出片做技术质检<span class="hint" data-tip="渲染完成的视频可手动运行技术质检（音轨/画幅/时长），结果记入质检报告。">?</span></h3>
         </div>
         <div id="jobList" class="space-y-2">
             @forelse($jobs as $j)
