@@ -1735,11 +1735,17 @@ async function pollStatus(jobId) {
             }
         });
         // 先拉一次真实状态，把骨架里的「已等待 0 秒」立刻校正为后端累计时长
+        // 2026-08-31 修复：首次 fetch 无超时保护，若请求挂起页面会永久停在"仍在处理"骨架；
+        // 加 AbortController 超时(8s)，超时/失败都直接进入 pollStatus(其内部有10s超时+重试)
+        const resumeCtrl = new AbortController();
+        const resumeTimer = setTimeout(() => resumeCtrl.abort('timeout'), 8000);
         fetch('/studio/scroll/status/' + jobId, {
+            signal: resumeCtrl.signal,
             headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' }
         })
         .then(r => r.json())
         .then(data => {
+            clearTimeout(resumeTimer);
             if (data.status === 'done' || data.status === 'failed') {
                 // 终态直接让 pollStatus 处理展示
                 pollStatus(jobId);
@@ -1752,7 +1758,8 @@ async function pollStatus(jobId) {
             }
         })
         .catch(() => {
-            // 即使首次拉取失败也继续轮询，pollStatus 会自己重试
+            clearTimeout(resumeTimer);
+            // 首次拉取失败/超时也继续轮询，pollStatus 会自己重试（内部有 10s 超时）
             pollStatus(jobId);
         });
     }
