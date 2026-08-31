@@ -488,24 +488,25 @@
 /* ===== 全局中止浮层：长任务运行中显眼出现，橙红渐变 + 停止图标，固定底部居中 ===== */
 #hgtAbortBar {
     position: fixed;
-    left: 50%;
+    right: 22px;
     bottom: 26px;
-    transform: translateX(-50%) translateY(24px);
     z-index: 85;
     opacity: 0;
     pointer-events: none;
     transition: opacity .18s ease, transform .18s ease;
+    /* 2026-08-31 改右下角+不居中：原底部居中悬浮按钮会遮挡页面底部/中部操作区(如小红书下载按钮) */
+    transform: translateY(24px);
 }
 #hgtAbortBar.show {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
+    transform: translateY(0);
     pointer-events: auto;
 }
 .hgt-abort-btn {
     display: inline-flex;
     align-items: center;
     gap: 9px;
-    padding: 13px 26px;
+    padding: 12px 22px;
     border-radius: 9999px;
     background: linear-gradient(180deg, #f87171 0%, #ef4444 100%);
     color: #fff;
