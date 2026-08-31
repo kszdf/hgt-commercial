@@ -48,9 +48,7 @@
                     <select id="mode" name="mode"
                         class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                         <option value="avatar">单人数字人出镜</option>
-                        <option value="scroll_male">男声幕后音·动态画面</option>
-                        <option value="scroll_female">女声幕后音·动态画面</option>
-                        <option value="scroll_dual">男女对话幕后音·动态画面</option>
+                        <option value="motion">🎬 幕后音·动态画面</option>
                         <option value="scroll">📋 幕后音·滚动字幕</option>
                         <option value="manga">📖 AI 漫剧</option>
                         <option value="whiteboard">✍️ AI 白板图解</option>
@@ -277,20 +275,22 @@ function updateCharCount() {
     document.getElementById('charCounter').textContent = chars + ' 字 · 预计 ' + fmt;
 }
 function mapTopicFormToMode(form) {
-    // 选题页 form 值 → 二创页 mode 值（统一 7 种呈现形式，2026-08-31 补 scroll 滚动字幕）
+    // 选题页 form 值 → 二创页 mode 值（统一 5 种呈现形式，2026-08-31 动态画面合并为 motion）
     if (!form) return 'avatar';
     const f = String(form).trim();
-    // 7 值直接透传
-    if (['avatar','scroll_male','scroll_female','scroll_dual','scroll','manga','whiteboard'].includes(f)) return f;
-    // 兼容旧值/Topic API 返回值（2026-08-28 修复：幕后音口播_单人 曾误映射为数字人 avatar）
+    // 5 值直接透传
+    if (['avatar','motion','scroll','manga','whiteboard'].includes(f)) return f;
+    // 兼容旧值（动态画面曾拆 3 项声线）→ 统一归为 motion（声线到出片页再选）
+    if (['scroll_male','scroll_female','scroll_dual'].includes(f)) return 'motion';
+    // 兼容旧值/Topic API 返回值
     if (f === '单声口播' || f === '单人口播' || f === 'script') return 'avatar';
-    if (f === '幕后音口播_单人') return 'scroll_male';
-    if (f === '幕后音口播_双人' || f === '双声对话' || f === '双人口播') return 'scroll_dual';
+    if (f === '幕后音口播_单人') return 'motion';
+    if (f === '幕后音口播_双人' || f === '双声对话' || f === '双人口播') return 'motion';
     return 'avatar';
 }
 function setModeSelect(value) {
     const sel = document.getElementById('mode');
-    if (sel && ['avatar','scroll_male','scroll_female','scroll_dual','scroll','manga','whiteboard'].includes(value)) sel.value = value;
+    if (sel && ['avatar','motion','scroll','manga','whiteboard'].includes(value)) sel.value = value;
 }
 function showSourceBanner(type, count, sourceUrl) {
     const banner = document.getElementById('sourceBanner');
@@ -337,6 +337,7 @@ function getFormLabel(form) {
         'scroll_male': '男声幕后音·动态画面',
         'scroll_female': '女声幕后音·动态画面',
         'scroll_dual': '男女对话幕后音·动态画面',
+        'motion': '幕后音·动态画面',
         'scroll': '幕后音·滚动字幕',
         'manga': 'AI 漫剧',
         'whiteboard': 'AI 白板图解',
@@ -624,10 +625,9 @@ const roleNote = document.getElementById('roleNote');
             } else {
                 const hint = document.getElementById('modeHint');
                 if (hint) hint.textContent = '';
-                if (d === 'scroll_female') rm.value = 'single_female';
-                else if (d === 'scroll_male' || d === 'scroll') rm.value = 'single_male';
-                else if (d === 'scroll_dual') rm.value = 'dual_male_lead';
-                else rm.value = 'single_male'; // avatar 默认男声独白
+                // 动态画面/滚动字幕合并后：声线在出片页统一选，二创默认男声
+                if (d === 'motion' || d === 'scroll' || d === 'avatar' || d === 'scroll_male' || d === 'scroll_dual') rm.value = 'single_male';
+                else rm.value = 'single_male'; // 兜底
             }
             rm.dispatchEvent(new Event('change'));
         });
@@ -720,11 +720,9 @@ document.getElementById('rwForm').addEventListener('submit', async function (e) 
 
 // 呈现形式 → 后端改写模式（后端只认 single/dual/script/content）
 function mapDisplayModeToRewriteMode(displayMode) {
-    if (displayMode === 'scroll_dual') return 'dual';
-    // 2026-08-31: AI 漫剧/白板图解走「内容规整」模式（产出内容稿供下游分镜/提炼），
-    // 而非口播稿（口播稿喂给漫剧会被 classify 判为法条类拒单或语义错配）
+    // 2026-08-31: AI 漫剧/白板图解走「内容规整」模式（产出内容稿供下游分镜/提炼）
     if (displayMode === 'manga' || displayMode === 'whiteboard') return 'content';
-    return 'single'; // avatar / scroll_male / scroll_female / scroll / script 都按单人稿改写
+    return 'single'; // avatar / motion / scroll / scroll_male / scroll_female / scroll_dual / script 都按单人稿改写
 }
 
 async function callRewrite({mode, text, focus, target_duration, preserve, role_mode, role_note, keep_manual_roles, signal}) {

@@ -88,9 +88,7 @@
                         <select id="form" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                             <option value="">不限</option>
                             <option value="avatar">单人数字人出镜</option>
-                            <option value="scroll_male">男声幕后音·动态画面</option>
-                            <option value="scroll_female">女声幕后音·动态画面</option>
-                            <option value="scroll_dual">男女对话幕后音·动态画面</option>
+                            <option value="motion">🎬 幕后音·动态画面</option>
                             <option value="scroll">📋 幕后音·滚动字幕</option>
                             <option value="manga">📖 AI 漫剧</option>
                             <option value="whiteboard">✍️ AI 白板图解</option>

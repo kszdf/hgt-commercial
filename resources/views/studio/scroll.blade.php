@@ -472,12 +472,14 @@ function setBtnLoading(isLoading, text) {
         // 新呈现形式值：直接决定出片模式与声线形式，不再按文本反推
         const displayModeMap = {
             'avatar':        { mode: 'avatar', voiceForm: null,          label: '单人数字人出镜' },
-            'scroll_male':   { mode: 'motion', voiceForm: 'male_mono',   label: '男声幕后音·动态画面' },
-            'scroll_female': { mode: 'motion', voiceForm: 'female_mono', label: '女声幕后音·动态画面' },
-            'scroll_dual':   { mode: 'motion', voiceForm: 'dialogue',    label: '男女对话幕后音·动态画面' },
+            'motion':        { mode: 'motion', voiceForm: 'male_mono',   label: '幕后音·动态画面' },
             'scroll':        { mode: 'scroll', voiceForm: 'male_mono',   label: '幕后音·滚动字幕' },
             'manga':         { mode: 'manga', voiceForm: null,           label: 'AI 漫剧' },
-            'whiteboard':    { mode: 'whiteboard', voiceForm: null,      label: 'AI 白板图解' }
+            'whiteboard':    { mode: 'whiteboard', voiceForm: null,      label: 'AI 白板图解' },
+            // 兼容旧值（动态画面曾拆 3 项声线）→ 统一 motion，声线出片页再选
+            'scroll_male':   { mode: 'motion', voiceForm: 'male_mono',   label: '男声幕后音·动态画面' },
+            'scroll_female': { mode: 'motion', voiceForm: 'female_mono', label: '女声幕后音·动态画面' },
+            'scroll_dual':   { mode: 'motion', voiceForm: 'dialogue',    label: '男女对话幕后音·动态画面' }
         };
 
         if (displayModeMap[mode]) {

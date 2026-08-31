@@ -247,7 +247,7 @@ HOTSPOT_PROMPT = """你是一位资深的财税短视频选题策划，服务对
     {
       "name": "创作角度名称（如：老板视角/案例警示/政策解读）",
       "suggestion": "针对该角度的具体拍摄建议（1-2句，写清钩子与核心信息）",
-      "form": "呈现形式，取值必须为以下之一：avatar(单人数字人出镜) / scroll_male(男声幕后音·动态画面) / scroll_female(女声幕后音·动态画面) / scroll_dual(男女对话幕后音·动态画面) / scroll(幕后音·滚动字幕)"
+      "form": "呈现形式，取值必须为以下之一：avatar(单人数字人出镜) / motion(幕后音·动态画面) / scroll(幕后音·滚动字幕) / manga(AI漫剧) / whiteboard(AI白板图解)"
     }
   ]
 }
@@ -486,8 +486,9 @@ def ai_hotspot(days, subfields):
             if not isinstance(a, dict):
                 continue
             f = a.get("form") or ""
-            if f not in ("avatar", "scroll_male", "scroll_female", "scroll_dual", "scroll"):
-                f = "scroll_male"
+            if f not in ("avatar", "motion", "scroll", "manga", "whiteboard",
+                         "scroll_male", "scroll_female", "scroll_dual"):  # 兼容旧值
+                f = "motion"
             angles.append({
                 "name": str(a.get("name") or ""),
                 "suggestion": str(a.get("suggestion") or ""),
@@ -765,7 +766,7 @@ def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, 
         "- 选题语气像给老板提醒风险或讲清楚一件事，不空泛、不脱离财税；\n"
         + (f"- 维度约束（必须满足）：\n{dim_block}\n" if dim_block else "")
         + "每个选题严格按 JSON 数组输出，元素结构：\n"
-        '{"title":"标题(吸睛、戳老板痛点,≤18字)","angle":"切入角度/财税痛点","potential":"爆款潜力理由","hook":"结尾留资钩子建议","form":"建议形式:单声口播/双声对话"}\n'
+        '{"title":"标题(吸睛、戳老板痛点,≤18字)","angle":"切入角度/财税痛点","potential":"爆款潜力理由","hook":"结尾留资钩子建议","form":"建议形式，取值：avatar(数字人)/motion(幕后音·动态画面)/scroll(幕后音·滚动字幕)/manga(AI漫剧)/whiteboard(AI白板图解)"}\n'
         "只输出 JSON 数组，不要任何解释或代码块标记。"
     )
     raw = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)

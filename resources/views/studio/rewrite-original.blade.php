@@ -17,9 +17,7 @@
                     <select id="mode" name="mode"
                         class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
                         <option value="avatar">单人数字人出镜</option>
-                        <option value="scroll_male">男声幕后音·动态画面</option>
-                        <option value="scroll_female">女声幕后音·动态画面</option>
-                        <option value="scroll_dual">男女对话幕后音·动态画面</option>
+                        <option value="motion">🎬 幕后音·动态画面</option>
                         <option value="scroll">📋 幕后音·滚动字幕</option>
                         <option value="manga">📖 AI 漫剧</option>
                         <option value="whiteboard">✍️ AI 白板图解</option>
@@ -290,10 +288,8 @@ if (modeSelO) {
         } else {
             const hint = document.getElementById('modeHint');
             if (hint) hint.textContent = '';
-            if (d === 'scroll_female') rm.value = 'single_female';
-            else if (d === 'scroll_male' || d === 'scroll') rm.value = 'single_male';
-            else if (d === 'scroll_dual') rm.value = 'dual_male_lead';
-            else rm.value = 'single_male';
+            // 动态画面/滚动字幕合并后：声线在出片页统一选，二创默认男声
+            rm.value = 'single_male';
         }
         rm.dispatchEvent(new Event('change'));
     });
@@ -342,10 +338,9 @@ document.getElementById('rwForm').addEventListener('submit', async function (e) 
 
 // 呈现形式 → 后端改写模式（后端只认 single/dual/script/content）
 function mapDisplayModeToRewriteMode(displayMode) {
-    if (displayMode === 'scroll_dual') return 'dual';
     // 2026-08-31: AI 漫剧/白板图解走「内容规整」模式（产出内容稿供下游分镜/提炼）
     if (displayMode === 'manga' || displayMode === 'whiteboard') return 'content';
-    return 'single'; // avatar / scroll_male / scroll_female / scroll / script 都按单人稿改写
+    return 'single'; // avatar / motion / scroll / scroll_male / scroll_female / scroll_dual / script 都按单人稿改写
 }
 
 async function callRewrite({mode, text, focus, target_duration, preserve, role_mode, role_note, keep_manual_roles, signal}) {
