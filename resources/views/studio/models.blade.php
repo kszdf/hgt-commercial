@@ -1,7 +1,7 @@
 <x-app-layout>
 <x-workspace-layout title="数字人模特" :breadcrumbs="[['label' => '工作台总览', 'url' => '/dashboard'], ['label' => '数字人模特']]">
 <div class="mx-auto max-w-5xl p-6">
-        <p class="mt-0.5 text-sm text-slate-400">上传不同场景的专属数字人驱动视频。系统自动转码静音化 + 竖屏/时长质检，通过后方可用于出片。</p>
+        <p class="mt-0.5 text-sm text-slate-400">上传不同场景的数字人模特驱动视频。系统自动转码静音化 + 竖屏/时长质检，通过后方可用于出片。</p>
         <p class="mt-2 flex flex-wrap gap-3">
             <a href="/studio/voices" class="text-sm text-brand-600 hover:underline">声音库 →</a>
             <a href="/studio/covers" class="text-sm text-brand-600 hover:underline">管理封面素材 →</a>
@@ -61,7 +61,7 @@
     <section class="mt-4">
         <h3 class="mb-3 text-sm font-semibold text-slate-700">已上传素材（{{ $assets->count() }}）</h3>
         @if($assets->isEmpty())
-            <p class="rounded-lg studio-card studio-card-sm text-sm text-slate-400">暂无数字人形象，请上传一条驱动视频开始使用。</p>
+            <p class="rounded-lg studio-card studio-card-sm text-sm text-slate-400">暂无数字人模特，请上传一条驱动视频开始使用。</p>
         @else
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach($assets as $a)
