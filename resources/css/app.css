@@ -70,6 +70,10 @@ html {
 .text-xs { font-size: 0.84375rem !important; }   /* 13.5px */
 .text-sm { font-size: 0.9375rem !important; }    /* 15px */
 .text-base { font-size: 1.03125rem !important; } /* 16.5px */
+/* 任意值小字号(10px/11px)也上调，避免漏网（Tailwind 生成 .text-\[10px\] 等类名） */
+.text-\[10px\] { font-size: 0.6875rem !important; }  /* 10→11px */
+.text-\[11px\] { font-size: 0.75rem !important; }    /* 11→12px */
+.text-\[13px\] { font-size: 0.84375rem !important; } /* 13→13.5px */
 /* 组件层字号同步提升（表单标签/提示/输入/按钮/区块标题） */
 .studio-field-label { font-size: 14px; }
 .studio-field-hint { font-size: 12.5px; }
