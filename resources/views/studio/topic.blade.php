@@ -274,6 +274,10 @@ document.getElementById('topicForm').addEventListener('submit', async function (
     const errBox = document.getElementById('errorBox');
     const actionBar = document.getElementById('actionBar');
 
+    // 2026-08-31 修复重大BUG：热点选题后切到了"热点选题结果"Tab，此时再生成智能选题，
+    // 结果渲染进隐藏的 #result 容器用户看不到 → 提交时强制切回"AI 选题建议"Tab
+    switchTab('topic');
+
     // 清除旧状态
     msg.textContent = '';
     errBox.classList.add('hidden');
