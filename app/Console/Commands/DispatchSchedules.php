@@ -50,6 +50,16 @@ class DispatchSchedules extends Command
                 continue;
             }
 
+            // 安全门禁：视频须已审核通过（approved）才可自动外发
+            if ($job->publish_status !== 'approved') {
+                $schedule->update([
+                    'status' => PublishSchedule::STATUS_SKIPPED,
+                    'error' => '视频未通过人工审核，自动发布已跳过',
+                ]);
+                $failed++;
+                continue;
+            }
+
             if (! $schedule->auto_publish) {
                 // 仅提醒：标记 due，日历页高亮
                 $schedule->update(['status' => PublishSchedule::STATUS_DUE]);
@@ -61,6 +71,15 @@ class DispatchSchedules extends Command
                 $schedule->update([
                     'status' => PublishSchedule::STATUS_FAILED,
                     'error' => '账号未授权（请先在「平台账号」完成授权）',
+                ]);
+                $failed++;
+                continue;
+            }
+            // 账号归属校验：排期与账号须同租户（防跨租户越权）
+            if ($account->tenant_id != $schedule->tenant_id) {
+                $schedule->update([
+                    'status' => PublishSchedule::STATUS_FAILED,
+                    'error' => '发布账号不属于当前租户',
                 ]);
                 $failed++;
                 continue;

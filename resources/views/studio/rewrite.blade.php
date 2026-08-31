@@ -1,4 +1,4 @@
-﻿<x-app-layout>
+<x-app-layout>
 <x-workspace-layout title="选题二创">
     <div class="mx-auto max-w-5xl p-6">
 
@@ -51,6 +51,8 @@
                         <option value="scroll_male">男声幕后音·动态画面</option>
                         <option value="scroll_female">女声幕后音·动态画面</option>
                         <option value="scroll_dual">男女对话幕后音·动态画面</option>
+                        <option value="manga">📖 AI 漫剧</option>
+                        <option value="whiteboard">✍️ AI 白板图解</option>
                     </select>
                     <p class="mt-1 text-xs text-slate-400">模式已按选题页所选「呈现形式」自动匹配，可手动微调。</p>
                     <label id="forceUnifiedWrap" class="mt-2 hidden flex cursor-pointer items-center gap-2 text-xs text-slate-500">
@@ -273,11 +275,11 @@ function updateCharCount() {
     document.getElementById('charCounter').textContent = chars + ' 字 · 预计 ' + fmt;
 }
 function mapTopicFormToMode(form) {
-    // 选题页 form 值 → 二创页 mode 值（统一 4 种呈现形式）
+    // 选题页 form 值 → 二创页 mode 值（统一 6 种呈现形式，2026-08-31 补 manga/whiteboard）
     if (!form) return 'avatar';
     const f = String(form).trim();
-    // 新的 4 值直接透传
-    if (['avatar','scroll_male','scroll_female','scroll_dual'].includes(f)) return f;
+    // 6 值直接透传
+    if (['avatar','scroll_male','scroll_female','scroll_dual','manga','whiteboard'].includes(f)) return f;
     // 兼容旧值/Topic API 返回值（2026-08-28 修复：幕后音口播_单人 曾误映射为数字人 avatar）
     if (f === '单声口播' || f === '单人口播' || f === 'script') return 'avatar';
     if (f === '幕后音口播_单人') return 'scroll_male';
@@ -286,7 +288,7 @@ function mapTopicFormToMode(form) {
 }
 function setModeSelect(value) {
     const sel = document.getElementById('mode');
-    if (sel && ['avatar','scroll_male','scroll_female','scroll_dual'].includes(value)) sel.value = value;
+    if (sel && ['avatar','scroll_male','scroll_female','scroll_dual','manga','whiteboard'].includes(value)) sel.value = value;
 }
 function showSourceBanner(type, count, sourceUrl) {
     const banner = document.getElementById('sourceBanner');
@@ -381,6 +383,10 @@ function getFormLabel(form) {
         if (topics.length) {
             currentTopics = topics;
             showSourceBanner('topic-all', topics.length);
+            // 2026-08-31 修复：批量链路恢复行业上下文（topic 页已存 hgt_batch_industry）
+            if (!window.__topicIndustry) {
+                window.__topicIndustry = sessionStorage.getItem('hgt_batch_industry') || '';
+            }
             // 批量模式：隐藏单条专属字段，避免「单文本框承载多选题」的语义矛盾
             document.body.classList.add('entry-batch');
             document.getElementById('textWrap')?.classList.add('hidden');
@@ -701,7 +707,7 @@ document.getElementById('rwForm').addEventListener('submit', async function (e) 
 // 呈现形式 → 后端改写模式（后端只认 single/dual/script）
 function mapDisplayModeToRewriteMode(displayMode) {
     if (displayMode === 'scroll_dual') return 'dual';
-    return 'single'; // avatar / scroll_male / scroll_female / script 都按单人稿改写
+    return 'single'; // avatar / scroll_male / scroll_female / manga / whiteboard / script 都按单人稿改写
 }
 
 async function callRewrite({mode, text, focus, target_duration, preserve, role_mode, role_note, keep_manual_roles, signal}) {
@@ -967,7 +973,13 @@ async function runBatchRewrite() {
         const topic = currentTopics[i];
         const unified = document.getElementById('forceUnified') && document.getElementById('forceUnified').checked;
         const mode = unified ? document.getElementById('mode').value : mapTopicFormToMode(topic.form);
-        const text = topic.title + (topic.hook ? '\n\n（钩子方向：' + topic.hook + '）' : '');
+        // 2026-08-31 修复：批量提交文本与单条预览对齐（补 angle/summary/potential），
+        // 此前批量只发 title+hook，丢失切入角度导致批量质量系统性低于单条
+        const text = topic.title
+            + (topic.hook ? '\n\n（钩子方向：' + topic.hook + '）' : '')
+            + (topic.angle ? '\n\n（切入角度：' + topic.angle + '）' : '')
+            + (topic.summary ? '\n\n（内容概要：' + topic.summary + '）' : '')
+            + (topic.potential ? '\n\n（爆款潜力：' + topic.potential + '）' : '');
         try {
             const data = await callRewriteWithRetry({
             mode, text, focus, target_duration, preserve,
@@ -1091,10 +1103,12 @@ function goScrollFromBatch(idx) {
     if (!r || !r.ok || !r.data.cleaned) return;
     sessionStorage.setItem('hgt_rewrite_cleaned', r.data.cleaned);
     sessionStorage.setItem('hgt_rewrite_industry', window.__topicIndustry || '');
-    const displayMode = document.getElementById('mode').value;
+    // 2026-08-31 修复批量模式错配：改用该条结果实际使用的 mode（r.mode），
+    // 而非全局下拉值（混合形式批量时下拉只反映最后一次点击的选题）
+    const displayMode = r.mode || document.getElementById('mode').value;
     sessionStorage.setItem('hgt_rewrite_mode', displayMode);
-    const voice = (displayMode === 'scroll_female') ? 'jiang' : 'zhang';
-    window.location.href = '/studio/scroll?from=rewrite&src=topic&batch=1&mode=' + encodeURIComponent(displayMode) + '&voice=' + voice;
+    // 声线交付出片页选择（去掉硬编码 zhang/jiang，避免绕过租户默认声线）
+    window.location.href = '/studio/scroll?from=rewrite&src=topic&batch=1&mode=' + encodeURIComponent(displayMode);
 }
 
 // 带稿去出片
@@ -1105,8 +1119,8 @@ document.getElementById('btnGoScroll')?.addEventListener('click', function () {
     sessionStorage.setItem('hgt_rewrite_cleaned', lastResult.cleaned);
     sessionStorage.setItem('hgt_rewrite_industry', window.__topicIndustry || '');
     sessionStorage.setItem('hgt_rewrite_mode', displayMode);
-    const voice = (displayMode === 'scroll_female') ? 'jiang' : 'zhang';
-    window.location.href = '/studio/scroll?from=rewrite&src=topic&mode=' + encodeURIComponent(displayMode) + '&voice=' + voice;
+    // 声线交付出片页选择（去掉硬编码 zhang/jiang，避免绕过租户默认声线）
+    window.location.href = '/studio/scroll?from=rewrite&src=topic&mode=' + encodeURIComponent(displayMode);
 });
 
 // 跑质检

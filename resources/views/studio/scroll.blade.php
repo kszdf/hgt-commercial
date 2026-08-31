@@ -415,15 +415,29 @@ function setBtnLoading(isLoading, text) {
                     const t = document.getElementById('title');
                     if (t && !t.value) { t.value = d.title; }
                 }
+                // 2026-08-31 修复复刻链路：d.mode 是引擎键(avatar/motion/scroll/manga/whiteboard)，
+                // 旧映射表用二创展示键(scroll_male/...)导致必然 miss 静默降级；改为按引擎键映射，
+                // 并从 render_config 回填声线/包装/i2v 等出片参数。
                 const dm = {
-                    'avatar':        { mode: 'avatar', voiceForm: null },
-                    'scroll_male':   { mode: 'motion', voiceForm: 'male_mono' },
-                    'scroll_female': { mode: 'motion', voiceForm: 'female_mono' },
-                    'scroll_dual':   { mode: 'motion', voiceForm: 'dialogue' }
+                    'avatar':      { mode: 'avatar',      voiceForm: null },
+                    'motion':      { mode: 'motion',      voiceForm: d.config && d.config.voice_form ? d.config.voice_form : 'male_mono' },
+                    'scroll':      { mode: 'scroll',      voiceForm: d.config && d.config.voice_form ? d.config.voice_form : 'male_mono' },
+                    'manga':       { mode: 'manga',       voiceForm: null },
+                    'whiteboard':  { mode: 'whiteboard',  voiceForm: null }
                 }[d.mode];
                 if (dm) {
                     setMode(dm.mode);
                     if (dm.voiceForm) setVoiceForm(dm.voiceForm);
+                    // 回填包装主题与 i2v 开关（漫剧）
+                    const cfg = d.config || {};
+                    if (dm.mode === 'motion' && cfg.motion_style) {
+                        const ms = document.getElementById('motion_style');
+                        if (ms && ms.value !== cfg.motion_style) ms.value = cfg.motion_style;
+                    }
+                    if (dm.mode === 'manga') {
+                        const i2vBox = document.getElementById('i2v');
+                        if (i2vBox) i2vBox.checked = !!cfg.i2v;
+                    }
                 }
                 autoSuggest();
                 hgtToast('info', '已带入原片文稿与形式，可直接生成或微调');
@@ -459,7 +473,9 @@ function setBtnLoading(isLoading, text) {
             'avatar':        { mode: 'avatar', voiceForm: null,          label: '单人数字人出镜' },
             'scroll_male':   { mode: 'motion', voiceForm: 'male_mono',   label: '男声幕后音·动态画面' },
             'scroll_female': { mode: 'motion', voiceForm: 'female_mono', label: '女声幕后音·动态画面' },
-            'scroll_dual':   { mode: 'motion', voiceForm: 'dialogue',    label: '男女对话幕后音·动态画面' }
+            'scroll_dual':   { mode: 'motion', voiceForm: 'dialogue',    label: '男女对话幕后音·动态画面' },
+            'manga':         { mode: 'manga', voiceForm: null,           label: 'AI 漫剧' },
+            'whiteboard':    { mode: 'whiteboard', voiceForm: null,      label: 'AI 白板图解' }
         };
 
         if (displayModeMap[mode]) {

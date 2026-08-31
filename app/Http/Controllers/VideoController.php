@@ -269,6 +269,16 @@ class VideoController extends Controller
         $pj = $resp->json('job_id');
         $job->update(['job_id' => $pj, 'status' => 'queued']);
 
+        // 2026-08-31 修复：声线"已用次数"真实计数（此前全代码无 increment，voices 页恒显示 0）
+        foreach (array_filter([$payload['male_voice'] ?? null, $payload['female_voice'] ?? null]) as $vid) {
+            if (! $vid) {
+                continue;
+            }
+            \App\Models\TenantVoice::where('tenant_id', $tenant->id)
+                ->where('voice_id', $vid)
+                ->increment('use_count');
+        }
+
         return response()->json([
             'job_id' => $pj,
             'mode' => $mode,

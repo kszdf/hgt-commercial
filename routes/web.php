@@ -40,9 +40,9 @@ Route::middleware('guest')->group(function () {
     // 注册限流：每 IP 每分钟最多 5 次，防批量注册滥用
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
 
-    // 手机验证码找回密码（B 方案：无需邮箱，凭手机号+短信验证码重置）
+    // 找回密码（仅邮箱）：输入注册邮箱 → 发送验证码邮件 → 校验后重置密码（手机短信通道已移除）
     Route::get('/forgot-password', [PasswordResetController::class, 'showForgot'])->name('password.request');
-    // 发码限流：每 IP 每分钟最多 5 次（叠加控制器内层 60s/手机号 + 每日 10 条，防短信轰炸）
+    // 发码限流：每 IP 每分钟最多 5 次（叠加控制器内层 60s/邮箱 + 每日 10 条，防滥用）
     Route::post('/forgot-password', [PasswordResetController::class, 'sendCode'])->middleware('throttle:5,1');
     Route::get('/reset-password', [PasswordResetController::class, 'showReset'])->name('password.reset');
     Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:10,1');
@@ -169,7 +169,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/studio/accounts', [AccountController::class, 'index'])->name('studio.accounts');
     Route::get('/studio/accounts/json', [AccountController::class, 'json'])->name('studio.accounts.json');
     Route::post('/studio/accounts', [AccountController::class, 'store']);
-    Route::post('/studio/accounts/{account}', [AccountController::class, 'update'])->name('studio.accounts.update');
+    // 编辑渠道：前端表单用 _method=PUT 伪造，需同时接受 POST 与 PUT
+    Route::match(['post', 'put'], '/studio/accounts/{account}', [AccountController::class, 'update'])->name('studio.accounts.update');
     Route::delete('/studio/accounts/{account}', [AccountController::class, 'destroy'])->name('studio.accounts.destroy');
     // OAuth 授权（抖音/小红书）：入口取 authorize_url + 授权后确认标记
     Route::post('/studio/accounts/{account}/oauth', [AccountController::class, 'oauthAuthorize'])->name('studio.accounts.oauth');

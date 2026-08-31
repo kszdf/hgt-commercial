@@ -1,4 +1,4 @@
-﻿<x-app-layout>
+<x-app-layout>
 <x-workspace-layout title="智能选题">
 <div class="mx-auto max-w-5xl p-6">
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -67,6 +67,8 @@
                             <option value="scroll_male">男声幕后音·动态画面</option>
                             <option value="scroll_female">女声幕后音·动态画面</option>
                             <option value="scroll_dual">男女对话幕后音·动态画面</option>
+                            <option value="manga">📖 AI 漫剧</option>
+                            <option value="whiteboard">✍️ AI 白板图解</option>
                         </select>
                     </div>
                     <div>
@@ -230,6 +232,8 @@ const formLabelMap = {
     'scroll_male': '男声幕后音·动态画面',
     'scroll_female': '女声幕后音·动态画面',
     'scroll_dual': '男女对话幕后音·动态画面',
+    'manga': 'AI 漫剧',
+    'whiteboard': 'AI 白板图解',
     '单声口播': '单声口播',
     '幕后音口播_双人': '幕后音·双人',
     '幕后音口播_单人': '幕后音·单人'
@@ -358,6 +362,8 @@ document.getElementById('regenBtn')?.addEventListener('click', function () {
 document.getElementById('batchRewriteBtn')?.addEventListener('click', function () {
     if (!lastTopics.length) return;
     sessionStorage.setItem('hgt_batch_topics', JSON.stringify(lastTopics));
+    // 2026-08-31 修复：批量链路保留行业上下文（此前批量改写丢失 industry）
+    sessionStorage.setItem('hgt_batch_industry', document.getElementById('industry').value || '');
     window.location.href = '/studio/rewrite?from=topic-all';
 });
 

@@ -70,6 +70,20 @@ class VideoJob extends Model
         return $this->publish_status === 'approved';
     }
 
+    /** 出片形式中文标签（全站统一，2026-08-31 新增：覆盖全部引擎模式）。 */
+    public function modeLabel(): string
+    {
+        return match ($this->mode) {
+            'avatar'     => '数字人出镜',
+            'motion'     => '幕后音·动态画面',
+            'scroll'     => '滚动字幕卡',
+            'manga'      => 'AI 漫剧',
+            'whiteboard' => 'AI 白板图解',
+            'xhs'        => '小红书图文',
+            default      => $this->mode ?: '—',
+        };
+    }
+
     /** 待人工审核（含已驳回可重审）。 */
     public function isPendingReview(): bool
     {

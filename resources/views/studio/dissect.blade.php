@@ -1,4 +1,4 @@
-﻿<x-app-layout>
+<x-app-layout>
 <x-workspace-layout title="爆款拆解">
 <div class="mx-auto max-w-6xl p-6">
     <div class="mb-5">
@@ -91,6 +91,8 @@
                             <option value="scroll_male">男声幕后音·动态画面</option>
                             <option value="scroll_female">女声幕后音·动态画面</option>
                             <option value="scroll_dual">男女对话幕后音·动态画面</option>
+                            <option value="manga">📖 AI 漫剧</option>
+                            <option value="whiteboard">✍️ AI 白板图解</option>
                         </select>
                     </div>
                 </div>
@@ -313,7 +315,7 @@ function esc(s) {
 function goRewrite() {
     if (!currentDissect) return;
     const title = (document.getElementById('title').value.trim()) || currentDissect.hook_type || '爆款拆解二创';
-    const form = document.getElementById('form').value || 'avatar';
+    const form = document.getElementById('form').value || '';
     const hook = Array.isArray(currentDissect.rewrite_suggestions) ? currentDissect.rewrite_suggestions.join('；') : '';
     const angle = (currentDissect.hook_type || '') + (Array.isArray(currentDissect.pain_points) ? '；' + currentDissect.pain_points.join('；') : '');
     sessionStorage.setItem('hgt_dissect_title', title);
@@ -326,16 +328,16 @@ function goRewrite() {
 
 // ---------- 联动：直接出片 ----------
 function goScroll() {
-    // 默认出口：按用户所选呈现形式 + 默认声线（女声幕后用江老师，其余用老张）
+    // 默认出口：按用户所选呈现形式（未选则交付出片页默认，不再静默回落 avatar）
     goScrollWith(null, null);
 }
 function goScrollWith(forceForm, forceVoice) {
     if (!currentText) return;
     sessionStorage.setItem('hgt_dissect_text', currentText);
-    const form = forceForm || (document.getElementById('form').value || 'avatar');
-    let voice = forceVoice;
-    if (!voice) voice = (form === 'scroll_female') ? 'jiang' : 'zhang';
-    location.href = '/studio/scroll?src=dissect&mode=' + form + '&voice=' + voice;
+    // 2026-08-31 修复：未选呈现形式时传空（由出片页决定默认），不再强制 avatar；
+    // 声线不再硬编码 zhang/jiang（绕过租户默认声线），交付出片页选择
+    const form = forceForm || (document.getElementById('form').value || '');
+    location.href = '/studio/scroll?src=dissect&mode=' + form + (forceVoice ? '&voice=' + forceVoice : '');
 }
 </script>
 </x-workspace-layout>

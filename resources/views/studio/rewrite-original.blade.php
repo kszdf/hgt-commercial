@@ -1,4 +1,4 @@
-﻿<x-app-layout>
+<x-app-layout>
 <x-workspace-layout title="原始稿二创">
 <div class="mx-auto max-w-5xl p-6">
 
@@ -20,6 +20,8 @@
                         <option value="scroll_male">男声幕后音·动态画面</option>
                         <option value="scroll_female">女声幕后音·动态画面</option>
                         <option value="scroll_dual">男女对话幕后音·动态画面</option>
+                        <option value="manga">📖 AI 漫剧</option>
+                        <option value="whiteboard">✍️ AI 白板图解</option>
                     </select>
                     <p class="mt-1 text-xs text-slate-400">选择与后续出片一致的声音/出镜形式，避免前后矛盾。</p>
                 </div>
@@ -330,7 +332,7 @@ document.getElementById('rwForm').addEventListener('submit', async function (e) 
 // 呈现形式 → 后端改写模式（后端只认 single/dual/script）
 function mapDisplayModeToRewriteMode(displayMode) {
     if (displayMode === 'scroll_dual') return 'dual';
-    return 'single'; // avatar / scroll_male / scroll_female / single / script 都按单人稿改写
+    return 'single'; // avatar / scroll_male / scroll_female / manga / whiteboard / script 都按单人稿改写
 }
 
 async function callRewrite({mode, text, focus, target_duration, preserve, role_mode, role_note, keep_manual_roles, signal}) {

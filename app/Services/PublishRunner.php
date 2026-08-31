@@ -48,6 +48,13 @@ class PublishRunner
                 'account_key' => $account->platform . ':' . $account->id,
                 'title' => $title ?: ($job->title ?: '短视频'),
             ];
+            // 2026-08-31 封面闭环：用户所选封面(cover_asset_id)随发布传给 8500，用于平台封面指定
+            if ($job->cover_asset_id) {
+                $cover = \App\Models\CoverAsset::find($job->cover_asset_id);
+                if ($cover) {
+                    $payload['cover_path'] = $cover->path();
+                }
+            }
             // 公众号（client_credential）：解密 account_info 经 extra 传给 8500，明文不出 Laravel 容器
             $payload = array_merge($payload, $this->credentialsExtra($account));
             $resp = app(PipelineClient::class)->postJson('/publish', $payload, 180);
@@ -87,7 +94,10 @@ class PublishRunner
 
         if ($ok) {
             $account->markPublished(); // 仅真实成功计数（模拟不计）
-            $job->update(['publish_status' => 'published']);
+            // 2026-08-31 修复矩阵发布：不再覆盖 publish_status（保持 approved），
+            // "已发布"语义由 PublishRecord 承载；否则 canPublish() 只认 approved，
+            // 同一成片发布到账号 A 后无法再发到账号 B（矩阵发布被锁死）。
+            // 发布历史/时间可通过 PublishRecord 查询。
         }
 
         return [

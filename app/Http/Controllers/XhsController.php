@@ -93,6 +93,13 @@ class XhsController extends Controller
             return response()->json(['error' => '请填写选题，或先生成/粘贴正文'], 400);
         }
 
+        // 2026-08-31 修复：小红书图文也走配额/试用门禁（此前免费用户可无限刷图绕过套餐）
+        $tenant = $this->studioTenant($request);
+        $block = $tenant->generationBlockReason();
+        if ($block) {
+            return response()->json(['error' => $block['message']], 403);
+        }
+
         $payload = [
             'brand' => $request->input('brand', $this->defaultBrand()),
             'pages' => (int) ($request->input('pages') ?? 4),
@@ -115,6 +122,26 @@ class XhsController extends Controller
 
         if (!$resp->successful()) {
             return response()->json(['error' => '生成失败：' . $resp->body()], $resp->status());
+        }
+
+        // 2026-08-31 计量：成功生成记一条用量（mode=xhs 图文），与视频出片同一配额池
+        try {
+            $user = \Illuminate\Support\Facades\Auth::user();
+            $tenant->videoJobs()->create([
+                'user_id' => $user ? $user->id : null,
+                'job_id' => 'xhs_' . now()->format('YmdHis') . '_' . random_int(1000, 9999),
+                'mode' => 'xhs',
+                'title' => mb_substr((string) ($request->input('topic') ?: '小红书图文'), 0, 20),
+                'industry' => '财税',
+                'status' => 'done',
+                'publish_status' => 'draft',
+                'dialogue' => (string) $request->input('raw_body', ''),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            // 计量失败不影响主流程
+            \Illuminate\Support\Facades\Log::warning('xhs usage metering failed: ' . $e->getMessage());
         }
 
         return response()->json($resp->json());

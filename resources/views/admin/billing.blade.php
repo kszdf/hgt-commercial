@@ -1,4 +1,4 @@
-﻿<x-app-layout>
+<x-app-layout>
 <div class="mx-auto max-w-4xl p-6">
     <header class="mb-5 flex items-center justify-between">
         <div>
@@ -133,7 +133,7 @@
                         @foreach ($recent as $j)
                             <tr class="hover:bg-slate-50/50">
                                 <td class="py-2.5 pr-4 text-slate-500 whitespace-nowrap">{{ $j->created_at->format('m-d H:i') }}</td>
-                                <td class="py-2.5 pr-4 text-slate-600">{{ $j->mode === 'avatar' ? '数字人' : '幕后音·动态画面' }}</td>
+                                <td class="py-2.5 pr-4 text-slate-600">{{ $j->modeLabel() }}</td>
                                 <td class="py-2.5 pr-4 text-slate-700">{{ $j->title ?? '—' }}</td>
                                 <td class="py-2.5">
                                     @if ($j->status === 'done')

@@ -192,7 +192,7 @@ async function doGenerate() {
             selling_points: document.getElementById('xhsSelling').value.trim(),
             audience: document.getElementById('xAudience').value.trim(),
             pages: parseInt(document.getElementById('xPages').value),
-            brand: '昆山老张讲财税',
+            // 2026-08-31 修复：不传 brand（曾硬编码"昆山老张讲财税"覆盖多租户），由后端 defaultBrand() 按租户注入
         };
         // 如果已有完整 note 结构，优先用它（保留用户在 textarea 的修改）
         if (_note && _note.cover && Array.isArray(_note.pages) && _note.pages.length > 0) {

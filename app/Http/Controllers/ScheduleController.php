@@ -66,13 +66,33 @@ class ScheduleController extends Controller
         $tenant = $this->studioTenant($request);
 
         $data = $request->validate([
-            'video_job_id' => ['required', 'integer', 'exists:video_jobs,id'],
-            'platform_account_id' => ['nullable', 'integer', 'exists:platform_accounts,id'],
+            'video_job_id' => ['required', 'integer'],
+            'platform_account_id' => ['nullable', 'integer'],
             'schedule_date' => ['required', 'date'],
             'schedule_time' => ['required', 'date_format:H:i'],
             'auto_publish' => ['sometimes', 'boolean'],
             'note' => ['nullable', 'string', 'max:120'],
         ]);
+
+        // 安全门禁：视频必须属于当前租户且已审核通过（approved）才可排期外发；
+        // 账号必须属于当前租户（防跨租户 IDOR 越权发布）。
+        $video = VideoJob::where('id', $data['video_job_id'])
+            ->where('tenant_id', $tenant->id)
+            ->first();
+        if (! $video) {
+            return back()->withErrors(['video_job_id' => '视频不存在或不属于当前租户。'])->withInput();
+        }
+        if ($video->publish_status !== 'approved') {
+            return back()->withErrors(['video_job_id' => '视频尚未通过人工审核，不能排期发布。请先在「审核」中通过后再排期。'])->withInput();
+        }
+        if (! empty($data['platform_account_id'])) {
+            $account = PlatformAccount::where('id', $data['platform_account_id'])
+                ->where('tenant_id', $tenant->id)
+                ->first();
+            if (! $account) {
+                return back()->withErrors(['platform_account_id' => '发布账号不存在或不属于当前租户。'])->withInput();
+            }
+        }
 
         PublishSchedule::create([
             'tenant_id' => $tenant->id,
@@ -114,9 +134,22 @@ class ScheduleController extends Controller
             $schedule->update(['status' => PublishSchedule::STATUS_FAILED, 'error' => '视频未完成渲染或已删除']);
             return redirect()->route('studio.schedule')->with('error', '视频未完成渲染或已删除，无法发布。');
         }
+        // 安全门禁：视频须已审核通过（approved），且视频/账号均须属于当前租户（防越权）
+        if ($job->publish_status !== 'approved') {
+            $schedule->update(['status' => PublishSchedule::STATUS_FAILED, 'error' => '视频未通过人工审核']);
+            return redirect()->route('studio.schedule')->with('error', '视频尚未通过人工审核，不能发布。请先在「审核」中通过后再执行。');
+        }
+        if ($job->tenant_id != $tenant->id) {
+            $schedule->update(['status' => PublishSchedule::STATUS_FAILED, 'error' => '视频不属于当前租户']);
+            return redirect()->route('studio.schedule')->with('error', '视频不属于当前租户，无法发布。');
+        }
         if (! $account) {
             $schedule->update(['status' => PublishSchedule::STATUS_FAILED, 'error' => '未指定发布账号']);
             return redirect()->route('studio.schedule')->with('error', '该排期未指定发布账号，请编辑或重新创建。');
+        }
+        if ($account->tenant_id != $tenant->id) {
+            $schedule->update(['status' => PublishSchedule::STATUS_FAILED, 'error' => '账号不属于当前租户']);
+            return redirect()->route('studio.schedule')->with('error', '发布账号不属于当前租户，无法发布。');
         }
 
         $schedule->update(['status' => PublishSchedule::STATUS_PUBLISHING]);

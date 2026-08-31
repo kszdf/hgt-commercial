@@ -1,4 +1,4 @@
-﻿<x-app-layout>
+<x-app-layout>
 <x-workspace-layout title="人工审核">
 <div class="mx-auto max-w-5xl p-6">
 
@@ -18,7 +18,7 @@
                     <div class="flex flex-col">
                         <div class="mb-2 flex items-center gap-2">
                             <span class="text-base font-semibold text-slate-800">{{ $job->title ?: '未命名视频' }}</span>
-                            <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{{ $job->mode === 'avatar' ? '数字人出镜' : '幕后音·动态画面' }}</span>
+                            <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{{ $job->modeLabel() }}</span>
                         </div>
 
                         <div class="mb-3 flex flex-wrap gap-2 text-xs">

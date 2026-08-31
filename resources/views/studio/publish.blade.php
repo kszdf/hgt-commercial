@@ -57,7 +57,7 @@
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span class="font-medium text-slate-800">{{ $job->title ?: '未命名视频' }}</span>
-                                    <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{{ $job->mode === 'avatar' ? '数字人出镜' : '幕后音·动态画面' }}</span>
+                                    <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{{ $job->modeLabel() }}</span>
                                     <span class="rounded px-2 py-0.5 text-xs
                                         @if(in_array($job->publish_status, ['approved', 'published'])) bg-emerald-50 text-emerald-600
                                         @elseif($job->publish_status === 'rejected') bg-red-50 text-red-600

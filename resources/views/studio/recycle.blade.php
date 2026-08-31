@@ -1,4 +1,4 @@
-﻿<x-app-layout>
+<x-app-layout>
 <x-workspace-layout title="回收站" :breadcrumbs="[['label' => '工作台总览', 'url' => '/dashboard'], ['label' => '回收站']]">
 <div class="mx-auto max-w-5xl p-6">
 
@@ -27,7 +27,7 @@
                     <div class="flex flex-1 flex-col">
                         <div class="flex items-center gap-2">
                             <span class="font-medium text-slate-800">{{ $job->title ?: '未命名视频' }}</span>
-                            <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{{ $job->mode === 'avatar' ? '数字人出镜' : '幕后音·动态画面' }}</span>
+                            <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{{ $job->modeLabel() }}</span>
                         </div>
                         <div class="mt-1 text-xs text-slate-400">删除于 {{ $job->deleted_at->format('Y-m-d H:i') }}</div>
 
