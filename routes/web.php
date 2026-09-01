@@ -213,6 +213,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/tenants', [AdminController::class, 'tenants'])->name('admin.tenants');
         Route::post('/tenants', [AdminController::class, 'storeTrial'])->name('admin.tenants.store');
         Route::post('/tenants/{tenant}/trial', [AdminController::class, 'updateTrial'])->name('admin.tenants.update-trial');
+        // 超管重置租户密码（客户未填邮箱时的找回兜底）
+        Route::post('/tenants/{tenant}/reset-password', [AdminController::class, 'resetPassword'])->name('admin.tenants.reset-password');
     });
 });
 

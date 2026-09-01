@@ -31,8 +31,9 @@
                     <input name="name" required value="{{ old('name') }}" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none">
                 </div>
                 <div>
-                    <label class="mb-1 block text-xs text-slate-500">登录邮箱 *</label>
-                    <input name="email" type="email" required value="{{ old('email') }}" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none">
+                    <label class="mb-1 block text-xs text-slate-500">登录邮箱（选填）</label>
+                    <input name="email" type="email" value="{{ old('email') }}" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none">
+                    <p class="mt-1 text-xs text-slate-400">选填：用于客户「忘记密码」邮箱找回；不填则只能由你重置密码</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-xs text-slate-500">手机号 *</label>
@@ -128,6 +129,9 @@
                                         </label>
                                         <button class="rounded bg-brand-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-brand-700 transition">保存</button>
                                     </form>
+                                    {{-- 重置密码兜底：客户未填邮箱无法自助找回时由超管重置 --}}
+                                    <button type="button" onclick="hgtResetPwd('{{ $r['id'] }}', '{{ addslashes($r['name']) }}')"
+                                        class="mt-1.5 rounded border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100">重置密码</button>
                                 </td>
                             </tr>
                         @empty
@@ -140,4 +144,42 @@
         </section>
     </div>
 </div>
+
+{{-- 重置密码弹窗 --}}
+<div id="resetPwdModal" class="fixed inset-0 z-50 hidden" aria-modal="true">
+    <div class="absolute inset-0 bg-black/40"></div>
+    <div class="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+        <h3 class="text-base font-semibold text-slate-800">重置密码</h3>
+        <p class="mt-1 text-sm text-slate-500">为租户 <span id="rpTenantName" class="font-medium text-slate-700"></span> 的管理员设置新密码。重置后请将新密码告知客户。</p>
+        <form id="rpForm" method="POST" action="" class="mt-4 space-y-3">
+            @csrf
+            <div>
+                <label class="mb-1 block text-sm text-slate-600">新密码</label>
+                <input type="password" name="password" id="rpPassword" required minlength="8" maxlength="16"
+                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+                <p class="mt-1 text-xs text-slate-400">8-16 位，且由大写、小写、数字、特殊字符中至少两种组合。</p>
+            </div>
+            <div>
+                <label class="mb-1 block text-sm text-slate-600">确认新密码</label>
+                <input type="password" name="password_confirmation" required minlength="8" maxlength="16"
+                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            </div>
+            <div class="flex justify-end gap-2 pt-1">
+                <button type="button" onclick="document.getElementById('resetPwdModal').classList.add('hidden')"
+                    class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">取消</button>
+                <button type="submit" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600">确认重置</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function hgtResetPwd(tenantId, tenantName) {
+    document.getElementById('rpTenantName').textContent = tenantName;
+    document.getElementById('rpForm').action = '/admin/tenants/' + tenantId + '/reset-password';
+    document.getElementById('rpPassword').value = '';
+    document.getElementById('rpForm').querySelector('input[name="password_confirmation"]').value = '';
+    document.getElementById('resetPwdModal').classList.remove('hidden');
+}
+</script>
 </x-app-layout>

@@ -42,7 +42,7 @@ class AdminController extends Controller
                 '仅超级管理员可访问'
             );
             return $next($request);
-        })->only(['tenants', 'storeTrial', 'updateTrial']);
+        })->only(['tenants', 'storeTrial', 'updateTrial', 'resetPassword']);
     }
 
     public function billing(Request $request)
@@ -128,7 +128,8 @@ class AdminController extends Controller
         $validator = Validator::make($request->all(), [
             'tenant_name' => ['required', 'string', 'max:60'],
             'name' => ['required', 'string', 'max:60'],
-            'email' => ['required', 'email', 'unique:users,email'],
+            // 2026-09-01 邮箱改选填：试用账号手机号即可登录；邮箱用于找回密码，可后补
+            'email' => ['nullable', 'email', 'unique:users,email'],
             'phone' => ['required', 'string', 'regex:/^1[3-9]\d{9}$/', 'unique:users,phone'],
             'password' => [
                 'required', 'string', 'min:8', 'max:16',
@@ -141,7 +142,6 @@ class AdminController extends Controller
         ], [
             'tenant_name.required' => '请填写企业 / 团队名称。',
             'name.required' => '请填写管理员姓名。',
-            'email.required' => '请填写邮箱登录账号。',
             'email.email' => '邮箱格式不正确。',
             'email.unique' => '该邮箱已注册。',
             'phone.required' => '请填写手机号。',
@@ -243,5 +243,35 @@ class AdminController extends Controller
 
         return redirect()->route('admin.tenants')
             ->with('success', '租户「' . $tenant->name . '」的试用权限已更新。');
+    }
+
+    /**
+     * 超级管理员：为租户重置登录密码（2026-09-01 兜底）。
+     * 客户未填邮箱时无法自助找回密码，由超管在此重置后告知客户新密码。
+     */
+    public function resetPassword(Request $request, Tenant $tenant)
+    {
+        $request->validate([
+            'password' => [
+                'required', 'string', 'min:8', 'max:16',
+                new \App\Rules\StrongPassword(),
+            ],
+        ], [
+            'password.required' => '请设置新密码。',
+            'password.min' => '密码至少 8 位。',
+            'password.max' => '密码最多 16 位。',
+            'password.regex' => '密码需由大写字母、小写字母、数字、特殊字符中至少两种组合。',
+        ]);
+
+        // 重置该租户首个管理员用户的密码
+        $user = $tenant->users()->orderBy('id')->first();
+        if (! $user) {
+            return redirect()->route('admin.tenants')
+                ->with('error', '该租户暂无用户，无法重置密码。');
+        }
+        $user->update(['password' => Hash::make($request->password)]);
+
+        return redirect()->route('admin.tenants')
+            ->with('success', '已重置租户「' . $tenant->name . '」管理员密码（' . $user->email . ' / ' . ($user->phone ?: '无手机号') . '）。请将新密码告知客户。');
     }
 }

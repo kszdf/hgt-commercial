@@ -12,7 +12,7 @@
             </div>
             <img src="/images/logo.jpg" alt="追梦" class="mx-auto h-20 w-auto rounded-2xl shadow-md">
             <h1 class="mt-3 text-xl font-bold tracking-tight text-slate-800">找回密码</h1>
-            <p class="mt-1 text-sm text-slate-500">邮箱验证码 · 安全重置登录密码</p>
+            <p class="mt-1 text-sm text-slate-500">通过注册邮箱验证码安全重置</p>
         </div>
 
         @if (session('status'))
@@ -31,12 +31,16 @@
             @csrf
             <div>
                 <flux:input label="注册邮箱" name="email" type="email" placeholder="注册时填写的邮箱，如 you@company.com"
-                    required value="{{ old('email', '') }}" />
+                    value="{{ old('email', '') }}" />
                 <p class="mt-1 text-xs text-slate-400">验证码将发送到该邮箱，5 分钟内有效。</p>
             </div>
 
             <flux:button variant="primary" type="submit" class="w-full !bg-brand-500 hover:!bg-brand-600 !shadow-sm mt-2">发送验证码</flux:button>
         </form>
+
+        <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+            注册时未填邮箱？请联系平台管理员（微信/电话）为你重置密码。
+        </div>
 
         @if (session('code_sent'))
             <div class="mt-5 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-600">

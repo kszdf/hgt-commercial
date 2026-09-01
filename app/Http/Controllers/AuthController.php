@@ -49,8 +49,9 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'tenant_name' => ['required', 'string', 'max:60'],
             'name' => ['required', 'string', 'max:60'],
-            'email' => ['required', 'email', 'unique:users,email'],
-            // 手机号必填：合法大陆手机号且全局唯一（用于手机登录与找回密码）。
+            // 2026-09-01 邮箱改选填：试用阶段手机号即可登录；邮箱用于找回密码/正式合同（转正时再补）
+            'email' => ['nullable', 'email', 'unique:users,email'],
+            // 手机号必填：合法大陆手机号且全局唯一（登录主键 + 后续短信通知）
             'phone' => ['required', 'string', 'regex:/^1[3-9]\d{9}$/', 'unique:users,phone'],
             // 密码：至少 6 位；且由 大写/小写/数字/特殊字符 中至少两种组合（StrongPassword 规则类）。
             'password' => [
@@ -60,7 +61,6 @@ class AuthController extends Controller
         ], [
             'tenant_name.required' => '请填写企业 / 团队名称。',
             'name.required' => '请填写管理员姓名。',
-            'email.required' => '请填写邮箱登录账号。',
             'email.email' => '邮箱格式不正确。',
             'email.unique' => '该邮箱已注册。',
             'phone.required' => '请填写手机号。',
