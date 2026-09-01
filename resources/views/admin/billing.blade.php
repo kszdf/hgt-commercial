@@ -48,6 +48,11 @@
     <!-- 套餐升级 -->
     <section class="luxury-glass mb-5 p-5">
         <h3 class="mb-3 text-sm font-semibold text-slate-700">升级套餐</h3>
+        @if(auth()->user()->isGlobalAdmin())
+            <div class="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-700">
+                超级管理员模式：当前展示的是全局视角下的默认租户（{{ $tenant->name }}）数据，不受套餐限制，无需升级。如需为客户配置套餐，请到「租户管理」操作。
+            </div>
+        @else
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
             @foreach ($plans as $k => $p)
                 <div class="rounded-lg border {{ $tenant->plan === $k ? 'border-brand-300 bg-brand-50 ring-1 ring-brand-200' : 'border-slate-200 bg-white' }} p-4">
@@ -71,6 +76,7 @@
                 </div>
             @endforeach
         </div>
+        @endif
     </section>
 
     <!-- 支付弹窗（微信扫码 / 支付宝跳转） -->

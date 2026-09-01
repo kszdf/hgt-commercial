@@ -174,7 +174,8 @@ class ModelAssetController extends Controller
         $request->validate([
             'file' => ['required', 'file', 'mimes:mp4,mov,webm', 'max:204800'],
         ]);
-        $tenant = $request->user()->tenant;
+        // 超管(tenant_id=null)回退 pro/enterprise 租户作为操作上下文，避免 tenant_id 为 null 传给出片管线
+        $tenant = $this->studioTenant($request);
         $file = $request->file('file');
         $ext = $file->getClientOriginalExtension();
         $rawRel = $file->storeAs('models', '_raw_' . uniqid() . '.' . $ext);

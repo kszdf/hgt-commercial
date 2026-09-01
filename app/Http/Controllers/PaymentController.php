@@ -18,7 +18,8 @@ class PaymentController extends Controller
     {
         $plan = $request->input('plan');
         $gateway = $request->input('gateway', 'wechat');
-        $tenant = $request->user()->tenant;
+        // 超管(tenant_id=null)回退 pro/enterprise 租户作为操作上下文，与全站 studioTenant 一致，避免强类型 TypeError
+        $tenant = $this->studioTenant($request);
 
         try {
             $result = $this->pay->createOrder($tenant, $plan, $gateway);
@@ -32,7 +33,7 @@ class PaymentController extends Controller
     /** 前端轮询订单支付状态。 */
     public function orderStatus(Request $request)
     {
-        $order = Order::where('tenant_id', $request->user()->tenant_id)
+        $order = Order::where('tenant_id', $this->studioTenant($request)->id)
             ->where('id', $request->input('order_id'))
             ->first();
 

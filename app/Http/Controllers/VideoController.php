@@ -693,7 +693,8 @@ class VideoController extends Controller
     /** 本租户可用音色（男/女），供批量统一形式选择器使用。 */
     public function voices(Request $request)
     {
-        $tenant = $request->user()->tenant;
+        // 超管(tenant_id=null)回退 pro/enterprise 租户作为操作上下文，保证批量出片能取到音色
+        $tenant = $this->studioTenant($request);
         $male = \App\Models\TenantVoice::where('tenant_id', $tenant->id)
             ->where('gender', 'male')->where('status', 'ready')
             ->orderByDesc('is_default')->orderByDesc('created_at')
