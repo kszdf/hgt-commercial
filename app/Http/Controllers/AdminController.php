@@ -186,7 +186,7 @@ class AdminController extends Controller
             'default_avatar' => 'BGZSP20260721_t18_silent.mp4',
         ]);
 
-        User::create([
+        $user = User::create([
             'tenant_id' => $tenant->id,
             'name' => $request->name,
             'email' => strtolower(trim($request->email)),
@@ -194,6 +194,9 @@ class AdminController extends Controller
             'password' => Hash::make($request->password),
             'email_verified_at' => now(),
         ]);
+
+        // 预置官方标准音色（男/女各一）：试用账号注册即有声可用
+        \App\Models\TenantVoice::ensurePresetVoices($tenant->id, $user->id);
 
         return redirect()->route('admin.tenants')
             ->with('success', '试用账号「' . $tenant->name . '」已创建（' . $trialDays . ' 天 / 累计 ' . ($request->trial_max_jobs ?: '不限') . ' 条，过期无效）。');

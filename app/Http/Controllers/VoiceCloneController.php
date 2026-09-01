@@ -66,9 +66,14 @@ class VoiceCloneController extends Controller
             return redirect()->back()->with('error', '克隆未返回 voice_id');
         }
 
-        $isFirst = TenantVoice::where('tenant_id', $tenant->id)
+        // 防御：老租户可能无预置音色，克隆前先补上（保证每个性别始终有官方音色兜底）
+        TenantVoice::ensurePresetVoices($tenant->id, $user->id);
+
+        // 克隆音不自动设默认：预置音色已保证每个性别有声，克隆音仅加入备选
+        $isDefault = TenantVoice::where('tenant_id', $tenant->id)
             ->where('gender', $data['gender'])
             ->where('status', 'ready')
+            ->where('is_default', true)
             ->doesntExist();
 
         TenantVoice::create([
@@ -79,7 +84,7 @@ class VoiceCloneController extends Controller
             'voice_id'   => $r['voice_id'],
             'model'      => $r['model'] ?? 'cosyvoice-v3-plus',
             'status'     => 'ready',
-            'is_default' => $isFirst,   // 同性别首个自动设为默认
+            'is_default' => $isDefault,   // 仅当该性别无任何默认时才自动设为默认
         ]);
 
         return redirect()->route('studio.voices')->with('success', '声音克隆成功，已加入你的声音库。');
@@ -105,6 +110,10 @@ class VoiceCloneController extends Controller
         $tenant = $this->studioTenant(request());
         if ($voice->tenant_id !== $tenant->id) {
             abort(403);
+        }
+        // 平台预置音色不可删除（保证租户始终有声可用）；仅可设默认/取消默认
+        if ($voice->is_preset) {
+            return redirect()->route('studio.voices')->with('error', '平台预置音色不可删除，你可以克隆自己的声音后切换默认。');
         }
         $gender = $voice->gender;
         $wasDefault = $voice->is_default;

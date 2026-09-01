@@ -2,6 +2,7 @@
 <x-workspace-layout title="声音库" :breadcrumbs="[['label' => '工作台总览', 'url' => '/dashboard'], ['label' => '声音库']]">
 <div class="mx-auto max-w-5xl p-6">
         <p class="mt-0.5 text-sm text-slate-400">上传参考音频克隆专属音色，支持多个男声 / 女声，出片时可自由选择。克隆后的音色仅你本租户可用，并会原样保留你录音里的口音 / 方言——无需单独选方言。</p>
+        <p class="mt-1 text-xs text-slate-400">平台已为你预置官方标准男声 / 女声各一个（非克隆、非名人，可放心商用），注册即可直接出片；如需专属音色再自行克隆。</p>
         <p class="mt-2 flex flex-wrap gap-3">
             <a href="/studio/models" class="text-sm text-brand-600 hover:underline">管理我的模特 →</a>
             <a href="/studio/covers" class="text-sm text-brand-600 hover:underline">管理封面素材 →</a>
@@ -74,13 +75,22 @@
                                 <div class="truncate text-sm font-medium text-slate-700">{{ $v->name }}</div>
                                 <div class="mt-1 flex items-center gap-1.5">
                                     <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">{{ $v->gender === 'male' ? '男声' : '女声' }}</span>
+                                    @if($v->is_preset)
+                                        <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] text-emerald-700">平台预置</span>
+                                    @endif
                                     @if($v->is_default)
                                         <span class="rounded-full bg-brand-100 px-2 py-0.5 text-[11px] text-brand-700">默认</span>
                                     @endif
                                 </div>
                             </div>
                         </div>
-                        <div class="mt-1 text-xs text-slate-400">已用 {{ $v->use_count }} 次</div>
+                        <div class="mt-1 text-xs text-slate-400">
+                            @if($v->is_preset)
+                                官方标准音色 · 已用 {{ $v->use_count }} 次
+                            @else
+                                已用 {{ $v->use_count }} 次
+                            @endif
+                        </div>
                         <div class="mt-3 flex gap-2">
                             @if(!$v->is_default)
                                 <form action="{{ route('studio.voices.default', $v) }}" method="POST" class="flex-1">
@@ -88,10 +98,12 @@
                                     <button type="submit" class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50">设为默认</button>
                                 </form>
                             @endif
-                            <form action="{{ route('studio.voices.destroy', $v) }}" method="POST" class="flex-1">
-                                @csrf @method('DELETE')
-                                <button type="button" onclick="hgtDel(this)" data-msg="确定删除该声音？删除后不可恢复。" class="w-full rounded-lg border border-red-200 bg-white px-2 py-1.5 text-xs text-red-600 hover:bg-red-50">删除</button>
-                            </form>
+                            @if(!$v->is_preset)
+                                <form action="{{ route('studio.voices.destroy', $v) }}" method="POST" class="flex-1">
+                                    @csrf @method('DELETE')
+                                    <button type="button" onclick="hgtDel(this)" data-msg="确定删除该声音？删除后不可恢复。" class="w-full rounded-lg border border-red-200 bg-white px-2 py-1.5 text-xs text-red-600 hover:bg-red-50">删除</button>
+                                </form>
+                            @endif
                         </div>
                     </div>
                 @endforeach

@@ -107,6 +107,9 @@ class AuthController extends Controller
             'email_verified_at' => now(),
         ]);
 
+        // 预置官方标准音色（男/女各一）：新租户注册即有声可用，无需先克隆才能出片
+        \App\Models\TenantVoice::ensurePresetVoices($tenant->id, $user->id);
+
         Auth::login($user);
 
         // 注册欢迎邮件（邮件服务未配置时静默失败，不阻断注册）
