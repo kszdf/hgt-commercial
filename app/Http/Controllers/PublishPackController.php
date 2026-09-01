@@ -92,7 +92,9 @@ class PublishPackController extends Controller
             return response()->json(['error' => $r['error'] ?? '生成失败'], 422);
         }
 
-        $coverName = $r['cover_path'] ? preg_replace('/^.*[\/\\\\]/', '', (string) $r['cover_path']) : '';
+        // 2026-09-01 修复：8500 返回 Windows 反斜杠路径，容器为 Linux，
+        // basename() 不认 '\'。先统一为 '/' 再取文件名（否则 cover_name 带子目录 → 前端 404）
+        $coverName = $r['cover_path'] ? basename(str_replace('\\', '/', (string) $r['cover_path'])) : '';
         return response()->json([
             'ok' => true,
             'title' => $r['title'] ?? '',
