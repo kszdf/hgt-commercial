@@ -180,15 +180,33 @@ class PublishPackController extends Controller
         return implode('', $out);
     }
 
-    /** 服务封面图（仅允许 footage / jobs 目录下 *_pack_cover.*）。 */
+    /**
+     * 服务封面图（仅允许 footage / jobs 目录下 *_pack_cover.*）。
+     * 封面产物位于 jobs/{jobId}/ 或 footage/ 子目录，按文件名递归查找（2026-09-01 修复：
+     * 原实现只在 jobs/ 根目录找 basename，实际封面在子目录 → 404 → 浏览器下载 htm 错误页）。
+     */
     public function cover(string $file)
     {
         $name = basename($file);
-        $dirs = [storage_path('app/footage'), storage_path('..') . '/python-pipeline/jobs'];
-        foreach ($dirs as $d) {
-            $full = realpath($d . '/' . $name);
-            if ($full && is_file($full) && str_contains($full, '_pack_cover.')) {
-                return response()->file($full, ['Content-Type' => 'image/jpeg']);
+        if (! str_contains($name, '_pack_cover.')) {
+            abort(404);
+        }
+        // 候选根目录：footage（精剪产物） + jobs（出片产物）
+        $roots = [storage_path('app/footage'), storage_path('..') . '/python-pipeline/jobs'];
+        foreach ($roots as $root) {
+            // 1) 直接命中（footage 产物在根目录）
+            $direct = realpath($root . '/' . $name);
+            if ($direct && is_file($direct)) {
+                return response()->file($direct, ['Content-Type' => 'image/jpeg']);
+            }
+            // 2) jobs/{jobId}/ 子目录命中（出片产物）
+            if (is_dir($root)) {
+                foreach (glob($root . '/*/' . $name) ?: [] as $cand) {
+                    $full = realpath($cand);
+                    if ($full && is_file($full)) {
+                        return response()->file($full, ['Content-Type' => 'image/jpeg']);
+                    }
+                }
             }
         }
         abort(404);
