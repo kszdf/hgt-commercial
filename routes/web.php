@@ -153,6 +153,8 @@ Route::middleware('auth')->group(function () {
     // 声音克隆（租户上传音频 → CosyVoice 克隆 → 声音库）
     Route::get('/studio/voices', [VoiceCloneController::class, 'index'])->name('studio.voices');
     Route::post('/studio/voices', [VoiceCloneController::class, 'store']);
+    // 官方音色库：自助添加官方预置音色到租户声音库
+    Route::post('/studio/voices/add-official', [VoiceCloneController::class, 'addOfficial'])->name('studio.voices.add-official');
     Route::post('/studio/voices/{voice}/default', [VoiceCloneController::class, 'setDefault'])->name('studio.voices.default');
     Route::delete('/studio/voices/{voice}', [VoiceCloneController::class, 'destroy'])->name('studio.voices.destroy');
 

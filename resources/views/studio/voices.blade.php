@@ -2,7 +2,7 @@
 <x-workspace-layout title="声音库" :breadcrumbs="[['label' => '工作台总览', 'url' => '/dashboard'], ['label' => '声音库']]">
 <div class="mx-auto max-w-5xl p-6">
         <p class="mt-0.5 text-sm text-slate-400">上传参考音频克隆专属音色，支持多个男声 / 女声，出片时可自由选择。克隆后的音色仅你本租户可用，并会原样保留你录音里的口音 / 方言——无需单独选方言。</p>
-        <p class="mt-1 text-xs text-slate-400">平台已为你预置官方标准男声 / 女声各一个（非克隆、非名人，可放心商用），注册即可直接出片；如需专属音色再自行克隆。</p>
+        <p class="mt-1 text-xs text-slate-400">平台已为你预置官方标准男声 / 女声各一个（非克隆、非名人，可放心商用），注册即可直接出片；下方「官方音色库」还有 21 款官方音色可选，也可自行克隆专属音色。</p>
         <p class="mt-2 flex flex-wrap gap-3">
             <a href="/studio/models" class="text-sm text-brand-600 hover:underline">管理我的模特 →</a>
             <a href="/studio/covers" class="text-sm text-brand-600 hover:underline">管理封面素材 →</a>
@@ -59,6 +59,38 @@
                 <button type="submit" class="w-full rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-600">上传并克隆</button>
             </div>
         </form>
+    </section>
+
+    <!-- 官方音色库（阿里云 CosyVoice 官方音色，非克隆/非名人，商用无侵权） -->
+    <section class="mt-4">
+        <div class="luxury-glass p-5">
+            <h3 class="mb-1 text-sm font-semibold text-slate-700">官方音色库</h3>
+            <p class="mb-3 text-xs text-slate-400">精选官方标准音色，点击「添加」即可用于出片（无需克隆）。已添加的音色可在上方声音库中设为默认或删除。</p>
+            @foreach(['male' => '男声', 'female' => '女声'] as $gender => $genderLabel)
+                <div class="mb-3">
+                    <div class="mb-1.5 text-xs font-semibold text-slate-500">{{ $genderLabel }}</div>
+                    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        @foreach($officialData[$gender] ?? [] as $v)
+                            <div class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                                <div class="min-w-0">
+                                    <div class="truncate text-sm font-medium text-slate-700">{{ $v['name'] }}</div>
+                                    <div class="truncate text-xs text-slate-400">{{ $v['desc'] }}</div>
+                                </div>
+                                @if($v['added'])
+                                    <span class="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-600">已添加</span>
+                                @else
+                                    <form method="POST" action="{{ route('studio.voices.add-official') }}" class="shrink-0">
+                                        @csrf
+                                        <input type="hidden" name="voice_id" value="{{ $v['voice_id'] }}">
+                                        <button type="submit" class="rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1 text-[11px] font-medium text-brand-600 hover:bg-brand-100">添加</button>
+                                    </form>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endforeach
+        </div>
     </section>
 
     <!-- 声音列表 -->

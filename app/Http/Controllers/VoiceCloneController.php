@@ -30,7 +30,37 @@ class VoiceCloneController extends Controller
             ->get();
         $maleCount = $voices->where('gender', 'male')->where('status', 'ready')->count();
         $femaleCount = $voices->where('gender', 'female')->where('status', 'ready')->count();
-        return view('studio.voices', compact('voices', 'maleCount', 'femaleCount'));
+
+        // 官方音色库（按性别分组）+ 该租户已添加的 voice_id 集合（前端标记"已添加"）
+        $official = TenantVoice::OFFICIAL_VOICES;
+        $addedIds = TenantVoice::officialAddedVoiceIds($tenant->id);
+        $officialData = [];
+        foreach ($official as $gender => $list) {
+            $officialData[$gender] = collect($list)->map(function ($v) use ($addedIds) {
+                return [
+                    'voice_id' => $v['voice_id'],
+                    'name' => $v['name'],
+                    'desc' => $v['desc'],
+                    'added' => in_array($v['voice_id'], $addedIds, true),
+                ];
+            })->values();
+        }
+
+        return view('studio.voices', compact('voices', 'maleCount', 'femaleCount', 'officialData'));
+    }
+
+    /** 添加官方音色到租户声音库（自助添加，可删除）。 */
+    public function addOfficial(Request $request)
+    {
+        $tenant = $this->studioTenant(request());
+        $voiceId = trim((string) $request->input('voice_id'));
+
+        $voice = TenantVoice::addOfficialVoice($tenant->id, $request->user()?->id, $voiceId);
+        if (! $voice) {
+            return redirect()->route('studio.voices')->with('error', '未找到该官方音色。');
+        }
+        $name = $voice->name;
+        return redirect()->route('studio.voices')->with('success', '已添加官方音色「' . $name . '」到声音库。');
     }
 
     public function store(Request $request)
