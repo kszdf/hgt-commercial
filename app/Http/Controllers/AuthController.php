@@ -101,7 +101,7 @@ class AuthController extends Controller
         $user = User::create([
             'tenant_id' => $tenant->id,
             'name' => $request->name,
-            'email' => $request->email,
+            'email' => strtolower(trim($request->email)),
             'phone' => $request->phone ?: null,
             'password' => Hash::make($request->password),
             'email_verified_at' => now(),

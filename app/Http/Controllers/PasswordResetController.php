@@ -59,13 +59,19 @@ class PasswordResetController extends Controller
             $delivered = false;
         }
 
-        // 邮件服务未配置（log 邮件器）时进入自测兜底：页面直接显示验证码，便于配置 SMTP 前先跑通流程
-        if (! $delivered || config('mail.default') === 'log') {
-            $msg = '验证码已生成（邮件服务尚未配置，请先按配置手册在 .env 填好 SMTP；此处为演示模式，直接用下方验证码重置）。';
-            $devCode = $code;
+        // 验证码仅允许在【非生产环境】（local/staging 等）回显，供自测跑通流程；
+        // 生产环境（APP_ENV=production）绝不在页面显示验证码——否则 SMTP 故障时
+        // 任何知道他人邮箱的人都能直接看到验证码并重置密码，构成账号接管漏洞。
+        $devCode = null;
+        if (! $delivered) {
+            if (app()->environment('production')) {
+                $msg = '邮件发送失败，请稍后重试；若持续失败请联系客服处理。';
+            } else {
+                $msg = '邮件服务未配置或发送失败（演示模式）：请使用下方验证码重置密码。';
+                $devCode = $code;
+            }
         } else {
             $msg = '验证码已发送至 ' . $email . '，5 分钟内有效。';
-            $devCode = null;
         }
 
         return back()

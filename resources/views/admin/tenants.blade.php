@@ -39,7 +39,7 @@
                     <input name="phone" required value="{{ old('phone') }}" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none">
                 </div>
                 <div>
-                    <label class="mb-1 block text-xs text-slate-500">登录密码 *（至少6位）</label>
+                    <label class="mb-1 block text-xs text-slate-500">登录密码 *（8-16位，含大写/小写/数字/特殊字符中至少两种）</label>
                     <input name="password" type="text" required class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none">
                 </div>
                 <div>

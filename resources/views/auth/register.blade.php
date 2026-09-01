@@ -5,7 +5,7 @@
         <div class="mb-7 flex items-center gap-2.5">
             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 text-lg font-bold text-white shadow-sm">追</div>
             <div>
-                <h1 class="text-xl font-bold text-slate-800">创建租户</h1>
+                <h1 class="text-xl font-bold text-slate-800">注册账号</h1>
                 <p class="text-xs text-slate-400">开通你的商用短视频工作台</p>
             </div>
             <div class="ml-auto">
@@ -16,6 +16,10 @@
                     </svg>
                 </button>
             </div>
+        </div>
+
+        <div class="mb-5 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-700">
+            注册即享 <span class="font-semibold">免费试用 {{ (int) env('TRIAL_DAYS', 7) }} 天</span> · 本月 {{ (int) env('TRIAL_VIDEO_QUOTA', 10) }} 次出片额度，无需付费即可体验完整出片流程。
         </div>
 
         @if ($errors->any())
@@ -31,7 +35,7 @@
             <flux:input label="企业 / 团队名称" name="tenant_name" placeholder="追梦科技" required value="{{ old('tenant_name') }}" />
             <flux:input label="管理员 / Administrator" name="name" placeholder="您的姓名" required value="{{ old('name') }}" />
             <flux:input label="邮箱登录 / Email Login" name="email" type="email" placeholder="you@company.com" required value="{{ old('email') }}" />
-            <flux:input label="手机号" name="phone" type="tel" placeholder="11 位手机号（用于登录与平台短信通知）" required value="{{ old('phone') }}" />
+            <flux:input label="手机号" name="phone" type="tel" placeholder="11 位手机号（用于手机号登录）" required value="{{ old('phone') }}" />
             <flux:input label="密码" name="password" type="password" placeholder="••••••••" required />
             <p class="text-xs text-slate-400 -mt-2">8-16 位，且由大写字母、小写字母、数字、特殊字符中至少两种组合。</p>
             <flux:input label="确认密码" name="password_confirmation" type="password" placeholder="••••••••" required />
@@ -45,6 +49,7 @@
             已有账号？
             <a href="/login" class="font-medium text-brand-500 hover:underline">直接登录</a>
         </p>
+        <p class="mt-2 text-center text-xs text-slate-400">忘记密码时仅支持通过注册邮箱找回，请务必填写真实有效的邮箱。</p>
     </div>
 
     <p class="mt-6 shrink-0 text-center text-xs text-slate-300">

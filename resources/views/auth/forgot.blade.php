@@ -42,7 +42,7 @@
                 {{ session('status') ?? '验证码已发送，请查收。' }}
             </div>
 
-            @if (session('dev_code'))
+            @if (session('dev_code') && ! app()->environment('production'))
                 <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                     演示模式验证码：<span class="font-bold tracking-widest">{{ session('dev_code') }}</span>
                 </div>
