@@ -12,10 +12,10 @@ use Illuminate\Support\Facades\Auth;
  * 平台数据适配器抽象层。
  *
  * 各短视频平台（视频号/抖音/小红书）的数据拉取方式不同：
- *   - wechat/douyin/xiaohongshu 需要 OAuth 授权后调用开放平台接口；
- *   - manual 为手动录入（无需授权）。
- *
- * 当前仅 manual 落地，其余平台返回「需授权」占位，待接入真实开放平台 SDK。
+ *   - douyin/xiaohongshu 需要 OAuth 授权后调用开放平台接口；
+ *   - shipinhao（视频号）无公开 API，为手动录入。
+ * 数据回流真实抓取在 8500 侧 metrics_adapter.py 实现（抖音），此处为 Laravel 侧适配骨架。
+ * 2026-09-01：公众号（wechat）渠道已移除。
  */
 abstract class PlatformAdapter
 {
@@ -41,7 +41,7 @@ abstract class PlatformAdapter
     public static function make(string $platform): self
     {
         return match ($platform) {
-            'wechat', 'douyin', 'xiaohongshu' => new ManualAdapter($platform),
+            'douyin', 'xiaohongshu' => new ManualAdapter($platform),
             default => new ManualAdapter('manual'),
         };
     }

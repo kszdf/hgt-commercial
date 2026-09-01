@@ -210,9 +210,8 @@
     }
 
     const CRED_LABELS = {
-        // 仅公众号走 AppID/AppSecret（client_credential）；抖音/小红书走 OAuth 授权、无需手填凭证，
-        // 视频号/B站/快手/YouTube 无稳定公开 API，人工发布，均不显示凭证框。
-        wechat: ['公众号 AppID', 'AppSecret', '微信公众平台 mp.weixin.qq.com → 设置与开发 → 基本配置'],
+        // 抖音/小红书走 OAuth 授权、无需手填凭证；视频号无公开 API 人工发布。
+        // 公众号（wechat）渠道已于 2026-09-01 移除（公众号为图文平台，与短视频方向不符）。
     };
 
     function onPlatformChange(platform) {

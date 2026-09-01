@@ -13,13 +13,14 @@ use Illuminate\Http\Request;
  *  - 账号属性：平台 / 名称 / 备注 / 内容定位标签 / 每日发布上限；
  *  - 应用凭证（AppID/AppSecret 等）经 account_info 加密存储，不落明文；
  *  - 抖音/小红书走 OAuth 授权码模式（本控制器代理 8500 授权路由）；
- *  - 公众号（wechat）走 client_credential 模式，填写 AppID/AppSecret 即视为已授权。
+ *  - 视频号无公开 API，走人工发布（恒可发，一键发布存「待人工发布」清单）。
+ *  - 2026-09-01：公众号（wechat）渠道已移除——公众号是图文平台，与短视频方向不符。
  */
 class AccountController extends Controller
 {
-    /** 可登记的平台：精简到主流4个（视频号/抖音/小红书/公众号），后续按需扩充。 */
+    /** 可登记的平台：短视频三平台（视频号/抖音/小红书），公众号已移除。 */
     private const PLATFORM_KEYS = [
-        'douyin', 'shipinhao', 'xiaohongshu', 'wechat',
+        'douyin', 'shipinhao', 'xiaohongshu',
     ];
 
     /** 账号管理页：本租户全部渠道备忘 + 今日余量。 */
@@ -112,10 +113,6 @@ class AccountController extends Controller
         if (array_key_exists('account_info', $data) && $data['account_info'] !== null) {
             $info = $this->sanitizeAccountInfo($data['account_info']);
             $update['account_info'] = $info;
-            // 公众号：填写/清空凭证直接决定授权态（client_credential 模式）
-            if ($account->platform === 'wechat') {
-                $update['status'] = $info ? 'authorized' : 'active';
-            }
         }
         $account->update($update);
 
@@ -144,8 +141,7 @@ class AccountController extends Controller
     /** 应用凭证白名单（各平台键名），只存这些，过滤无关字段。 */
     private const CREDENTIAL_KEYS = [
         'client_key', 'client_secret',     // 抖音
-        'app_id', 'app_secret',            // 小红书 / 公众号
-        'appid', 'secret',                 // 视频号 / 公众号(微信命名)
+        'app_id', 'app_secret',            // 小红书
     ];
 
     /** 只保留白名单凭证键，去空值；无有效凭证返回 null。 */
@@ -156,10 +152,10 @@ class AccountController extends Controller
         return $clean ?: null;
     }
 
-    /** 新增账号的初始授权态：公众号有凭证即授权，其余待 OAuth/手动。 */
+    /** 新增账号的初始授权态：抖音/小红书待 OAuth 授权（active），视频号人工发布（active）。 */
     private function statusFor(string $platform, ?array $info): string
     {
-        return ($platform === 'wechat' && ! empty($info)) ? 'authorized' : 'active';
+        return 'active';
     }
 
     /** OAuth 授权入口：代理 8500 /oauth/authorize/{platform}?account_id={id}，返回 authorize_url。 */
