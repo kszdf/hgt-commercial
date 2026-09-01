@@ -87,6 +87,10 @@ class AdminController extends Controller
         $tenants = Tenant::orderByDesc('created_at')->get();
 
         $rows = $tenants->map(function (Tenant $t) {
+            $admin = $t->users()->orderBy('id')->first();
+            // 账号类别：测试(公司内部) > 正式付费(pro/enterprise) > 试用(free)
+            $category = $t->is_test ? 'test'
+                : ($t->plan !== 'free' ? 'paid' : 'trial');
             return [
                 'id' => $t->id,
                 'name' => $t->name,
@@ -94,6 +98,8 @@ class AdminController extends Controller
                 'plan' => $t->plan,
                 'plan_label' => $t->planLabel(),
                 'status' => $t->status,
+                'is_test' => (bool) $t->is_test,
+                'category' => $category,
                 'trial_ends_at' => $t->trial_ends_at?->format('Y-m-d H:i'),
                 'trial_days_left' => $t->trialDaysLeft(),
                 'quota_monthly' => $t->quota_monthly,
@@ -103,7 +109,9 @@ class AdminController extends Controller
                 'trial_max_minutes' => $t->trial_max_minutes,
                 'trial_minutes_used' => $t->trialMinutesUsed(),
                 'allow_batch' => (bool) $t->allow_batch,
-                'admin_email' => $t->users()->orderBy('id')->value('email'),
+                'admin_email' => $admin?->email,
+                'admin_phone' => $admin?->phone,
+                'admin_name' => $admin?->name,
                 'created_at' => $t->created_at?->format('Y-m-d H:i'),
             ];
         })->all();
@@ -139,6 +147,7 @@ class AdminController extends Controller
             'trial_max_jobs' => ['required', 'integer', 'min:0'],
             'trial_max_minutes' => ['required', 'integer', 'min:0'],
             'allow_batch' => ['sometimes', 'boolean'],
+            'is_test' => ['sometimes', 'boolean'],
         ], [
             'tenant_name.required' => '请填写企业 / 团队名称。',
             'name.required' => '请填写管理员姓名。',
@@ -178,6 +187,7 @@ class AdminController extends Controller
             'slug' => $slug,
             'plan' => 'free',
             'status' => 'active',
+            'is_test' => (bool) $request->boolean('is_test'),
             'trial_ends_at' => now()->addDays($trialDays),
             'quota_monthly' => (int) env('TRIAL_VIDEO_QUOTA', 10),
             'trial_max_jobs' => (int) $request->trial_max_jobs,
@@ -189,7 +199,7 @@ class AdminController extends Controller
         $user = User::create([
             'tenant_id' => $tenant->id,
             'name' => $request->name,
-            'email' => strtolower(trim($request->email)),
+            'email' => $request->email ? strtolower(trim($request->email)) : null,   // 空邮箱存 NULL（唯一索引允许多 NULL，避免 '' 冲突）
             'phone' => $request->phone,
             'password' => Hash::make($request->password),
             'email_verified_at' => now(),
@@ -198,8 +208,16 @@ class AdminController extends Controller
         // 预置官方标准音色（男/女各一）：试用账号注册即有声可用
         \App\Models\TenantVoice::ensurePresetVoices($tenant->id, $user->id);
 
+        // 2026-09-02 密码一次性展示：只在本页 flash 一次（session 一次性），
+        // 刷新/离开后不再显示；密码本身不落库明文（哈希存储，无法也不应查看）。
         return redirect()->route('admin.tenants')
-            ->with('success', '试用账号「' . $tenant->name . '」已创建（' . $trialDays . ' 天 / 累计 ' . ($request->trial_max_jobs ?: '不限') . ' 条，过期无效）。');
+            ->with('success', '账号「' . $tenant->name . '」已创建。')
+            ->with('new_account', [
+                'tenant' => $tenant->name,
+                'login' => $request->phone ?: $request->email,
+                'password' => $request->password,
+                'is_test' => (bool) $request->boolean('is_test'),
+            ]);
     }
 
     /**

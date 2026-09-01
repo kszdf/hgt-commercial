@@ -11,7 +11,7 @@ class Tenant extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name', 'slug', 'plan', 'status', 'trial_ends_at', 'quota_monthly',
+        'name', 'slug', 'plan', 'status', 'is_test', 'trial_ends_at', 'quota_monthly',
         'trial_max_jobs', 'trial_max_minutes', 'allow_batch',
         'default_avatar', 'default_male_voice', 'default_female_voice', 'settings',
         'theme_preset', 'theme_overrides',
@@ -24,6 +24,7 @@ class Tenant extends Model
         'trial_max_jobs' => 'integer',
         'trial_max_minutes' => 'integer',
         'allow_batch' => 'boolean',
+        'is_test' => 'boolean',
         'trial_ends_at' => 'datetime',
     ];
 

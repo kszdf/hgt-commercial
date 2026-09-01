@@ -17,6 +17,27 @@
             <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{{ session('error') }}</div>
         @endif
 
+        {{-- 新建账号密码一次性展示（session 一次性，刷新后消失） --}}
+        @if (session('new_account'))
+            @php $na = session('new_account'); @endphp
+            <div class="mb-4 rounded-xl border-2 border-brand-300 bg-brand-50 p-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="text-sm">
+                        <div class="font-semibold text-brand-800">✅ 账号已创建，请立即保存登录信息（仅显示这一次）</div>
+                        <div class="mt-2 grid grid-cols-1 gap-1 text-slate-700 sm:grid-cols-2">
+                            <div>租户：<span class="font-medium">{{ $na['tenant'] }}</span></div>
+                            <div>类型：<span class="font-medium">{{ $na['is_test'] ? '测试账号' : '正式账号' }}</span></div>
+                            <div>登录账号：<span class="font-mono font-medium">{{ $na['login'] }}</span></div>
+                            <div>登录密码：<span class="font-mono font-medium text-brand-700">{{ $na['password'] }}</span></div>
+                        </div>
+                        <p class="mt-2 text-xs text-brand-600">请复制账号密码发给客户；密码仅本次可见，之后只能通过「重置密码」重新设置（安全设计：密码不落后台明文）。</p>
+                    </div>
+                    <button type="button" onclick="this.closest('div').style.display='none'"
+                        class="shrink-0 rounded-md border border-brand-300 bg-white px-2.5 py-1 text-xs text-brand-600 hover:bg-brand-100">我知道了</button>
+                </div>
+            </div>
+        @endif
+
         <!-- 新建试用账号 -->
         <section class="luxury-glass mb-5 p-5">
             <h3 class="mb-3 text-sm font-semibold text-slate-700">新建试用账号</h3>
@@ -56,14 +77,18 @@
                     <label class="mb-1 block text-xs text-slate-500">累计生成时长上限（分钟）*（0=不限）</label>
                     <input name="trial_max_minutes" type="number" min="0" required value="{{ old('trial_max_minutes', $defaults['max_minutes']) }}" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none">
                 </div>
-                <div class="flex items-end">
-                    <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+                <div class="flex items-end gap-4">
+                    <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-600" title="公司内部测试账号（非真实客户），列表标记为「测试」">
+                        <input type="checkbox" name="is_test" value="1" {{ old('is_test') ? 'checked' : '' }} class="h-4 w-4 rounded border-slate-300 text-brand-600">
+                        测试账号
+                    </label>
+                    <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-600" title="批量外发">
                         <input type="checkbox" name="allow_batch" value="1" {{ old('allow_batch', $defaults['allow_batch']) ? 'checked' : '' }} class="h-4 w-4 rounded border-slate-300 text-brand-600">
                         开放批量外发权限
                     </label>
                 </div>
                 <div class="flex items-end">
-                    <button class="rounded-lg bg-brand-600 px-5 py-2 text-sm font-medium text-white hover:bg-brand-700 transition">创建试用账号</button>
+                    <button class="rounded-lg bg-brand-600 px-5 py-2 text-sm font-medium text-white hover:bg-brand-700 transition">创建账号</button>
                 </div>
             </form>
         </section>
@@ -75,8 +100,8 @@
                 <table class="w-full text-left text-sm">
                     <thead class="text-xs text-slate-400">
                         <tr>
-                            <th class="py-2 pr-3 font-medium">租户</th>
-                            <th class="py-2 pr-3 font-medium">套餐</th>
+                            <th class="py-2 pr-3 font-medium">租户 / 账号</th>
+                            <th class="py-2 pr-3 font-medium">性质 · 状态</th>
                             <th class="py-2 pr-3 font-medium">试用剩余</th>
                             <th class="py-2 pr-3 font-medium">月度用量</th>
                             <th class="py-2 pr-3 font-medium">累计条数</th>
@@ -90,10 +115,29 @@
                             <tr class="hover:bg-slate-50/50 align-top">
                                 <td class="py-2.5 pr-3">
                                     <div class="font-medium text-slate-700">{{ $r['name'] }}</div>
-                                    <div class="text-xs text-slate-400">{{ $r['admin_email'] ?: '—' }}</div>
+                                    <div class="mt-0.5 space-y-0.5 text-xs text-slate-500">
+                                        @if($r['admin_phone'])<div>📱 {{ $r['admin_phone'] }}</div>@endif
+                                        @if($r['admin_email'])<div>✉️ {{ $r['admin_email'] }}</div>@endif
+                                        @if(!$r['admin_phone'] && !$r['admin_email'])<div class="text-slate-300">无登录账号</div>@endif
+                                    </div>
                                 </td>
                                 <td class="py-2.5 pr-3">
-                                    <span class="rounded-full {{ $r['plan']==='free' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600' }} px-2 py-0.5 text-xs font-medium">{{ $r['plan_label'] }}</span>
+                                    {{-- 性质徽标：测试/正式 --}}
+                                    @if($r['is_test'])
+                                        <span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">测试</span>
+                                    @else
+                                        <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">正式</span>
+                                    @endif
+                                    {{-- 套餐状态徽标：付费/试用中/将过期/已过期 --}}
+                                    @if($r['plan'] !== 'free')
+                                        <span class="ml-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600">{{ $r['plan_label'] }}</span>
+                                    @elseif($r['trial_days_left'] === null)
+                                        <span class="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">已过期</span>
+                                    @elseif($r['trial_days_left'] <= 3)
+                                        <span class="ml-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">试用·剩{{ $r['trial_days_left'] }}天</span>
+                                    @else
+                                        <span class="ml-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-600">试用·剩{{ $r['trial_days_left'] }}天</span>
+                                    @endif
                                     @if($r['status']!=='active')<span class="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">{{ $r['status'] }}</span>@endif
                                 </td>
                                 <td class="py-2.5 pr-3 text-slate-600">
