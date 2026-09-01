@@ -30,11 +30,21 @@ class PublishPackController extends Controller
             'industry' => ['nullable', 'string', 'max:40'],
             'use_photo' => ['sometimes', 'boolean'],             // 用个人形象照做封面底图
         ]);
+        // 2026-09-01 加固：JSON body 若带 BOM（utf-8-sig）Laravel 解析为空，手动清理后回填
+        if (empty($data) && ! empty($request->getContent())) {
+            $raw = ltrim($request->getContent(), "\xEF\xBB\xBF");
+            $parsed = json_decode($raw, true);
+            if (is_array($parsed)) {
+                $data = array_merge($data, $parsed);
+                $request->merge($parsed);
+            }
+        }
 
         $text = trim((string) ($data['text'] ?? ''));
         $videoHost = '';
         $coverPhoto = '';
-        $portrait = $this->portraitPath($request->user()->tenant_id);
+        // 超管(tenant_id=null)回退 pro/enterprise 租户上下文，避免 portraitPath(null) 语义错误
+        $portrait = $this->portraitPath($this->studioTenant($request)->id);
 
         if (! empty($data['use_photo']) && $portrait && is_file($portrait)) {
             $coverPhoto = $this->hostPath($portrait);
