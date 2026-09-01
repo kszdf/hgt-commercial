@@ -75,7 +75,9 @@ class PublishRunner
         $simulated = ! empty($result['simulated'])
             || ($platStatus === 'published' && empty($result['post_id']) && empty($result['url']));
         $manual = $platStatus === 'manual_required'; // 无 API 平台：待人工发布
-        $ok = $platStatus === 'published';
+        // 模拟发布（无凭证 dry 降级）视为成功态：UI 展示"模拟发布成功"而非"失败"，
+        // 避免误导用户以为发布出错；真实发布时 status=published 且带 post_id/url。
+        $ok = $platStatus === 'published' || $simulated;
 
         $record = PublishRecord::create([
             'tenant_id' => $tenant->id,
@@ -92,8 +94,8 @@ class PublishRunner
             'published_at' => now(),
         ]);
 
-        if ($ok) {
-            $account->markPublished(); // 仅真实成功计数（模拟不计）
+        if ($ok && ! $simulated) {
+            $account->markPublished(); // 仅真实成功计数（模拟发布不计入每日上限）
             // 2026-08-31 修复矩阵发布：不再覆盖 publish_status（保持 approved），
             // "已发布"语义由 PublishRecord 承载；否则 canPublish() 只认 approved，
             // 同一成片发布到账号 A 后无法再发到账号 B（矩阵发布被锁死）。
@@ -105,7 +107,8 @@ class PublishRunner
             'manual' => $manual,
             'simulated' => $simulated,
             'record' => $record,
-            'reason' => $ok ? null : ($manual ? ($result['error'] ?? '待人工发布') : ($result['error'] ?? '平台返回失败')),
+            'reason' => $simulated ? ($result['error'] ?? '模拟发布（未真正发出）')
+                : ($ok ? null : ($manual ? ($result['error'] ?? '待人工发布') : ($result['error'] ?? '平台返回失败'))),
         ];
     }
 
