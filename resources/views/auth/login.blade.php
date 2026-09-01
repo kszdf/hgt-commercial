@@ -2,7 +2,7 @@
 <div class="flex min-h-screen flex-col items-center justify-center p-6">
     <div class="luxury-glass w-full max-w-md p-8">
         <!-- 品牌区 -->
-        <div class="relative mb-7 text-center">
+        <div class="relative mb-8 text-center">
             <div class="absolute right-0 top-0">
                 <button onclick="toggleTheme()" title="切换明暗"
                     class="rounded-lg border border-slate-200 bg-white p-2 text-slate-400 transition hover:border-brand-300 hover:text-brand-500">
@@ -11,8 +11,9 @@
                     </svg>
                 </button>
             </div>
-            <img src="/images/logo.jpg" alt="追梦" class="mx-auto h-20 w-auto rounded-2xl shadow-sm">
-            <p class="mt-2 text-xs text-slate-400">商用短视频智能工作台</p>
+            <img src="/images/logo.jpg" alt="追梦" class="mx-auto h-24 w-auto rounded-2xl shadow-md">
+            <h1 class="mt-4 text-2xl font-bold tracking-tight text-slate-800">追梦 · 商用短视频智能工作台</h1>
+            <p class="mt-1.5 text-sm text-slate-500">选题 · 二创 · 出片 · 质检 · 审核 · 发布 全流程 AI 自动化</p>
         </div>
 
         @if (session('status'))

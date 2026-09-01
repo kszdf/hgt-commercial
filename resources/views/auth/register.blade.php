@@ -2,11 +2,11 @@
 <div class="flex min-h-screen min-h-dvh items-start justify-center overflow-y-auto p-6 py-10 sm:items-center sm:py-6">
     <div class="my-auto w-full max-w-md p-6 sm:p-8 luxury-glass">
         <!-- 品牌区 -->
-        <div class="mb-7 flex items-center gap-2.5">
-            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 text-lg font-bold text-white shadow-sm">追</div>
+        <div class="mb-7 flex items-center gap-3">
+            <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 text-xl font-bold text-white shadow-sm">追</div>
             <div>
                 <h1 class="text-xl font-bold text-slate-800">注册账号</h1>
-                <p class="text-xs text-slate-400">开通你的商用短视频工作台</p>
+                <p class="text-sm text-slate-500">开通你的商用短视频工作台</p>
             </div>
             <div class="ml-auto">
                 <button onclick="toggleTheme()" title="切换明暗"

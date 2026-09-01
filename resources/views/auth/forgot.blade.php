@@ -10,8 +10,9 @@
                     </svg>
                 </button>
             </div>
-            <img src="/images/logo.jpg" alt="追梦" class="mx-auto h-20 w-auto rounded-2xl shadow-sm">
-            <p class="mt-2 text-xs text-slate-400">找回密码 · 邮箱验证码</p>
+            <img src="/images/logo.jpg" alt="追梦" class="mx-auto h-20 w-auto rounded-2xl shadow-md">
+            <h1 class="mt-3 text-xl font-bold tracking-tight text-slate-800">找回密码</h1>
+            <p class="mt-1 text-sm text-slate-500">邮箱验证码 · 安全重置登录密码</p>
         </div>
 
         @if (session('status'))

@@ -233,8 +233,8 @@
         </nav>
 
         <!-- 侧栏底部：品牌标语 -->
-        <div class="border-t border-slate-200/60 px-3 py-2.5">
-            <p class="px-2 text-[11px] text-slate-400 flex items-center gap-1.5"><span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>在线 · v2026.08</p>
+        <div class="border-t border-slate-200/60 px-3 py-3">
+            <p class="ws-sidebar-footer px-2 flex items-center gap-1.5"><span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>在线 · v2026.09</p>
         </div>
     </aside>
 
@@ -251,7 +251,7 @@
                     class="hidden rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                 </button>
-                <h1 class="text-base font-semibold text-slate-800">{{ $title }}</h1>
+                <h1 class="ws-topbar-title text-slate-800">{{ $title }}</h1>
             </div>
             <div class="flex items-center gap-2">
                 {{-- 用量胶囊 + 升级（常驻，付费转化最短路径） --}}
@@ -272,7 +272,7 @@
                 {{-- 用户菜单（计费/账号安全/退出，替代原"系统"组） --}}
                 <details class="relative">
                     <summary class="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-sm transition hover:border-brand-300">
-                        <div class="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 text-[11px] font-bold text-white ring-2 ring-white">
+                        <div class="ws-avatar flex items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 font-bold text-white ring-2 ring-white">
                             {{ strtoupper(mb_substr(auth()->user()->name ?: '?', 0, 1)) }}
                         </div>
                         <div class="flex flex-col leading-tight">
