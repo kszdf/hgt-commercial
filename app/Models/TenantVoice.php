@@ -10,9 +10,11 @@ class TenantVoice extends Model
     /**
      * 平台预置音色（CosyVoice 官方标准音色，非克隆/非名人，商用无侵权风险）。
      * 新租户注册/建号时自动各预置一条（男/女），解决"声音库为空无法出片"的首单卡点。
+     * 2026-09-01 选型：男=龙硕(博才干练,新闻播报级) / 女=龙小夏(沉稳权威)，
+     * 均走 cosyvoice-v3-flash 模型（合成速度约为 v3-plus 的 3 倍）。
      */
-    public const PRESET_MALE = ['voice_id' => 'longanyang', 'name' => '平台男声·龙昂扬', 'model' => 'cosyvoice-v3-plus'];
-    public const PRESET_FEMALE = ['voice_id' => 'longanhuan', 'name' => '平台女声·龙安欢', 'model' => 'cosyvoice-v3-plus'];
+    public const PRESET_MALE = ['voice_id' => 'longshuo_v3', 'name' => '平台男声·龙硕', 'model' => 'cosyvoice-v3-flash'];
+    public const PRESET_FEMALE = ['voice_id' => 'longxiaoxia_v3', 'name' => '平台女声·龙小夏', 'model' => 'cosyvoice-v3-flash'];
 
     protected $fillable = [
         'tenant_id', 'user_id', 'name', 'gender', 'voice_id',
