@@ -193,9 +193,12 @@ class PublishPackController extends Controller
     }
 
     /**
-     * 服务封面图（仅允许 footage / jobs 目录下 *_pack_cover.*）。
-     * 封面产物位于 jobs/{jobId}/ 或 footage/ 子目录，按文件名递归查找（2026-09-01 修复：
-     * 原实现只在 jobs/ 根目录找 basename，实际封面在子目录 → 404 → 浏览器下载 htm 错误页）。
+     * 服务封面图（仅允许 footage / jobs / portrait 目录下 *_pack_cover.*）。
+     * 封面产物位置：
+     *   - jobs/{jobId}/out_pack_cover.jpg   （出片产物）
+     *   - footage/{uuid}_edited_pack_cover.jpg （精剪产物）
+     *   - covers/portrait/portrait_pack_cover.jpg （形象照封面，2026-09-02 修复：此前漏查此目录
+     *     导致"上传形象照生成封面后下载 404"）
      */
     public function cover(string $file)
     {
@@ -203,10 +206,14 @@ class PublishPackController extends Controller
         if (! str_contains($name, '_pack_cover.')) {
             abort(404);
         }
-        // 候选根目录：footage（精剪产物） + jobs（出片产物）
-        $roots = [storage_path('app/footage'), storage_path('..') . '/python-pipeline/jobs'];
+        // 候选根目录：footage（精剪产物） + jobs（出片产物） + portrait（形象照封面）
+        $roots = [
+            storage_path('app/footage'),
+            storage_path('..') . '/python-pipeline/jobs',
+            storage_path('app/covers/portrait'),
+        ];
         foreach ($roots as $root) {
-            // 1) 直接命中（footage 产物在根目录）
+            // 1) 直接命中（footage / portrait 产物在根目录）
             $direct = realpath($root . '/' . $name);
             if ($direct && is_file($direct)) {
                 return response()->file($direct, ['Content-Type' => 'image/jpeg']);
