@@ -46,8 +46,8 @@
                         <input type="checkbox" id="keepManualRoles" name="keep_manual_roles" value="1" class="accent-brand-500 rounded">
                         保留原稿中已有的「男：/女：」对话标注
                     </label>
-                    <p class="mt-1.5 text-xs text-slate-400">
-                        <span class="text-brand-600">提示：</span>「女：/男：」前缀用于区分声线；单人形式无需前缀；数字人出镜为单人独白，前缀自动忽略。
+                    <p class="mt-1.5 flex items-center gap-1 text-xs text-slate-400">
+                        <span class="hint" data-tip="「女：/男：」前缀用于区分声线。单人形式无需前缀；数字人出镜为单人独白，前缀自动忽略。">?</span>
                     </p>
                 </div>
 

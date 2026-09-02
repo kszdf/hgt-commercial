@@ -908,7 +908,8 @@ async function aiSuggestTitle() {
         if (data.title) { document.getElementById('title').value = String(data.title).slice(0, 15); titleDirty = true; }
         if (data.subtitle) { document.getElementById('subtitle').value = String(data.subtitle).slice(0, 30); subtitleDirty = true; }
         // AI 结果优先，不再用本地启发式覆盖
-        if (hint) { hint.textContent = '✓ AI 已生成（' + {smart:'智能提取', full:'首句完整', suspense:'悬念式'}[titleStyle] + '），可直接修改'; hint.className = 'text-[11px] text-emerald-600'; }
+        // 2026-09-02：删除"已生成可直接修改"赘述提示（hint 保持隐藏）
+        if (hint) { hint.textContent = '✓ 已生成'; hint.className = 'text-[11px] text-emerald-600'; }
     } catch (err) {
         if (err.name === 'AbortError') { if (hint) { hint.textContent = '⏹ 已中止生成'; hint.className = 'text-[11px] text-slate-500'; } }
         else if (hint) { hint.textContent = '生成失败：' + (err.message || '未知错误'); hint.className = 'text-[11px] text-red-500'; }
@@ -929,7 +930,7 @@ function autoSuggest() {
     const t = suggestTitle(text), s = suggestSubtitle(text);
     if (!titleDirty && t) titleEl.value = t;
     if (!subtitleDirty && s) subEl.value = s;
-    // 标签与提示：区分「自动生成」与「已手动修改」
+    // 标签与提示：区分「自动生成」与「已手动修改」（2026-09-02：删除"可直接修改"类赘述提示，仅保留状态标签）
     if (titleDirty) {
         tTag.textContent = '选填 · 已手动修改';
         tTag.className = 'ml-1 rounded bg-brand-50 px-1.5 py-0.5 text-[11px] font-normal text-brand-500';
@@ -937,9 +938,7 @@ function autoSuggest() {
     } else if (t) {
         tTag.textContent = '选填 · 自动生成';
         tTag.className = 'ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500';
-        const styleLabel = {smart:'智能提取（首句关键词）', full:'首句完整句', suspense:'悬念式'}[titleStyle];
-        tHint.textContent = '💡 已按「' + styleLabel + '」自动生成，可直接修改';
-        tHint.classList.remove('hidden');
+        tHint.classList.add('hidden');
     } else {
         tTag.textContent = '选填';
         tTag.className = 'ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500';
@@ -952,8 +951,7 @@ function autoSuggest() {
     } else if (s) {
         sTag.textContent = '选填 · 自动生成';
         sTag.className = 'ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500';
-        sHint.textContent = '💡 已根据文稿前两句自动生成，可直接修改';
-        sHint.classList.remove('hidden');
+        sHint.classList.add('hidden');
     } else {
         sTag.textContent = '选填';
         sTag.className = 'ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500';
@@ -976,7 +974,8 @@ document.getElementById('titleStyle')?.addEventListener('change', function () {
     subtitleDirty = false;
     autoSuggest();
     const hint = document.getElementById('aiTitleHint');
-    if (hint) { hint.textContent = '已按「' + {smart:'智能提取', full:'首句完整', suspense:'悬念式'}[titleStyle] + '」风格生成本地建议，可点右侧按钮用 AI 重新生成'; hint.className = 'text-[11px] text-brand-600'; }
+    // 2026-09-02：删除"已按风格生成本地建议"赘述提示
+    if (hint) { hint.textContent = '✓ 已按所选风格更新'; hint.className = 'text-[11px] text-emerald-600'; }
 });
 // 文稿变化时（去抖 300ms）自动生成建议
 document.getElementById('dialogue')?.addEventListener('input', () => {

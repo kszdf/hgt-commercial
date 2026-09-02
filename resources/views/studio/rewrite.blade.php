@@ -53,7 +53,6 @@
                         <option value="manga">📖 AI 漫剧</option>
                         <option value="whiteboard">✍️ AI 白板图解</option>
                     </select>
-                    <p class="mt-1 text-xs text-slate-400">模式已按选题页所选「呈现形式」自动匹配，可手动微调。</p>
                     <p id="modeHint" class="mt-1 text-xs text-brand-600"></p>
                     <label id="forceUnifiedWrap" class="mt-2 hidden flex cursor-pointer items-center gap-2 text-xs text-slate-500">
                         <input type="checkbox" id="forceUnified" class="accent-brand-500 rounded">
@@ -81,8 +80,8 @@
                         <input type="checkbox" id="keepManualRoles" name="keep_manual_roles" value="1" class="accent-brand-500 rounded">
                         保留原稿中已有的「男：/女：」对话标注
                     </label>
-                    <p class="mt-1.5 text-xs text-slate-400">
-                        <span class="text-brand-600">提示：</span>「女：/男：」前缀用于区分声线<span class="hint" data-tip="单人形式无需前缀；数字人出镜为单人独白，前缀自动忽略；对话形式需用「女：」提问、「男：」解答。">?</span>
+                    <p class="mt-1.5 flex items-center gap-1 text-xs text-slate-400">
+                        <span class="hint" data-tip="「女：/男：」前缀用于区分声线。单人形式无需前缀；数字人出镜为单人独白，前缀自动忽略；对话形式需用「女：」提问、「男：」解答。">?</span>
                     </p>
                 </div>
 
