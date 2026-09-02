@@ -2664,7 +2664,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 except Exception:
                     cover = ""
             if not cover:
-                cover = _black_gold_cover(title, subtitle, brand)
+                # 兜底黑金纯文字封面：PIL Image 不能直接进 JSON（曾致
+                # "TypeError: Object of type Image is not JSON serializable"），
+                # 必须落盘为 *_pack_cover.jpg 再返回路径。存到 jobs/_pack_covers/：
+                # recover_jobs 只认含 job.json 的目录（此目录被跳过），
+                # PHP cover() 经 jobs/*/name 通配可服务到该文件。
+                try:
+                    bg_img = _black_gold_cover(title, subtitle, brand)
+                    cdir = os.path.join(JOBS_DIR, "_pack_covers")
+                    os.makedirs(cdir, exist_ok=True)
+                    cpath = os.path.join(cdir, "bg_%d_pack_cover.jpg" % int(time.time() * 1000))
+                    bg_img.save(cpath, "JPEG", quality=90)
+                    if os.path.exists(cpath):
+                        cover = cpath
+                except Exception:  # noqa: BLE001
+                    traceback.print_exc()
 
             return self._send(200, {"ok": True, "title": title, "subtitle": subtitle,
                                     "cover_path": cover})
