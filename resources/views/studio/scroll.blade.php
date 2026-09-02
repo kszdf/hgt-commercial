@@ -757,6 +757,22 @@ function setVoiceForm(f) {
             hint.textContent = '男女对话：每行以「女：」「男：」开头，分别用下方选择的女声/男声配音。';
             if (voiceHintText) voiceHintText.textContent = '「女：」行用右侧女声，「男：」行用左侧男声；可点击上方常用组合一键填入。';
         }
+        // 2026-09-02 修复：选「男女对话」但文稿是独白时，明确警告（否则静默退化为单声，用户以为双声没生效）
+        if (f === 'dialogue') {
+            const dlgEl = document.getElementById('dialogue');
+            const warnEl = document.getElementById('formatWarning');
+            if (dlgEl && warnEl) {
+                const lines = dlgEl.value.split('\n').filter(l => l.trim());
+                const hasPrefix = lines.some(l => /^(女|男)[：:]/.test(l.trim()));
+                if (!hasPrefix) {
+                    warnEl.textContent = '⚠ 已选「男女对话」，但文稿没有「女：」「男：」前缀——将只能单声配音。请在每行前标注角色，例如：\n女：老板您知道挂靠开票的风险吗？\n男：这正是今天要讲的重点。';
+                    warnEl.className = 'mt-1 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700';
+                    warnEl.classList.remove('hidden');
+                } else {
+                    checkDialogueFormat(dlgEl.value, warnEl);
+                }
+            }
+        }
     }
 }
 document.querySelectorAll('.voice-form-btn').forEach(b => {
@@ -1265,6 +1281,20 @@ async function handleGenerate(e) {
         errBox.classList.remove('hidden');
         document.getElementById('dialogue').focus();
         return;
+    }
+
+    // 2026-09-02 修复：选了「男女对话」但文稿无角色前缀——明确提示而非静默单声
+    if ((currentMode === 'scroll' || currentMode === 'motion') && voiceForm === 'dialogue') {
+        const lines = dialogue.split('\n').filter(l => l.trim());
+        const hasPrefix = lines.some(l => /^(女|男)[：:]/.test(l.trim()));
+        if (!hasPrefix) {
+            const ok = confirm('当前声线形式为「男女对话」，但文稿中没有「女：」「男：」角色前缀，将只能使用单一声线（男声）配音。\n\n要继续（单声配音）吗？\n— 点「确定」：按单声继续出片\n— 点「取消」：返回文稿，给每行加上「女：」「男：」前缀实现双声对话');
+            if (!ok) {
+                msg.textContent = '已取消：请在文稿每行前加「女：」「男：」前缀，再重新生成。';
+                dialogueEl.focus();
+                return;
+            }
+        }
     }
 
     // 本地预校验：时长超限直接拦，不白提交（后端有 422 双保险）
