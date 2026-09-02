@@ -1,8 +1,7 @@
 <x-app-layout>
 <x-workspace-layout title="声音库" :breadcrumbs="[['label' => '工作台总览', 'url' => '/dashboard'], ['label' => '声音库']]">
 <div class="mx-auto max-w-5xl p-6">
-        <p class="mt-0.5 text-sm text-slate-400">上传参考音频克隆专属音色，支持多个男声 / 女声，出片时可自由选择。克隆后的音色仅你本租户可用，并会原样保留你录音里的口音 / 方言——无需单独选方言。</p>
-        <p class="mt-1 text-xs text-slate-400">平台已为你预置官方标准男声 / 女声各一个（非克隆、非名人，可放心商用），注册即可直接出片；下方「官方音色库」还有 21 款官方音色可选，也可自行克隆专属音色。</p>
+        <p class="mt-0.5 text-sm text-slate-400">管理你的出片声线：预置官方音色、官方音色库、自定义克隆。</p>
         <p class="mt-2 flex flex-wrap gap-3">
             <a href="/studio/models" class="text-sm text-brand-600 hover:underline">管理我的模特 →</a>
             <a href="/studio/covers" class="text-sm text-brand-600 hover:underline">管理封面素材 →</a>
@@ -65,7 +64,7 @@
     <section class="mt-4">
         <div class="luxury-glass p-5">
             <h3 class="mb-1 text-sm font-semibold text-slate-700">官方音色库</h3>
-            <p class="mb-3 text-xs text-slate-400">精选官方标准音色，点击「添加」即可用于出片（无需克隆）。已添加的音色可在上方声音库中设为默认或删除。</p>
+            <p class="mb-3 text-xs text-slate-400">精选官方标准音色，点「添加」即用于出片。</p>
             @foreach(['male' => '男声', 'female' => '女声'] as $gender => $genderLabel)
                 <div class="mb-3">
                     <div class="mb-1.5 text-xs font-semibold text-slate-500">{{ $genderLabel }}</div>

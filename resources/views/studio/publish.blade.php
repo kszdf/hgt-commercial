@@ -23,7 +23,9 @@
                 <a href="/studio/accounts" class="font-medium underline hover:text-amber-800">去授权 →</a>
             </div>
         @endif
-        <p class="mt-2 text-xs text-slate-400">自动发布：抖音/小红书（授权后）；人工发布：视频号等无开放接口平台，下载成片到 App 手动发。</p>
+        <div class="mt-2 flex items-center gap-1 text-xs text-slate-400">
+            <span class="hint" data-tip="自动发布：抖音/小红书（授权后）；人工发布：视频号等无开放接口平台，下载成片到 App 手动发。">?</span>
+        </div>
     </div>
 
     {{-- 视频成片 --}}

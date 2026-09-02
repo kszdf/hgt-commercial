@@ -8,7 +8,7 @@
     <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
         <div class="text-sm text-slate-500">
             <span class="font-semibold text-slate-700">播放 · 互动 · 留资，验证每条视频的效果。</span>
-            <span class="ml-2 text-xs">数据来源：手动录入（半自动）或抖音自动同步（需平台授权）。「未同步」的数据不会被计算。</span>
+            <span class="hint ml-2" data-tip="数据来源：手动录入（半自动）或抖音自动同步（需平台授权）。「未同步」的数据不会被计算。">?</span>
         </div>
         <form method="POST" action="{{ route('studio.metrics.sync') }}">
             @csrf

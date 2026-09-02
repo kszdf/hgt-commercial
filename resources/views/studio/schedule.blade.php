@@ -8,7 +8,7 @@
     <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
         <div class="text-sm text-slate-500">
             <span class="font-semibold text-slate-700">内容日历 · 发布排期</span>
-            <span class="ml-2 text-xs">给视频排好发布时间：勾选「自动发布」到点自动分发到账号；不勾选则到点提醒你手动发（视频号等）。</span>
+            <span class="hint ml-2" data-tip="勾选「自动发布」到点自动分发到账号；不勾选则到点提醒你手动发（视频号等）。">?</span>
         </div>
         <div class="flex items-center gap-2 text-sm">
             <a href="{{ route('studio.schedule', ['month' => $ref->copy()->subMonth()->format('Y-m')]) }}" class="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-slate-600 hover:bg-slate-50">← 上月</a>

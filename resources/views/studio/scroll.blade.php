@@ -98,7 +98,8 @@
                                 class="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-3 py-1.5 text-[12px] font-medium text-white hover:from-brand-600 hover:to-brand-700">
                                 ✨ AI 智能生成标题+副标题
                             </button>
-                            <span id="aiTitleHint" class="text-[11px] text-slate-400">基于文稿内容，生成科学、有吸引力的标题与副标题</span>
+                            <span class="hint" data-tip="基于文稿内容，AI 自动生成科学、有吸引力的标题与副标题">?</span>
+                            <span id="aiTitleHint" class="hidden text-[11px] text-slate-400"></span>
                         </div>
                         <p id="subtitleHint" class="mt-1 hidden text-[11px] text-slate-400"></p>
                     </div>
@@ -117,7 +118,7 @@
                         <optgroup label="我的模特" id="userModelsGroup"></optgroup>
                     </select>
                     <p class="mt-1.5 flex items-center justify-between text-xs text-slate-400">
-                        <span>数字人模特已含出镜场景，配合您的克隆声线合成口播；幕后音·动态画面模式此步自动跳过。</span>
+                        <span class="hint" data-tip="数字人模特已含出镜场景，配合您的克隆声线合成口播；幕后音·动态画面模式此步自动跳过。">?</span>
                         <a href="/studio/models" class="text-brand-600 hover:underline">管理我的模特 →</a>
                     </p>
                 </div>
@@ -131,7 +132,7 @@
                         <optgroup label="平台预设" id="presetCoversGroup"></optgroup>
                     </select>
                     <p class="mt-1.5 flex items-center justify-between text-xs text-slate-400">
-                        <span>发布到视频号 / 抖音 / 小红书 时建议指定封面。</span>
+                        <span class="hint" data-tip="发布到视频号 / 抖音 / 小红书 时建议指定封面。">?</span>
                         <a href="/studio/covers" class="text-brand-600 hover:underline">管理封面素材 →</a>
                     </p>
                 </div>

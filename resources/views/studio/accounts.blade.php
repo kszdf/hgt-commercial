@@ -7,11 +7,7 @@
     {{-- 说明 --}}
     <div class="mb-5 rounded-xl border border-slate-200 bg-white px-4 py-3">
         <div class="text-sm font-semibold text-slate-700">发布渠道</div>
-        <ul class="mt-1 space-y-1 text-sm text-slate-500">
-            <li>· 登记你在各平台的发布账号（名称 / 标签 / 每日上限），统一管理。</li>
-            <li>· <strong>抖音 / 小红书</strong>：点「去授权」扫码授权即可，无需手填凭证。</li>
-            <li>· <strong>视频号</strong>：无稳定公开 API，人工发布，无需填凭证。</li>
-        </ul>
+        <p class="mt-0.5 text-sm text-slate-500">登记各平台发布账号，统一管理名称 / 标签 / 每日上限。抖音、小红书 OAuth 授权后自动发布；视频号人工发布。</p>
     </div>
 
     {{-- 新增渠道按钮 --}}
