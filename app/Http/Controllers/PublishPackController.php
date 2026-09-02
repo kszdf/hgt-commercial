@@ -256,12 +256,36 @@ class PublishPackController extends Controller
         if (! $video) {
             return response()->json(['error' => '成片文件不存在（可能渲染未完成）'], 404);
         }
-        // 2) 标题/副标题：不调 AI（秒级打包）——用任务已有标题；副标题用对话首句实义前 20 字
+        // 2) 标题/副标题：不调 AI（秒级打包）——用任务已有标题；副标题取对话首句完整语义（≤20 字）
         $title = $job->title ?: '财税干货';
         $subtitle = '';
-        $firstLine = trim((string) preg_replace('/^(女|男)\s*[：:]\s*/u', '', (string) $job->dialogue));
-        if ($firstLine) {
-            $subtitle = mb_substr($firstLine, 0, 20);
+        // 2026-09-02 修复：原 mb_substr(全文,0,20) 硬切会切出残句（如"…你挂"）。
+        // 改为按完整句截取：先按句末标点拆句取首句，超过 20 字再按逗号/顿号边界截断。
+        $raw = trim((string) preg_replace('/^(女|男|旁白)\s*[：:]\s*/u', '', (string) $job->dialogue));
+        if ($raw !== '') {
+            $firstSentence = '';
+            if (preg_match('/^[^。！？!?\n]*[。！？!?]/u', $raw, $m)) {
+                $firstSentence = trim($m[0]);          // 完整首句（含句末标点）
+            }
+            if ($firstSentence === '') {
+                $firstSentence = trim(explode("\n", $raw)[0]);  // 无句号则取首行
+            }
+            if (mb_strlen($firstSentence) <= 20) {
+                $subtitle = $firstSentence;            // 首句 ≤20 字直接用
+            } else {
+                // 首句超长：按逗号/顿号/分号边界截断到 ≤20 字
+                $cut = mb_substr($firstSentence, 0, 20);
+                $lastBoundary = 0;
+                foreach (['，', '、', '；', ';', ','] as $sep) {
+                    $pos = mb_strrpos($cut, $sep);
+                    if ($pos !== false && $pos > $lastBoundary) {
+                        $lastBoundary = $pos;
+                    }
+                }
+                $subtitle = $lastBoundary > 0
+                    ? mb_substr($cut, 0, $lastBoundary + 1)   // 含边界标点
+                    : $cut;                                    // 无边界：退回 20 字（残句兜底）
+            }
         }
         // 3) 封面（make_cover 产物，若存在）
         $cover = null;
