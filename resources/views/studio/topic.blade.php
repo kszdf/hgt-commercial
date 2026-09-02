@@ -28,7 +28,9 @@
                             <option value="个体户">个体户 / 小老板</option>
                         </optgroup>
                     </select>
-                    <p class="mt-1 text-xs text-slate-400">不选则按通用财税方向推荐<span class="hint" data-tip="选择老板行业后，AI 将生成该行业的财税垂直选题（如「餐饮」→ 个人卡收款、员工社保），并自动联动下方财税热点子领域。">?</span></p>
+                    <p class="mt-1 flex items-center gap-1 text-xs text-slate-400">
+                        <span class="hint" data-tip="不选则按通用财税方向推荐。选择老板行业后，AI 将生成该行业的财税垂直选题，并自动联动下方财税热点子领域。">?</span>
+                    </p>
                 </div>
 
                 <!-- 维度筛选（2x2 网格，移除目标平台） -->
@@ -99,7 +101,6 @@
                     <input id="keywords" name="keywords" value="" maxlength="120"
                         class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100"
                         placeholder="如：行业热点、用户痛点、产品卖点…（逗号分隔）">
-                    <p class="mt-1 text-xs text-slate-400">不填则由 AI 根据所选行业自动推荐选题方向<span class="hint" data-tip="可填行业热点、用户痛点、产品卖点等，逗号分隔；留空时 AI 按行业自动推荐。">?</span></p>
                 </div>
 
                 <!-- 提交按钮 + 校验提示 -->
@@ -139,21 +140,19 @@
                         </div>
                     </div>
                     <div class="flex flex-wrap gap-2" id="hsSubs"></div>
-                    <p id="hsSubHint" class="mt-1 text-xs text-slate-400">已选 <strong class="text-brand-600" id="hsSubCount">5</strong> 个子领域<span class="ml-1 text-slate-300">（默认精选核心项，可按需增选）</span></p>
+                    <p id="hsSubHint" class="mt-1 text-xs text-slate-400">已选 <strong class="text-brand-600" id="hsSubCount">5</strong> 个子领域</p>
                 </div>
 
                 <button type="submit" id="hsBtn" class="w-full rounded-lg bg-brand-500 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed">获取财税热点</button>
-                <p class="text-xs text-slate-400">热点来源为公开财税资讯聚合<span class="hint" data-tip="热点由公开财税资讯聚合生成，建议结合自身解读二次创作，避免直接照搬原文。">?</span></p>
             </form>
         </section>
 
         <!-- ===== 每日热点·双题材（微博/百度/头条热榜 → 财税/大事 + 爆款方案） ===== -->
         <section class="luxury-glass p-5">
             <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-semibold text-slate-700">每日热点·双题材 <span class="text-[10px] font-normal text-slate-400">微博/百度/头条热榜 · 财税相关 + 重大热点事件 + 爆款方案</span></h3>
+                <h3 class="text-sm font-semibold text-slate-700">每日热点</h3>
                 <button type="button" id="hdRefreshBtn" class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-600 disabled:opacity-50">🔄 刷新今日热点</button>
             </div>
-            <p class="mb-2 text-xs text-slate-400">只保留「财税直接相关」与「重大热点事件」两类<span class="hint" data-tip="每条附爆款方案（标题/钩子/结构/留资），点「用此选题」进入二创。">?</span></p>
             <div id="hdResult" class="space-y-3 text-sm text-slate-600">加载中…</div>
         </section>
         </div><!-- /左侧空间 -->

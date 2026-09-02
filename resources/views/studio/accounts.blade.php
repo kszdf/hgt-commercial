@@ -121,7 +121,6 @@
                 <label class="mb-1 block text-slate-600">每日建议上限（条/天）</label>
                 <input type="number" name="daily_limit" id="dailyLimit" min="1" max="20" value="3"
                     class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700">
-                <p class="mt-1 text-xs text-slate-400">仅作备忘提醒，防止同一内容过多账号同质化发布被平台风控。</p>
             </div>
 
             {{-- 内容定位标签：自定义输入 --}}

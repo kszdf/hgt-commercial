@@ -22,7 +22,6 @@
                         <option value="manga">📖 AI 漫剧</option>
                         <option value="whiteboard">✍️ AI 白板图解</option>
                     </select>
-                    <p class="mt-1 text-xs text-slate-400">选择与后续出片一致的声音/出镜形式，避免前后矛盾。</p>
                     <p id="modeHint" class="mt-1 text-xs text-brand-600"></p>
                 </div>
 
