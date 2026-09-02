@@ -1484,11 +1484,15 @@ function renderProgressCard(opts) {
                 ? ('预计剩余 ' + fmtDuration(etaSec))
                 : (etaHint || '预计还需数分钟');
 
-    const progressWidth = isSkeleton ? '45%' : (isDone ? '100%' : (percent + '%'));
+    // 真实进度可用（后端 has_real_progress）时显示真实百分比；
+    // 否则渲染为不定流动条（.hgt-indet 需 <i> 子元素才触发动画），绝不显示假的固定百分比。
+    const hasReal = opts.hasRealProgress === true;
+    const isStdIndet = !isSkeleton && !isDone && !hasReal;
+    const progressWidth = isSkeleton ? '45%' : (isDone ? '100%' : (hasReal ? (percent + '%') : '45%'));
     const progressColor = isDone && step === 'failed' ? 'bg-red-500' : 'bg-brand-500';
     const bottomText = isDone
         ? (step === 'failed' ? '出片失败' : '已完成 100%')
-        : ('进行中 · ' + (isSkeleton ? '获取最新进度' : (opts.label || '出片处理中')));
+        : ('进行中 · ' + (isSkeleton ? '获取最新进度' : (hasReal ? (opts.label || '出片处理中') : '正在处理，暂无法精确预估进度')));
 
     return '<div class="mx-auto w-full max-w-md rounded-xl border border-slate-100 bg-white p-5 shadow-sm" data-hgt-progress="1">' +
         '  <div class="mb-3 text-center">' +
@@ -1496,8 +1500,10 @@ function renderProgressCard(opts) {
         '    <div class="text-xs text-slate-400" data-hgt-timer="' + (elapsedSec || 0) + '">已等待 ' + fmtDuration(elapsedSec || 0) + (isSkeleton ? '' : '　·　' + etaText) + '</div>' +
         '  </div>' +
         '  <div class="mb-4 flex items-center justify-between gap-1">' + stepsHtml + '</div>' +
-        '  <div class="h-2 w-full overflow-hidden rounded-full bg-slate-100 ' + (isDone ? '' : 'hgt-indet') + '" style="position:relative">' +
-        '    <div class="h-full rounded-full ' + progressColor + ' transition-all duration-500" style="width:' + progressWidth + '"></div>' +
+        '  <div class="h-2 w-full overflow-hidden rounded-full bg-slate-100 ' + (isStdIndet ? 'hgt-indet' : '') + '" style="position:relative">' +
+        (isStdIndet
+            ? '    <i></i>'
+            : '    <div class="h-full rounded-full ' + progressColor + ' transition-all duration-500" style="width:' + progressWidth + '"></div>') +
         '  </div>' +
         '  <div class="mt-1 flex items-center justify-between text-[11px] text-slate-400"><span>' + bottomText + '</span><span>' + (hint || '数字人出片约 5–15 分钟，可先去其他页面') + '</span></div>' +
         (stuckHint || '') +
@@ -1712,6 +1718,7 @@ async function pollStatus(jobId) {
                     etaSec: etaSec,
                     etaHint: etaHint,
                     qpos: qpos,
+                    hasRealProgress: (data.has_real_progress === true),
                     stuckHint: stuckHint
                 });
                 startProgressTimer();
