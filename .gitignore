@@ -87,3 +87,8 @@ runtime-logs/heygem_watchdog.log
 jobs/
 python-pipeline/jobs/
 python-pipeline/hotspot_debug.txt
+
+# ===== 出片产物 / 运行日志 / 备份（不应入库）=====
+/python-pipeline/jobs/
+/runtime-logs/
+/.backup-feature-pack-*/

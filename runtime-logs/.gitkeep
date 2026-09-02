@@ -1,2 +1,0 @@
-# Tracked dir for daily runtime-log snapshots pushed by scripts/git_auto_push.ps1
-# Snapshots (laravel.log / 8500-server.log / auto_push.log) are overwritten each run, not appended.
