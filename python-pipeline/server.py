@@ -2320,7 +2320,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 queue_pos = 1 + sum(1 for oid, oj in snap
                                     if oid != jid and oj.get("step") == "queued"
                                     and (oj.get("start_ts") or 0) < me_ts)
-            # 读取 render.log 最后一行的 progress，给前端真实进度（避免 ETA 永远停在固定值）
+            # 读取 render.log 中的最新真实进度，给前端真实进度（避免 ETA 永远停在固定值）。
+            # 兼容三种引擎输出格式：旧 progress=N / motion 的「渲染 X%」/ scroll·漫剧·白板的「烧字幕 X%」。
             render_progress = None
             try:
                 log_path = os.path.join(JOBS_DIR, jid, "render.log")
@@ -2328,9 +2329,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     with open(log_path, "r", encoding="utf-8") as f:
                         lines = f.readlines()
                     for line in reversed(lines):
-                        m = re.search(r"progress=(\d+)", line)
+                        m = re.search(r"(?:progress=(\d{1,3})|渲染\s*(\d{1,3})%|烧字幕\s*(\d{1,3})%)", line)
                         if m:
-                            val = int(m.group(1))
+                            val = int(next(g for g in m.groups() if g is not None))
                             if 0 <= val <= 100:
                                 render_progress = val
                                 break
@@ -3093,7 +3094,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     # ---- AI 智能生成标题 / 副标题（根据文稿内容，轻量快速版）----
     def _handle_suggest_title(self, data):
-        dialogue = (data.get("dialogue") or "").strip()
+        dialogue = data.get("dialogue")
+        if dialogue is not None and not isinstance(dialogue, str):
+            return self._send(400, {"error": "dialogue 必须是字符串文本"})
+        dialogue = (dialogue or "").strip()
         if not dialogue:
             return self._send(400, {"error": "dialogue required"})
         industry = (data.get("industry") or "").strip()
@@ -3268,7 +3272,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
     # ---- 出片（异步 job）----
     def _handle_generate(self, data):
         global active_total, active_by_tenant
-        dialogue = (data.get("dialogue") or "").strip()
+        dialogue = data.get("dialogue")
+        if dialogue is not None and not isinstance(dialogue, str):
+            return self._send(400, {"error": "dialogue 必须是字符串文本"})
+        dialogue = (dialogue or "").strip()
         if not dialogue:
             return self._send(400, {"error": "dialogue required"})
 
