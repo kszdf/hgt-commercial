@@ -287,10 +287,25 @@ class PublishPackController extends Controller
                     : $cut;                                    // 无边界：退回 20 字（残句兜底）
             }
         }
-        // 3) 封面（make_cover 产物，若存在）
+        // 3) 封面（2026-09-02 修复：此前只查 jobs 目录，形象照封面在 portrait 目录导致漏打包。
+        //    现按优先级查找：形象照封面(portrait) > 出片封面(jobs) > 精剪封面(footage)）
         $cover = null;
-        foreach (glob($jobsDir . '/*_pack_cover.*') ?: [] as $c) {
-            if (is_file($c)) { $cover = $c; break; }
+        // a) 形象照封面（用户上传形象照后由 AI 包装生成）
+        $portraitCover = storage_path('app/covers/portrait/portrait_pack_cover.jpg');
+        if (is_file($portraitCover)) {
+            $cover = $portraitCover;
+        }
+        // b) 出片封面（jobs/{jobId}/out_pack_cover.jpg）
+        if (! $cover) {
+            foreach (glob($jobsDir . '/*_pack_cover.*') ?: [] as $c) {
+                if (is_file($c)) { $cover = $c; break; }
+            }
+        }
+        // c) 精剪封面（footage/*_edited_pack_cover.jpg）
+        if (! $cover) {
+            foreach (glob(storage_path('app/footage') . '/*_pack_cover.*') ?: [] as $c) {
+                if (is_file($c)) { $cover = $c; break; }
+            }
         }
         // 4) 分平台发布文案
         $ip = $tenant->ip_name ?: '昆山老张讲财税';
