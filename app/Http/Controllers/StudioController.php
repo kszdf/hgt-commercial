@@ -40,6 +40,35 @@ class StudioController extends Controller
         return view('studio.rewrite');
     }
 
+    /** 对话出稿工作台·一期：选题/改写/成稿 用对话引导（代理 8500 /chat 编排层）。 */
+    public function chat()
+    {
+        $tenant = $this->studioTenant(request());
+        return view('studio.chat', [
+            'tenantName' => $tenant->name,
+            'tenantSlug' => $tenant->slug,
+            'industryHint' => $tenant->settings['industry'] ?? '',
+        ]);
+    }
+
+    /** 对话出稿工作台·一期：一次对话回合（session_id + message → 8500 /chat）。 */
+    public function chatSend(Request $request)
+    {
+        $data = $request->validate([
+            'session_id' => ['nullable', 'string', 'max:64'],
+            'message'    => ['required', 'string', 'max:600'],
+        ]);
+        try {
+            $resp = app(PipelineClient::class)->post('/chat', $data, 150);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '对话服务暂时不可用，请稍后重试'], 503);
+        }
+        if (! $resp->successful()) {
+            return response()->json(['error' => '对话服务暂不可用，请确认微服务已启动'], 502);
+        }
+        return response()->json($resp->json());
+    }
+
     /** 原始稿二创：与选题上下文隔离的独立入口。 */
     public function rewriteOriginal()
     {

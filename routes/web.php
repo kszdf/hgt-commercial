@@ -94,6 +94,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/rewrite/generate', [StudioController::class, 'rewriteGenerate']);
     Route::post('/studio/follow-hot', [StudioController::class, 'followHot']);
 
+    // 对话出稿工作台·一期（对话引导 选题+改写+成稿）
+    Route::get('/studio/chat', [StudioController::class, 'chat'])->name('studio.chat');
+    Route::post('/studio/chat/send', [StudioController::class, 'chatSend']);
+
     // 爆款拆解（输入→提取文案→结构拆解→潜力评估→去二创→数字人出片）
     Route::get('/studio/dissect', [StudioController::class, 'dissect'])->name('studio.dissect');
     Route::post('/studio/dissect/analyze', [StudioController::class, 'dissectAnalyze']);

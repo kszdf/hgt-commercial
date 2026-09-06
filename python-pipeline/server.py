@@ -2272,6 +2272,14 @@ def _black_gold_cover(title, subtitle, brand="追梦"):
     return img
 
 
+# ---- 对话出稿工作台·一期编排器（POST /chat）----
+# ai_topic / ai_rewrite 定义于本文件 744/957，deepseek_chat 已 import；
+# 此处（Handler 定义前）创建单例，Handler 方法通过模块全局引用。
+from chat_orchestrator import ChatOrchestrator  # noqa: E402
+
+_CHAT_ORCH = ChatOrchestrator(ai_topic, ai_rewrite, deepseek_chat, get_text_config)
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
     def _send(self, code, obj=None, body=None, ctype="application/json; charset=utf-8"):
         self.send_response(code)
@@ -2486,6 +2494,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_topic(data)
         if p.path == "/rewrite":
             return self._handle_rewrite(data)
+        if p.path == "/chat":
+            return self._handle_chat(data)
         if p.path == "/qc":
             return self._handle_qc(data)
         if p.path == "/qc-video":
@@ -3487,6 +3497,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 data.get("role_mode"), data.get("role_note"), data.get("keep_manual_roles"),
                 data.get("industry")))
         except Exception as e:  # noqa: BLE001
+            return self._send(200, {"ok": False, "error": str(e)})
+
+    # ---- 对话出稿工作台·一期（POST /chat）----
+    def _handle_chat(self, data):
+        sid = (data.get("session_id") or "").strip()
+        message = (data.get("message") or "").strip()
+        if not message:
+            return self._send(400, {"error": "message required"})
+        try:
+            return self._send(200, _CHAT_ORCH.step(sid, message))
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
             return self._send(200, {"ok": False, "error": str(e)})
 
     # ---- 智能质检（同步：违禁词 + 时长 + 风险）----

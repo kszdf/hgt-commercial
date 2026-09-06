@@ -77,6 +77,12 @@
             <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span>内容创作</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
             <ul class="space-y-0.5 ws-group-body" data-group="content">
                 <li>
+                    <a href="/studio/chat" class="{{ request()->is('studio/chat*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                        <span>对话出稿</span>
+                    </a>
+                </li>
+                <li>
                     <a href="/studio/topic" class="{{ request()->is('studio/topic*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-sky">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                         <span>智能选题</span>
