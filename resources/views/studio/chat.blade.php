@@ -583,6 +583,12 @@
             });
             clearInterval(_tm); clearTimeout(_tt);
             if (data.error) throw new Error(data.error);
+            // 异步长任务（B 版）：8500 已返回 async，后台线程在跑，前端轮询 /chat/status
+            if (data.stage === 'async') {
+                await pollAsyncJob(data.job_id || sid, thinking, msg);
+                thinking.remove();
+                return;   // finally 会复位 busy
+            }
             thinking.remove();
             appendMsg('ai', resultBlock(data));
             updateMeta(data);
@@ -615,6 +621,57 @@
         } finally {
             clearInterval(_tm); clearTimeout(_tt);
             busy = false; sendBtn.disabled = false; input.focus();
+        }
+    }
+
+    // 异步长任务轮询（B 版）：8500 后台跑出稿/检索/审查，这里每 3s 查进度，实时显示"正在写第 N/M 篇"。
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+    async function pollAsyncJob(jobId, bubble, originMsg) {
+        const t0 = Date.now();
+        let keep = true;
+        while (keep) {
+            const sec = Math.round((Date.now() - t0) / 1000);
+            let st = null;
+            try {
+                st = await api('/studio/chat/status/' + encodeURIComponent(jobId));
+            } catch (_) {
+                if (sec > 300) { keep = false; break; }   // 连查失败 5 分钟才放弃
+                await sleep(3000); continue;
+            }
+            if (st.stage === 'pending') {
+                const msg = (st.progress && st.progress.msg) || '正在处理…';
+                bubble.innerHTML = '<span class="text-slate-400">⏳ ' + esc(msg) + '　已 ' + sec + ' 秒'
+                    + '</span><div class="mt-2 flex gap-1"><div class="h-1 w-12 animate-pulse rounded bg-indigo-400"></div>'
+                    + '<div class="h-1 w-8 animate-pulse rounded bg-indigo-300"></div><div class="h-1 w-5 animate-pulse rounded bg-indigo-200"></div></div>';
+            } else if (st.stage && ['done', 'written', 'propose', 'search', 'review', 'ask'].includes(st.stage)) {
+                bubble.innerHTML = resultBlock(st);   // 后台跑完，完整结果渲染
+                updateMeta(st); loadSessions();
+                keep = false; break;
+            } else if (st.error || st.stage === 'error') {
+                bubble.innerHTML = '<span class="text-red-500">出错了：' + esc(st.error || '任务失败') + '。</span> '
+                    + '<button type="button" id="chatRetryBtn" class="ml-1 mt-1 inline-block rounded border border-indigo-300 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">↻ 重试</button>';
+                const rb = bubble.querySelector('#chatRetryBtn');
+                if (rb) rb.onclick = () => { if (lastMsg) { input.value = lastMsg; doSend(); } };
+                keep = false; break;
+            } else {
+                // idle / 未知：尝试从消息流兜底渲染最新 AI 回复
+                try {
+                    const ms = await api('/studio/chat/messages?session_id=' + encodeURIComponent(jobId));
+                    const arr = ms.messages || [];
+                    if (arr.length) {
+                        const last = arr[arr.length - 1];
+                        bubble.innerHTML = resultBlock(last.data && last.data.stage ? last.data : last);
+                        loadSessions();
+                        keep = false; break;
+                    }
+                } catch (_) { /* 兜底失败继续轮询 */ }
+                if (sec > 330) { keep = false; break; }   // 总超时 5.5 分钟
+            }
+            await sleep(3000);
+        }
+        if (keep === false) {
+            bubble.innerHTML = '<span class="text-amber-600">长时间未返回结果，可能仍在后台处理。</span> '
+                + '<span class="text-slate-400">可刷新页面，到左侧空间点进本会话查看最新状态。</span>';
         }
     }
 

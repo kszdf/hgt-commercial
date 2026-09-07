@@ -1436,6 +1436,11 @@ render_lock = threading.Lock()   # HEYGEM 单 GPU 串行渲染锁：同一时刻
 active_total = 0              # 全局在跑任务数（用于并发护栏）
 active_by_tenant = {}         # tenant_id -> 在跑任务数
 
+# ===== 对话出稿·异步长任务（B 版：让"全写N篇/检索/审查"后台跑，前端轮询进度）=====
+_chat_running = {}     # sid -> True（该会话正有一个 step 后台线程在跑）
+_chat_done = {}        # sid -> 最近一次完成的完整 result（供 /chat/status 返回）
+_chat_running_lock = threading.Lock()
+
 
 # ===== 任务状态持久化 + 自愈（P0：崩了不丢状态、重启可恢复、卡死可回收）=====
 def _job_meta_path(job_id):
@@ -2307,6 +2312,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if p.path == "/chat/session/messages":
             q = parse_qs(p.query or "")
             return self._handle_chat_messages((q.get("session_id") or [""])[0])
+        # 对话出稿·异步长任务进度（B 版）
+        if p.path.startswith("/chat/status/"):
+            _sid = p.path[len("/chat/status/"):].strip("/")
+            return self._handle_chat_status(_sid)
         if p.path == "/health":
             return self._send(200, {"status": "ok"})
         if p.path == "/metrics":
@@ -3518,14 +3527,79 @@ class Handler(http.server.BaseHTTPRequestHandler):
         sid = (data.get("session_id") or "").strip()
         message = (data.get("message") or "").strip()
         action = data.get("action") if isinstance(data.get("action"), dict) else None
+        tenant = data.get("tenant") or ""
         if not message and not action:
             return self._send(400, {"error": "message required"})
+        # 同会话并发保护：一个会话同时只跑一个 step，避免内存 written/angles 互相覆盖
+        with _chat_running_lock:
+            if sid and _chat_running.get(sid):
+                return self._send(200, {"stage": "busy",
+                                        "message": "这条消息还在处理中，请稍候，完成会自动出现。",
+                                        "session_id": sid})
+        # 长任务(出稿多篇/拆角度/检索/审查)走异步后台线程；短闲聊即时返回
+        if sid and self._looks_long(message, action):
+            with _chat_running_lock:
+                _chat_running[sid] = True
+                _chat_done.pop(sid, None)
+            def _run():
+                try:
+                    res = _CHAT_ORCH.step(sid, message, tenant, action=action)
+                    with _chat_running_lock:
+                        _chat_done[sid] = res
+                except Exception as e:  # noqa: BLE001
+                    traceback.print_exc()
+                    with _chat_running_lock:
+                        _chat_done[sid] = {"stage": "error", "ok": False, "error": str(e), "session_id": sid}
+                finally:
+                    with _chat_running_lock:
+                        _chat_running.pop(sid, None)
+            threading.Thread(target=_run, daemon=True).start()
+            return self._send(200, {"stage": "async", "session_id": sid,
+                                    "job_id": sid,
+                                    "message": "已开始处理。这一步可能要 1~4 分钟（长出稿），我会持续更新进度，请稍候。"})
+        # 短闲聊：同步即时返回（保持快速响应）
         try:
-            return self._send(200, _CHAT_ORCH.step(
-                sid, message, data.get("tenant") or "", action=action))
+            return self._send(200, _CHAT_ORCH.step(sid, message, tenant, action=action))
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
             return self._send(200, {"ok": False, "error": str(e)})
+
+    _LONG_WORDS = ("全写", "认可", "可以，全写", "就按这个", "拆角度", "出角度", "出几个角度",
+                   "重新拆", "写第", "重写第", "按这个全写", "角度方案", "全网搜", "搜一下",
+                   "参考", "检索", "有没有结合", "是不是结合", "是否结合", "分析一下", "帮我看",
+                   "搜索", "查一下", "能不能结合")
+
+    @staticmethod
+    def _looks_long(message, action):
+        """预判这条消息是否可能触发长任务（出稿多篇/拆角度/检索/审查）。
+        是→后台线程异步；否→同步即时返回。宁可多走异步，避免 150s 超时 502。"""
+        if isinstance(action, dict) and action.get("cap"):
+            return True
+        msg = (message or "").strip()
+        if not msg:
+            return False
+        # 任何包含主题展开意涵的长句，保守起见都异步（避免漏判导致超时）
+        return any(w in msg for w in Handler._LONG_WORDS) or len(msg) >= 12
+
+    def _handle_chat_status(self, sid):
+        """GET /chat/status/<sid>：查询异步长任务进度。"""
+        if not sid:
+            return self._send(400, {"error": "session_id required"})
+        running = False
+        with _chat_running_lock:
+            running = bool(_chat_running.get(sid))
+            done = _chat_done.get(sid)
+        prog = _CHAT_ORCH.progress(sid)
+        if running:
+            return self._send(200, {"stage": "pending", "session_id": sid,
+                                    "progress": prog or {"phase": "working", "msg": "正在处理…"}})
+        if done is not None:
+            with _chat_running_lock:
+                _chat_done.pop(sid, None)   # 取走即清，前端再轮询会走 done 分支自动停下
+            _CHAT_ORCH.clear_progress(sid)
+            return self._send(200, done)
+        # 不在跑也没完成记录：可能是普通同步请求或会话空闲
+        return self._send(200, {"stage": "idle", "session_id": sid})
 
     # ---- 对话出稿·会话/空间管理（二期：持久化 + 左侧列表）----
     def _handle_chat_sessions(self, tenant):

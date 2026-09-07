@@ -113,6 +113,21 @@ class StudioController extends Controller
         return response()->json($resp->json());
     }
 
+    /** 对话出稿·异步长任务进度（B 版）：GET /studio/chat/status/{job_id} → 8500 /chat/status。 */
+    public function chatStatus(string $jobId)
+    {
+        try {
+            $resp = app(PipelineClient::class)->get(
+                '/chat/status/' . urlencode($jobId), 15);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['stage' => 'error', 'error' => '对话服务暂时不可用'], 503);
+        }
+        if (! $resp->successful()) {
+            return response()->json(['stage' => 'error', 'error' => '对话服务暂不可用'], 502);
+        }
+        return response()->json($resp->json());
+    }
+
     /** 对话出稿·二期：新建会话（带 title 即为主题空间）。 */
     public function chatSessionCreate(Request $request)
     {

@@ -57,6 +57,9 @@ class ChatOrchestrator:
         self._get_key = get_key_fn or (lambda n: None)
         self._sessions = {}
         self._lock = threading.Lock()
+        # 异步长任务进度：sid -> {"phase","msg","start"}；由 server 后台线程 + 前台 /chat/status 读写
+        self._prog = {}
+        self._prog_lock = threading.Lock()
         # 会话落盘目录：服务重启后空间与历史对话仍在
         self._dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "chat_sessions")
         try:
@@ -75,6 +78,39 @@ class ChatOrchestrator:
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(s, f, ensure_ascii=False)
             os.replace(tmp, self._path(s["id"]))
+        except Exception:
+            pass
+
+    # ---- 异步长任务进度（供 server 后台线程回写、/chat/status 读取）----
+    def _set_progress(self, sid, phase, msg):
+        try:
+            with self._prog_lock:
+                p = self._prog.setdefault(sid, {"phase": phase, "msg": msg, "start": time.time()})
+                p["phase"] = phase
+                p["msg"] = msg
+                p["ts"] = time.time()
+        except Exception:
+            pass
+
+    def progress(self, sid):
+        """返回 sid 当前进度；无记录返回 None。带 __len__ 惰性清除很久前的记录防泄漏。"""
+        try:
+            with self._prog_lock:
+                p = self._prog.get(sid)
+                if not p:
+                    return None
+                # 超过 2 小时且已无引用则清掉，防长时间累积
+                if time.time() - p.get("start", 0) > 7200:
+                    self._prog.pop(sid, None)
+                    return None
+                return dict(p)
+        except Exception:
+            return None
+
+    def clear_progress(self, sid):
+        try:
+            with self._prog_lock:
+                self._prog.pop(sid, None)
         except Exception:
             pass
 
@@ -323,6 +359,8 @@ class ChatOrchestrator:
                         + "\n".join(f"- {i+1}. {(it.get('title') or it.get('url') or '')[:80]}\n  摘要：{(it.get('content') or '')[:200]}"
                                     for i, it in enumerate(items)))
             keywords = (keywords + ref_hint) if keywords else ref_hint.lstrip()
+        if s.get("id"):
+            self._set_progress(s["id"], "thinking", "正在结合主题与证据拆角度方案…")
         topics = self._ai_topic(industry=industry, keywords=keywords, count=count)
         s["angles"] = topics
         s["chosen"] = []
@@ -358,13 +396,19 @@ class ChatOrchestrator:
         else:
             return {"stage": "ask", "message": "请说明要写哪条，或回'全写'。"}
         out = []
-        for i in targets:
+        total = len(targets)
+        sid = s.get("id") or ""
+        for seq, i in enumerate(targets, 1):
             if i < 0 or i >= len(angles):
                 continue
             a = angles[i]
             title = a.get("title") or ""
             angle = a.get("angle") or ""
             hook = a.get("hook") or ""
+            # 异步进度：让前端能看到"正在写第 seq/N 篇"
+            if sid:
+                self._set_progress(sid, "writing",
+                                   "正在生成第 %d/%d 篇：%s" % (seq, total, (title or "口播稿")[:24]))
             # 喂给 ai_rewrite 的原稿：标题+切入角度+钩子，让它扩写成完整口播稿
             source = title
             if angle:
@@ -384,6 +428,8 @@ class ChatOrchestrator:
             entry = {"angle_idx": i, "title": title, "angle": angle, "script": rewritten}
             out.append(entry)
             s.setdefault("written", []).append(entry)
+            if sid:
+                self._set_progress(sid, "writing", "已完成第 %d/%d 篇，继续…" % (seq, total))
         s["history"].append("成稿")
         return {
             "stage": "written",
@@ -470,6 +516,8 @@ class ChatOrchestrator:
 
     def _do_search(self, s, query):
         """真实联网检索 + 基于检索结果正面回答。"""
+        if s.get("id"):
+            self._set_progress(s["id"], "searching", "正在全网检索「%s」…" % (query or "")[:24])
         key = self._get_key("TAVILY_API_KEY")
         if not key:
             return {"stage": "search", "query": query, "sources": [],
@@ -525,6 +573,8 @@ class ChatOrchestrator:
         refs = s.get("search_refs") or []
         angles = s.get("angles") or []
         written = s.get("written") or []
+        if s.get("id"):
+            self._set_progress(s["id"], "reviewing", "正在基于本空间证据做协作审查…")
 
         parts = [MASTER_PROMPT]
         if refs:

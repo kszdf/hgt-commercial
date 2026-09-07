@@ -101,6 +101,8 @@ Route::middleware('auth')->group(function () {
     // 对话出稿·二期：会话/主题空间持久化（左侧列表 + 历史回放）
     Route::get('/studio/chat/sessions', [StudioController::class, 'chatSessions'])->name('studio.chat.sessions');
     Route::get('/studio/chat/messages', [StudioController::class, 'chatMessages'])->name('studio.chat.messages');
+    // 对话出稿·异步长任务进度（B 版）：轮询 /studio/chat/status/{job_id}
+    Route::get('/studio/chat/status/{jobId}', [StudioController::class, 'chatStatus'])->name('studio.chat.status');
     // 对话驱动一切：能力调度（对话里点卡片 → 后端执行平台功能）
     Route::post('/studio/chat/action', [StudioController::class, 'chatAction'])->name('studio.chat.action');
     Route::post('/studio/chat/session/create', [StudioController::class, 'chatSessionCreate'])->name('studio.chat.session.create');
