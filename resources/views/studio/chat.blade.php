@@ -647,9 +647,24 @@
                 if (st === 'done' || st === 'failed' || tries > 90) {
                     clearInterval(timer);
                     const ok = st === 'done';
-                    appendMsg('ai', ok
-                        ? '<p class="font-medium text-slate-800">🎉 视频渲染完成</p><p class="mt-1 text-slate-600">成片已生成，可以去做质检或打发布包了。</p>'
-                        : '<p class="text-rose-600">⚠️ 渲染' + (st === 'failed' ? '失败' : '超时（已盯了 12 分钟）') + '</p>');
+                    if (ok) {
+                        // 视频内嵌预览：直接用 Laravel 现有 inline 端点（带 cookie 鉴权）
+                        const videoUrl = '/studio/scroll/download/' + encodeURIComponent(jobId);
+                        appendMsg('ai',
+                            '<p class="font-medium text-slate-800">🎉 视频渲染完成</p>'
+                            + '<div class="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-black">'
+                            +   '<video controls preload="metadata" class="block max-h-[420px] w-full" src="' + esc(videoUrl) + '"></video>'
+                            + '</div>'
+                            + '<div class="mt-2 flex flex-wrap gap-2">'
+                            +   '<a href="' + esc(videoUrl) + '" download="' + esc(jobId) + '.mp4" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50">⬇ 下载 mp4</a>'
+                            +   '<button type="button" data-msg="对刚成片做质检" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">🛡️ 成片质检</button>'
+                            +   '<button type="button" data-msg="打成发布包" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">📦 打发布包</button>'
+                            +   '<button type="button" data-msg="改成小红书图文" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">📕 一鱼多吃·小红书</button>'
+                            + '</div>');
+                    } else {
+                        appendMsg('ai', '<p class="text-rose-600">⚠️ 渲染' + (st === 'failed' ? '失败' : '超时（已盯了 12 分钟）') + '</p>'
+                            + '<p class="mt-1 text-xs text-slate-500">可以重新执行一次，或跟我说要改什么。</p>');
+                    }
                     await sendActionResult(payload.cap, ok, { job_id: jobId, status: st }, payload.next || []);
                 }
             } catch (_) { /* 网络抖动，下一轮继续 */ }
