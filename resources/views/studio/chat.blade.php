@@ -10,11 +10,11 @@
 @endphp
 
 <style>
-    /* ===== chat 页：以对话为绝对中心，禁掉任何可能挤压的列布局 ===== */
+    /* ===== chat 页：以对话为绝对中心，仿 WorkBuddy 视觉（更舒展、更轻） ===== */
     .chat-shell {
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 4rem);   /* 顶栏 64px */
+        height: calc(100vh - 3.5rem);   /* 让对话区更高 */
         overflow: hidden;
     }
     .chat-meta { flex: 0 0 auto; }
@@ -22,11 +22,11 @@
         flex: 1 1 auto;
         min-height: 0;
         overflow-y: auto;
-        padding: 1.25rem 1rem 1.5rem;
+        padding: 1.75rem 1.5rem 1.5rem;  /* 上下都多留点呼吸 */
     }
     .chat-input { flex: 0 0 auto; }
     .chat-bubble-wrap { max-width: 768px; margin: 0 auto; }
-    .chat-bubble { max-width: 88%; }
+    .chat-bubble { max-width: 92%; }
     .sess-menu {
         position: absolute;
         right: 0; top: calc(100% + 6px);
