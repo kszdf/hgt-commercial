@@ -413,6 +413,26 @@
     });
 
     function resultBlock(r) {
+        if (r.stage === 'answer') {
+            // 顾问式正面回答（不写稿、不追问受众）
+            const h = ['<div class="space-y-2">'];
+            if (r.sources && r.sources.length) {
+                h.push('<div class="flex flex-wrap gap-1.5">'
+                    + r.sources.slice(0, 5).map(x =>
+                        '<a href="' + esc(x.url) + '" target="_blank" rel="noopener" '
+                        + 'class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-indigo-600 transition hover:bg-indigo-50">🔗 '
+                        + esc(x.title || x.url).slice(0, 40) + '</a>').join('')
+                    + '</div>');
+            }
+            h.push('<div class="prose prose-sm prose-slate max-w-none whitespace-pre-wrap text-slate-800 leading-relaxed">'
+                + esc(r.message || '') + '</div></div>');
+            h.push(nextCardHtml(
+                [{ id: 'rewrite', name: '把这条做成口播稿', icon: '✍️', cmd: '把上面这条整理成口播稿' },
+                 { id: 'xhs', name: '做成小红书图文', icon: '📕', cmd: '把上面这条做成小红书图文' }],
+                '<p class="mt-3 text-xs text-slate-400">—— 想把它变成内容，点一下或直接说。</p>'
+            ));
+            return h.join('');
+        }
         if (r.stage === 'search') {
             const h = ['<p class="font-medium text-slate-800">🔍 全网检索结果：</p>',
                        '<p class="mt-1">' + esc(r.message || '') + '</p>'];
@@ -857,7 +877,7 @@
                 bubble.innerHTML = '<span class="text-slate-400">⏳ ' + esc(msg) + '　已 ' + sec + ' 秒'
                     + '</span><div class="mt-2 flex gap-1"><div class="h-1 w-12 animate-pulse rounded bg-indigo-400"></div>'
                     + '<div class="h-1 w-8 animate-pulse rounded bg-indigo-300"></div><div class="h-1 w-5 animate-pulse rounded bg-indigo-200"></div></div>';
-            } else if (st.stage && ['done', 'written', 'propose', 'search', 'review', 'ask'].includes(st.stage)) {
+            } else if (st.stage && ['done', 'written', 'propose', 'search', 'review', 'ask', 'answer'].includes(st.stage)) {
                 safeRender(bubble, st);   // 后台跑完，完整结果渲染（resultBlock 出错时降级为原文 JSON）
                 updateMeta(st); loadSessions();
                 keep = false; break;

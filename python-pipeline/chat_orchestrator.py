@@ -308,18 +308,26 @@ class ChatOrchestrator:
             "{\n"
             "  \"extract\": {可选, 从本轮提取/更新的要素, 只放确有信息且与原值不同的字段: "
             "{\"topic\":\"\",\"audience\":\"\",\"requirement\":\"\",\"count\":0}},\n"
-            "  \"action\": \"ask\" | \"propose\" | \"write\",\n"
+            "  \"action\": \"ask\" | \"answer\" | \"propose\" | \"write\",\n"
             "  \"asked\": \"(action=ask 时，追问还缺的要素的话术，简短一句，专业不啰嗦)\",\n"
+            "  \"answer_ctx\": \"(action=answer 时填：用户真正在问的问题是什么——他是想了解某个财税知识/政策/流程/业务判断，不是在要你写稿。把问题本质概括成一句)\",\n"
             "  \"pick\": (action=write 时，用户想写的角度。填整数下标【从0开始】或 'all' 或 'next'。否则 null)\n"
             "}\n\n"
-            "判定规则：\n"
-            "- 若用户是在补充信息/回答追问（如'给会计看''要3条''面向餐饮老板'）→ 提取进 extract。\n"
-            "- 若用户给出或已齐 主题+受众+关键要求，且这是一次明确的'开始出/想做/来一批'信号或要素已齐，且当前 phase=collect → action=propose。\n"
+            "判定规则（先判断意图，再决定动作）：\n"
+            "- ★最重要：先判断用户到底想要什么。用户可能是在【问一个财税/业务问题】（想知道政策、法规、流程、某做法合不合规、业务怎么开展、某件事怎么处理），"
+            "而不是在【让你写口播稿】。\n"
+            "- 若用户是在问问题、要解释、要建议、要讨论（哪怕是闲聊里带出'注册公司''注销''免税''风险''怎么获客'这类词）→ action=answer。"
+            "此时【绝对不要】追问'拍给哪类老板看'，也不要去拆角度。你要像一个资深财税顾问一样正面回答他。\n"
+            "- 判断是否'要写稿'的硬信号：用户明确说了要做内容/视频/口播/文案/选题/脚本（如'写条口播''做成视频''出几个选题''帮我写个文案'），"
+            "或本会话正处于出稿流程中（已有主题/受众、在拆角度/改稿阶段）且这句是对该流程的推进。\n"
+            "- 若用户是在补充信息/回答追问（如'给会计看''要3条''面向餐饮老板'）→ 提取进 extract（不适用 answer）。\n"
+            "- 若用户明确要出内容且给出或已齐 主题+受众+关键要求 → action=propose。\n"
             "- 若用户对已出的角度方案表 确认（如'可以''就按这个''认可'）→ action=write, pick='all'。\n"
             "- 若用户挑了具体某条（如'写第2条''第3个''就做第一个'）→ action=write, pick=对应下标。\n"
             "- 若用户在成稿阶段还要继续写下一条（如'继续''下一条'）→ action=write, pick='next'。\n"
             "- 若用户对【已写好的某篇成稿】提出修改意见（如'第2篇太长/换个口吻/加个案例/重写第3篇'），→ action=write, pick=对应篇的下标（0开始），同时把修改要求写进 extract.requirement（追加），让改写器按新要求重写该篇。\n"
-            "- 若要素还缺（主题或受众或要求为空）且用户只是闲聊/开场 → action=ask，并在 asked 追问缺的那一项。\n"
+            "- 若要素还缺（主题或受众或要求为空）且用户明确要出稿但没说全 → action=ask，并在 asked 追问缺的那一项。\n"
+            "铁律：宁可多判 answer 也不要机械地当写稿指令——答非所问是最大的失败。用户问问题，你就 answer；用户要内容，你才 propose/write。\n"
         )
         cfg = self._cfg()
         raw = self._chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=60)
@@ -562,8 +570,77 @@ class ChatOrchestrator:
             "message": ans or "已检索到相关内容，来源见下方链接。",
         }
 
+    def _do_answer(self, s, question, need_search=False):
+        """正面回答用户的财税/业务问题（不写稿、不追问受众），像资深顾问一样答到点子上。
+
+        - 政策/法规有时效或拿不准 → need_search=True 走联网检索再答；
+        - 知识/经验类 → 直接用专家口径答，末尾轻带一句"要不要我把这条做成内容"。
+        """
+        if s.get("id"):
+            phase = "searching" if need_search else "thinking"
+            msg = ("正在核对最新政策口径…" if need_search else "正在想这个问题…")
+            self._set_progress(s["id"], phase, msg)
+        # 需要核实时效 → 联网检索作为事实基础
+        if need_search:
+            key = self._get_key("TAVILY_API_KEY")
+            if key and self._search:
+                try:
+                    r = self._search(question, key, topic="general", days=365, max_results=5, timeout=15)
+                    items = (r or {}).get("results") or []
+                    if items:
+                        s.setdefault("search_refs", []).extend(items[:5])
+                        ev = "\n".join(
+                            "- %s | %s\n  %s" % (i.get("title") or "", i.get("url") or "", (i.get("content") or "")[:300])
+                            for i in items[:5]
+                        )
+                        src = [{"title": i.get("title") or "", "url": i.get("url") or ""}
+                               for i in items[:5] if i.get("url")]
+                        cfg = self._cfg()
+                        prompt = (
+                            MASTER_PROMPT
+                            + "\n\n用户在问一个财税/业务问题：" + question
+                            + "\n\n以下是联网检索到的官方/资讯内容（作为核实时效的依据，不要编造未出现的内容）：\n" + ev
+                            + "\n\n请以资深财税顾问的口吻正面回答用户。要求：\n"
+                            "1. 先直接给结论（政策现在是否适用/流程大致如何/该注意什么）；\n"
+                            "2. 引用依据时标注来源（可提'据检索到的最新口径'），拿不准就明说'建议以当地税务机关为准'；\n"
+                            "3. 讲人话，别堆术语；必要时分点；\n"
+                            "4. 末尾自然带一句：要不要我把这条整理成给老板看的口播/图文（如果用户只是问问，不强推）。\n"
+                            "只输出回答正文，不要代码块、不要 JSON。"
+                        )
+                        try:
+                            ans = self._chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
+                            if isinstance(ans, dict):
+                                ans = ans.get("content") or ""
+                        except Exception:  # noqa: BLE001
+                            ans = ""
+                        if ans:
+                            return {"stage": "answer", "message": ans, "sources": src}
+                except Exception:  # noqa: BLE001
+                    pass  # 检索失败降级纯知识回答
+        # 纯知识/经验回答（不联网或检索失败）
+        cfg = self._cfg()
+        prompt = (
+            MASTER_PROMPT
+            + "\n\n用户在问一个财税/业务问题（不是在让你写稿）：" + question
+            + "\n\n请以资深财税顾问的身份，正面、直接地回答他。要求：\n"
+            "1. 先给结论，再讲依据/要点，讲人话、不堆术语；\n"
+            "2. 像同行聊天一样自然，不要机械、不要套模板、不要反问'拍给谁看'；\n"
+            "3. 涉及具体数字/法条/政策时效，若不能百分百确定就说明'以最新官方口径/当地税务机关为准'，不要编造；\n"
+            "4. 有不同情形（如注册公司 vs 个体户、老板 vs 会计）就分情形说清，体现真在思考他的处境；\n"
+            "5. 末尾可以自然带一句是否要把它做成口播/图文，一句带过即可。\n"
+            "只输出回答正文，不要代码块、不要 JSON。"
+        )
+        try:
+            ans = self._chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
+            if isinstance(ans, dict):
+                ans = ans.get("content") or ""
+        except Exception:  # noqa: BLE001
+            ans = ""
+        return {"stage": "answer", "message": ans or "这个问题我帮你想想再答——你补充点背景，比如你是老板还是会计、具体什么情况？"}
+
     def _do_meta_review(self, s, msg):
         """协作审查：用户问'有没有结合XX/参考了XX'时，基于本空间已有证据+角度/成稿，正面回答并给推理链。
+        关键区别于 _do_search：
 
         关键区别于 _do_search：
         - 不再调 Tavily（证据已在 session.search_refs 里）
@@ -665,6 +742,34 @@ class ChatOrchestrator:
         if not m:
             return False
         return any(w in m for w in self._PRODUCE_WORDS)
+
+    # 求知/问句特征：问"政策/流程/风险/怎么办/怎么/是否/能不能/多少钱/要不要/行不行"类
+    _Q_WORDS = ("吗", "么", "？", "?", "怎么", "如何", "是否", "能不能", "可不可以", "行不行",
+                "要不要", "是什么", "有哪些", "有什么", "什么", "区别", "流程", "步骤", "多少钱",
+                "合规", "风险", "政策", "规定", "处罚", "怎么办", "如何处理", "怎样", "为啥", "为什么")
+    # 明确"要内容"的信号词：命中则不判为纯提问（避免"写条讲XX政策的口播"被拦成问答）
+    _PRODUCE_HINT = ("口播", "脚本", "文案", "视频", "图文", "选题", "拆角度", "出稿", "写一条", "写个", "写成")
+
+    def _looks_like_question(self, msg):
+        """兜底：这条消息是否更像"在问事情"而不是"让干活"。问句/求知词命中且无"要内容"信号 → True。"""
+        m = (msg or "").strip()
+        if not m:
+            return False
+        # 明确要内容（写口播/文案/拆角度）→ 不是纯问答
+        if any(w in m for w in self._PRODUCE_HINT):
+            return False
+        # 本空间正在出稿流程中、用户在推进流程（如"继续""下一条""这篇呢"）→ 不拦
+        if self._is_produce_cmd(m):
+            return False
+        q_hits = sum(1 for w in self._Q_WORDS if w in m)
+        # 问号或 ≥1 个求知词命中即视为提问
+        return q_hits >= 1 or ("？" in m) or ("?" in m)
+
+    # 涉及政策/时效/外部事实的关键词 → 回答前联网核对，避免讲错已变的口径
+    _SEARCH_NEED_WORDS = ("政策", "规定", "税率", "免税", "减税", "新政", "截止", "有效期", "2025",
+                          "2026", "最新", "是否适用", "现行", "细则", "公告", "条例", "办法", "优惠")
+    def _answer_needs_search(self, msg):
+        return any(w in msg for w in self._SEARCH_NEED_WORDS)
 
     def _split_ask(self, text):
         """把 LLM 输出拆成 (正文, 反问列表)。反问最多 2 条，过滤客套话。"""
@@ -1101,6 +1206,14 @@ class ChatOrchestrator:
             if missing:
                 return {"stage": "ask", "message": f"先把{('、').join(missing)}定下来，我再帮你拆角度。"}
             return self._do_propose(s)
+
+        # ★正面回答：用户在问财税/业务问题（LLM 判定 answer，或兜底规则命中）。
+        #   规则兜底：问句/求知句且不是明确的出稿指令 → 答，不追问"拍给谁看"。
+        if action == "answer":
+            q = (u.get("answer_ctx") or message).strip() or message
+            return self._do_answer(s, q, need_search=self._answer_needs_search(message))
+        if self._looks_like_question(message) and not self._is_produce_cmd(message):
+            return self._do_answer(s, message, need_search=self._answer_needs_search(message))
 
         # action == ask 或未识别：缺要素则追问，已齐则提示可开始
         missing = [lab for lab, k in (("主题", "topic"), ("受众", "audience"), ("关键要求", "requirement")) if not s.get(k)]
