@@ -169,6 +169,29 @@
 
 <script>
 (function () {
+    // ---- 全局错误浮层：任何前端异常/网络失败都可见，绝不"静默无回复" ----
+    function globalErr(msg, detail) {
+        try {
+            let box = document.getElementById('hgtGlobalErr');
+            if (!box) {
+                box = document.createElement('div');
+                box.id = 'hgtGlobalErr';
+                box.style.cssText = 'position:fixed;top:72px;right:16px;z-index:9999;max-width:420px;'
+                    + 'background:#FEF2F2;border:1px solid #FCA5A5;border-radius:12px;padding:10px 14px;'
+                    + 'font-size:12.5px;color:#B91C1C;box-shadow:0 8px 24px rgba(0,0,0,.12);';
+                document.body.appendChild(box);
+            }
+            box.innerHTML = '<b>⚠️ 页面遇到问题：</b>' + String(msg) + (detail ? '<div style="margin-top:4px;color:#7F1D1D;font-size:11px;word-break:break-all;">' + String(detail).slice(0, 300) + '</div>' : '')
+                + '<button onclick="this.parentNode.remove()" style="float:right;border:0;background:transparent;color:#B91C1C;cursor:pointer;font-size:14px;">×</button>';
+        } catch (_) { /* ignore */ }
+    }
+    window.addEventListener('error', function (e) {
+        if (e && e.message && e.message.indexOf('ResizeObserver') === -1) globalErr(e.message, (e.filename || '') + ':' + (e.lineno || ''));
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+        const r = e && e.reason;
+        globalErr((r && r.message) || '异步操作失败', r && r.stack ? r.stack.split('\n')[1] : '');
+    });
     const SID_KEY = 'chat_sid_' + '{{ $tenantSlug }}';
     const chatBox = document.getElementById('chatBox');
     const input = document.getElementById('userInput');
