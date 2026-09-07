@@ -18,7 +18,7 @@
         min-height: 0;
         overflow: hidden;
     }
-    /* 左侧常驻会话列（三栏中间一栏；workspace 侧栏为最左功能图标条） */
+    /* 左侧常驻会话列（三栏中间一栏；workspace 侧栏为最左功能菜单） */
     .chat-rail {
         flex: 0 0 auto;
         width: 264px;
@@ -36,16 +36,34 @@
         display: flex;
         flex-direction: column;
     }
-    .chat-meta { flex: 0 0 auto; }
+    /* 顶格条（当前空间名 + 要素 + 删除）粘性常驻，对话滚动时不动 */
+    .chat-meta {
+        flex: 0 0 auto;
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: rgba(255,255,255,0.96);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        box-shadow: 0 1px 3px rgba(15,23,42,0.05);
+    }
     .chat-scroll {
         flex: 1 1 auto;
         min-height: 0;
         overflow-y: auto;
-        padding: 1.75rem 1.5rem 1.5rem;  /* 上下都多留点呼吸 */
+        padding: 1.5rem 1.5rem 1.5rem;  /* 上下都多留点呼吸 */
     }
     .chat-input { flex: 0 0 auto; }
     .chat-bubble-wrap { max-width: 820px; margin: 0 auto; }
     .chat-bubble { max-width: 92%; }
+    /* 关键：对话气泡内文字一律可选可复制（默认就是 text，但显式声明防被任何父级 user-select 继承影响） */
+    .chat-bubble, .chat-bubble * {
+        -webkit-user-select: text;
+        user-select: text;
+        -webkit-touch-callout: default;
+    }
+    /* 输入框文字也可选（防止后续在某些主题里被屏蔽） */
+    textarea, .chat-input { -webkit-user-select: text; user-select: text; }
     /* 会话列内元素 */
     .rail-item {
         display: flex; align-items: flex-start; gap: 6px;
@@ -240,30 +258,45 @@
         ];
         let cards = '';
         samples.forEach((s, i) => {
-            cards += '<button type="button" data-sample="' + i + '" class="sample-card block w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-sm text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50/50">'
-                + '<span class="mr-1.5">' + s.icon + '</span>' + esc(s.txt) + '</button>';
+            // 用 div + role=button 而非原生 <button>，避免 button 默认拦截鼠标拖选/双击选词
+            cards += '<div role="button" tabindex="0" data-sample="' + i + '" class="sample-card block w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-sm text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50/50">'
+                + '<span class="mr-1.5">' + s.icon + '</span>' + esc(s.txt) + '</div>';
         });
         appendMsg('ai',
             '<p class="font-medium text-slate-800">你好，我是你的出稿助手 ✦</p>'
-            + '<p class="mt-1 text-sm text-slate-500">直接打字说想做什么，或点下面任意一张卡片照着干：</p>'
+            + '<p class="mt-1 text-sm text-slate-500">直接说想做什么，或点下面任意一张卡片照着干：</p>'
             + '<div class="mt-3 grid gap-2">' + cards + '</div>'
             + '<p class="mt-3 rounded-lg bg-indigo-50/60 px-3 py-2 text-[13px] text-slate-600">'
             + '例：「我想做一批创业开公司的口播，给准备注册的小老板看，5 条，讲人话别堆术语，要能挂留资钩子」</p>'
             + '<p class="mt-2 text-xs text-slate-400">我会先和你把<strong>主题、受众、关键要求</strong>对齐 → 拆角度方案 → 你认可后出稿 → 改稿 → 配音 → 出片。聊到一半起个名，这段对话就存入左侧「空间」，下次接着聊不会忘。</p>'
         );
-        // 点示例卡 = 自动填入并发送
+        // 点示例卡 = 自动填入并发送（div+role=button：点击 ≠ 选词，本卡不会拦截拖选/双击选词）
         chatBox.querySelectorAll('.sample-card').forEach((card, i) => {
             card.addEventListener('click', () => {
                 const s = samples[i];
                 if (s.txt.indexOf('贴进来') > -1) { input.value = ''; input.placeholder = '把爆款文案或链接贴进来，我来拆…'; input.focus(); return; }
                 sendUserText(s.txt);
             });
+            card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); } });
         });
     }
 
     async function sendUserText(text) {
         input.value = text;
         await doSend();
+    }
+
+    // 兜底渲染：resultBlock 抛错时退化到 JSON 原文，AI 永不沉默
+    function safeRender(bubble, data) {
+        try {
+            bubble.innerHTML = resultBlock(data);
+        } catch (err) {
+            console.error('resultBlock error:', err, data);
+            const json = JSON.stringify(data, null, 0);
+            bubble.innerHTML = '<div class="space-y-2"><div class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-700">'
+                + '回复内容渲染异常（已退化到原文）：</div>'
+                + '<pre class="whitespace-pre-wrap break-words text-[12.5px] text-slate-700">' + esc(json) + '</pre></div>';
+        }
     }
 
     function angleCard(a, idx) {
@@ -742,7 +775,8 @@
                 return;   // finally 会复位 busy
             }
             thinking.remove();
-            appendMsg('ai', resultBlock(data));
+            const reply = appendMsg('ai', '');
+            safeRender(reply, data);
             updateMeta(data);
             loadSessions();
             if (data.stage === 'ask' && data.missing && data.missing.length) {
@@ -796,7 +830,7 @@
                     + '</span><div class="mt-2 flex gap-1"><div class="h-1 w-12 animate-pulse rounded bg-indigo-400"></div>'
                     + '<div class="h-1 w-8 animate-pulse rounded bg-indigo-300"></div><div class="h-1 w-5 animate-pulse rounded bg-indigo-200"></div></div>';
             } else if (st.stage && ['done', 'written', 'propose', 'search', 'review', 'ask'].includes(st.stage)) {
-                bubble.innerHTML = resultBlock(st);   // 后台跑完，完整结果渲染
+                safeRender(bubble, st);   // 后台跑完，完整结果渲染（resultBlock 出错时降级为原文 JSON）
                 updateMeta(st); loadSessions();
                 keep = false; break;
             } else if (st.error || st.stage === 'error') {

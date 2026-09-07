@@ -236,7 +236,8 @@
     <!-- ===== 右侧主内容区 ===== -->
     <main class="flex min-w-0 flex-1 flex-col overflow-hidden bg-[var(--surface-page)]">
         <!-- 顶栏 -->
-        <header class="flex h-16 shrink-0 items-center justify-between border-b border-[var(--surface-card-border)] px-6 bg-[var(--topbar-bg)] backdrop-blur-sm">
+        <!-- 顶栏：粘性常驻，对话滚动时也不滚走（带底阴影以区分） -->
+        <header class="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-[var(--surface-card-border)] bg-[var(--topbar-bg)]/95 px-6 backdrop-blur-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
             <div class="flex items-center gap-3">
                 <!-- 移动端菜单按钮 -->
                 <button onclick="toggleSidebar()" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 md:hidden" aria-label="展开侧栏">
