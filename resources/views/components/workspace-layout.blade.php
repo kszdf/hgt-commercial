@@ -314,10 +314,10 @@
         @endif
 
         <!-- 内容区（可滚动，统一限宽居中；对话工作台等全屏页除外） -->
-        <div class="flex-1 min-h-0 overflow-y-auto">
+        <div class="flex-1 min-h-0 {{ request()->is('studio/chat*') ? 'overflow-hidden' : 'overflow-y-auto' }}">
             @if(request()->is('studio/chat*'))
-                {{-- chat 全宽三栏：不再限宽居中，避免与外层侧栏脱节 --}}
-                <div style="height:100%;">{{ $slot }}</div>
+                {{-- chat 全宽三栏：锁死高度为 视口-顶栏，只允许对话区内部滚动 --}}
+                <div style="height: calc(100vh - 4rem); min-height: 420px;">{{ $slot }}</div>
             @else
                 <div style="max-width:1400px;margin:0 auto;padding:0 1.5rem;">
                     {{ $slot }}

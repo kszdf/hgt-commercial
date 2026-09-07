@@ -252,6 +252,21 @@
     }
 
     // ---------- 消息渲染 ----------
+    let _bulkRender = false;   // 批量回放标志：期间不逐条贴底，最后一次性贴
+    // 智能滚动：新消息/状态更新时自动贴到最新（底部）。用户主动上翻历史(距底>120px)则不打扰；回到底附近自动恢复跟随。
+    function stickToBottom(force) {
+        const nearBottom = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 120;
+        if (force && !_bulkRender || nearBottom && !_bulkRender) {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    }
+    chatBox.addEventListener('scroll', function () {
+        // 用户手动回到底部附近时，若此刻有"正在生成"标记则贴底（避免被卡在半空）
+        if (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 30) {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    }, { passive: true });
+
     function appendMsg(role, html) {
         const wrap = document.createElement('div');
         wrap.className = 'chat-bubble-wrap flex items-start gap-3 ' + (role === 'user' ? 'flex-row-reverse' : '');
@@ -267,7 +282,7 @@
         bubble.innerHTML = html;
         wrap.appendChild(av); wrap.appendChild(bubble);
         chatBox.appendChild(wrap);
-        chatBox.scrollTop = chatBox.scrollHeight;
+        stickToBottom(true);
         return bubble;
     }
 
@@ -685,11 +700,14 @@
             if (!msgs.length) { showIntro(); }
             else {
                 chatBox.innerHTML = '';
+                _bulkRender = true;          // 批量回放：先不逐条跳动
                 msgs.forEach(m => {
                     const p = m.payload || {};
                     if (m.role === 'user') appendMsg('user', esc(p.content || ''));
                     else appendMsg('ai', resultBlock(p));
                 });
+                _bulkRender = false;
+                stickToBottom(true);         // 全部渲染完一次性贴到最新
             }
         } catch (e) {
             showIntro();
@@ -889,6 +907,7 @@
             } else if (st.stage && ['done', 'written', 'propose', 'search', 'review', 'ask', 'answer'].includes(st.stage)) {
                 safeRender(bubble, st);   // 后台跑完，完整结果渲染（resultBlock 出错时降级为原文 JSON）
                 updateMeta(st); loadSessions();
+                stickToBottom(true);      // 结果替换完成后贴到最新
                 keep = false; break;
             } else if (st.error || st.stage === 'error') {
                 bubble.innerHTML = '<span class="text-red-500">出错了：' + esc(st.error || '任务失败') + '。</span> '
