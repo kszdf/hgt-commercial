@@ -51,11 +51,15 @@
         flex: 1 1 auto;
         min-height: 0;
         overflow-y: auto;
+        overflow-x: hidden;
         padding: 1.5rem 1.5rem 1.5rem;  /* 上下都多留点呼吸 */
     }
     .chat-input { flex: 0 0 auto; }
-    .chat-bubble-wrap { max-width: 820px; margin: 0 auto; }
+    .chat-bubble-wrap { max-width: 820px; margin: 0 auto; width: 100%; padding-left: 0.5rem; }
     .chat-bubble { max-width: 92%; }
+    /* 大屏让气泡自然靠左（不要因 margin:auto 在 1440+ 屏时两侧留大块空白） */
+    @media (min-width: 1024px) { .chat-bubble-wrap { margin-left: max(1.5rem, calc((100% - 820px) / 2 - 0px)); padding-left: 0; } }
+    @media (max-width: 640px)  { .chat-bubble-wrap { max-width: 100%; padding-left: 0; } }
     /* 关键：对话气泡内文字一律可选可复制（默认就是 text，但显式声明防被任何父级 user-select 继承影响） */
     .chat-bubble, .chat-bubble * {
         -webkit-user-select: text;

@@ -51,7 +51,8 @@
   })();
 </script>
 
-<div class="flex min-h-screen">
+@php $isChat = request()->is('studio/chat*'); @endphp
+<div class="flex {{ $isChat ? 'h-screen overflow-hidden' : 'min-h-screen' }}">
     <!-- ===== 左侧功能菜单栏 ===== -->
     <aside id="workspaceSidebar" class="ws-sidebar group flex w-52 shrink-0 flex-col border-r border-[var(--surface-card-border)] bg-[var(--sidebar-bg)] transition-all duration-200 md:w-52">
         <!-- 品牌 LOGO 标识 -->
