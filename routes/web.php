@@ -97,6 +97,8 @@ Route::middleware('auth')->group(function () {
     // 对话出稿工作台·一期（对话引导 选题+改写+成稿）
     Route::get('/studio/chat', [StudioController::class, 'chat'])->name('studio.chat');
     Route::post('/studio/chat/send', [StudioController::class, 'chatSend']);
+    // 对话成稿导出：docx/pdf/xlsx/md/txt（网站侧即时生成，不依赖 8500）
+    Route::post('/studio/chat/export', [StudioController::class, 'chatExport'])->name('studio.chat.export');
 
     // 对话出稿·二期：会话/主题空间持久化（左侧列表 + 历史回放）
     Route::get('/studio/chat/sessions', [StudioController::class, 'chatSessions'])->name('studio.chat.sessions');

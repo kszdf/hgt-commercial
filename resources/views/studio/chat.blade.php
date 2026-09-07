@@ -142,6 +142,7 @@
     const sessMenuBtn = document.getElementById('sessMenuBtn');
     const sessMenuRoot = document.getElementById('sessMenuRoot');
     let sid = localStorage.getItem(SID_KEY) || '';
+    let lastWritten = null;   // 最近一次 written 成稿（供整批导出）
     let busy = false;
     let lastMsg = '';
     let sessions = [];
@@ -230,6 +231,86 @@
             + '</div>';
     }
 
+    /* ===== 成稿导出（网站侧即时生成 docx/pdf/xlsx/md/txt，不依赖 8500） ===== */
+    const EXPORT_LABELS = { docx: 'Word', pdf: 'PDF', xlsx: 'Excel', md: 'MD', txt: 'TXT' };
+    function exportBar(defaultTitle, pieces, mode, idx) {
+        const fmtIcon = { docx: '🅆', pdf: '📄', xlsx: '📊', md: '📝', txt: '📃' };
+        const btns = Object.keys(EXPORT_LABELS).map(f => {
+            return '<button type="button" data-fmt="' + f + '" data-title="' + esc(defaultTitle || '')
+                + '" data-mode="' + mode + '" data-idx="' + (idx === undefined ? '' : idx)
+                + '" class="exp-btn rounded border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700">'
+                + (fmtIcon[f] || '') + ' ' + EXPORT_LABELS[f] + '</button>';
+        }).join('');
+        return '<div class="flex flex-wrap items-center gap-1.5">'
+            + '<span class="text-[11px] text-slate-400">存成文件：</span>' + btns + '</div>';
+    }
+
+    async function doExport(fmt, title, pieces, btn) {
+        const payload = { format: fmt, title: title || '', pieces: pieces.map(p => ({ title: p.title, script: p.script })) };
+        try {
+            const old = btn.innerHTML; btn.disabled = true; btn.innerHTML = '生成中…';
+            const resp = await fetch('/studio/chat/export', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+                body: JSON.stringify(payload)
+            });
+            if (!resp.ok) {
+                let msg = '导出失败';
+                try { const j = await resp.json(); msg = j.error || msg; } catch (e) {}
+                alert(msg); return;
+            }
+            const ct = resp.headers.get('Content-Type') || '';
+            if (ct.includes('application/json')) {
+                // md/txt：后端返回内容，前端存 blob 下载
+                const j = await resp.json();
+                if (!j.ok) { alert(j.error || '导出失败'); return; }
+                const blob = new Blob([j.content], { type: j.format === 'md' ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = j.filename || ('口播稿.' + j.format);
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+            } else {
+                // 二进制(docx/pdf/xlsx)：直接触发浏览器下载
+                const blob = await resp.blob();
+                const disp = resp.headers.get('Content-Disposition') || '';
+                const m = disp.match(/filename\*?=(?:UTF-8'')?"?([^";]+)/i);
+                const fn = m ? decodeURIComponent(m[1]) : ((title || '口播稿') + '.' + fmt);
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = fn;
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+            }
+        } catch (e) {
+            alert('导出失败：' + e.message);
+        } finally {
+            btn.disabled = false; btn.innerHTML = old;
+        }
+    }
+    function csrfToken() {
+        const m = document.querySelector('meta[name="csrf-token"]');
+        return m ? m.getAttribute('content') : '';
+    }
+    document.addEventListener('click', function (e) {
+        const b = e.target.closest('.exp-btn');
+        if (!b) return;
+        const fmt = b.dataset.fmt, title = b.dataset.title || '';
+        let pieces = [];
+        if (b.dataset.mode === 'single' && lastWritten && lastWritten.length) {
+            // 单篇：用生成时写入的 data-idx 直接定位
+            const idx = b.dataset.idx !== '' ? parseInt(b.dataset.idx, 10) : -1;
+            if (idx >= 0 && idx < lastWritten.length) {
+                pieces = [lastWritten[idx]];
+                if (!title) title = lastWritten[idx].title;
+            }
+        } else if (b.dataset.mode === 'batch' && lastWritten && lastWritten.length) {
+            pieces = lastWritten;
+        }
+        if (!pieces.length) { alert('未找到要导出的内容'); return; }
+        doExport(fmt, title, pieces, b);
+    });
+
     function resultBlock(r) {
         if (r.stage === 'search') {
             const h = ['<p class="font-medium text-slate-800">🔍 全网检索结果：</p>',
@@ -288,6 +369,10 @@
             return h.join('');
         }
         if (r.stage === 'written') {
+            const all = (r.results || []).map((w, i) => ({
+                title: w.title || ('口播稿' + (i + 1)), script: w.script || ''
+            }));
+            lastWritten = all;   // 供整批导出按钮取数
             const h = ['<p class="font-medium text-slate-800">' + (r.revised ? '✅ 已按要求重写' : '✅ 成稿如下（每段为可直接配音的口播稿）') + '：</p><div class="mt-2 space-y-3">'];
             (r.results || []).forEach((w, i) => {
                 h.push('<div class="rounded-lg border border-slate-200 bg-white p-3">'
@@ -295,9 +380,14 @@
                     + '<p class="font-semibold text-slate-800">' + esc(w.title || ('口播稿' + (i + 1))) + '</p>'
                     + '<button type="button" data-rev="' + i + '" class="revise-btn shrink-0 rounded border border-slate-300 px-2 py-0.5 text-[11px] text-slate-500 transition hover:bg-slate-100">✎ 改这篇</button>'
                     + '</div>'
-                    + '<p class="mt-2 whitespace-pre-wrap text-slate-700">' + esc(w.script || '') + '</p></div>');
+                    + '<p class="mt-2 whitespace-pre-wrap text-slate-700">' + esc(w.script || '') + '</p>'
+                    + '<div class="mt-2 border-t border-slate-100 pt-2">' + exportBar(w.title || ('口播稿' + (i + 1)), [w], 'single', i) + '</div></div>');
             });
             h.push('</div>');
+            h.push('<div class="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3">'
+                + '<div class="flex items-center gap-2"><span class="text-xs font-medium text-indigo-800">📦 整批导出</span>'
+                + '<span class="text-[11px] text-slate-500">' + all.length + ' 篇一次存成文件</span></div>'
+                + '<div class="mt-2">' + exportBar('', all, 'batch') + '</div></div>');
             h.push(nextCardHtml(r.next, '<p class="mt-2 text-xs text-slate-500">要调整某篇就点「改这篇」；稿子满意了，直接点下面卡片走下一步：</p>'));
             return h.join('');
         }

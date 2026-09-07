@@ -11,6 +11,9 @@
         "laravel/tinker": "^2.9",
         "livewire/flux": "^2.15",
         "livewire/livewire": "^4.3",
+        "mpdf/mpdf": "^8.3",
+        "phpoffice/phpspreadsheet": "^5.9",
+        "phpoffice/phpword": "^1.4",
         "sentry/sentry-laravel": "*",
         "tencentcloud/sms": "^3.0"
     },

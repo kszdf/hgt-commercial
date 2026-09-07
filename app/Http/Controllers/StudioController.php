@@ -51,6 +51,58 @@ class StudioController extends Controller
         ]);
     }
 
+    /** 对话成稿导出：前端把成稿(标题+多篇正文)POST 过来，生成 docx/pdf/xlsx/md/txt 下载。 */
+    public function chatExport(Request $request)
+    {
+        $data = $request->validate([
+            'format'  => ['required', 'string', 'in:docx,pdf,xlsx,md,txt'],
+            'title'   => ['nullable', 'string', 'max:200'],
+            'pieces'  => ['nullable', 'array'],
+            'pieces.*.title'  => ['nullable', 'string', 'max:300'],
+            'pieces.*.script' => ['nullable', 'string'],
+            'text'    => ['nullable', 'string'],
+        ]);
+
+        $format = $data['format'];
+        $title  = trim((string) ($data['title'] ?? ''));
+        if ($title === '') {
+            $title = '对话成稿';
+        }
+
+        // 归一化为 pieces：支持前端两种传法（pieces 数组 或 单段 text）
+        $pieces = [];
+        foreach (($data['pieces'] ?? []) as $p) {
+            if (! is_array($p)) {
+                continue;
+            }
+            $pieces[] = [
+                'title'  => (string) ($p['title'] ?? ''),
+                'script' => (string) ($p['script'] ?? ''),
+            ];
+        }
+        $plain = trim((string) ($data['text'] ?? ''));
+        if (count($pieces) === 0 && $plain !== '') {
+            $pieces[] = ['title' => $title, 'script' => $plain];
+        }
+
+        try {
+            $file = app(\App\Services\ChatExportService::class)->export($pieces, $format, $title);
+            if ($format === 'md' || $format === 'txt') {
+                // 文本格式直接返回内容 + 提示前端存 blob
+                return response()->json([
+                    'ok'   => true,
+                    'format' => $format,
+                    'content' => $file,
+                    'filename' => ($title !== '对话成稿' ? $title : '口播稿') . '.' . $format,
+                ]);
+            }
+            return $file;
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('chatExport failed: ' . $e->getMessage(), ['trace' => substr($e->getTraceAsString(), 0, 600)]);
+            return response()->json(['error' => '导出失败：' . $e->getMessage()], 500);
+        }
+    }
+
     /** 对话出稿工作台·一期：一次对话回合（session_id + message → 8500 /chat）。 */
     public function chatSend(Request $request)
     {
