@@ -21,7 +21,7 @@ use App\Http\Controllers\PublishPackController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return auth()->check() ? redirect('/dashboard') : redirect('/login');
+    return auth()->check() ? redirect('/studio/chat') : redirect('/login');
 });
 
 // 公开法律页（无需登录）
@@ -50,7 +50,8 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', function () {
-        return view('dashboard');
+        // 旧首页已由"对话工作台"取代：保活 URL，302 到对话主界面（dashboard.blade.php 保留作兜底）
+        return redirect('/studio/chat');
     })->name('dashboard');
     Route::post('/logout', [AuthController::class, 'logout']);
 

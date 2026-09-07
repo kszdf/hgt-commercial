@@ -13,9 +13,28 @@
     /* ===== chat 页：以对话为绝对中心，仿 WorkBuddy 视觉（更舒展、更轻） ===== */
     .chat-shell {
         display: flex;
-        flex-direction: column;
-        height: calc(100vh - 3.5rem);   /* 让对话区更高 */
+        flex-direction: row;
+        height: 100%;
+        min-height: 0;
         overflow: hidden;
+    }
+    /* 左侧常驻会话列（三栏中间一栏；workspace 侧栏为最左功能图标条） */
+    .chat-rail {
+        flex: 0 0 auto;
+        width: 264px;
+        min-width: 264px;
+        display: flex;
+        flex-direction: column;
+        background: var(--color-background-secondary, #f8fafc);
+        border-right: 1px solid var(--surface-card-border, #e2e8f0);
+        transition: width .18s ease, min-width .18s ease;
+    }
+    .chat-rail.collapsed { width: 0; min-width: 0; border-right: none; overflow: hidden; }
+    .chat-main {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
     }
     .chat-meta { flex: 0 0 auto; }
     .chat-scroll {
@@ -25,107 +44,106 @@
         padding: 1.75rem 1.5rem 1.5rem;  /* 上下都多留点呼吸 */
     }
     .chat-input { flex: 0 0 auto; }
-    .chat-bubble-wrap { max-width: 768px; margin: 0 auto; }
+    .chat-bubble-wrap { max-width: 820px; margin: 0 auto; }
     .chat-bubble { max-width: 92%; }
-    .sess-menu {
-        position: absolute;
-        right: 0; top: calc(100% + 6px);
-        width: 320px; max-height: 70vh; overflow-y: auto;
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        box-shadow: 0 12px 32px rgba(15,23,42,.14);
-        z-index: 50;
+    /* 会话列内元素 */
+    .rail-item {
+        display: flex; align-items: flex-start; gap: 6px;
+        cursor: pointer; border-radius: 8px; padding: 7px 8px;
+        color: #334155; transition: background .12s;
     }
-    .sess-item-row.active { background: #eef2ff; }
-    .sess-item-row:hover { background: #f1f5f9; }
-    .sess-item-row.active:hover { background: #e0e7ff; }
-    /* ===== 对话页专用：把侧边栏自动收成图标条，给对话让路 ===== */
-    body.workspace-chat #workspaceSidebar {
-        width: 3.5rem !important;
-    }
-    body.workspace-chat #workspaceSidebar .ws-nav-text,
-    body.workspace-chat #workspaceSidebar .ws-group-toggle > span:not(.ws-group-chev),
-    body.workspace-chat #workspaceSidebar .ws-brand-text { display: none; }
-    body.workspace-chat #workspaceSidebar .ws-nav-brand { justify-content: center; padding-left: 0.5rem; padding-right: 0.5rem; }
-    body.workspace-chat #sidebarToggleIcon { display: inline-flex; }
+    .rail-item:hover { background: #eef2ff; }
+    .rail-item.active { background: #e0e7ff; }
+    .rail-item .rail-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 500; }
+    .rail-item.active .rail-name { color: #4338ca; }
+    .rail-item .rail-sub { font-size: 11px; color: #94a3b8; }
+    .rail-item.active .rail-sub { color: #6366f1; }
+    .rail-item .rail-ops { display: none; gap: 2px; }
+    .rail-item:hover .rail-ops { display: inline-flex; }
+    /* ===== 对话页专用：保留完整 6 菜单侧栏（图标+文字），不再收成图标条，避免"素材与账户"组入口丢失 ===== */
 </style>
 <script>
-    // 标记本页面是 chat：侧边栏自动收成图标条
-    document.body.classList.add('workspace-chat');
+    // 标记本页面是对话工作台主界面（保留完整 6 菜单侧栏，chat 页内部自带会话列）
 </script>
 
 <div class="chat-shell">
 
-    {{-- ① 元信息条：空间名 + 切换下拉 + 主题/受众/数量 --}}
-    <div class="chat-meta border-b border-slate-200 bg-white/80 px-4 py-2.5 backdrop-blur-sm">
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            {{-- 空间切换器 --}}
-            <div class="relative" id="sessMenuRoot">
-                <button id="sessMenuBtn" type="button"
-                    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50/40">
-                    <span id="spaceIcon">💬</span>
-                    <span id="spaceTitle" class="max-w-[200px] truncate">新对话</span>
-                    <svg class="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                </button>
-                {{-- 下拉 --}}
-                <div id="sessMenu" class="sess-menu hidden p-1.5">
-                    <div class="flex items-center gap-1.5 px-2 py-1.5">
-                        <button id="newSpaceBtn" type="button"
-                            class="flex-1 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-indigo-700">
-                            ＋ 新建临时会话
-                        </button>
-                        <button id="newNamedBtn" type="button"
-                            class="flex-1 rounded-md border border-indigo-300 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">
-                            📁 新建主题空间
-                        </button>
-                    </div>
-                    <div class="my-1 border-t border-slate-100"></div>
-                    <div id="sessionList" class="space-y-0.5">
-                        <p class="px-2 py-3 text-center text-xs text-slate-400">加载中…</p>
-                    </div>
-                </div>
-            </div>
+    {{-- 左：会话/空间常驻列（三栏第二栏；最左 workspace 侧栏为功能菜单） --}}
+    <aside id="sessRail" class="chat-rail">
+        <div class="flex h-12 shrink-0 items-center justify-between border-b border-slate-200/70 px-3">
+            <span class="text-sm font-semibold text-slate-700">对话</span>
+            <button id="railToggleBtn" type="button" title="收起/展开会话列"
+                class="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/></svg>
+            </button>
+        </div>
+        <div class="shrink-0 space-y-1.5 border-b border-slate-200/70 p-2.5">
+            <button id="newSpaceBtn" type="button"
+                class="flex w-full items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-indigo-700">
+                ＋ 开聊
+            </button>
+            <button id="newNamedBtn" type="button"
+                class="flex w-full items-center gap-2 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">
+                📁 新建空间
+            </button>
+        </div>
+        <div id="sessionList" class="flex-1 space-y-0.5 overflow-y-auto p-2">
+            <p class="px-2 py-3 text-center text-xs text-slate-400">加载中…</p>
+        </div>
+        <div class="shrink-0 border-t border-slate-200/70 px-3 py-2 text-[11px] text-slate-400">
+            空间＝长期任务存档 · 开聊＝随手聊
+        </div>
+    </aside>
 
-            {{-- 要素 chips --}}
+    {{-- 右：对话主区（元信息条 + 消息 + 输入） --}}
+    <div class="chat-main">
+        {{-- ① 元信息条：当前空间名 + 要素 + 操作 --}}
+        <div class="chat-meta flex h-12 shrink-0 items-center gap-x-3 border-b border-slate-200 bg-white/80 px-4 backdrop-blur-sm">
+            <div class="flex min-w-0 items-center gap-2">
+                <button id="railUncollapseBtn" type="button" title="展开会话列"
+                    class="hidden rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
+                </button>
+                <span id="spaceIcon" class="text-sm">💬</span>
+                <span id="spaceTitle" class="max-w-[180px] truncate text-sm font-semibold text-slate-800">新对话</span>
+                <button id="renameBtn" type="button" title="起名＝存入空间，长期保留"
+                    class="ml-1 hidden items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-500 transition hover:border-indigo-300 hover:text-indigo-600 sm:inline-flex">
+                    ✎ 存为空间
+                </button>
+            </div>
             <div class="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
                 <span class="rounded-full bg-slate-100 px-2.5 py-0.5">主题：<b id="chipTopic" class="text-slate-700">未定</b></span>
-                <span class="rounded-full bg-slate-100 px-2.5 py-0.5">受众：<b id="chipAud" class="text-slate-700">未定</b></span>
-                <span class="rounded-full bg-slate-100 px-2.5 py-0.5">数量：<b id="chipCount" class="text-slate-700">—</b></span>
+                <span class="hidden rounded-full bg-slate-100 px-2.5 py-0.5 md:inline">受众：<b id="chipAud" class="text-slate-700">未定</b></span>
+                <span class="hidden rounded-full bg-slate-100 px-2.5 py-0.5 lg:inline">数量：<b id="chipCount" class="text-slate-700">—</b></span>
             </div>
-
             <div class="ml-auto flex items-center gap-1.5">
-                <button id="renameBtn" type="button" title="重命名 / 存为空间"
-                    class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-500 transition hover:border-indigo-300 hover:text-indigo-600">
-                    ✎ 改名
-                </button>
-                <button id="delSpaceBtn" type="button" title="删除当前会话"
-                    class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-500 transition hover:border-red-300 hover:text-red-600">
+                <button id="delSpaceBtn" type="button" title="删除当前对话"
+                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-500 transition hover:border-red-300 hover:text-red-600">
                     🗑 删除
                 </button>
             </div>
         </div>
-    </div>
 
-    {{-- ② 对话滚动区 --}}
-    <div id="chatBox" class="chat-scroll space-y-4 bg-[var(--surface-page)]">
-    </div>
+        {{-- ② 对话滚动区 --}}
+        <div id="chatBox" class="chat-scroll space-y-4 bg-[var(--surface-page)]">
+        </div>
 
-    {{-- ③ 输入区：始终可见，固定底部 --}}
-    <div class="chat-input border-t border-slate-200 bg-white px-4 py-3">
-        <div class="chat-bubble-wrap">
-            <div id="quickReplies" class="mb-2 hidden flex-wrap gap-1.5"></div>
-            <div class="flex items-end gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm focus-within:border-indigo-300">
-                <textarea id="userInput" rows="1" placeholder="说出你想做什么——AI 帮你拆角度 → 出稿 → 改稿 → 配音 → 出片，一句话驱动整条生产线。"
-                    class="max-h-40 flex-1 resize-none rounded-lg border-0 bg-transparent px-2 py-1.5 text-sm text-slate-700 outline-none placeholder:text-slate-400"></textarea>
-                <button id="sendBtn" type="button"
-                    class="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50">
-                    发送
-                </button>
+        {{-- ③ 输入区：始终可见，固定底部 --}}
+        <div class="chat-input border-t border-slate-200 bg-white px-4 py-3">
+            <div class="chat-bubble-wrap">
+                <div id="quickReplies" class="mb-2 hidden flex-wrap gap-1.5"></div>
+                <div class="flex items-end gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm focus-within:border-indigo-300">
+                    <textarea id="userInput" rows="1" placeholder="说出你想做什么——AI 帮你拆角度 → 出稿 → 改稿 → 配音 → 出片，一句话驱动整条生产线。"
+                        class="max-h-40 flex-1 resize-none rounded-lg border-0 bg-transparent px-2 py-1.5 text-sm text-slate-700 outline-none placeholder:text-slate-400"></textarea>
+                    <button id="sendBtn" type="button"
+                        class="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50">
+                        发送
+                    </button>
+                </div>
+                <p class="mt-1.5 text-center text-[11px] text-slate-400">
+                    对话都会自动留着，下次回来接着聊 · 起个名就存入左侧「空间」 · 改主意随时说"全写 / 写第N条 / 做成片 / 配音"
+                </p>
             </div>
-            <p class="mt-1.5 text-center text-[11px] text-slate-400">
-                历史对话都会留在这个空间，下次回来直接接着聊，AI 不会忘 ·<span class="mx-1">·</span> 改主意随时说"全写 / 写第N条 / 改第N条 / 做成片 / 配音"
-            </p>
         </div>
     </div>
 
@@ -138,15 +156,18 @@
     const input = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
     const listBox = document.getElementById('sessionList');
-    const sessMenu = document.getElementById('sessMenu');
-    const sessMenuBtn = document.getElementById('sessMenuBtn');
-    const sessMenuRoot = document.getElementById('sessMenuRoot');
+    const sessRail = document.getElementById('sessRail');
+    const railToggleBtn = document.getElementById('railToggleBtn');
+    const railUncollapseBtn = document.getElementById('railUncollapseBtn');
+    const spaceIconEl = document.getElementById('spaceIcon');
+    const spaceTitleEl = document.getElementById('spaceTitle');
     let sid = localStorage.getItem(SID_KEY) || '';
     let lastWritten = null;   // 最近一次 written 成稿（供整批导出）
     let busy = false;
     let lastMsg = '';
     let sessions = [];
     let pendingAsk = [];
+    let showAllTemps = false; // "开聊"是否展开全部
 
     function csrf() { return document.querySelector('meta[name="csrf-token"]')?.content || ''; }
 
@@ -211,14 +232,38 @@
 
     function showIntro() {
         chatBox.innerHTML = '';
+        const samples = [
+            { icon: '🎯', txt: '给准备注册公司的小老板，拆 3 个「注册资本该写多少」的角度' },
+            { icon: '📕', txt: '把「个人卡收货款被查」这个话题，写一条能发小红书的图文正文' },
+            { icon: '🔍', txt: '拆解这条爆款为什么火：<随便一条财税口播稿贴进来>' },
+            { icon: '📦', txt: '帮我把上面刚写好的 3 篇口播稿，各存成 Word 和 PDF' },
+        ];
+        let cards = '';
+        samples.forEach((s, i) => {
+            cards += '<button type="button" data-sample="' + i + '" class="sample-card block w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-sm text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50/50">'
+                + '<span class="mr-1.5">' + s.icon + '</span>' + esc(s.txt) + '</button>';
+        });
         appendMsg('ai',
             '<p class="font-medium text-slate-800">你好，我是你的出稿助手 ✦</p>'
-            + '<p class="mt-2">直接说你要做什么，比如：</p>'
-            + '<p class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-slate-600">'
-            + '「我想做一批创业开公司的口播，给准备注册的小老板看，5 条，讲人话别堆术语，要能挂留资钩子」</p>'
-            + '<p class="mt-2">我会先和你把<strong>主题、受众、关键要求</strong>对齐，再按你的写稿规范拆角度方案 → 你认可后出稿 → 改稿 → 配音 → 出片，一气呵成。</p>'
-            + '<p class="mt-2 text-xs text-slate-400">这个空间里的对话会一直留着，下次回来直接接着聊，AI 不会忘。</p>'
+            + '<p class="mt-1 text-sm text-slate-500">直接打字说想做什么，或点下面任意一张卡片照着干：</p>'
+            + '<div class="mt-3 grid gap-2">' + cards + '</div>'
+            + '<p class="mt-3 rounded-lg bg-indigo-50/60 px-3 py-2 text-[13px] text-slate-600">'
+            + '例：「我想做一批创业开公司的口播，给准备注册的小老板看，5 条，讲人话别堆术语，要能挂留资钩子」</p>'
+            + '<p class="mt-2 text-xs text-slate-400">我会先和你把<strong>主题、受众、关键要求</strong>对齐 → 拆角度方案 → 你认可后出稿 → 改稿 → 配音 → 出片。聊到一半起个名，这段对话就存入左侧「空间」，下次接着聊不会忘。</p>'
         );
+        // 点示例卡 = 自动填入并发送
+        chatBox.querySelectorAll('.sample-card').forEach((card, i) => {
+            card.addEventListener('click', () => {
+                const s = samples[i];
+                if (s.txt.indexOf('贴进来') > -1) { input.value = ''; input.placeholder = '把爆款文案或链接贴进来，我来拆…'; input.focus(); return; }
+                sendUserText(s.txt);
+            });
+        });
+    }
+
+    async function sendUserText(text) {
+        input.value = text;
+        await doSend();
     }
 
     function angleCard(a, idx) {
@@ -480,39 +525,46 @@
         return '<p>' + esc(r.error || r.message || '（已完成）') + '</p>';
     }
 
-    // ---------- 顶栏下拉里的会话列表 ----------
+    // ---------- 左侧会话列（常驻）：空间(存档) / 开聊(随手) ----------
     function renderSessions() {
         if (!sessions.length) {
-            listBox.innerHTML = '<p class="px-2 py-3 text-center text-xs text-slate-400">还没有会话，点上面「＋ 新建临时会话」开始。</p>';
+            listBox.innerHTML = '<p class="px-3 py-6 text-center text-xs text-slate-400">还没有对话<br>点上面「＋ 开聊」开始第一段</p>';
             return;
         }
+        // 后端已排序：置顶 → 空间 → 最近更新。这里按「开聊」与「空间」分两段呈现
         const spaces = sessions.filter(x => x.kind === 'space' || x.title);
-        const temps = sessions.filter(x => !(x.kind === 'space' || x.title));
+        const temps  = sessions.filter(x => !(x.kind === 'space' || x.title));
         let html = '';
         function item(x) {
             const active = x.session_id === sid;
-            const name = x.title || x.topic || '未命名会话';
+            const name = x.title || x.topic || (x.kind === 'space' ? '未命名空间' : '开聊');
             const meta = [];
             if (x.written_count) meta.push(x.written_count + ' 篇稿');
             else if (x.angle_count) meta.push(x.angle_count + ' 个角度');
-            meta.push((x.msg_count || 0) + ' 条对话');
-            return '<div data-sid="' + esc(x.session_id) + '" class="sess-item-row group cursor-pointer rounded-md px-2 py-1.5 ' + (active ? 'active' : '') + '">'
-                + '<div class="flex items-start gap-1.5">'
-                + '<span class="mt-0.5 shrink-0 text-[11px]">' + (x.title ? '📁' : '💬') + '</span>'
+            meta.push((x.msg_count || 0) + ' 条');
+            const ops = '<div class="rail-ops">'
+                + '<button type="button" data-act="rename" data-sid="' + esc(x.session_id) + '" title="改名 / 存为空间" class="rounded px-1 text-[11px] text-slate-400 hover:text-indigo-600">✎</button>'
+                + '<button type="button" data-act="del" data-sid="' + esc(x.session_id) + '" title="删除" class="rounded px-1 text-[11px] text-slate-400 hover:text-red-500">🗑</button>'
+                + '</div>';
+            return '<div data-sid="' + esc(x.session_id) + '" class="rail-item ' + (active ? 'active' : '') + '">'
+                + '<span class="mt-0.5 shrink-0 text-xs leading-none">' + (x.title ? '📁' : '💬') + '</span>'
                 + '<div class="min-w-0 flex-1">'
-                + '<p class="truncate text-xs font-medium ' + (active ? 'text-indigo-700' : 'text-slate-700') + '">' + esc(name) + '</p>'
-                + '<p class="mt-0.5 truncate text-[11px] text-slate-400">' + esc(meta.join(' · ')) + ' · ' + esc(fmtTime(x.updated_at)) + '</p>'
-                + '</div>'
-                + '<div class="hidden shrink-0 gap-0.5 group-hover:flex">'
-                + '<button type="button" data-act="rename" data-sid="' + esc(x.session_id) + '" title="重命名" class="rounded px-1 text-[11px] text-slate-400 hover:bg-white hover:text-indigo-600">✎</button>'
-                + '<button type="button" data-act="del" data-sid="' + esc(x.session_id) + '" title="删除" class="rounded px-1 text-[11px] text-slate-400 hover:bg-white hover:text-red-600">🗑</button>'
-                + '</div></div></div>';
+                + '<p class="rail-name truncate">' + esc(name) + '</p>'
+                + '<p class="rail-sub mt-0.5 truncate">' + esc(meta.join(' · ')) + ' · ' + esc(fmtTime(x.updated_at)) + '</p>'
+                + '</div>' + ops + '</div>';
         }
         if (spaces.length) {
-            html += '<p class="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">📁 主题空间</p>' + spaces.map(item).join('');
+            html += '<p class="rail-group px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">📁 空间</p>'
+                  + spaces.map(item).join('');
         }
         if (temps.length) {
-            html += '<p class="px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">💬 临时会话</p>' + temps.map(item).join('');
+            const visible = showAllTemps ? temps : temps.slice(0, 5);
+            html += '<p class="rail-group px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">💬 开聊</p>'
+                  + visible.map(item).join('');
+            if (temps.length > 5) {
+                html += '<button id="moreTempsBtn" type="button" class="mt-1 w-full rounded-md px-2 py-1 text-center text-[11px] text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600">'
+                      + (showAllTemps ? '收起开聊' : '查看全部 ' + temps.length + ' 段开聊') + '</button>';
+            }
         }
         listBox.innerHTML = html;
     }
@@ -532,8 +584,8 @@
         pendingAsk = [];
         input.placeholder = '说出你想做什么——AI 帮你拆角度 → 出稿 → 改稿 → 配音 → 出片，一句话驱动整条生产线。';
         localStorage.setItem(SID_KEY, sid);
-        document.getElementById('spaceTitle').textContent = title || '新对话';
-        document.getElementById('spaceIcon').textContent = title ? '📁' : '💬';
+        spaceTitleEl.textContent = title || '新对话';
+        spaceIconEl.textContent = title ? '📁' : '💬';
         renderSessions();
     }
 
@@ -545,7 +597,6 @@
             document.getElementById('chipAud').textContent = d.audience || '未定';
             document.getElementById('chipCount').textContent = d.count ? (d.count + ' 条') : '—';
             const msgs = d.messages || [];
-            sessMenu.classList.add('hidden');   // 切完关闭下拉
             if (!msgs.length) { showIntro(); }
             else {
                 chatBox.innerHTML = '';
@@ -574,9 +625,9 @@
     }
 
     async function renameCurrent() {
-        if (!sid) { alert('先发一条消息，或点「＋ 新建」开个会话。'); return; }
-        const cur = document.getElementById('spaceTitle').textContent;
-        const t = prompt('给这个会话起个名字（起名后即成为「主题空间」，长期保留）：', cur === '新对话' ? '' : cur);
+        if (!sid) { alert('先发一条消息，或点「＋ 开聊」开始对话。'); return; }
+        const cur = spaceTitleEl.textContent;
+        const t = prompt('给这段对话起个名字，存入左侧「空间」长期保留：', cur === '新对话' ? '' : cur);
         if (t === null) return;
         try {
             await api('/studio/chat/session/update', {
@@ -588,7 +639,13 @@
     }
 
     async function deleteSession(id) {
-        if (!confirm('删除这个会话？历史对话会一起删掉，不可恢复。')) return;
+        const target = sessions.find(x => x.session_id === id);
+        const isSpace = !!(target && (target.title || target.kind === 'space'));
+        const name = (target && (target.title || target.topic)) || '这段对话';
+        const msg = isSpace
+            ? '确定删除「' + name + '」这个空间？\n\n空间里的全部对话记录会一并删除，且不可恢复。\n（已生成的视频/图片/文件不受影响，仍在素材库中）'
+            : '确定删除「' + name + '」？\n\n这段开聊的对话记录会删除，且不可恢复。';
+        if (!confirm(msg)) return;
         try {
             await api('/studio/chat/session/delete', {
                 method: 'POST', body: JSON.stringify({ session_id: id }),
@@ -598,19 +655,24 @@
         } catch (e) { alert('删除失败：' + e.message); }
     }
 
-    // 下拉开关
-    sessMenuBtn.onclick = (e) => { e.stopPropagation(); sessMenu.classList.toggle('hidden'); };
-    document.addEventListener('click', (e) => {
-        if (!sessMenuRoot.contains(e.target)) sessMenu.classList.add('hidden');
-    });
-    // 下拉里的事件
+    // 会话列 折叠/展开（常驻列，可收起让对话更宽）
+    function setRailCollapsed(collapsed) {
+        sessRail.classList.toggle('collapsed', collapsed);
+        if (railUncollapseBtn) railUncollapseBtn.style.display = collapsed ? 'inline-flex' : 'none';
+        localStorage.setItem('chat_rail_collapsed', collapsed ? '1' : '0');
+    }
+    if (railToggleBtn) railToggleBtn.addEventListener('click', () => setRailCollapsed(!sessRail.classList.contains('collapsed')));
+    if (railUncollapseBtn) railUncollapseBtn.addEventListener('click', () => setRailCollapsed(false));
+    if (localStorage.getItem('chat_rail_collapsed') === '1') setRailCollapsed(true);
+    // 会话列里的事件（行点击 / 改名 / 删除 / 查看全部开聊）
     listBox.addEventListener('click', (e) => {
+        if (e.target.closest?.('#moreTempsBtn')) { showAllTemps = !showAllTemps; renderSessions(); return; }
         const btn = e.target.closest?.('[data-act]');
         if (btn) {
             e.stopPropagation();
             if (btn.dataset.act === 'rename') {
                 const target = sessions.find(x => x.session_id === btn.dataset.sid);
-                const t = prompt('会话名称（留空则退回临时会话）：', (target && (target.title || target.topic)) || '');
+                const t = prompt('给这段对话起个名字（起名即存入左侧「空间」，长期保留）：', (target && (target.title || target.topic)) || '');
                 if (t === null) return;
                 api('/studio/chat/session/update', {
                     method: 'POST', body: JSON.stringify({ session_id: btn.dataset.sid, title: t.trim() }),
@@ -620,7 +682,7 @@
             }
             return;
         }
-        const it = e.target.closest?.('.sess-item-row');
+        const it = e.target.closest?.('.rail-item');
         if (it && it.dataset.sid) openSession(it.dataset.sid);
     });
 
@@ -632,8 +694,8 @@
         if (r.session_id) sid = r.session_id;
         localStorage.setItem(SID_KEY, sid);
         if (r.title) {
-            document.getElementById('spaceTitle').textContent = r.title;
-            document.getElementById('spaceIcon').textContent = '📁';
+            spaceTitleEl.textContent = r.title;
+            spaceIconEl.textContent = '📁';
         }
     }
 
@@ -892,10 +954,9 @@
         e.target.style.height = 'auto';
         e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
     });
-    document.getElementById('newSpaceBtn').onclick = () => { sessMenu.classList.add('hidden'); createSession(''); };
+    document.getElementById('newSpaceBtn').onclick = () => { createSession(''); };
     document.getElementById('newNamedBtn').onclick = () => {
-        sessMenu.classList.add('hidden');
-        const t = prompt('给这个主题空间起个名字（如「注册公司引流系列」）：', '');
+        const t = prompt('给这个空间起个名字（如「注册公司引流系列」）：', '');
         if (t === null) return;
         createSession(t.trim());
     };

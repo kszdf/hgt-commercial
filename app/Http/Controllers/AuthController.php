@@ -31,7 +31,7 @@ class AuthController extends Controller
 
         if (Auth::attempt([$field => $login, 'password' => $request->password], $request->boolean('remember'))) {
             $request->session()->regenerate();
-            return redirect()->intended('/dashboard');
+            return redirect()->intended('/studio/chat');
         }
 
         return back()->withErrors([
@@ -119,7 +119,7 @@ class AuthController extends Controller
             report($e);
         }
 
-        return redirect('/dashboard');
+        return redirect('/studio/chat');
     }
 
     public function logout(Request $request)
