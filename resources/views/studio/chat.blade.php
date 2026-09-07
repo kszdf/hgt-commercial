@@ -715,11 +715,16 @@
     function setRailCollapsed(collapsed) {
         sessRail.classList.toggle('collapsed', collapsed);
         if (railUncollapseBtn) railUncollapseBtn.style.display = collapsed ? 'inline-flex' : 'none';
-        localStorage.setItem('chat_rail_collapsed', collapsed ? '1' : '0');
+        try { localStorage.setItem('chat_rail_collapsed', collapsed ? '1' : '0'); } catch (_) {}
     }
     if (railToggleBtn) railToggleBtn.addEventListener('click', () => setRailCollapsed(!sessRail.classList.contains('collapsed')));
     if (railUncollapseBtn) railUncollapseBtn.addEventListener('click', () => setRailCollapsed(false));
-    if (localStorage.getItem('chat_rail_collapsed') === '1') setRailCollapsed(true);
+    // 初始状态：用户没手动设过时，按屏宽自适应（≥1536px 默认展开；否则收起，靠对话上方的展开按钮唤出）
+    let railCollapsedByUser = null;
+    try { railCollapsedByUser = localStorage.getItem('chat_rail_collapsed'); } catch (_) {}
+    if (railCollapsedByUser === '1') setRailCollapsed(true);
+    else if (railCollapsedByUser === '0') setRailCollapsed(false);
+    else setRailCollapsed(window.innerWidth < 1536);
     // 会话列里的事件（行点击 / 改名 / 删除 / 查看全部开聊）
     listBox.addEventListener('click', (e) => {
         if (e.target.closest?.('#moreTempsBtn')) { showAllTemps = !showAllTemps; renderSessions(); return; }
