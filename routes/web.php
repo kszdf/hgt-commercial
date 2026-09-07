@@ -98,6 +98,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/studio/chat', [StudioController::class, 'chat'])->name('studio.chat');
     Route::post('/studio/chat/send', [StudioController::class, 'chatSend']);
 
+    // 对话出稿·二期：会话/主题空间持久化（左侧列表 + 历史回放）
+    Route::get('/studio/chat/sessions', [StudioController::class, 'chatSessions'])->name('studio.chat.sessions');
+    Route::get('/studio/chat/messages', [StudioController::class, 'chatMessages'])->name('studio.chat.messages');
+    // 对话驱动一切：能力调度（对话里点卡片 → 后端执行平台功能）
+    Route::post('/studio/chat/action', [StudioController::class, 'chatAction'])->name('studio.chat.action');
+    Route::post('/studio/chat/session/create', [StudioController::class, 'chatSessionCreate'])->name('studio.chat.session.create');
+    Route::post('/studio/chat/session/update', [StudioController::class, 'chatSessionUpdate'])->name('studio.chat.session.update');
+    Route::post('/studio/chat/session/delete', [StudioController::class, 'chatSessionDelete'])->name('studio.chat.session.delete');
+
     // 爆款拆解（输入→提取文案→结构拆解→潜力评估→去二创→数字人出片）
     Route::get('/studio/dissect', [StudioController::class, 'dissect'])->name('studio.dissect');
     Route::post('/studio/dissect/analyze', [StudioController::class, 'dissectAnalyze']);

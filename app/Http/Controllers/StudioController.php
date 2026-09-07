@@ -54,10 +54,16 @@ class StudioController extends Controller
     /** 对话出稿工作台·一期：一次对话回合（session_id + message → 8500 /chat）。 */
     public function chatSend(Request $request)
     {
+        $tenant = $this->studioTenant(request());
         $data = $request->validate([
             'session_id' => ['nullable', 'string', 'max:64'],
-            'message'    => ['required', 'string', 'max:600'],
+            'message'    => ['nullable', 'string', 'max:600'],
+            'action'     => ['sometimes', 'array'],
         ]);
+        if (empty($data['message']) && empty($data['action'])) {
+            return response()->json(['error' => 'message or action required'], 422);
+        }
+        $data['tenant'] = $tenant->slug;   // 租户隔离：会话归属到本租户
         try {
             $resp = app(PipelineClient::class)->post('/chat', $data, 150);
         } catch (PipelineUnavailableException $e) {
@@ -65,6 +71,221 @@ class StudioController extends Controller
         }
         if (! $resp->successful()) {
             return response()->json(['error' => '对话服务暂不可用，请确认微服务已启动'], 502);
+        }
+        return response()->json($resp->json());
+    }
+
+    /** 对话出稿·二期：会话/主题空间列表（左侧栏）。 */
+    public function chatSessions()
+    {
+        $tenant = $this->studioTenant(request());
+        try {
+            $resp = app(PipelineClient::class)->get('/chat/sessions?tenant=' . urlencode($tenant->slug), 15);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['ok' => false, 'sessions' => []]);
+        }
+        if (! $resp->successful()) {
+            return response()->json(['ok' => false, 'sessions' => []]);
+        }
+        return response()->json($resp->json());
+    }
+
+    /** 对话出稿·二期：加载某个会话/空间的完整历史消息（切换回来继续）。 */
+    public function chatMessages(Request $request)
+    {
+        $data = $request->validate([
+            'session_id' => ['required', 'string', 'max:64'],
+        ]);
+        try {
+            $resp = app(PipelineClient::class)->get(
+                '/chat/session/messages?session_id=' . urlencode($data['session_id']), 15);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['ok' => false, 'messages' => []]);
+        }
+        if (! $resp->successful()) {
+            return response()->json(['ok' => false, 'messages' => []]);
+        }
+        return response()->json($resp->json());
+    }
+
+    /** 对话出稿·二期：新建会话（带 title 即为主题空间）。 */
+    public function chatSessionCreate(Request $request)
+    {
+        $tenant = $this->studioTenant(request());
+        $data = $request->validate([
+            'title' => ['nullable', 'string', 'max:60'],
+        ]);
+        try {
+            $resp = app(PipelineClient::class)->post('/chat/session/create', [
+                'tenant' => $tenant->slug,
+                'title'  => $data['title'] ?? '',
+            ], 15);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['ok' => false, 'error' => '对话服务暂时不可用'], 503);
+        }
+        return response()->json($resp->json());
+    }
+
+    /**
+     * 对话驱动一切 · 能力调度：对话里点「开始执行」后，由这里真正去跑平台功能。
+     *
+     * 设计原则：
+     *  - 出片/发布包/成片质检一律**复用现有 Controller**（内部 Request 注入用户），
+     *    保留配额校验、并发闸、幂等去重、租户隔离，绝不绕开重写。
+     *  - 其余能力直接代理到 8500 对应端点。
+     *  - 权威能力表在 python-pipeline/capabilities.py，这里只做执行映射。
+     */
+    public function chatAction(Request $request)
+    {
+        $data = $request->validate([
+            'cap'   => ['required', 'string', 'max:40'],
+            'vals'  => ['sometimes', 'array'],
+        ]);
+        $cap  = $data['cap'];
+        $vals = $data['vals'] ?? [];
+
+        // select 选项形如 "scroll:单字幕滚动"，只取冒号前的值
+        foreach (['mode', 'voice_form'] as $k) {
+            if (! empty($vals[$k]) && str_contains((string) $vals[$k], ':')) {
+                $vals[$k] = explode(':', (string) $vals[$k], 2)[0];
+            }
+        }
+
+        $map = $this->capabilityMap();
+        if (! isset($map[$cap])) {
+            return response()->json(['ok' => false, 'error' => '暂不支持这个能力：' . $cap], 422);
+        }
+        $spec = $map[$cap];
+
+        try {
+            if ($spec['type'] === 'internal') {
+                $payload = $this->dispatchInternal($spec, $vals, $request);
+            } else {
+                $payload = $this->dispatchPipeline($spec, $vals, $cap);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json([
+                'ok' => false, 'cap' => $cap,
+                'error' => '执行出错了：' . $e->getMessage(),
+            ], 500);
+        }
+
+        return response()->json([
+            'ok'   => true,
+            'cap'  => $cap,
+            'data' => $payload,
+        ]);
+    }
+
+    /** 能力 → 执行方式映射表（权威定义在 python-pipeline/capabilities.py）。 */
+    private function capabilityMap(): array
+    {
+        return [
+            // —— 纯 8500 端点 ——
+            'topic'        => ['type' => 'pipeline', 'path' => '/topic',          'timeout' => 150],
+            'hotspot'      => ['type' => 'pipeline', 'path' => '/hotspot',        'timeout' => 150],
+            'rewrite'      => ['type' => 'pipeline', 'path' => '/rewrite',        'timeout' => 180],
+            'qc'           => ['type' => 'pipeline', 'path' => '/qc',             'timeout' => 120],
+            'dissect'      => ['type' => 'pipeline', 'path' => '/dissect',        'timeout' => 180],
+            'xhs'          => ['type' => 'pipeline', 'path' => '/xhs_build_note', 'timeout' => 180],
+            'footage_edit' => ['type' => 'pipeline', 'path' => '/footage-edit',   'timeout' => 120],
+            'clone_voice'  => ['type' => 'pipeline', 'path' => '/clone_voice',    'timeout' => 120],
+            // —— Laravel 内部 Controller（含配额/并发/幂等/落库）——
+            'video_render' => ['type' => 'internal', 'class' => \App\Http\Controllers\VideoController::class,      'method' => 'generate'],
+            'publish_pack' => ['type' => 'internal', 'class' => \App\Http\Controllers\PublishPackController::class, 'method' => 'generate'],
+            'qc_video'     => ['type' => 'internal', 'class' => self::class, 'method' => 'qcVideo', 'arg' => 'job_id'],
+        ];
+    }
+
+    /** 代理到 8500。 */
+    private function dispatchPipeline(array $spec, array $vals, string $cap): array
+    {
+        $vals = array_filter($vals, fn ($v) => $v !== null && $v !== '');
+        try {
+            $resp = app(PipelineClient::class)->post($spec['path'], $vals, $spec['timeout'] ?? 120);
+        } catch (PipelineUnavailableException $e) {
+            throw new \RuntimeException('后台服务暂时不可用，请稍后重试');
+        }
+        if (! $resp->successful()) {
+            throw new \RuntimeException('后台服务返回异常（HTTP ' . $resp->status() . '）');
+        }
+        return $resp->json() ?: [];
+    }
+
+    /**
+     * 内部复用现有 Controller：保证配额校验 / 并发闸 / 幂等去重 / 租户隔离全部生效。
+     * 做法：构造一个子 Request，注入当前用户与参数，临时替换容器中的 request 实例
+     *（现有 Controller 内部有 request() 调用），执行完立即还原。
+     */
+    private function dispatchInternal(array $spec, array $vals, Request $request): array
+    {
+        $user = $request->user();
+        $params = array_filter($vals, fn ($v) => $v !== null && $v !== '');
+
+        // 出片默认走单字幕滚动；标题留空由后端兜底
+        if (($spec['method'] ?? '') === 'generate' && empty($params['mode'])) {
+            $params['mode'] = 'scroll';
+        }
+
+        $sub = \Illuminate\Http\Request::create('/studio/chat/action/internal', 'POST', $params);
+        $sub->setUserResolver(fn () => $user);
+        if ($request->hasSession()) {
+            $sub->setLaravelSession($request->session());
+        }
+
+        $origin = app('request');
+        app()->instance('request', $sub);
+        try {
+            $controller = app($spec['class']);
+            $method     = $spec['method'];
+            if (! empty($spec['arg'])) {
+                $resp = $controller->{$method}($sub, $params[$spec['arg']] ?? '');
+            } else {
+                $resp = $controller->{$method}($sub);
+            }
+        } finally {
+            app()->instance('request', $origin);
+        }
+
+        $payload = $resp instanceof \Illuminate\Http\JsonResponse
+            ? ($resp->getData(true) ?: [])
+            : (array) $resp;
+
+        // Controller 返回的是业务错误（如并发超限/时长超限）时，向上抛成可读错误
+        if (($resp instanceof \Illuminate\Http\JsonResponse) && $resp->getStatusCode() >= 400) {
+            throw new \RuntimeException($payload['error'] ?? ('执行失败（HTTP ' . $resp->getStatusCode() . '）'));
+        }
+        return $payload;
+    }
+
+    /** 对话出稿·二期：重命名 / 存为空间 / 取消空间 / 置顶。 */
+    public function chatSessionUpdate(Request $request)
+    {
+        $data = $request->validate([
+            'session_id' => ['required', 'string', 'max:64'],
+            'title'      => ['nullable', 'string', 'max:60'],
+            'kind'       => ['nullable', 'string', 'in:temp,space'],
+            'pinned'     => ['nullable', 'boolean'],
+        ]);
+        try {
+            $resp = app(PipelineClient::class)->post('/chat/session/update', $data, 15);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['ok' => false, 'error' => '对话服务暂时不可用'], 503);
+        }
+        return response()->json($resp->json());
+    }
+
+    /** 对话出稿·二期：删除会话/空间（连同磁盘文件）。 */
+    public function chatSessionDelete(Request $request)
+    {
+        $data = $request->validate([
+            'session_id' => ['required', 'string', 'max:64'],
+        ]);
+        try {
+            $resp = app(PipelineClient::class)->post('/chat/session/delete', $data, 15);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['ok' => false, 'error' => '对话服务暂时不可用'], 503);
         }
         return response()->json($resp->json());
     }

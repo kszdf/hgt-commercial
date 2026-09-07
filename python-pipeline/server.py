@@ -66,7 +66,7 @@ import time
 import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed, wait
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 GPT_SOVITS = r"D:/heygem_data/gpt_sovits"
 # 复用 gpt_sovits 侧已验证的 DeepSeek 写稿封装与违禁词库（key 不进 Laravel，仅本机 model_keys.env）
@@ -2277,7 +2277,8 @@ def _black_gold_cover(title, subtitle, brand="追梦"):
 # 此处（Handler 定义前）创建单例，Handler 方法通过模块全局引用。
 from chat_orchestrator import ChatOrchestrator  # noqa: E402
 
-_CHAT_ORCH = ChatOrchestrator(ai_topic, ai_rewrite, deepseek_chat, get_text_config)
+_CHAT_ORCH = ChatOrchestrator(ai_topic, ai_rewrite, deepseek_chat, get_text_config,
+                              search_fn=tavily_search, get_key_fn=get_key)
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -2299,6 +2300,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         p = urlparse(self.path)
+        # ---- 对话出稿·会话/空间列表与历史消息（二期）----
+        if p.path == "/chat/sessions":
+            q = parse_qs(p.query or "")
+            return self._handle_chat_sessions((q.get("tenant") or [""])[0])
+        if p.path == "/chat/session/messages":
+            q = parse_qs(p.query or "")
+            return self._handle_chat_messages((q.get("session_id") or [""])[0])
         if p.path == "/health":
             return self._send(200, {"status": "ok"})
         if p.path == "/metrics":
@@ -2494,6 +2502,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_topic(data)
         if p.path == "/rewrite":
             return self._handle_rewrite(data)
+        if p.path == "/chat/session/create":
+            return self._handle_chat_session_create(data)
+        if p.path == "/chat/session/update":
+            return self._handle_chat_session_update(data)
+        if p.path == "/chat/session/delete":
+            return self._handle_chat_session_delete(data)
         if p.path == "/chat":
             return self._handle_chat(data)
         if p.path == "/qc":
@@ -3503,13 +3517,56 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _handle_chat(self, data):
         sid = (data.get("session_id") or "").strip()
         message = (data.get("message") or "").strip()
-        if not message:
+        action = data.get("action") if isinstance(data.get("action"), dict) else None
+        if not message and not action:
             return self._send(400, {"error": "message required"})
         try:
-            return self._send(200, _CHAT_ORCH.step(sid, message))
+            return self._send(200, _CHAT_ORCH.step(
+                sid, message, data.get("tenant") or "", action=action))
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
             return self._send(200, {"ok": False, "error": str(e)})
+
+    # ---- 对话出稿·会话/空间管理（二期：持久化 + 左侧列表）----
+    def _handle_chat_sessions(self, tenant):
+        try:
+            return self._send(200, {"ok": True, "sessions": _CHAT_ORCH.list_sessions(tenant)})
+        except Exception as e:  # noqa: BLE001
+            return self._send(200, {"ok": False, "sessions": [], "error": str(e)})
+
+    def _handle_chat_session_create(self, data):
+        try:
+            return self._send(200, {"ok": True, **_CHAT_ORCH.create_session(
+                data.get("tenant") or "", data.get("title") or "")})
+        except Exception as e:  # noqa: BLE001
+            return self._send(200, {"ok": False, "error": str(e)})
+
+    def _handle_chat_session_update(self, data):
+        sid = (data.get("session_id") or "").strip()
+        if not sid:
+            return self._send(400, {"error": "session_id required"})
+        try:
+            return self._send(200, _CHAT_ORCH.update_session(
+                sid, data.get("title"), data.get("kind"), data.get("pinned")))
+        except Exception as e:  # noqa: BLE001
+            return self._send(200, {"ok": False, "error": str(e)})
+
+    def _handle_chat_session_delete(self, data):
+        sid = (data.get("session_id") or "").strip()
+        if not sid:
+            return self._send(400, {"error": "session_id required"})
+        try:
+            return self._send(200, _CHAT_ORCH.delete_session(sid))
+        except Exception as e:  # noqa: BLE001
+            return self._send(200, {"ok": False, "error": str(e)})
+
+    def _handle_chat_messages(self, sid):
+        if not sid:
+            return self._send(400, {"error": "session_id required"})
+        try:
+            return self._send(200, {"ok": True, **_CHAT_ORCH.get_messages(sid)})
+        except Exception as e:  # noqa: BLE001
+            return self._send(200, {"ok": False, "messages": [], "error": str(e)})
 
     # ---- 智能质检（同步：违禁词 + 时长 + 风险）----
     def _handle_qc(self, data):
