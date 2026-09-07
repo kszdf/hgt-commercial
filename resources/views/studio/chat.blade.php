@@ -479,7 +479,16 @@
             return html;
         }
         if (r.stage === 'ask') {
-            return '<p>' + esc(r.message || '') + '</p>';
+            let h = ['<p>' + esc(r.message || '') + '</p>'];
+            if (r.options && r.options.length) {
+                h.push('<div class="mt-2 flex flex-wrap gap-2">');
+                r.options.forEach(o => {
+                    h.push('<button type="button" data-msg="' + esc(o) + '" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">'
+                        + esc(String(o)) + '</button>');
+                });
+                h.push('</div>');
+            }
+            return h.join('');
         }
         if (r.stage === 'propose') {
             const h = ['<p class="font-medium text-slate-800">💡 我已按你的主题和写稿规范拆出角度方案，你看看：</p>',

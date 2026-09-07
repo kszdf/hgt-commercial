@@ -321,6 +321,9 @@ class ChatOrchestrator:
             "- 判断是否'要写稿'的硬信号：用户明确说了要做内容/视频/口播/文案/选题/脚本（如'写条口播''做成视频''出几个选题''帮我写个文案'），"
             "或本会话正处于出稿流程中（已有主题/受众、在拆角度/改稿阶段）且这句是对该流程的推进。\n"
             "- 若用户是在补充信息/回答追问（如'给会计看''要3条''面向餐饮老板'）→ 提取进 extract（不适用 answer）。\n"
+            "- ★受众常由主题自带，能推断就不要问：例如主题是'注册公司和个体户怎么选''注册资本写多少'→ 受众明显是【还没注册、正在筹划的创业者】，"
+            "你要把这个推断写进 extract.audience，绝不要反问'给刚注册的还是已有规模的老板看'——那种问题本身就不合逻辑（已有规模的人不会纠结注册选择题）。"
+            "凡主题含 注册/创业/新办/个体户/注册资本/要不要开公司 → audience 推断为'准备注册或刚注册的创业者'；含 经营/开票/利润/成本 → '已注册在经营的中小老板'；含 建筑/挂靠 → '建筑老板'。\n"
             "- 若用户明确要出内容且给出或已齐 主题+受众+关键要求 → action=propose。\n"
             "- 若用户对已出的角度方案表 确认（如'可以''就按这个''认可'）→ action=write, pick='all'。\n"
             "- 若用户挑了具体某条（如'写第2条''第3个''就做第一个'）→ action=write, pick=对应下标。\n"
@@ -771,6 +774,47 @@ class ChatOrchestrator:
     def _answer_needs_search(self, msg):
         return any(w in msg for w in self._SEARCH_NEED_WORDS)
 
+    # ---- 受众推断：话题往往自带受众，能推理出来就不该反问用户 ----
+    # 关键词 → (受众, 一句话理由)。按话题阶段匹配：注册/成立/创业 → 准备中的创业者。
+    _AUDIENCE_RULES = (
+        # 注册/个体户/公司选择/注册资本/新办 —— 还在"要不要开、怎么开"阶段
+        (("注册公司", "注册个体户", "公司还是个体户", "个体户还是公司", "注册什么", "注册资本",
+          "注册资金", "认缴", "实缴", "新办", "新注册", "刚注册", "要不要注册", "想开公司",
+          "想创业", "准备创业", "第一次开公司", "开办公司", "成立公司", "创业者", "创业初期",
+          "还没注册", "没注册", "营业执照", "核名", "经营范围怎么写"),
+         "准备注册/刚开始的准创业者（还没注册或刚注册，正在做选择题）"),
+        # 经营中/已有企业 —— 已在经营阶段的决策
+        (("经营中", "已注册", "在营业", "开票", "进项", "销项", "公转私", "分红", "利润", "成本",
+          "费用", "报销", "工资", "社保", "个税申报", "企业所得税汇算"),
+         "已注册、正在经营的中小老板"),
+        # 建筑行业专有
+        (("挂靠", "建筑", "工程", "农民工", "甲供", "异地预缴", "分包", "总包", "清包工"),
+         "建筑行业的中小老板/包工头"),
+        # 电商
+        (("电商", "淘宝", "抖音小店", "拼多多", "直播卖货", "网店"),
+         "电商卖家（多为个体户/小公司老板）"),
+        # 高净值/股权
+        (("股权", "减持", "合伙", "对赌", "并购", "融资", "股权架构", "上市"),
+         "已有规模、涉及股权架构的企业主"),
+        # 财税从业者/会计
+        (("会计", "财务人员", "代账", "做账", "报税"), "中小企业财务/会计人员"),
+    )
+
+    def _infer_audience(self, s, message):
+        """根据会话主题+历史+本条消息推断目标受众；推不出返回 None（才需要问）。"""
+        ctx = " ".join([
+            str(s.get("topic") or ""),
+            str(s.get("audience") or ""),
+            str(s.get("requirement") or ""),
+            str(message or ""),
+            *[str(m.get("payload", {}).get("content", ""))[:60] for m in (s.get("messages") or [])[-4:]
+              if m.get("role") == "user"],
+        ])
+        for words, aud in self._AUDIENCE_RULES:
+            if any(w in ctx for w in words):
+                return aud
+        return None
+
     def _split_ask(self, text):
         """把 LLM 输出拆成 (正文, 反问列表)。反问最多 2 条，过滤客套话。"""
         text = text or ""
@@ -1190,10 +1234,21 @@ class ChatOrchestrator:
 
         # 阶段推进（优先尊重 LLM 判定的 action；只对"缺要素追问/待开始"做规则兜底）
         if action == "write":
-            # 要素是否齐？若主题或受众仍缺，先补问而不是硬写
-            if not (s.get("topic") and s.get("audience")):
-                miss = "主题" if not s.get("topic") else "受众"
-                return {"stage": "ask", "message": f"还差{miss}没定，我先跟你确认一下再开始写。"}
+            # 要素是否齐？主题缺 → 先补主题；受众缺 → 先尝试从话题推断，推不出才问
+            if not s.get("topic"):
+                return {"stage": "ask", "message": "先告诉我这条想讲什么主题，我再帮你写。"}
+            if not s.get("audience"):
+                inferred = self._infer_audience(s, message)
+                if inferred:
+                    s["audience"] = inferred
+                else:
+                    # 给基于话题的合理选项（不是跑题的"刚注册还是有规模"）
+                    hint = "这条主要是给谁看的？"
+                    if s.get("topic"):
+                        hint = f"「{s['topic'][:30]}」这条，主要给谁看？可点下面的，或直接说："
+                    return {"stage": "ask", "message": hint, "missing": ["受众"],
+                            "options": ["准备注册/刚注册的创业者", "已注册、正在经营的中小老板",
+                                        "建筑行业的老板/包工头", "企业财务/会计人员"]}
             pick = u.get("pick")
             # 用户对"已写成稿"提出修改（pick=revN）→ 重写 written[N]，不新增篇
             if isinstance(pick, str) and pick.startswith("rev"):
@@ -1201,10 +1256,20 @@ class ChatOrchestrator:
             return self._do_write(s, pick)
 
         if action == "propose":
-            # 要素齐才拆角度；否则先补齐要素
-            missing = [lab for lab, k in (("主题", "topic"), ("受众", "audience")) if not s.get(k)]
-            if missing:
-                return {"stage": "ask", "message": f"先把{('、').join(missing)}定下来，我再帮你拆角度。"}
+            # 要素齐才拆角度；否则先补齐要素（受众可推断就不问）
+            if not s.get("topic"):
+                return {"stage": "ask", "message": "先告诉我这条想讲什么主题，我再帮你拆角度。"}
+            if not s.get("audience"):
+                inferred = self._infer_audience(s, message)
+                if inferred:
+                    s["audience"] = inferred
+                else:
+                    hint = "这条内容主要给谁看？"
+                    if s.get("topic"):
+                        hint = f"「{s['topic'][:30]}」这条，主要给谁看？可点下面的，或直接说："
+                    return {"stage": "ask", "message": hint, "missing": ["受众"],
+                            "options": ["准备注册/刚注册的创业者", "已注册、正在经营的中小老板",
+                                        "建筑行业的老板/包工头", "企业财务/会计人员"]}
             return self._do_propose(s)
 
         # ★正面回答：用户在问财税/业务问题（LLM 判定 answer，或兜底规则命中）。
