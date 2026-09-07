@@ -566,10 +566,22 @@
         busy = true; sendBtn.disabled = true; input.value = '';
         appendMsg('user', esc(msg));
         const thinking = appendMsg('ai', '<span class="text-slate-400">…正在理解并处理</span>');
+        // 秒数计时：长任务（如"全写"5 篇）要 1~4 分钟，让用户知道"还在跑 + 已跑多久"，区分卡死
+        let _t0 = Date.now();
+        const _tm = setInterval(() => {
+            const sec = Math.round((Date.now() - _t0) / 1000);
+            thinking.innerHTML = '<span class="text-slate-400">⏳ 正在处理，已 ' + sec + ' 秒'
+                + (sec > 25 ? '（长任务可能需 1~4 分钟，请勿关闭页面）' : '') + '…</span>';
+        }, 1000);
+        // fetch 兜底超时 330s：到点仍未返回视为"服务无响应"，提示用户判断而非一直白转
+        const ctl = new AbortController();
+        const _tt = setTimeout(() => ctl.abort(), 330000);
         try {
             const data = await api('/studio/chat/send', {
                 method: 'POST', body: JSON.stringify({ session_id: sid, message: msg }),
+                signal: ctl.signal,
             });
+            clearInterval(_tm); clearTimeout(_tt);
             if (data.error) throw new Error(data.error);
             thinking.remove();
             appendMsg('ai', resultBlock(data));
@@ -582,15 +594,26 @@
                 document.getElementById('quickReplies').classList.add('hidden');
             }
         } catch (e) {
+            clearInterval(_tm); clearTimeout(_tt);
             thinking.remove();
+            const isAbort = (e && e.name === 'AbortError');
             const errWrap = document.createElement('div');
-            errWrap.innerHTML = '<span class="text-red-500">出错了：' + esc(e.message) + '。</span> '
-                + '<button type="button" id="chatRetryBtn" class="ml-1 mt-1 inline-block rounded border border-indigo-300 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">↻ 重试</button>';
+            if (isAbort) {
+                // 330s 超时：分不清"还在跑"还是"卡死"，明说并给 2 个动作，不让用户瞎猜
+                errWrap.innerHTML = '<span class="text-amber-600 font-medium">⚠️ 服务超过 5 分钟未返回。</span> '
+                    + '这种情况通常是任务仍在后台处理（长出稿/检索会很久），不是一定坏了。'
+                    + '<button type="button" id="chatRetryBtn" class="ml-1 mt-1 inline-block rounded border border-indigo-300 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">↻ 我再等等重试</button>'
+                    + '<span class="text-slate-400">或刷新后到左侧空间点进本会话查看是否已写完。</span>';
+            } else {
+                errWrap.innerHTML = '<span class="text-red-500">出错了：' + esc(e.message) + '。</span> '
+                    + '<button type="button" id="chatRetryBtn" class="ml-1 mt-1 inline-block rounded border border-indigo-300 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">↻ 重试</button>';
+            }
             const bubble = appendMsg('ai', '');
             bubble.appendChild(errWrap);
             const rb = document.getElementById('chatRetryBtn');
             if (rb) rb.onclick = () => { if (lastMsg) { input.value = lastMsg; doSend(); } };
         } finally {
+            clearInterval(_tm); clearTimeout(_tt);
             busy = false; sendBtn.disabled = false; input.focus();
         }
     }

@@ -64,8 +64,13 @@ class StudioController extends Controller
             return response()->json(['error' => 'message or action required'], 422);
         }
         $data['tenant'] = $tenant->slug;   // 租户隔离：会话归属到本租户
+        // 长任务出稿（"全写"5 篇）实测 200~280s，超过同步超时会让前端误判 502。
+        // 这里给到 300s 兜底；真正根治是异步 job + 进度轮询（能力调度已在演进）。
+        $timeout = ($request->input('message') !== null
+                    && mb_strlen(trim((string) $request->input('message'))) <= 8)
+            ? 320 : 150;
         try {
-            $resp = app(PipelineClient::class)->post('/chat', $data, 150);
+            $resp = app(PipelineClient::class)->post('/chat', $data, $timeout);
         } catch (PipelineUnavailableException $e) {
             return response()->json(['error' => '对话服务暂时不可用，请稍后重试'], 503);
         }
