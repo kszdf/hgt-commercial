@@ -332,6 +332,10 @@ class ChatOrchestrator:
             "tip": "以上是参照你的四要素、本空间已有的检索证据和写稿规范拆出的角度方案。"
                    "你可以说'就按这个全写'，或指定写某条（如'写第2条'）。"
                    "想看证据对应关系或调整方向，直接说。",
+            "next": [
+                {"id": "write", "name": "全部写成稿", "icon": "✍️", "cmd": "全写"},
+                {"id": "tweak", "name": "重新拆角度", "icon": "🎯", "cmd": "重新拆角度"},
+            ],
         }
 
     def _do_write(self, s, pick):
@@ -381,7 +385,15 @@ class ChatOrchestrator:
             out.append(entry)
             s.setdefault("written", []).append(entry)
         s["history"].append("成稿")
-        return {"stage": "written", "results": out}
+        return {
+            "stage": "written",
+            "results": out,
+            "next": [
+                {"id": "video_render", "name": "做成片", "icon": "🎬", "cmd": "做成片"},
+                {"id": "qc", "name": "文案质检", "icon": "🛡️", "cmd": "质检"},
+                {"id": "publish_pack", "name": "打发布包", "icon": "📦", "cmd": "打成发布包"},
+            ],
+        }
 
     def _do_revise(self, s, u, pick):
         """用户对已写成的某篇提出修改意见 → 按新要求重写该篇（覆盖原稿，不新增）。"""

@@ -162,6 +162,21 @@
             .replace(/"/g, '&quot;').replace(/\n/g, '<br>');
     }
 
+    // 渲染"下一步建议"卡片：点一下自动发送短指令（走老 _detect_pipeline 或新能力调度）
+    function nextCardHtml(list, prefix) {
+        if (!list || !list.length) return prefix || '';
+        let h = (prefix || '<p class="mt-2 text-xs text-slate-500">下一步：</p>')
+              + '<div class="mt-1 flex flex-wrap gap-2">';
+        list.forEach(n => {
+            const msg = n.cmd || ('用' + (n.name || ''));
+            h += '<button type="button" data-msg="' + esc(msg)
+                + '" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">'
+                + esc(n.icon || '▶️') + ' ' + esc(n.name || msg) + '</button>';
+        });
+        h += '</div>';
+        return h;
+    }
+
     function fmtTime(ts) {
         if (!ts) return '';
         const diff = (Date.now() - ts * 1000) / 1000;
@@ -268,7 +283,8 @@
             const h = ['<p class="font-medium text-slate-800">💡 我已按你的主题和写稿规范拆出角度方案，你看看：</p>',
                        '<div class="mt-2 grid gap-2">'];
             (r.angles || []).forEach((a, i) => h.push(angleCard(a, i)));
-            h.push('</div><p class="mt-2 text-xs text-slate-500">认可就说"就按这个全写"，或指定某条（如"写第2条"）。</p>');
+            h.push('</div>');
+            h.push(nextCardHtml(r.next, '<p class="mt-2 text-xs text-slate-500">认可就说"就按这个全写"，或指定写某条（如"写第2条"）。点下面的卡片一键走：</p>'));
             return h.join('');
         }
         if (r.stage === 'written') {
@@ -281,7 +297,8 @@
                     + '</div>'
                     + '<p class="mt-2 whitespace-pre-wrap text-slate-700">' + esc(w.script || '') + '</p></div>');
             });
-            h.push('</div><p class="mt-2 text-xs text-slate-500">要调整某篇就点「改这篇」或直接说（如"第2篇太长了，口吻再简洁些"）；稿子满意了，跟我说"做成片"或"配音"。</p>');
+            h.push('</div>');
+            h.push(nextCardHtml(r.next, '<p class="mt-2 text-xs text-slate-500">要调整某篇就点「改这篇」；稿子满意了，直接点下面卡片走下一步：</p>'));
             return h.join('');
         }
         if (r.stage === 'action_ask') {
