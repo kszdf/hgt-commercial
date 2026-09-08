@@ -267,6 +267,13 @@ class StudioController extends Controller
             'video_render' => ['type' => 'internal', 'class' => \App\Http\Controllers\VideoController::class,      'method' => 'generate'],
             'publish_pack' => ['type' => 'internal', 'class' => \App\Http\Controllers\PublishPackController::class, 'method' => 'generate'],
             'qc_video'     => ['type' => 'internal', 'class' => self::class, 'method' => 'qcVideo', 'arg' => 'job_id'],
+            // —— v2.0 P2 留资 / P3 增值（capabilities.py 注册的 6 个新能力执行层）——
+            'data_dashboard' => ['type' => 'pipeline', 'path' => '/stats',            'timeout' => 30],
+            'advisor_chat'   => ['type' => 'pipeline', 'path' => '/advisor',          'timeout' => 150],
+            'crm_record'     => ['type' => 'pipeline', 'path' => '/crm',              'timeout' => 30],
+            'consult_1v1'    => ['type' => 'pipeline', 'path' => '/booking',          'timeout' => 30],
+            'auto_reception' => ['type' => 'pipeline', 'path' => '/reception-config', 'timeout' => 30],
+            'matrix_publish' => ['type' => 'pipeline', 'path' => '/matrix-config',    'timeout' => 30],
         ];
     }
 

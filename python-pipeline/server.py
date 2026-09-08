@@ -1231,6 +1231,162 @@ def ai_deai(text):
                 "original": text, "rewritten": text, "changes": []}
 
 
+# ---------------------------------------------------------------------------
+# v2.0 P2/P3 新能力 · 轻量实现（对话里点「开始执行」走这里）
+# ---------------------------------------------------------------------------
+
+# 数据落盘目录（与 chat_sessions 同级，服务重启不丢）
+_V2_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+
+_V2_ADVISOR_PROMPT = (
+    "你是「慧根堂」AI 财税顾问，背靠一位深耕财税20余年、具备税务稽查与历史遗留问题"
+    "处理背景的专家（老张）。面向中小企业老板（决策者，不是会计）做咨询初答。\n"
+    "回答铁律：\n"
+    "1. 先给结论，再讲依据；口吻冷静专业、讲人话，不堆术语，不客套。\n"
+    "2. 法条/政策引用必须真实可溯源（不确定就说不确定，绝不编造文号和数字）。\n"
+    "3. 不教逃税、不给规避监管的'技巧'；结尾给合规正解或建议进一步做专项诊断。\n"
+    "4. 控制在 400 字内，分点；最后加一行：'建议带着账面数据做一次 1v1 视频诊断'。"
+)
+
+
+def advisor_answer(topic, industry="", urgency=""):
+    """AI 财税顾问·7×24 初答（LLM，无 key 降级提示）。"""
+    cfg = get_text_config()
+    q = "咨询问题：%s" % topic
+    if industry:
+        q += "\n所在行业：%s" % industry
+    if urgency:
+        q += "\n紧急程度：%s" % urgency
+    if not cfg.get("key"):
+        return {"ok": False, "error": "未配置 LLM key，AI 顾问暂不可用（model_keys.env）",
+                "topic": topic}
+    prompt = _V2_ADVISOR_PROMPT + "\n\n" + q
+    try:
+        ans = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=120)
+        return {"ok": True, "topic": topic, "industry": industry,
+                "urgency": urgency, "answer": ans.strip(),
+                "disclaimer": "AI 初答仅供参考，涉税决策请以专业意见为准"}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e), "topic": topic}
+
+
+def _v2_load(name):
+    """读一个 JSON 落盘文件，不存在返回 []。"""
+    p = os.path.join(_V2_DATA_DIR, name)
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _v2_save(name, obj):
+    p = os.path.join(_V2_DATA_DIR, name)
+    os.makedirs(_V2_DATA_DIR, exist_ok=True)
+    tmp = p + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(obj, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, p)
+
+
+def crm_upsert(vals):
+    """客户画像·CRM：线索入档（内存同 key 去重），返回列表与本次记录。"""
+    rec = {
+        "id": "lead_%d" % int(time.time() * 1000),
+        "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "name": (vals.get("name") or "").strip(),
+        "contact": (vals.get("contact") or "").strip(),
+        "stage": vals.get("stage") or "线索",
+        "industry": vals.get("industry") or "",
+        "source": vals.get("source") or "",
+        "note": vals.get("note") or "",
+    }
+    if not rec["name"]:
+        return {"ok": False, "error": "客户姓名/昵称必填"}
+    rows = _v2_load("crm_leads.json")
+    # 同名+同联系方式视为同一条 → 升级阶段，不重复入档
+    for r in rows:
+        if r.get("name") == rec["name"] and (r.get("contact") or "") == rec["contact"]:
+            r["stage"] = rec["stage"]
+            r["ts"] = rec["ts"]
+            if rec["industry"]:
+                r["industry"] = rec["industry"]
+            if rec["note"]:
+                r["note"] = rec["note"]
+            _v2_save("crm_leads.json", rows)
+            return {"ok": True, "updated": True, "record": r, "total": len(rows)}
+    rows.insert(0, rec)
+    _v2_save("crm_leads.json", rows)
+    return {"ok": True, "updated": False, "record": rec, "total": len(rows)}
+
+
+def crm_list():
+    rows = _v2_load("crm_leads.json")
+    by_stage = {}
+    for r in rows:
+        by_stage[r.get("stage") or "线索"] = by_stage.get(r.get("stage") or "线索", 0) + 1
+    return {"ok": True, "total": len(rows), "by_stage": by_stage, "records": rows[:50]}
+
+
+def booking_create(vals):
+    """老张 1v1 视频诊断·限抢：每月限 30 单，返回排队位次与剩余名额。"""
+    monthly_cap = 30
+    rec = {
+        "id": "bk_%d" % int(time.time() * 1000),
+        "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "month": time.strftime("%Y-%m"),
+        "topic": (vals.get("topic") or "").strip(),
+        "industry": vals.get("industry") or "",
+        "annual_revenue": vals.get("annual_revenue") or "",
+        "contact": (vals.get("contact") or "").strip(),
+        "status": "排队中",
+    }
+    if not rec["topic"] or not rec["contact"]:
+        return {"ok": False, "error": "诊断问题与联系方式必填"}
+    rows = _v2_load("bookings_1v1.json")
+    this_month = [r for r in rows if r.get("month") == rec["month"]]
+    if len(this_month) >= monthly_cap:
+        return {"ok": False, "error": "本月 30 个名额已抢完，可留下联系方式候补（有人改期自动递补）",
+                "waitlist": True, "topic": rec["topic"]}
+    rows.insert(0, rec)
+    _v2_save("bookings_1v1.json", rows)
+    pos = len([r for r in rows if r.get("month") == rec["month"] and r.get("status") == "排队中"])
+    return {"ok": True, "booking": rec, "queue_position": pos,
+            "remaining_this_month": monthly_cap - len(this_month) - 1,
+            "note": "排到队会用留下的联系方式通知，拉飞书群视频 30 分钟"}
+
+
+def reception_config_save(vals):
+    """AI 客服自动接待：v1 先保存配置（诚实返回——真实接待需平台授权后联调）。"""
+    cfg = {
+        "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "platform": vals.get("platform") or "全平台",
+        "industry": vals.get("industry") or "",
+        "greeting": vals.get("greeting") or "",
+        "transfer_rule": vals.get("transfer_rule") or "意向客户才转(AI 评分≥7)",
+    }
+    _v2_save("reception_config.json", cfg)
+    return {"ok": True, "config": cfg,
+            "status": "配置已保存。真实接待需先在「发布渠道」页完成对应平台的 OAuth 授权，"
+                      "授权联调后自动生效；当前平台 API 仅开放部分私信通道，未开放的平台会以"
+                      "公众号留言/评论区自动回复兜底。"}
+
+
+def matrix_config_save(vals):
+    """矩阵分发：v1 保存策略（真实分发走已有 /publish 的平台适配器）。"""
+    cfg = {
+        "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "platforms": vals.get("platforms") or "视频号+抖音+小红书",
+        "schedule_offset": vals.get("schedule_offset") or "间隔 1 小时",
+        "auto_optimize": bool(vals.get("auto_optimize", True)),
+        "job_id": vals.get("job_id") or "",
+    }
+    _v2_save("matrix_config.json", cfg)
+    return {"ok": True, "config": cfg,
+            "status": "分发策略已保存。出片完成后在「发布助手」页一键分发（复用已授权渠道）；"
+                      "错峰间隔由平台按本策略执行。"}
+
+
 def probe_video(path):
     """用 ffprobe 取视频元信息，失败返回 None。"""
     try:
@@ -2519,6 +2675,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_chat_session_delete(data)
         if p.path == "/chat":
             return self._handle_chat(data)
+        # ---- v2.0 P2/P3 新能力端点（capabilities.py 17 能力的执行层）----
+        if p.path == "/advisor":
+            return self._send(200, advisor_answer(
+                (data.get("topic") or "").strip(),
+                (data.get("industry") or "").strip(),
+                (data.get("urgency") or "").strip()))
+        if p.path == "/crm":
+            if (data.get("action") or "").strip() == "list":
+                return self._send(200, crm_list())
+            return self._send(200, crm_upsert(data))
+        if p.path == "/booking":
+            return self._send(200, booking_create(data))
+        if p.path == "/reception-config":
+            return self._send(200, reception_config_save(data))
+        if p.path == "/matrix-config":
+            return self._send(200, matrix_config_save(data))
         if p.path == "/qc":
             return self._handle_qc(data)
         if p.path == "/qc-video":
