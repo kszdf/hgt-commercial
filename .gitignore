@@ -92,3 +92,4 @@ python-pipeline/hotspot_debug.txt
 /python-pipeline/jobs/
 /runtime-logs/
 /.backup-feature-pack-*/
+resources/views/components/workspace-layout.blade.php.bak.v2
