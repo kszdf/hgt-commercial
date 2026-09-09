@@ -278,9 +278,10 @@
             av.textContent = '阿';
         }
         const bubble = document.createElement('div');
+        // 用户消息不再用高亮紫色，改浅灰底+深色字，保持右对齐
         bubble.className = 'chat-bubble rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ' +
             (role === 'user'
-                ? 'rounded-tr-sm bg-indigo-600 text-white order-1'
+                ? 'rounded-tr-sm bg-slate-100 text-slate-800 order-1 border border-slate-200'
                 : 'rounded-tl-sm bg-white text-slate-800 order-2 border border-slate-200 shadow-sm');
         bubble.innerHTML = html;
         wrap.appendChild(av); wrap.appendChild(bubble);
@@ -288,6 +289,9 @@
         stickToBottom(true);
         return bubble;
     }
+
+    // 这些能力参数齐了就直接跑，不让用户多点一次「开始执行」
+    const _AUTO_CAPS = ['topic', 'rewrite', 'xhs', 'hotspot'];
 
     function showIntro() {
         chatBox.innerHTML = '';
@@ -559,6 +563,7 @@
         if (r.stage === 'action_ready') {
             const c = r.cap || {};
             const payload = encodeURIComponent(JSON.stringify({ cap: c.id, vals: r.vals || {}, next: r.next || [] }));
+            const isAuto = _AUTO_CAPS.includes(c.id);
             const h = [
                 '<p class="font-medium text-slate-800">' + esc(c.icon || '▶️') + ' ' + esc(r.message || ('准备好了，可以开始' + (c.name || ''))) + '</p>',
                 '<div class="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-500"><table class="w-full">'
@@ -575,7 +580,7 @@
             });
             h.push('</table></div>');
             h.push('<div class="mt-2 flex flex-wrap gap-2">'
-                + '<button type="button" data-cap="' + payload + '" class="cap-run rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-indigo-700">▶ 开始执行</button>'
+                + '<button type="button" data-cap="' + payload + '" data-autorun="' + (isAuto ? '1' : '0') + '" class="cap-run rounded-lg px-4 py-1.5 text-xs font-medium transition ' + (isAuto ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700') + '" ' + (isAuto ? 'disabled' : '') + '>' + (isAuto ? '⏳ 自动执行中…' : '▶ 开始执行') + '</button>'
                 + '</div>');
             h.push('<p class="mt-2 text-xs text-slate-500">' + esc(r.tip || '') + '</p>');
             return h.join('');
@@ -1001,12 +1006,23 @@
 
     // 自动执行：用户说"给我10条选题"这类话，参数齐了就直接跑，不再等点按钮
     function autoRunCap(data) {
-        if (!data || data.stage !== 'action_ready' || !data.cap) return false;
-        const autoCaps = ['topic'];   // 可扩展：改写/出片等简单能力
-        if (!autoCaps.includes(data.cap.id)) return false;
-        const payload = { cap: data.cap.id, vals: data.vals || {}, next: data.next || [] };
-        setTimeout(() => runCapAction(null, payload), 60);
-        return true;
+        try {
+            if (!data || data.stage !== 'action_ready' || !data.cap || !data.cap.id) return false;
+            if (!_AUTO_CAPS.includes(data.cap.id)) return false;
+            const payload = { cap: data.cap.id, vals: data.vals || {}, next: data.next || [] };
+            // 把当前消息里的按钮改成「正在自动执行…」状态，给用户明确反馈
+            const lastAi = [...chatBox.querySelectorAll('.chat-bubble')].pop();
+            if (lastAi) {
+                const btn = lastAi.querySelector('button[data-autorun="1"]');
+                if (btn) { btn.disabled = true; btn.textContent = '⏳ 已自动触发，正在跑…'; }
+            }
+            setTimeout(() => runCapAction(null, payload), 80);
+            return true;
+        } catch (err) {
+            // 自动执行失败不阻塞用户，保留开始执行按钮可手动点
+            console.error('autoRunCap failed:', err);
+            return false;
+        }
     }
 
     // 长任务轮询：每 8 秒查一次，完成后回灌 AI 并给下一步卡片
