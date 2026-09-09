@@ -18,6 +18,7 @@ use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\XhsController;
 use App\Http\Controllers\FootageController;
 use App\Http\Controllers\PublishPackController;
+use App\Http\Controllers\ArticleController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -159,6 +160,16 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/xhs/generate', [XhsController::class, 'generate']);
     Route::post('/studio/xhs/regen-cover', [XhsController::class, 'regenCover']);
     Route::post('/studio/xhs/download', [XhsController::class, 'download']);
+
+    // ---- 公众号文章（AI 出稿 → SEO 优化 → 草稿箱 → 群发；群发仅 reviewed 可发，订阅号每日 1 篇）----
+    Route::get('/studio/articles', [ArticleController::class, 'index'])->name('studio.articles');
+    Route::post('/studio/articles/write', [ArticleController::class, 'write'])->name('studio.articles.write');
+    Route::post('/studio/articles/seo-check', [ArticleController::class, 'seoCheck'])->name('studio.articles.seo-check');
+    Route::get('/studio/articles/{article}', [ArticleController::class, 'show'])->name('studio.articles.show');
+    Route::post('/studio/articles/{article}/push-draft', [ArticleController::class, 'pushDraft'])->name('studio.articles.push-draft');
+    Route::post('/studio/articles/{article}/approve', [ArticleController::class, 'approve'])->name('studio.articles.approve');
+    Route::post('/studio/articles/{article}/publish', [ArticleController::class, 'publish'])->name('studio.articles.publish');
+    Route::delete('/studio/articles/{article}', [ArticleController::class, 'destroy'])->name('studio.articles.destroy');
 
     Route::get('/studio/covers', [CoverAssetController::class, 'index'])->name('studio.covers');
     Route::get('/studio/covers/json', [CoverAssetController::class, 'coversJson']);

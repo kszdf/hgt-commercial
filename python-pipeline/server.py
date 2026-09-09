@@ -88,6 +88,8 @@ except Exception:  # noqa: BLE001
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from publishers.registry import get_publisher, supported_platforms  # noqa: E402
 from publishers.base import PublishRequest, PublishStatus  # noqa: E402
+# 品牌与人设默认值（单一配置源，对外给同行使用时改 .env 即可，见文件内说明）
+from brand_defaults import BRAND_FALLBACK, EXPERT_NAME, EXPERT_YEARS, expert_years_clause  # noqa: E402
 from publishers._token_cache import set_oauth_token, get_oauth_token  # noqa: E402
 import matrix_publish  # noqa: E402
 from metrics_adapter import fetch_batch  # noqa: E402
@@ -430,7 +432,24 @@ def ai_hotspot(days, subfields):
         prompt = prompt_base + f"\n\n【检索到的真实财税热点（近 {days} 天）】\n" + items_text + \
                  f"\n\n请基于以上 {len(raw_items)} 条真实热点，产出 3-6 个选题卡片（JSON 数组）。"
     else:
-        prompt = prompt_base + f"\n\n未启用实时检索（无 TAVILY_API_KEY 或检索失败）。请基于你的财税知识，生成截至近 {days} 天的 3-6 个财税热点选题卡片（JSON 数组，non-realtime，published_at 标'近期'）。"
+        # 【合规硬约束】无实时检索数据时，禁止让模型凭记忆"生成近期热点"。
+        # 财税政策时效性极强（税率/起征点/优惠口径/征管口径频繁调整），模型基于训练数据
+        # 编造的"近期热点"极可能是不实政策，属垂类最致命风险。宁可返回空，绝不能幻觉。
+        _hotspot_debug(dbg + ["BLOCKED: no realtime data, refuse model-generated hotspots"])
+        return {
+            "realtime": False,
+            "topics": [],
+            "total": 0,
+            "returned": 0,
+            "filtered": False,
+            "tavily_degraded": True,
+            "tavily_message": (
+                "热点功能暂不可用：未配置实时检索（TAVILY_API_KEY）或检索无结果且无可用缓存。"
+                "财税政策时效性强，为避免生成不实政策内容，已禁用基于模型记忆的热点生成。"
+            ),
+            "from_cache": False,
+            "blocked": True,
+        }
 
     cfg = get_text_config()
     _hotspot_debug(dbg + ["before deepseek prompt_len=%s" % len(prompt)])
@@ -996,11 +1015,16 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
         "- 严禁书面腔连接词：'综上所述''此外''值得注意的是''换言之''首先其次最后'等；改用口语连接"
         "('说白了''关键在哪''这里要提醒你')；\n"
         "- 句子长短交替：铺垫可稍长，关键警示句短促有力。\n"
-        "- **人设年限(硬约束)**：张老师的从业年限固定表述为「深耕财税20多年」「做了二十多年财税」，"
-        "严禁出现「30年」「三十年」等年限表述。\n"
-        "- **忠实原稿精神**：原稿的核心观点与实务操作建议（包括实务中常见的变通做法）一律保留并照实表达，"
-        "不擅自否定、不添加你自己的合规说教，不要站在'完全照章纳税'的立场纠正原稿的实务主张——"
-        "那正是要讲给老板听的实战经验；仅在明确的刑事犯罪红线（如虚开、诈骗）保留风险警示。\n"
+        + expert_years_clause() +
+        "- **忠实原稿精神**：原稿的核心观点与**合法**的业务建议一律保留并照实表达，保持原稿的逻辑顺序；\n"
+        "- **合规底线（硬约束，优先级高于忠实原稿）**：\n"
+        "  ①原稿若涉及实务中的变通做法、灰色操作或疑似规避纳税义务的表述，**必须补上风险边界与适用条件**，"
+        "并说明该操作的法律后果与稽查风险；\n"
+        "  ②严格区分「合法筹划」与「违规操作」：合法筹划可以讲并注明政策依据；"
+        "**违规操作（虚开、阴阳合同、私户隐匿收入、虚假申报、买卖发票等）一律拒绝生成**，不做任何变通表述；\n"
+        "  ③涉及具体金额、比例、扣除标准的表述，必须附「具体以主管税务机关口径为准」；\n"
+        "  ④严禁出现「包过」「零风险」「绝对安全」「保证不退查」等绝对化承诺；\n"
+        "  ⑤明确的刑事犯罪红线（虚开增值税专用发票罪、逃税罪、诈骗罪等）必须保留风险警示与法条引用。\n"
         "- **上下文连贯**：严格保持原稿的逻辑顺序（先讲什么、后讲什么不调换），"
         "重要的因果、转折、衔接信息不丢；删减以'合并同类、去重复'为主，不能删掉上下文的承接关系。\n"
     )
@@ -1140,6 +1164,335 @@ def ai_qc(text, platform=None):
         "risk_level": risk,
         "suggestions": [h.get("suggest", "") for h in hits if h.get("suggest")],
     }
+
+
+# ==================== 公众号长文（内置搜一搜 SEO 优化） ====================
+# SEO 规则依据：微信搜一搜排名因素 + 微信 AI 搜索/元宝引用偏好(GEO)。
+# 重要认知：百度/谷歌不收录公众号（mp.weixin.qq.com robots.txt 为 Disallow: /），
+# 所以此处的 SEO = 微信站内搜索排名 + 被 AI 搜索引用，不是传统百度 SEO。
+ARTICLE_PROMPT = (
+    "你是资深财税顾问兼微信公众号主编，服务对象是中小企业老板与企业主。\n"
+    "现在写一篇能被微信「搜一搜」搜到、并被微信 AI 搜索优先引用的公众号长文。\n\n"
+    "【SEO 前提认知】\n"
+    "- 百度/谷歌不收录公众号（mp.weixin.qq.com 的 robots.txt 为 Disallow: /），\n"
+    "  所以这里的 SEO = 微信站内搜索排名 + 被 AI 搜索引用，不是百度 SEO，不要按百度套路堆词\n\n"
+    "【标题规则】\n"
+    "- 先给 3 个备选标题，每个不超过 26 字，推荐 14-20 字；第 1 条为正式采用标题，不超过 24 字\n"
+    "- 主关键词必须落在标题前 12 字内\n"
+    "- 主关键词全标题只出现 1 次，第二个位置留给修饰词（年份/地域/人群）\n"
+    "- 句式五选一：数字+痛点+方案 / 疑问式 / 地域+事项+年份 / 对比式 / 人群+结果\n"
+    "- 政策、税率、额度类标题必须带 4 位年份；非时效的干货类标题不要硬加年份\n"
+    "- 禁用标题党：紧急通知、不看后悔、国家刚宣布、震惊、重磅、速看、内部消息、删前速看、必看\n\n"
+    "【摘要规则】\n"
+    "- 55-80 字\n"
+    "- 主关键词出现 1 次，再加 1 个长尾变体\n"
+    "- 第一句直接给结论（微信 AI 搜索优先抽取摘要段，不要写悬念式废话）\n\n"
+    "【正文规则】\n"
+    "- 前 100-200 字内主关键词出现 1-2 次，并直接给出全文核心答案\n"
+    "- 主关键词密度 5-8 次/千字，词族总占比不超过 8%，超过即判定堆砌降权\n"
+    "- 每 800 字自然嵌入 1 个长尾词（长尾词是指更具体更长的搜索词，不是主词重复）\n"
+    "- 小标题 3-6 个，其中至少 2 个含长尾词；第一个小标题必须直接回答标题提出的问题\n"
+    "- 每 300-500 字标注 1 处配图位置，写成【配图建议：画面描述】，描述要能被设计师直接执行\n"
+    "- 篇幅严格按目标字数执行，误差控制在 ±15% 以内；宁可写少，绝不能写超——"
+    "写超是最常见的失败，正文写完后请自行核对一遍字数\n\n"
+    "【话题标签】\n"
+    "- 正文最后必须单独一行输出 3-5 个话题标签，格式：#关键词 #关键词（井号后无空格）\n"
+    "- 第一个是精准长尾词，最后一个放大词（如 #财税干货），每个不超过 10 字\n"
+    "- 这一行必须有，不能省略\n\n"
+    "【排版硬约束】\n"
+    "- 段首空两格，用全角空格（　）实现，不要用半角空格凑\n"
+    "- 单段不超过 5 行，段与段之间空一行\n"
+    "- 不使用任何 Markdown 语法（不要 #、**、-、> 等符号），纯文本分段\n"
+    "- emoji 全文不超过 2 个\n"
+    "- 数字写全称（如'二十万元'），法条原文除外\n\n"
+    "【内容铁律】\n"
+    "- 不教逃税；严格区分「合法筹划」与「违规操作」，后者（虚开、阴阳合同、私户隐匿收入、\n"
+    "  买卖发票、虚假申报）一律拒绝生成，不做任何变通表述\n"
+    "- 政策、金额、比例可溯源；不确定就写'以主管税务机关口径为准'\n"
+    "- 严禁编造政策文号、文件名称与生效日期\n"
+    "- 不做硬广：不出现价格、不出现加微信、不出现扫码\n"
+    "- 禁用第一人称'我'做人设（与口播稿规则相反，这是公众号专属），改用'我们''很多老板''实务中'\n"
+    "- 专业术语后跟一句大白话解释，让非财务出身的老板看得懂\n"
+    "- 涉及金额、比例、扣除标准处，附'具体以主管税务机关口径为准'\n\n"
+    "【时效与地域】\n"
+    "- 政策类正文首段固定写：政策依据：XXX（财税〔YYYY〕X号），自 YYYY-MM-DD 起施行\n"
+    "- 给了地域词就按链路铺：标题 1 次 → 摘要 1 次 → 首段 1 次 → 至少 1 个小标题 1 次\n\n"
+    "【文章结构】\n"
+    "1) 3 个备选标题（见输出格式）\n"
+    "2) 开篇钩子：一个老板熟悉的真实场景，150 字内，让人对号入座\n"
+    "3) 3-5 个带小标题的分节，逐层把问题讲透（是什么 / 为什么 / 怎么办 / 注意什么）\n"
+    "4) 结论段 + 结尾引导（CTA），CTA 只用给定的那一种，不要自创\n"
+)
+
+
+def ai_article(topic, kw_main="", kw_long="", region="全国", year="", words="2000",
+               style="干货科普", cta="评论区留言", source=""):
+    """生成公众号长文（SEO 原生内置）。
+
+    返回 {ok,title,titles,digest,content,tags,seo,hits,hit_count,
+          high_risk_count,auto_cleaned,meta}；
+    seo_score / seo_report / word_count / target_words 为兼容旧前端保留的同源字段。
+
+    全程 try/except：任何异常都转成 {"ok": False, "error": ...}，不向上抛。
+    """
+    try:
+        return _ai_article_inner(topic, kw_main, kw_long, region, year,
+                                 words, style, cta, source)
+    except Exception as e:  # noqa: BLE001
+        traceback.print_exc()
+        return {"ok": False, "error": str(e)}
+
+
+def _ai_article_inner(topic, kw_main, kw_long, region, year, words, style, cta, source):
+    """ai_article 的实现主体（异常由外层统一兜底）。"""
+    cfg = get_text_config() or {}
+    if not cfg.get("key"):
+        return {"ok": False, "error": "未配置文本模型"}
+
+    topic = str(topic or "").strip()
+    if not topic:
+        return {"ok": False, "error": "缺少文章主题"}
+
+    # words 可能是 1500/2000/2500/3000，也可能带单位（"2000字"）或"1500-2000"
+    try:
+        words = int(str(words).split(":")[0].split("-")[0].strip())
+    except Exception:  # noqa: BLE001
+        words = 2000
+    words = max(800, min(4000, words))
+    region = str(region or "全国").strip()
+    kw_main = str(kw_main or "").strip() or topic[:12]
+    kw_long = str(kw_long or "").strip()
+    year = str(year or "").strip()
+    style = str(style or "干货科普").strip() or "干货科普"
+    cta = str(cta or "评论区留言").strip() or "评论区留言"
+
+    # 违禁词前置引导（与口播稿同一套词库，但长文只硬拦 high 级，见下方后置处理）
+    try:
+        guidance = forbidden_words.build_guidance() or ""
+    except Exception:  # noqa: BLE001
+        guidance = ""
+
+    src_part = ""
+    if str(source or "").strip():
+        src_part = "\n\n【参考源稿】（只作素材参考，不要照抄，可取其观点与案例）：\n" + str(source)[:3000]
+
+    prompt = (
+        ARTICLE_PROMPT + "\n\n"
+        "【本次任务】\n"
+        "- 主题：%s\n"
+        "- 主关键词：%s（必须出现在标题前 12 字内）\n"
+        "- 长尾词：%s\n"
+        "- 地域词：%s\n"
+        "- 时效年份：%s\n"
+        "- 目标字数：%d 字【硬约束：实际字数必须接近这个数，宁可写少绝不能写超；"
+        "写超 50%% 以上视为不合格。这是最常见的失败点，正文写完后请自行数一遍】\n"
+        "- 文章结构：%s\n"
+        "- 结尾引导：%s\n"
+        "%s%s\n\n"
+        "请严格按以下四段输出，不要代码块、不要多余说明：\n"
+        "【标题】\n（3 个备选标题，一行一个；第 1 条为正式采用标题）\n\n"
+        "【摘要】\n（55-80 字）\n\n"
+        "【正文】\n（全文，含小标题、配图建议位与结尾引导）\n\n"
+        "【标签】\n（3-5 个，形如 #关键词 #关键词）\n"
+        % (topic, kw_main, kw_long or "（未提供，请你自行补充 2-3 个）",
+           region or "全国（不强调地域）", year or "（按当前年份）",
+           words, style, cta, src_part, ("\n" + guidance if guidance else ""))
+    )
+
+    try:
+        raw = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=180)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": "模型调用失败：%s" % e}
+    if isinstance(raw, dict):
+        raw = raw.get("content") or ""
+    text = str(raw or "").strip()
+    if not text:
+        return {"ok": False, "error": "模型返回为空"}
+
+    # —— 四段切分：标题 / 摘要 / 正文 / 标签 ——
+    # 切不出来时不报错，整体当正文兜底（长文宁可少个摘要，也不能白跑一次 LLM）。
+    title, digest, body, tag_text = "", "", text, ""
+    m = re.search(r"【标题】\s*(.*?)\s*【摘要】", text, re.S)
+    if m:
+        title = m.group(1).strip()
+    m = re.search(r"【摘要】\s*(.*?)\s*【正文】", text, re.S)
+    if m:
+        digest = m.group(1).strip()
+    m = re.search(r"【正文】\s*(.*?)\s*【标签】", text, re.S)
+    if m:
+        body = m.group(1).strip()
+    else:
+        m = re.search(r"【正文】\s*(.*)", text, re.S)
+        if m:
+            body = m.group(1).strip()
+    m = re.search(r"【标签】\s*(.*)", text, re.S)
+    if m:
+        tag_text = m.group(1).strip()
+        # 模型偶尔把标签直接续在正文末尾（没有【标签】段），这里把尾部标签段摘出正文
+        body = re.sub(r"#\s*[^\s#]{1,10}(\s*#\s*[^\s#]{1,10})*\s*$", "", body).rstrip()
+
+    # 标题：3 个备选，第 1 条为正式采用标题
+    # 只去掉"1. ""2、""-"这类枚举前缀，不能用 strip("0123456789.")，
+    # 否则"2026年苏州公司注销…"开头的年份会被削掉。
+    titles = []
+    for _t in title.splitlines():
+        _t = re.sub(r"^\s*(?:\d{1,2}\s*[.、)]|[-—•*])\s*", "", _t).strip(" 　\t#").strip()
+        if _t:
+            titles.append(_t)
+    titles = titles[:3]
+    if not titles:
+        titles = [(topic[:24] or "财税实务解读")]
+    title = titles[0][:60]
+
+    # 标签：【标签】段优先，兜底从正文里扫
+    tags = re.findall(r"#\s*([^\s#,，、]{1,10})", tag_text or "")
+    if not tags:
+        tags = re.findall(r"#\s*([^\s#,，、]{1,10})", body)
+    tags = tags[:5]
+
+    # —— 违禁词后置处理：长文只硬拦 high 级 ——
+    # 长文（1500-3500 字）里"最/第一/免费"这类弱词命中率远高于口播稿，
+    # 照搬口播稿的"命中即清洗"会把文章改得面目全非，所以：
+    #   high 级 → clean_script() 二次清洗 + auto_cleaned=True
+    #   need_human 的弱命中 → 只统计不改写
+    hits, auto_cleaned = [], False
+    try:
+        _scan = forbidden_words.scan(body)
+        if isinstance(_scan, (list, tuple)):
+            hits = [h for h in _scan if h]
+        elif isinstance(_scan, dict):
+            hits = list(_scan.get("hits") or [])
+    except Exception:  # noqa: BLE001
+        hits = []
+    high = [h for h in hits
+            if isinstance(h, dict) and h.get("level") == "high" and not h.get("need_human")]
+    if high:
+        try:
+            cleaned = forbidden_words.clean_script(body)
+            if cleaned:
+                body = cleaned
+                auto_cleaned = True
+        except Exception:  # noqa: BLE001
+            pass
+
+    # —— SEO 自检（复用 seo_check 的纯规则实现，不二次调 LLM） ——
+    # 字数偏离 ±25% 也不重生成：一次长文成本太高，只在 meta 里回给前端提示。
+    seo = {}
+    try:
+        import seo_check
+        seo = seo_check.check(title, digest, body, kw_main, kw_long, region, year) or {}
+    except Exception:  # noqa: BLE001
+        seo = {}
+
+    word_count = len(body)
+    return {
+        "ok": True,
+        "title": title,
+        "titles": titles,
+        "digest": digest,
+        "content": body,
+        "tags": tags,
+        "hits": hits[:30],
+        "hit_count": len(hits),
+        "high_risk_count": len(high),
+        "auto_cleaned": auto_cleaned,
+        "seo": seo,
+        # —— 以下为兼容旧前端的同源字段 ——
+        "seo_score": int(seo.get("score") or 0),
+        "seo_report": seo,
+        "word_count": word_count,
+        "target_words": words,
+        "meta": {
+            "word_count": word_count,
+            "target_words": words,
+            "model": cfg.get("model") or "",
+            "kw_main": kw_main, "kw_long": kw_long,
+            "region": region, "year": year,
+            "style": style, "cta": cta,
+        },
+    }
+
+
+# 关键词候选的违规词黑名单（LLM 侧已约束，这里再硬过滤一道，防止漏网）
+_KW_BLACKLIST = ("避税", "逃税", "包过", "包通过", "100%通过", "百分百通过",
+                 "零风险", "无风险", "绝对安全", "绝对", "稳赚", "包过审")
+
+
+def ai_article_keywords(topic, region="", count=30):
+    """关键词研究：无 5118/站长 API 时，用 LLM 按维度笛卡尔展开候选词并自评。
+
+    返回 {"ok": True, "keywords": [{"kw","intent","value","why"}, ...]}，最多 count 条。
+    """
+    try:
+        return _ai_article_keywords_inner(topic, region, count)
+    except Exception as e:  # noqa: BLE001
+        traceback.print_exc()
+        return {"ok": False, "error": str(e)}
+
+
+def _ai_article_keywords_inner(topic, region, count):
+    cfg = get_text_config() or {}
+    if not cfg.get("key"):
+        return {"ok": False, "error": "未配置文本模型"}
+    try:
+        count = max(1, min(30, int(count)))
+    except Exception:  # noqa: BLE001
+        count = 30
+    prompt = (
+        "你是财税内容营销的关键词策划。请围绕主题「%s」%s，\n"
+        "按【主体（公司/个体户/老板/个人）× 业务（注册/记账/报税/注销/社保/股权/发票）× "
+        "地域 × 疑问词（怎么/多少/要不要/哪个/风险）× 年份】做笛卡尔展开，\n"
+        "产出候选搜索词。要求：\n"
+        "1. 模拟中小企业老板的真实搜索口语，不要书面语\n"
+        "2. 剔除违规词：避税、逃税、包过、100%%通过、零风险、绝对安全\n"
+        "3. 每个词标注意图（只能是 信息/对比/交易/本地 四者之一）与商业价值 1-5 分\n"
+        "4. 按商业价值降序，只输出前 %d 个\n\n"
+        "只输出 JSON 数组，每项：{\"kw\":\"\",\"intent\":\"\",\"value\":5,\"why\":\"\"}\n"
+        % (str(topic or "").strip(), ("，地域限定「%s」" % region if region else ""), count)
+    )
+    try:
+        raw = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": "模型调用失败：%s" % e}
+    if isinstance(raw, dict):
+        raw = raw.get("content") or ""
+    text = str(raw or "").strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text[:4].lower() == "json":
+            text = text[4:]
+        text = text.strip()
+    try:
+        obj = json.loads(text)
+    except Exception:  # noqa: BLE001
+        try:
+            i, j = text.find("["), text.rfind("]")
+            obj = json.loads(text[i:j + 1])
+        except Exception:  # noqa: BLE001
+            obj = None
+    if not isinstance(obj, list):
+        return {"ok": False, "error": "模型返回格式无法解析"}
+
+    # 归一化：补 value / 清洗 intent / 剔除违规词与空词
+    out = []
+    for it in obj:
+        if not isinstance(it, dict):
+            continue
+        kw = str(it.get("kw") or "").strip()
+        if not kw or any(b in kw for b in _KW_BLACKLIST):
+            continue
+        val = it.get("value", it.get("score"))
+        try:
+            val = max(1, min(5, int(val)))
+        except Exception:  # noqa: BLE001
+            val = 3
+        intent = str(it.get("intent") or "信息").strip()
+        if intent not in ("信息", "对比", "交易", "本地"):
+            intent = "信息"
+        out.append({"kw": kw, "intent": intent, "value": val,
+                    "why": str(it.get("why") or "")[:60]})
+    out.sort(key=lambda x: -x["value"])
+    return {"ok": True, "keywords": out[:count], "count": len(out[:count])}
 
 
 def ai_strategist(title, script, industry, platform=None):
@@ -2667,6 +3020,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_topic(data)
         if p.path == "/rewrite":
             return self._handle_rewrite(data)
+        # ---- 公众号文章四段链路：出稿 / SEO / 草稿箱 / 群发 ----
+        # /article 与 /article/write 同义（Laravel 侧两种写法都要兼容）
+        if p.path in ("/article", "/article/write"):
+            return self._handle_article_write(data)
+        if p.path == "/article/seo-check":
+            return self._handle_article_seo_check(data)
+        if p.path == "/article/keywords":
+            return self._handle_article_keywords(data)
+        if p.path == "/article/push-draft":
+            return self._handle_article_draft(data)
+        if p.path == "/article/publish":
+            return self._handle_article_publish(data)
         if p.path == "/chat/session/create":
             return self._handle_chat_session_create(data)
         if p.path == "/chat/session/update":
@@ -3229,7 +3594,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # 功能包一：账号级授权态 ?account_key=douyin:12 优先于平台级
         params = dict(q.split("=") for q in query.split("&") if "=" in q) if query else {}
         account_key = params.get("account_key", "")
-        if account_key:
+        # wechat 走 client_credential，不是 OAuth 授权码模式，账号级 account_key 命中
+        # is_account_authorized 恒为 False（那里存的是 access_token），必须先跳过，
+        # 交给下面的 wechat 分支按「env / 参数 / 缓存 / configured」综合判断。
+        if account_key and platform != "wechat":
             authorized = matrix_publish.is_account_authorized(platform, account_key)
             return self._send(200, {"platform": platform, "account_key": account_key,
                                     "authorized": authorized, "mode": "oauth_account"})
@@ -3238,10 +3606,37 @@ class Handler(http.server.BaseHTTPRequestHandler):
             authorized = get_oauth_token(platform) is not None
             mode = "oauth"
         elif platform == "wechat":  # 公众号：AppID/AppSecret client_credential（与 shipinhao 视频号分离）
+            # 原来只看环境变量 WECHAT_MP_APPID，导致租户在「平台账号」页配置了账号级
+            # AppID/AppSecret 后，这里仍显示未授权。改为：环境变量 或 账号级凭证 任一命中即可。
+            #
+            # 账号级凭证的三个来源（按优先级）：
+            #   1) query 直接带 appid/app_id + appsecret/app_secret（Laravel 侧有值时可透传）；
+            #   2) query 带 account_key/account_id → 查 matrix_publish 的账号级 token 缓存
+            #      （/oauth/callback 成功后写入，_publish_job 取号走同一份缓存）；
+            #   3) Laravel 侧已确认配置过账号级凭证时，可透传 configured=1 显式声明。
+            # 注：凭证本体存在 Laravel 的 platform_accounts 表，Python 侧不连库，
+            #     所以这里只能做「存在性」判断，真正取号仍在 _publish_job 走 extra 传入。
             appid = os.environ.get("WECHAT_MP_APPID", "")
             secret = os.environ.get("WECHAT_MP_APPSECRET", "")
-            authorized = bool(appid and secret)
+            source = "env" if (appid and secret) else ""
+            if not source:
+                q_appid = (params.get("appid") or params.get("app_id") or "").strip()
+                q_secret = (params.get("appsecret") or params.get("app_secret")
+                            or params.get("secret") or "").strip()
+                if q_appid and q_secret:
+                    source = "account_param"
+            if not source and (params.get("account_key") or params.get("account_id")):
+                ak = (params.get("account_key") or "").strip()
+                if not ak:
+                    ak = "%s:%s" % (platform, params.get("account_id", "").strip())
+                if matrix_publish.get_account_token(platform, ak):
+                    source = "account_cache"
+            if not source and str(params.get("configured") or "").strip() in ("1", "true", "yes"):
+                source = "account_configured"
+            authorized = bool(source)
             mode = "client_credential"
+            return self._send(200, {"platform": platform, "authorized": authorized,
+                                    "mode": mode, "credential_source": source})
         elif platform == "shipinhao":
             appid = os.environ.get("WECHAT_APPID", "")
             secret = os.environ.get("WECHAT_APPSECRET", "")
@@ -3253,6 +3648,136 @@ class Handler(http.server.BaseHTTPRequestHandler):
                                 "mode": mode})
 
     # ---- P4 获客军师（爆款潜力 + 留资钩子 + 行业适配 + 改进建议）----
+    # ==================== 公众号文章（出稿 / SEO / 草稿箱 / 群发） ====================
+    def _handle_article_write(self, data):
+        """POST /article/write —— 生成公众号长文（SEO 规则已写进出稿 prompt）"""
+        try:
+            res = ai_article(
+                topic=data.get("topic") or "",
+                kw_main=data.get("kw_main") or "",
+                kw_long=data.get("kw_long") or "",
+                region=data.get("region") or "全国",
+                year=data.get("year") or "",
+                words=data.get("words") or 2000,
+                style=data.get("style") or "干货科普",
+                cta=data.get("cta") or "评论区留言",
+                source=data.get("source") or "",
+            )
+            return self._send(200, res)
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            return self._send(200, {"ok": False, "error": "出稿失败：%s" % e})
+
+    def _handle_article_seo_check(self, data):
+        """POST /article/seo-check —— 纯规则 SEO 校验（不消耗 LLM）"""
+        try:
+            import seo_check
+            rep = seo_check.check(
+                data.get("title") or "", data.get("digest") or "",
+                data.get("content") or "", data.get("kw_main") or "",
+                data.get("kw_long") or "", data.get("region") or "",
+                data.get("year") or "")
+            return self._send(200, {"ok": True, "report": rep})
+        except Exception as e:  # noqa: BLE001
+            return self._send(200, {"ok": False, "error": "SEO 校验失败：%s" % e})
+
+    def _handle_article_keywords(self, data):
+        """POST /article/keywords —— 关键词研究（无第三方 API，LLM 展开 + 自评）"""
+        try:
+            res = ai_article_keywords(
+                data.get("topic") or "", data.get("region") or "",
+                int(data.get("count") or 30))
+            return self._send(200, res)
+        except Exception as e:  # noqa: BLE001
+            return self._send(200, {"ok": False, "error": "关键词生成失败：%s" % e})
+
+    def _handle_article_draft(self, data):
+        """POST /article/push-draft —— 送公众号草稿箱（未配凭据时返回 simulated，绝不假成功）。
+
+        入参: {"title":"", "content":"", "cover_path":可选, "extra":{appid,appsecret},
+               "tenant_id":可选, "credential_ref":可选}
+        返回: {"ok","simulated","warn","media_id","url","status","error","raw"}
+        """
+        try:
+            title = str(data.get("title") or "").strip()
+            content = str(data.get("content") or data.get("description") or "").strip()
+            if not title or not content:
+                return self._send(200, {"ok": False, "error": "标题或正文为空"})
+            job_id = "art_%s" % uuid.uuid4().hex[:12]
+            results = _publish_job(job_id, ["wechat"], {
+                "mode": "article",
+                "title": title,
+                "description": content,
+                "content": content,
+                "cover_path": data.get("cover_path") or "",
+                "extra": data.get("extra") or {},
+                "tenant_id": data.get("tenant_id") or "default",
+                "credential_ref": data.get("credential_ref"),
+            })
+            r = (results or [{}])[0]
+            if r.get("error") and not r.get("simulated"):
+                # 适配器抛错/参数缺失 → 真失败，不能当成成功
+                return self._send(200, {"ok": False, "error": str(r.get("error")),
+                                        "simulated": False, "raw": r})
+            dry = bool(r.get("simulated"))
+            if dry:
+                # 未配置公众号凭据时适配器走 dry 模拟：文章并未真正进入草稿箱，
+                # 必须显式告知前端，避免「假成功」。
+                return self._send(200, {
+                    "ok": True,
+                    "simulated": True,
+                    "warn": "未配置公众号凭据，本次为模拟发送，文章未真正进入草稿箱",
+                    "media_id": "", "url": "", "status": "simulated",
+                    "error": "", "raw": r,
+                })
+            return self._send(200, {
+                "ok": True,
+                "simulated": False,
+                "warn": "",
+                "media_id": r.get("post_id") or "",
+                "url": r.get("url") or "",
+                "status": r.get("status") or "",
+                "error": r.get("error") or "",
+                "raw": r,
+            })
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            return self._send(200, {"ok": False, "error": "送草稿箱失败：%s" % e})
+
+    def _handle_article_publish(self, data):
+        """POST /article/publish —— 群发（直接发表）。
+
+        前置的状态机（必须 reviewed）与每日限流（订阅号 1 篇/天）由 Laravel 侧
+        ArticleController::publish 负责；这里只负责调用微信 freepublish 接口。
+        """
+        try:
+            media_id = str(data.get("media_id") or "").strip()
+            if not media_id:
+                return self._send(200, {"ok": False, "error": "缺少 media_id（需先送草稿箱）"})
+            from publishers.registry import get_publisher
+            pub = get_publisher("wechat")
+            if not pub:
+                return self._send(200, {"ok": False, "error": "公众号适配器未注册"})
+            res = pub.publish_draft(media_id, extra=data.get("extra") or {})
+            raw = getattr(res, "raw", None) or {}
+            dry = bool(raw.get("dry") or raw.get("simulated"))
+            _sv = getattr(res, "status", None)
+            status_s = str(getattr(_sv, "value", _sv) or "")
+            return self._send(200, {
+                "ok": (not dry) and status_s == "published",
+                "simulated": dry,
+                "publish_id": "" if dry else str(getattr(res, "platform_post_id", "") or ""),
+                "article_url": "" if dry else str(getattr(res, "platform_url", "") or ""),
+                "status": "simulated" if dry else status_s,
+                "error": str(getattr(res, "error_message", "") or ""),
+                "ai_declaration_reminder": (
+                    "" if dry else
+                    "请到公众号后台勾选『AI 生成合成内容』声明（微信规范与《AI 生成合成内容标识办法》要求）"
+                ),
+            })
+        except Exception as e:  # noqa: BLE001
+            return self._send(200, {"ok": False, "error": "群发失败：%s" % e})
+
     def _handle_strategist(self, data):
         title = (data.get("title") or "").strip()
         script = (data.get("script") or data.get("text") or "").strip()

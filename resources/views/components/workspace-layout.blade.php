@@ -79,6 +79,12 @@
                 <span class="ws-label font-semibold {{ $v2Mode ? 'sr-only' : '' }}">对话工作台</span>
             </a>
 
+            <!-- ② 文章库：公众号长文（出稿 / SEO 自检 / 审核 / 送草稿箱 / 群发） -->
+            <a href="/studio/articles" class="{{ request()->is('studio/articles*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
+                <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 3h5v3H7V3z"/></svg>
+                <span class="ws-label font-semibold {{ $v2Mode ? 'sr-only' : '' }}">文章库</span>
+            </a>
+
             @if(!$v2Mode)
             <ul class="space-y-0.5">
                 <!-- ② 智能选题（挂二级：话术模板） -->
