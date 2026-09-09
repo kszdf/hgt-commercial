@@ -4,10 +4,10 @@
 ])
 
 @php
-    // v2.0 灰度开关: 通过 cookie hgt_ui_v2=1 切换到「对话式工作台」模式
-    // 老菜单全砍 → 仅保留对话工作台入口;URL 仍可访问(灰度期回滚)
-    $v2Mode = request()->cookie('hgt_ui_v2') === '1';
-    $sidebarWidth = $v2Mode ? 'w-14' : 'w-52';
+    // v2.0 对话模式为唯一入口: 砍掉所有老菜单,只保留"对话工作台"
+    // 之前 cookie 灰度期已结束,现在默认即 v2,不再回退。
+    $v2Mode = true;
+    $sidebarWidth = 'w-14';
 
     $t = auth()->user()->tenant;
     // 超管(tenant_id=null)使用默认主题，不依赖租户配置
@@ -235,35 +235,10 @@
             @endif
         </nav>
 
-        <!-- 侧栏底部：v2 灰度切换 + 品牌标语 -->
-        <div class="border-t border-slate-200/60 px-2 py-2 space-y-1">
-            <button type="button" onclick="hgtToggleUIMode()"
-                class="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium transition {{ $v2Mode ? 'bg-brand-50 text-brand-700 hover:bg-brand-100' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700' }}"
-                title="{{ $v2Mode ? '切回经典模式(显示全部菜单)' : '切换到对话模式(只留对话工作台)' }}">
-                <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                    @if($v2Mode)
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-                    @else
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-                    @endif
-                </svg>
-                <span class="ws-label {{ $v2Mode ? '' : 'font-semibold' }}">{{ $v2Mode ? '经典模式' : '对话模式' }}</span>
-            </button>
-            <p class="ws-sidebar-footer px-2 flex items-center gap-1.5 text-slate-400 {{ $v2Mode ? 'sr-only' : '' }}"><span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>在线 · v2026.09</p>
+        <!-- 侧栏底部：在线状态(对话模式下文字隐藏,仅留小绿点) -->
+        <div class="border-t border-slate-200/60 px-2 py-2 flex items-center justify-center">
+            <span class="inline-block h-2 w-2 rounded-full bg-emerald-500" title="在线 · v2026.09"></span>
         </div>
-        <script>
-            // v2.0 灰度切换: 写 cookie + 刷新
-            function hgtToggleUIMode() {
-                var cur = document.cookie.match(/(?:^|;\s*)hgt_ui_v2=([^;]+)/);
-                var isV2 = cur && cur[1] === '1';
-                if (isV2) {
-                    document.cookie = 'hgt_ui_v2=; Path=/; Max-Age=0';
-                } else {
-                    document.cookie = 'hgt_ui_v2=1; Path=/; Max-Age=2592000'; // 30 天
-                }
-                location.reload();
-            }
-        </script>
     </aside>
 
     <!-- ===== 右侧主内容区 ===== -->
