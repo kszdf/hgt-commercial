@@ -119,29 +119,24 @@
 
     {{-- 右：对话主区（元信息条 + 消息 + 输入） --}}
     <div class="chat-main">
-        {{-- ① 元信息条：当前空间名 + 要素 + 操作 --}}
-        <div class="chat-meta flex h-12 shrink-0 items-center gap-x-3 border-b border-slate-200 bg-white/80 px-4 backdrop-blur-sm">
+        {{-- ① 顶部标题条：WorkBuddy 风格，只保留空间名 + 删除，信息 chips 收入对话内 --}}
+        <div class="chat-meta flex h-12 shrink-0 items-center justify-between border-b border-slate-200 bg-white/90 px-4 backdrop-blur-sm">
             <div class="flex min-w-0 items-center gap-2">
                 <button id="railUncollapseBtn" type="button" title="展开会话列"
                     class="hidden rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
                 </button>
                 <span id="spaceIcon" class="text-sm">💬</span>
-                <span id="spaceTitle" class="max-w-[180px] truncate text-sm font-semibold text-slate-800">新对话</span>
+                <span id="spaceTitle" class="max-w-[260px] truncate text-sm font-semibold text-slate-800">新对话</span>
                 <button id="renameBtn" type="button" title="起名＝存入空间，长期保留"
                     class="ml-1 hidden items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-500 transition hover:border-indigo-300 hover:text-indigo-600 sm:inline-flex">
-                    ✎ 存为空间
+                    ✎ 改名
                 </button>
             </div>
-            <div class="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-                <span class="rounded-full bg-slate-100 px-2.5 py-0.5">主题：<b id="chipTopic" class="text-slate-700">未定</b></span>
-                <span class="hidden rounded-full bg-slate-100 px-2.5 py-0.5 md:inline">受众：<b id="chipAud" class="text-slate-700">未定</b></span>
-                <span class="hidden rounded-full bg-slate-100 px-2.5 py-0.5 lg:inline">数量：<b id="chipCount" class="text-slate-700">—</b></span>
-            </div>
-            <div class="ml-auto flex items-center gap-1.5">
+            <div class="flex items-center gap-1.5">
                 <button id="delSpaceBtn" type="button" title="删除当前对话"
-                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-500 transition hover:border-red-300 hover:text-red-600">
-                    🗑 删除
+                    class="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-red-600">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </button>
             </div>
         </div>
@@ -275,14 +270,18 @@
         const wrap = document.createElement('div');
         wrap.className = 'chat-bubble-wrap flex items-start gap-3 ' + (role === 'user' ? 'flex-row-reverse' : '');
         const av = document.createElement('div');
-        av.className = 'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm ' +
-            (role === 'user' ? 'bg-indigo-100 order-2' : 'bg-slate-200 order-1');
-        av.textContent = role === 'user' ? '我' : '✦';
+        if (role === 'user') {
+            av.className = 'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium bg-indigo-100 text-indigo-700 order-2';
+            av.textContent = '我';
+        } else {
+            av.className = 'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold bg-white text-indigo-600 order-1 ring-2 ring-indigo-100';
+            av.textContent = '阿';
+        }
         const bubble = document.createElement('div');
         bubble.className = 'chat-bubble rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ' +
             (role === 'user'
                 ? 'rounded-tr-sm bg-indigo-600 text-white order-1'
-                : 'rounded-tl-sm bg-white text-slate-700 order-2 border border-slate-200 shadow-sm');
+                : 'rounded-tl-sm bg-white text-slate-800 order-2 border border-slate-200 shadow-sm');
         bubble.innerHTML = html;
         wrap.appendChild(av); wrap.appendChild(bubble);
         chatBox.appendChild(wrap);
@@ -697,9 +696,6 @@
         try {
             const d = await api('/studio/chat/messages?session_id=' + encodeURIComponent(id));
             setActive(d.session_id, d.title || d.topic || '');
-            document.getElementById('chipTopic').textContent = d.topic || '未定';
-            document.getElementById('chipAud').textContent = d.audience || '未定';
-            document.getElementById('chipCount').textContent = d.count ? (d.count + ' 条') : '—';
             const msgs = d.messages || [];
             if (!msgs.length) { showIntro(); }
             else {
@@ -800,9 +796,7 @@
 
     // ---------- 发送 ----------
     function updateMeta(r) {
-        if (r.topic) document.getElementById('chipTopic').textContent = r.topic;
-        if (r.audience) document.getElementById('chipAud').textContent = r.audience;
-        if (r.count) document.getElementById('chipCount').textContent = r.count + ' 条';
+        // 顶部标题条保持简洁，主题/受众/数量等元信息已收入对话气泡内
         if (r.session_id) sid = r.session_id;
         localStorage.setItem(SID_KEY, sid);
         if (r.title) {
@@ -858,6 +852,10 @@
             safeRender(reply, data);
             updateMeta(data);
             loadSessions();
+            // 简单能力参数齐了自动执行，不让用户多点一次"开始执行"
+            if (data.stage === 'action_ready' && autoRunCap(data)) {
+                // 已触发自动执行，当前确认卡片保留，后续结果会接着滚出来
+            }
             if (data.stage === 'ask' && data.missing && data.missing.length) {
                 showQuick(['受众是中小企业老板', '给会计看', '要 5 条', '讲人话别堆术语']);
             } else {
@@ -963,10 +961,11 @@
         }
     });
 
-    // ---------- 能力执行（对话里点「开始执行」）----------
+    // ---------- 能力执行（对话里点「开始执行」，或被自动触发）----------
     async function runCapAction(btn, payload) {
-        btn.disabled = true;
-        btn.textContent = '⏳ 正在执行…';
+        const hasBtn = btn && btn.tagName;
+        const silent = !hasBtn;   // 自动触发时不展示原始 JSON，等 AI 总结统一输出
+        if (hasBtn) { btn.disabled = true; btn.textContent = '⏳ 正在执行…'; }
         appendMsg('ai', '<p class="text-slate-500">⏳ 正在跑「' + esc((payload.cap || '')) + '」，请稍候…</p>');
         try {
             const res = await api('/studio/chat/action', {
@@ -981,6 +980,9 @@
                 appendMsg('ai', '<p class="font-medium text-slate-800">🎬 已提交渲染，任务号 <code class="text-[11px]">' + esc(data.job_id) + '</code></p>'
                     + '<p class="mt-1 text-slate-600">视频要渲染几分钟，我会一直盯着进度，完成后告诉你。</p>');
                 pollJob(data.job_id, payload);
+            } else if (silent) {
+                // 自动执行：直接交给 AI 总结，不在中间暴露原始 JSON
+                await sendActionResult(payload.cap, true, data, payload.next || []);
             } else {
                 appendMsg('ai', '<p class="font-medium text-slate-800">✅ ' + esc(payload.cap || '') + ' 跑完了</p>'
                     + '<pre class="mt-1 max-h-60 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-2 text-[11px] text-slate-600">'
@@ -993,9 +995,18 @@
                 + '<p class="mt-1 text-xs text-slate-500">可以改一下参数再来，或跟我说你要做什么，我换个方式帮你。</p>');
             await sendActionResult(payload.cap, false, { error: String(err.message || '') });
         } finally {
-            btn.disabled = false;
-            btn.textContent = '↻ 再执行一次';
+            if (hasBtn) { btn.disabled = false; btn.textContent = '↻ 再执行一次'; }
         }
+    }
+
+    // 自动执行：用户说"给我10条选题"这类话，参数齐了就直接跑，不再等点按钮
+    function autoRunCap(data) {
+        if (!data || data.stage !== 'action_ready' || !data.cap) return false;
+        const autoCaps = ['topic'];   // 可扩展：改写/出片等简单能力
+        if (!autoCaps.includes(data.cap.id)) return false;
+        const payload = { cap: data.cap.id, vals: data.vals || {}, next: data.next || [] };
+        setTimeout(() => runCapAction(null, payload), 60);
+        return true;
     }
 
     // 长任务轮询：每 8 秒查一次，完成后回灌 AI 并给下一步卡片
