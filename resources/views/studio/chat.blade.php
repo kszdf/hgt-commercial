@@ -100,9 +100,9 @@
             </button>
         </div>
         <div class="shrink-0 space-y-1.5 border-b border-slate-200/70 p-2.5">
-            <button id="newSpaceBtn" type="button"
+            <button id="newChatBtn" type="button"
                 class="flex w-full items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-indigo-700">
-                ＋ 开聊
+                💬 新建开聊
             </button>
             <button id="newNamedBtn" type="button"
                 class="flex w-full items-center gap-2 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">
@@ -545,19 +545,50 @@
         }
         if (r.stage === 'action_ask') {
             const c = r.cap || {}, p = r.param || {};
+            // 字段标签表（与 action_ready 共用，避免重复定义）
+            const _ASK_LABELS = { dialogue: '口播稿', text: '原文', topic: '主题', industry: '行业', keywords: '关键词',
+                count: '数量', platform: '平台', hook: '钩子', mode: '视频形式', title: '主标题',
+                subtitle: '副标题', voice_form: '配音形式', focus: '侧重点', job_id: '视频任务',
+                url: '链接', audio_path: '音频路径' };
             const h = [
-                '<p class="font-medium text-slate-800">' + esc(c.icon || '▶️') + ' ' + esc(r.message || ('我来帮你' + (c.name || ''))) + '</p>',
-                '<p class="mt-1 text-xs text-slate-400">参数收集 ' + esc(r.progress || '') + '</p>',
-                '<p class="mt-2 text-slate-700">' + esc(p.label || '请补充信息') + (p.hint ? '<span class="text-slate-400">（' + esc(p.hint) + '）</span>' : '') + '</p>'
+                // 1. 能力标题
+                '<p class="font-medium text-slate-800">' + esc(c.icon || '▶️') + ' ' + esc(r.message || ('我来帮你' + (c.name || ''))) + '</p>'
             ];
+            // 2. ✅ 已定方案摘要（从 r.vals 渲染，让用户清楚"已经定了什么"）
+            const decided = Object.keys(r.vals || {});
+            if (decided.length) {
+                h.push('<div class="mt-2 rounded-lg border border-emerald-200 bg-emerald-50/50 p-2.5">'
+                    + '<p class="text-[11px] font-semibold text-emerald-700">✅ 已定方案</p>'
+                    + '<div class="mt-1 space-y-0.5 text-[12.5px]">');
+                decided.forEach(k => {
+                    let v = String(r.vals[k] ?? '');
+                    if (v.length > 50) v = v.slice(0, 50) + '…';
+                    h.push('<div class="flex gap-2"><span class="shrink-0 text-slate-500">' + esc(_ASK_LABELS[k] || k) + '</span>'
+                        + '<span class="text-slate-800 break-all">' + esc(v) + '</span></div>');
+                });
+                h.push('</div></div>');
+            }
+            // 3. 👉 下一步（当前问题 + 进度）
+            h.push('<div class="mt-2 rounded-lg border border-indigo-200 bg-indigo-50/40 p-2.5">'
+                + '<p class="text-[11px] font-semibold text-indigo-700">👉 下一步' + (r.progress ? ' · 参数收集 ' + esc(r.progress) : '') + '</p>'
+                + '<p class="mt-1 text-[13px] text-slate-800">' + esc(p.label || '请补充信息')
+                + (p.hint ? '<span class="text-slate-400">（' + esc(p.hint) + '）</span>' : '') + '</p>');
+            // 4. 选项按钮（加序号 + 简标，便于"对比着选"）
             if ((p.options || []).length) {
-                h.push('<div class="mt-2 flex flex-wrap gap-2">');
-                p.options.forEach(o => {
-                    h.push('<button type="button" data-msg="' + esc(o) + '" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">' + esc(String(o).split(':').pop()) + '</button>');
+                h.push('<div class="mt-2 space-y-1.5">');
+                p.options.forEach((o, i) => {
+                    const raw = String(o);
+                    const colonIdx = raw.indexOf(':');
+                    const val = colonIdx >= 0 ? raw.slice(colonIdx + 1) : raw;
+                    h.push('<button type="button" data-msg="' + esc(raw) + '" class="act-msg flex w-full items-start gap-2 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-left text-xs text-indigo-700 transition hover:border-indigo-500 hover:bg-indigo-50">'
+                        + '<span class="shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700">' + (i + 1) + '</span>'
+                        + '<span class="flex-1">' + esc(val) + '</span></button>');
                 });
                 h.push('</div>');
             }
-            h.push('<p class="mt-2 text-xs text-slate-500">' + esc(r.tip || '直接在下面填，或点上面的选项。') + ' 不想做了就说「取消」。</p>');
+            h.push('</div>');
+            // 5. 💡 提示
+            h.push('<p class="mt-2 text-[11px] text-slate-400">💡 ' + esc(r.tip || '直接在下面填，或点上面的选项。') + ' 不想做了就说「取消」。</p>');
             return h.join('');
         }
         if (r.stage === 'action_ready') {
@@ -733,7 +764,7 @@
     }
 
     async function renameCurrent() {
-        if (!sid) { alert('先发一条消息，或点「＋ 开聊」开始对话。'); return; }
+        if (!sid) { alert('先发一条消息，或点「💬 新建开聊」开始对话。'); return; }
         const cur = spaceTitleEl.textContent;
         const t = prompt('给这段对话起个名字，存入左侧「空间」长期保留：', cur === '新对话' ? '' : cur);
         if (t === null) return;
@@ -1095,7 +1126,7 @@
         e.target.style.height = 'auto';
         e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
     });
-    document.getElementById('newSpaceBtn').onclick = () => { createSession(''); };
+    document.getElementById('newChatBtn').onclick = () => { createSession(''); };
     document.getElementById('newNamedBtn').onclick = () => {
         const t = prompt('给这个空间起个名字（如「注册公司引流系列」）：', '');
         if (t === null) return;
