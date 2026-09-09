@@ -121,7 +121,8 @@ class PublishPackController extends Controller
             : $request->user()->tenant;
         $settings = $tenant ? (is_array($tenant->settings) ? $tenant->settings : []) : [];
         $brand = trim((string) ($settings['brand'] ?? ''));
-        return $brand ?: trim((string) ($tenant->ip_name ?? '')) ?: '昆山老张讲财税';
+        // 品牌兜底收敛到 config/hgt.php，对外给同行使用时改配置即可，无需改代码
+        return $brand ?: trim((string) ($tenant->ip_name ?? '')) ?: config('hgt.brand_fallback');
     }
 
     /** 个人形象照（海马体等专业肖像）路径：storage/app/covers/portrait/{tenant_id}.jpg */
@@ -308,7 +309,7 @@ class PublishPackController extends Controller
             }
         }
         // 4) 分平台发布文案
-        $ip = $tenant->ip_name ?: '昆山老张讲财税';
+        $ip = $tenant->ip_name ?: config('hgt.brand_fallback');
         $txt = $this->materialCopy($title, $subtitle, $ip);
         // 5) 打包 zip
         $dir = storage_path('app/material');

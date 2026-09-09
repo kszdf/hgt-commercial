@@ -206,7 +206,11 @@
 
     const CRED_LABELS = {
         // 抖音/小红书走 OAuth 授权、无需手填凭证；视频号无公开 API 人工发布。
-        // 公众号（wechat）渠道已于 2026-09-01 移除（公众号为图文平台，与短视频方向不符）。
+        // 公众号（wechat）：2026-09-09 恢复——文章是三大产出物之一，用于送草稿箱与群发，
+        // 采用 client_credential 模式，需手填 AppID + AppSecret。
+        wechat: ['AppID（公众号后台 → 设置与开发 → 基本配置）',
+                 'AppSecret',
+                 '填完后还需到公众号后台「基本配置 → IP白名单」加入本服务器出口 IP，否则换取 access_token 会被拒绝'],
     };
 
     function onPlatformChange(platform) {

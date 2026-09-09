@@ -42,6 +42,9 @@ abstract class PlatformAdapter
     {
         return match ($platform) {
             'douyin', 'xiaohongshu' => new ManualAdapter($platform),
+            // 公众号：发布链路不经过本适配器（走 PublishRunner → 8500 publishers/registry），
+            // 这里仅用于数据回流占位——公众号暂无指标抓取实现，保留平台标识便于将来扩展。
+            'wechat' => new ManualAdapter('wechat'),
             default => new ManualAdapter('manual'),
         };
     }

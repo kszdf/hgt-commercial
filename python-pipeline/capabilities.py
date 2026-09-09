@@ -42,6 +42,7 @@ CAPABILITIES = {
         "desc": "按行业和关键词，一次给你一批可拍的选题",
         "cat": "选题",
         "icon": "🎯",
+        "when": "用户要一批选题、不知道该拍什么时选它",
         "params": [
             {"key": "industry", "label": "你的行业/领域", "type": "text",
              "required": True, "hint": "比如：财税咨询、建筑工程、电商", "from": "audience"},
@@ -57,13 +58,35 @@ CAPABILITIES = {
              "default": "不限", "required": False},
         ],
         "output": "一批带切入点的选题",
-        "next": ["rewrite", "video_render"],
+        "next": ["rewrite", "video_render", "article", "strategist"],
+    },
+    # 获客军师：8500 的 /strategist 端点早已实现（输出 potential_score/level/hook_suggest），
+    # 但一直没注册进这里，用户在对话里根本点不到。本期接线，并作为选题的强制后处理。
+    "strategist": {
+        "name": "获客军师",
+        "desc": "给选题打分：能不能带来付费客户，并给钩子建议",
+        "cat": "选题",
+        "icon": "📊",
+        "when": "用户拿不准某个选题值不值得写、想知道它能不能带来付费客户时选它",
+        "params": [
+            {"key": "title", "label": "选题标题", "type": "text",
+             "required": True, "hint": "要评估的选题，比如：老板从公司拿钱的 3 种合规方式",
+             "from": "topic"},
+            {"key": "script", "label": "稿件（选填）", "type": "textarea",
+             "required": False, "hint": "有稿子评估更准；没有就只评选题",
+             "from": "last_text", "no_autofill": True},
+            {"key": "industry", "label": "目标行业", "type": "text",
+             "required": False, "hint": "如：建筑工程、电商、制造业", "from": "audience"},
+        ],
+        "output": "获客潜力评分（1-10）+ 等级 + 钩子建议 + 改进建议",
+        "next": ["rewrite", "article", "topic"],
     },
     "hotspot": {
         "name": "热点选题",
         "desc": "抓当下财税/行业热点，直接变成你的选题",
         "cat": "选题",
         "icon": "🔥",
+        "when": "用户要追热点、要近期政策或新闻类选题时选它（需实时检索，否则不可用）",
         "params": [
             {"key": "industry", "label": "你的行业/领域", "type": "text",
              "required": True, "hint": "比如：财税咨询", "from": "audience"},
@@ -76,6 +99,7 @@ CAPABILITIES = {
         "desc": "丢一条爆款文案进来，拆出它为什么火",
         "cat": "选题",
         "icon": "🔍",
+        "when": "用户给了别人的爆款链接或文案，要拆解它为什么火时选它",
         "params": [
             {"key": "text", "label": "爆款原文", "type": "textarea",
              "required": True, "hint": "把爆款文案或口播稿粘进来"},
@@ -90,6 +114,7 @@ CAPABILITIES = {
         "desc": "把别人的爆款改成你的口径，自动过违禁词",
         "cat": "写稿",
         "icon": "✍️",
+        "when": "用户要口播稿、逐字稿，或要把别人的稿改成自己的口径时选它",
         "params": [
             {"key": "text", "label": "要改写的原文", "type": "textarea",
              "required": True, "hint": "把原文粘进来", "from": "last_text"},
@@ -98,6 +123,43 @@ CAPABILITIES = {
         ],
         "output": "改写后的口播稿（已过违禁词）",
         "next": ["video_render", "qc"],
+    },
+    "article": {
+        "name": "公众号文章",
+        "desc": "选题或口播稿 → 1500-2500 字公众号长文，内置搜一搜 SEO 优化",
+        "cat": "写稿",
+        "icon": "📰",
+        "when": "用户要公众号文章、长文、推文、图文内容时选它（不是口播稿、不是短视频脚本）",
+        "params": [
+            {"key": "topic", "label": "文章主题", "type": "text",
+             "required": True, "hint": "想写什么，比如：公转私的合规边界", "from": "topic"},
+            {"key": "kw_main", "label": "主关键词（SEO）", "type": "text",
+             "required": False, "hint": "标题前 12 字内必须出现，如：公转私", "from": "topic"},
+            {"key": "kw_long", "label": "长尾词（SEO）", "type": "text",
+             "required": False, "hint": "逗号分隔，如：公转私被查,公转私合法方式,老板从公司拿钱"},
+            {"key": "region", "label": "地域词", "type": "text",
+             "required": False, "default": "全国",
+             "hint": "如：苏州、昆山；涉及基数/比例处会附「以主管税务机关口径为准」"},
+            {"key": "year", "label": "时效年份", "type": "text",
+             "required": False, "hint": "政策类建议填，如 2026；标题会带年份"},
+            {"key": "source", "label": "参考源稿（选填）", "type": "textarea",
+             "required": False, "hint": "把已有口播稿粘进来作参考；没有就留空",
+             "from": "last_text", "no_autofill": True},
+            {"key": "words", "label": "字数", "type": "select",
+             "options": ["1500:1500字", "2000:2000字", "2500:2500字", "3000:3000字(深度)"],
+             "default": "2000:2000字", "required": False},
+            {"key": "style", "label": "文章结构", "type": "select",
+             "options": ["干货科普", "案例复盘", "政策解读", "观点评论", "清单盘点"],
+             "default": "干货科普", "required": False},
+            {"key": "cta", "label": "结尾引导", "type": "select",
+             "options": ["评论区留言", "回复关键字领资料", "两者都要"],
+             "default": "评论区留言", "required": False},
+            {"key": "push_draft", "label": "生成后直接送公众号草稿箱", "type": "bool",
+             "default": False, "required": False},
+        ],
+        "output": "公众号长文（标题+摘要+正文+话题标签）+ SEO 自检报告",
+        "next": ["qc", "video_render", "xhs"],
+        "long": True,          # 长文生成耗时长，走异步进度
     },
     # 注：deai（去AI味）/ moment（朋友圈）在 8500 已标记 DEPRECATED（Laravel 侧功能下线），
     #     故不纳入对话能力，避免用户点了拿到失败结果。
@@ -108,6 +170,7 @@ CAPABILITIES = {
         "desc": "把口播稿做成成品视频（配音+字幕+画面）",
         "cat": "出片",
         "icon": "🎬",
+        "when": "用户已经成稿，要把它做成成品视频（出片）时选它",
         "params": [
             {"key": "dialogue", "label": "口播稿", "type": "textarea",
              "required": True, "hint": "要念的文案；没有就先出稿", "from": "last_text"},
@@ -135,6 +198,7 @@ CAPABILITIES = {
         "desc": "发之前查一遍：违禁词、敏感表述、逻辑漏洞",
         "cat": "质检",
         "icon": "🛡️",
+        "when": "用户要检查文案的违禁词、敏感表述、逻辑漏洞时选它",
         "params": [
             {"key": "text", "label": "要检查的稿子", "type": "textarea",
              "required": True, "hint": "把稿子粘进来", "from": "last_text"},
@@ -150,6 +214,7 @@ CAPABILITIES = {
         "desc": "技术体检：有没有黑屏、没声音、字幕压字",
         "cat": "质检",
         "icon": "🔬",
+        "when": "用户要检查成片质量（黑屏、没声音、字幕压字）时选它",
         "params": [
             {"key": "job_id", "label": "要检查的视频", "type": "text",
              "required": True, "hint": "一般自动带出上一个成片", "from": "last_job_id"},
@@ -164,6 +229,7 @@ CAPABILITIES = {
         "desc": "成片 + 封面 + 标题 + 文案，打包好直接发",
         "cat": "发布",
         "icon": "📦",
+        "when": "用户要为成片配发布素材（封面、标题、话题、文案）时选它",
         "params": [
             {"key": "job_id", "label": "哪个视频", "type": "text",
              "required": True, "hint": "一般自动带出上一个成片", "from": "last_job_id"},
@@ -176,6 +242,7 @@ CAPABILITIES = {
         "desc": "同一内容改成小红书图文笔记，一鱼多吃",
         "cat": "发布",
         "icon": "📕",
+        "when": "用户要小红书图文（配图+文案）时选它",
         "params": [
             {"key": "topic", "label": "图文主题", "type": "text",
              "required": True, "hint": "比如：公司利润怎么拿最省税", "from": "topic"},
@@ -189,6 +256,7 @@ CAPABILITIES = {
         "desc": "对已有素材做剪辑处理",
         "cat": "素材",
         "icon": "✂️",
+        "when": "用户要对已有视频素材做剪辑处理时选它",
         "params": [
             {"key": "job_id", "label": "要处理的素材", "type": "text",
              "required": True, "hint": "素材任务 id", "from": "last_job_id"},
@@ -201,6 +269,7 @@ CAPABILITIES = {
         "desc": "录一段你的声音，后面配音都用你的音色",
         "cat": "素材",
         "icon": "🎙️",
+        "when": "用户要克隆某个人的声音用于配音时选它",
         "params": [
             {"key": "audio_path", "label": "音频文件路径", "type": "text",
              "required": True, "hint": "一段 10 秒以上的干净录音"},
@@ -227,7 +296,7 @@ CAPABILITIES = {
              "options": ["任意留资即转", "意向客户才转(AI 评分≥7)", "高客单线索才转(AI 评分≥9)"],
              "default": "意向客户才转(AI 评分≥7)", "required": False},
         ],
-        "output": "7×24 在线 AI 客服,自动筛线索,意向客户推送给老张",
+        "output": "7×24 在线 AI 客服,自动筛线索,意向客户推送给你的顾问",
         "next": ["crm_record", "consult_1v1"],
     },
     "matrix_publish": {
@@ -275,8 +344,8 @@ CAPABILITIES = {
 
     # ============ P3 增值 / 差异化 ============
     "consult_1v1": {
-        "name": "老张 1v1 视频诊断·限抢",
-        "desc": "每月限 30 单,老张亲自看账,飞书排队 + 视频回放,稀缺 = 高客单",
+        "name": "专家 1v1 视频诊断·限抢",
+        "desc": "每月限 30 单,专家亲自看账,飞书排队 + 视频回放,稀缺 = 高客单",
         "cat": "增值",
         "icon": "🎯",
         "params": [
@@ -295,7 +364,7 @@ CAPABILITIES = {
     },
     "advisor_chat": {
         "name": "AI 财税顾问·7×24",
-        "desc": "留资后 AI 财税顾问先聊一轮,法规+案例+老张方法论三件套打底",
+        "desc": "留资后 AI 财税顾问先聊一轮,法规+案例+方法论三件套打底",
         "cat": "增值",
         "icon": "🤖",
         "params": [
@@ -307,7 +376,7 @@ CAPABILITIES = {
              "options": ["了解一下", "近 1 周要处理", "近 1 月要处理", "已出问题要补救"],
              "default": "了解一下", "required": False},
         ],
-        "output": "AI 给出可执行建议+老张亲办案例+法条引用,后续转 1v1 或人工",
+        "output": "AI 给出可执行建议+亲办案例+法条引用,后续转 1v1 或人工",
         "next": ["consult_1v1", "crm_record"],
     },
     "data_dashboard": {
@@ -333,6 +402,33 @@ CAPABILITIES = {
 
 
 # ---------------------------------------------------------------------------
+# 能力收窄：以下能力本期隐藏
+#   背景：平台定位收窄为「财税内容生产」，运营支线（CRM/1v1/AI客服/矩阵/看板）
+#   不直接产出口播稿/文章/成片，属"大杂烩"，二期按套餐解锁。
+#   注意：只标 hidden，绝不从 CAPABILITIES 删除——二期把 id 从这里删掉即可完整复活，
+#   且 8500 的 /crm /booking /reception-config /matrix-config /stats 端点全部保留不动。
+# ---------------------------------------------------------------------------
+HIDDEN_CAPS = frozenset({
+    "crm_record",       # 客户档案 CRM
+    "consult_1v1",      # 1v1 视频诊断预约
+    "auto_reception",   # AI 客服接待配置
+    "matrix_publish",   # 矩阵分发
+    "data_dashboard",   # 爆款数据看板
+    "advisor_chat",     # 已升级为独立「智库」页，不再作为对话能力
+})
+
+
+def is_hidden(cap_id):
+    """该能力是否本期隐藏。"""
+    return cap_id in HIDDEN_CAPS
+
+
+def list_visible():
+    """列出本期可见的能力定义。"""
+    return [c for cid, c in CAPABILITIES.items() if cid not in HIDDEN_CAPS]
+
+
+# ---------------------------------------------------------------------------
 # 供编排器 / 前端使用的辅助方法
 # ---------------------------------------------------------------------------
 
@@ -341,10 +437,12 @@ def get(cap_id):
     return CAPABILITIES.get(cap_id)
 
 
-def list_all():
-    """列出所有能力（给 LLM 判定用，精简字段避免 prompt 过长）。"""
+def list_all(include_hidden=False):
+    """列出能力（给 LLM 判定用，精简字段避免 prompt 过长）。默认排除本期隐藏的。"""
     out = []
     for cid, c in CAPABILITIES.items():
+        if not include_hidden and cid in HIDDEN_CAPS:
+            continue
         out.append({
             "id": cid,
             "name": c["name"],
@@ -356,10 +454,13 @@ def list_all():
 
 
 def prompt_for_llm():
-    """渲染成给 LLM 看的能力清单文本（判定用）。"""
+    """渲染成给 LLM 看的能力清单文本（只含本期可见能力，供意图判定用）。"""
     lines = []
     for cid, c in CAPABILITIES.items():
-        lines.append("- %s（id=%s，%s）：%s" % (c["name"], cid, c.get("cat") or "通用", c["desc"]))
+        if cid in HIDDEN_CAPS:
+            continue
+        when = c.get("when") or c["desc"]
+        lines.append("- %s（id=%s，%s）：%s" % (c["name"], cid, c.get("cat") or "通用", when))
     return "\n".join(lines)
 
 

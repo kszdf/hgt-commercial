@@ -31,6 +31,7 @@ class PublishStatus(str, Enum):
     UPLOADING = "uploading"        # 上传中
     PROCESSING = "processing"      # 平台处理中（转码/审核）
     PUBLISHED = "published"        # 发布成功
+    SIMULATED = "simulated"        # 模拟发送（未配置真实凭据，内容未真正送达平台，绝不等同成功）
     FAILED = "failed"              # 失败（重试耗尽或不可重试）
     MANUAL_REQUIRED = "manual_required"  # 平台不支持全自动，需人工在平台后台发布
 

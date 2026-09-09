@@ -216,6 +216,12 @@ class StudioController extends Controller
         $cap  = $data['cap'];
         $vals = $data['vals'] ?? [];
 
+        // 本期隐藏的能力：对话入口已摘除，这里再拦一道，
+        // 防止绕过前端直接 POST /studio/chat/action 触发
+        if (in_array($cap, self::HIDDEN_CAPS, true)) {
+            return response()->json(['ok' => false, 'error' => '该能力暂未开放'], 422);
+        }
+
         // select 选项形如 "scroll:单字幕滚动"，只取冒号前的值
         foreach (['mode', 'voice_form'] as $k) {
             if (! empty($vals[$k]) && str_contains((string) $vals[$k], ':')) {
@@ -251,6 +257,15 @@ class StudioController extends Controller
     }
 
     /** 能力 → 执行方式映射表（权威定义在 python-pipeline/capabilities.py）。 */
+    /**
+     * 本期隐藏的能力（需与 python-pipeline/capabilities.py 的 HIDDEN_CAPS 一致）。
+     * 只拦截执行，不删 capabilityMap 映射——二期把 id 从这里去掉即可完整恢复。
+     */
+    private const HIDDEN_CAPS = [
+        'crm_record', 'consult_1v1', 'auto_reception',
+        'matrix_publish', 'data_dashboard', 'advisor_chat',
+    ];
+
     private function capabilityMap(): array
     {
         return [
@@ -263,6 +278,8 @@ class StudioController extends Controller
             'xhs'          => ['type' => 'pipeline', 'path' => '/xhs_build_note', 'timeout' => 180],
             'footage_edit' => ['type' => 'pipeline', 'path' => '/footage-edit',   'timeout' => 120],
             'clone_voice'  => ['type' => 'pipeline', 'path' => '/clone_voice',    'timeout' => 120],
+            'article'      => ['type' => 'pipeline', 'path' => '/article/write',  'timeout' => 240],
+            'strategist'   => ['type' => 'pipeline', 'path' => '/strategist',     'timeout' => 120],
             // —— Laravel 内部 Controller（含配额/并发/幂等/落库）——
             'video_render' => ['type' => 'internal', 'class' => \App\Http\Controllers\VideoController::class,      'method' => 'generate'],
             'publish_pack' => ['type' => 'internal', 'class' => \App\Http\Controllers\PublishPackController::class, 'method' => 'generate'],

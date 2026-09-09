@@ -14,13 +14,15 @@ use Illuminate\Http\Request;
  *  - 应用凭证（AppID/AppSecret 等）经 account_info 加密存储，不落明文；
  *  - 抖音/小红书走 OAuth 授权码模式（本控制器代理 8500 授权路由）；
  *  - 视频号无公开 API，走人工发布（恒可发，一键发布存「待人工发布」清单）。
- *  - 2026-09-01：公众号（wechat）渠道已移除——公众号是图文平台，与短视频方向不符。
+ *  - 公众号（wechat）：2026-09-01 曾移除（当时判定为图文平台、与短视频方向不符）；
+ *    2026-09-09 恢复——平台定位收窄为「财税内容生产」后，公众号文章成为三大产出物之一，
+ *    需要重新开放登记入口并打通「送草稿箱 / 群发」链路。
  */
 class AccountController extends Controller
 {
-    /** 可登记的平台：短视频三平台（视频号/抖音/小红书），公众号已移除。 */
+    /** 可登记的平台：短视频三平台 + 公众号（公众号用于图文文章发布）。 */
     private const PLATFORM_KEYS = [
-        'douyin', 'shipinhao', 'xiaohongshu',
+        'douyin', 'shipinhao', 'xiaohongshu', 'wechat',
     ];
 
     /** 账号管理页：本租户全部渠道备忘 + 今日余量。 */
@@ -141,7 +143,8 @@ class AccountController extends Controller
     /** 应用凭证白名单（各平台键名），只存这些，过滤无关字段。 */
     private const CREDENTIAL_KEYS = [
         'client_key', 'client_secret',     // 抖音
-        'app_id', 'app_secret',            // 小红书
+        'app_id', 'app_secret',            // 小红书 / 公众号（PublishRunner 兼容读这两个键）
+        'appid', 'appsecret',              // 公众号（client_credential 模式，wechat.py 首选）
     ];
 
     /** 只保留白名单凭证键，去空值；无有效凭证返回 null。 */

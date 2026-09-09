@@ -43,7 +43,7 @@ class VideoController extends Controller
         $defaults = [
             'maleVoice'   => $tenant->default_male_voice ?? '',
             'femaleVoice' => $tenant->default_female_voice ?? '',
-            'ipName'      => $tenant->ip_name ?: '昆山老张讲财税',
+            'ipName'      => $tenant->ip_name ?: config('hgt.brand_fallback'),
             'avatar'      => $tenant->default_avatar ?? '',
         ];
         // 出片页自用默认参数（config/studio.php，owner 可经 .env 调优，用户端不暴露滑块）

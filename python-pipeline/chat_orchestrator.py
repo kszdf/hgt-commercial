@@ -30,11 +30,18 @@ try:
 except Exception:  # noqa: BLE001
     _CAP = None
 
-# 主提示词（张老师 v1.0 写稿规范的轻量化固化，注入到意图理解里让 AI 保持一致口径）
+# 人设与品牌统一从 brand_defaults 读取（对外给同行使用时改配置即可，无需改代码）
+try:
+    from brand_defaults import EXPERT_NAME, EXPERT_YEARS
+except Exception:  # noqa: BLE001
+    EXPERT_NAME, EXPERT_YEARS = "本机构顾问", ""
+
+# 主提示词（写稿规范的轻量化固化，注入到意图理解里让 AI 保持一致口径）
 MASTER_PROMPT = (
-    "你是一名资深财税与股权专家助理，服务「老张」——一位深耕财税20余年、"
-    "具备税务稽查与历史遗留问题处理背景的专家。你在帮他运营面向中小企业老板的财税短视频。\n"
-    "写稿铁律（成稿时交给改写器遵守，你在意图判断时也要据此理解用户意图）：\n"
+    "你是一名资深财税与股权专家助理，服务「%s」——一位%s、"
+    "具备税务稽查与历史遗留问题处理背景的专家。你在帮其运营面向中小企业老板的财税短视频。\n"
+    % (EXPERT_NAME, EXPERT_YEARS or "资深财税专家")
+    + "写稿铁律（成稿时交给改写器遵守，你在意图判断时也要据此理解用户意图）：\n"
     "1. 面向受众：初次创业及已有规模的中小老板（决策者，不是会计）。\n"
     "2. 口吻：冷静、专业、权威、讲人话；禁情感语气词与网络流行语（'打肿脸充胖子''真金白银'等）。\n"
     "3. ★悬念必须落在口播正文的开口第一句，不放标题；标题只作提示语。\n"
@@ -296,6 +303,8 @@ class ChatOrchestrator:
             MASTER_PROMPT + "\n\n" +
             "你现在是'对话出稿工作台'的意图调度器。用户想让你帮他生成一批财税短视频口播稿。\n"
             "你的唯一任务：读懂用户本轮说的这句话，输出一个 JSON，判定接下来要做什么。\n\n"
+            "当前可调用能力（用户想用某个时填它的 id，否则填 null）：\n"
+            + (_CAP.prompt_for_llm() if _CAP else "") + "\n\n"
             "四要素定义：\n"
             "- topic 主题：讲什么（如'创业开公司注意什么''金税四期下的风险'）。\n"
             "- audience 受众：给谁看（如'刚开公司的小老板'）。\n"
@@ -306,6 +315,8 @@ class ChatOrchestrator:
             "用户本轮：" + message + "\n\n"
             "请判断并只输出 JSON（不要任何其它文字/代码块）：\n"
             "{\n"
+            "  \"cap\": (用户想调用上面某个能力时填其 id，否则填 null。只在明确要做该动作时才填),\n"
+            "  \"cap_confidence\": (0-1 的小数，你对 cap 判断的把握程度；cap 为 null 时填 0),\n"
             "  \"extract\": {可选, 从本轮提取/更新的要素, 只放确有信息且与原值不同的字段: "
             "{\"topic\":\"\",\"audience\":\"\",\"requirement\":\"\",\"count\":0}},\n"
             "  \"action\": \"ask\" | \"answer\" | \"propose\" | \"write\",\n"
@@ -330,7 +341,19 @@ class ChatOrchestrator:
             "- 若用户在成稿阶段还要继续写下一条（如'继续''下一条'）→ action=write, pick='next'。\n"
             "- 若用户对【已写好的某篇成稿】提出修改意见（如'第2篇太长/换个口吻/加个案例/重写第3篇'），→ action=write, pick=对应篇的下标（0开始），同时把修改要求写进 extract.requirement（追加），让改写器按新要求重写该篇。\n"
             "- 若要素还缺（主题或受众或要求为空）且用户明确要出稿但没说全 → action=ask，并在 asked 追问缺的那一项。\n"
+            "- ★能力判定负约束（极重要，防误触发，逐条对照后再填 cap）：\n"
+            "  ①用户只是在【问问题/要解释/要建议/要讨论】（哪怕话里带'注册公司''注销''免税''公转私''股权''金税四期'等业务词）→ cap 必须 null，action=answer；\n"
+            "  ②用户要的是【口播稿/逐字稿/角度/出稿】（如'写条口播''出稿''给几个角度''改成我的口径'）→ cap 必须 null，走 propose/write，不要填 rewrite；\n"
+            "  ③只有用户明确要做【出片/选题/热点/获客评分/质检/公众号文章/小红书/发布包/素材剪辑/声音克隆/爆款拆解】这类具体动作时，才填对应 cap；\n"
+            "  ④拿不准就填 null。填 null 最坏是走普通对话，填错 cap 会打断用户正在做的事。\n"
             "铁律：宁可多判 answer 也不要机械地当写稿指令——答非所问是最大的失败。用户问问题，你就 answer；用户要内容，你才 propose/write。\n"
+            "★关于 cap 的两条硬约束（违反会直接造成答非所问，务必遵守）：\n"
+            "1. 用户只是在【问问题、要解释、要建议、要讨论】（哪怕句里带'注册公司''注销''免税''公转私'等词）"
+            "→ cap 必须填 null，action=answer。\n"
+            "2. 用户要的是【口播稿、逐字稿、角度方案】（如'写条口播''出稿''来几个角度'）"
+            "→ cap 必须填 null，走 propose/write 出稿链路，不要填成别的能力。\n"
+            "只有用户明确要【做】一件具体的事（出片、质检、选题、公众号文章、小红书图文、爆款拆解、"
+            "发布素材包、克隆声音、素材剪辑、给选题打分）时，才填对应的 cap。\n"
         )
         cfg = self._cfg()
         raw = self._chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=60)
@@ -1021,6 +1044,10 @@ class ChatOrchestrator:
         "topic": ("选题", "给我选题", "出选题", "选几个题", "想几个选题", "找选题"),
         "hotspot": ("热点选题", "追热点", "热点话题", "最近热点"),
         "rewrite": ("二创", "改写", "改成我的", "爆改", "重写成", "改成"),
+        "article": ("公众号文章", "公众号长文", "公众号推文", "公众号文案", "篇公众号",
+                    "写成文章", "发公众号", "推文", "写篇长文", "篇长文", "公众号"),
+        "strategist": ("获客军师", "选题打分", "评估选题", "这个选题值不值",
+                       "能不能带来客户", "钩子建议", "获客潜力"),
         "qc": ("质检", "违禁词", "检查违禁", "审一下", "能不能发", "查敏感"),
         "qc_video": ("成片质检", "视频质检", "检查成片"),
         "publish_pack": ("发布包", "素材包", "打包发布", "发布素材"),
@@ -1057,6 +1084,8 @@ class ChatOrchestrator:
                 w in low for w in ("出片", "生成视频", "做成视频", "质检", "打包", "小红书")):
             return None
         for cid, words in self._CAP_KEYWORDS.items():
+            if _CAP.is_hidden(cid):      # 本期隐藏的能力不参与关键词路由
+                continue
             for w in words:
                 if w in low:
                     return cid
@@ -1108,10 +1137,19 @@ class ChatOrchestrator:
             rest = rest.strip(" ，。！？、:：\"'")
             if len(rest) >= 6:
                 miss = _CAP.missing_params(cid, vals)
-                for p in miss:
-                    if p.get("type") in ("textarea", "text"):
-                        vals[p["key"]] = rest
+                # 优先填 text 类参数，其次才 textarea；且必须跳过 no_autofill 的。
+                # 原因：不区分类型时，随口说的主题（如"关于公转私"）会被误填进靠前的
+                # textarea 参数（如"参考源稿"），导致后续生成方向整个跑偏。
+                target = None
+                for _t in ("text", "textarea"):
+                    for p in miss:
+                        if p.get("type") == _t and not p.get("no_autofill"):
+                            target = p
+                            break
+                    if target:
                         break
+                if target:
+                    vals[target["key"]] = rest
 
         miss = _CAP.missing_params(cid, vals)
         s["pending_cap"] = {"id": cid, "vals": vals}
@@ -1206,6 +1244,31 @@ class ChatOrchestrator:
                 if r:
                     return r
 
+        # 2.5)【LLM 能力判定】关键词没命中时，用 LLM 判断是不是想调用某个能力。
+        #      刻意不新增调用次数：下面原本就要调 _understand，这里提前调并复用同一份结果。
+        #      （关键词能命中时不走这里，保证"出片""质检"这类明确指令仍是零延迟响应）
+        _u = None
+        if not pc.get("id") and _CAP:
+            try:
+                _u = self._understand(s, message)
+            except Exception:  # noqa: BLE001
+                _u = None
+            if isinstance(_u, dict):
+                _cap_id = _u.get("cap")
+                _act_u = str(_u.get("action") or "")
+                try:
+                    _conf = float(_u.get("cap_confidence") or 0)
+                except Exception:  # noqa: BLE001
+                    _conf = 0.0
+                # action=answer → 用户只是在问问题，强制不进能力（宁可多答，不可误触发）
+                if _cap_id and _act_u != "answer" and _CAP.get(_cap_id) \
+                        and not _CAP.is_hidden(_cap_id):
+                    if _conf >= 0.7:
+                        _r = self._do_capability(s, message, _cap_id)
+                        if _r:
+                            return _r
+                    # 0.4~0.7 不追问，直接放过走普通对话——追问比答错更烦人
+
         # 生产链动作意图（不依赖 LLM，关键词命中即响应）：对话出稿 → 引导走 配音/出片/质检/发布
         action_res = self._detect_pipeline(s, message)
         if action_res:
@@ -1219,7 +1282,8 @@ class ChatOrchestrator:
         # 用户在回答我上一轮的反问 → 接续讨论（除非这条是在下出稿/拆解指令）
         if s.get("pending_question") and not self._is_produce_cmd(message):
             return self._do_followup(s, message)
-        u = self._understand(s, message)
+        # 复用 2.5 已算好的结果，避免重复调 LLM（关键词命中时 _u 为 None，这里现算）
+        u = _u if isinstance(_u, dict) else self._understand(s, message)
         ex = u.get("extract") or {}
         if isinstance(ex, dict):
             for k in ("topic", "audience", "requirement"):
