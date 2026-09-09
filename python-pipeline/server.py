@@ -1375,8 +1375,51 @@ def _ai_article_inner(topic, kw_main, kw_long, region, year, words, style, cta, 
         except Exception:  # noqa: BLE001
             pass
 
+    # —— 字数超标自动压缩 ——
+    # 长文模型最常见的失败点是"写超"（目标 1500 实测能写到 3800+）。
+    # 只压一次，且设两道闸门：超过目标 50% 才触发；压完若反而低于目标 60%
+    # 说明信息损失过大，弃用压缩稿保留原文——宁可长一点，也不能把干货压没。
+    word_count_before = len(body)
+    compressed = False
+    word_note = ""
+    if word_count_before > int(words * 1.5):
+        cut_prompt = (
+            "下面是一篇财税公众号文章，目标 %d 字，但当前写了 %d 字，严重超标。\n"
+            "请压缩到 %d 字左右（允许上下浮动 15%%）。要求：\n"
+            "1) 保留全部小标题骨架与核心结论，只删冗余论述、重复举例和口水句；\n"
+            "2) 主关键词「%s」每千字仍需出现 5-8 次，不许为了省字把关键词删掉；\n"
+            "3) 保留结尾引导语和所有政策文号、年份；\n"
+            "4) 保留段首两个全角空格的排版；\n"
+            "5) 只输出压缩后的正文全文，不要任何说明、不要代码块、不要 Markdown 标记。\n\n"
+            "【原文】\n%s"
+            % (words, word_count_before, words, kw_main, body)
+        )
+        try:
+            cut_raw = deepseek_chat(cut_prompt, cfg["model"], cfg["key"],
+                                    cfg.get("base_url"), timeout=180)
+            if isinstance(cut_raw, dict):
+                cut_raw = cut_raw.get("content") or ""
+            cut = re.sub(r"^```[a-zA-Z]*\s*|\s*```$", "", str(cut_raw or "").strip()).strip()
+            if cut and len(cut) < word_count_before and len(cut) >= int(words * 0.6):
+                body = cut
+                compressed = True
+                word_note = "原稿 %d 字超出目标 %d 字 50%% 以上，已自动压缩至 %d 字" % (
+                    word_count_before, words, len(body))
+            elif cut and len(cut) < int(words * 0.6):
+                word_note = ("原稿 %d 字超标；自动压缩后仅剩 %d 字，信息损失过大，"
+                             "已保留原稿，建议手动删减" % (word_count_before, len(cut)))
+            else:
+                word_note = ("原稿 %d 字超出目标 %d 字 50%% 以上，自动压缩未成功，"
+                             "建议手动删减" % (word_count_before, words))
+        except Exception as e:  # noqa: BLE001
+            word_note = "原稿 %d 字超标，自动压缩调用失败（%s），建议手动删减" % (
+                word_count_before, e)
+    elif word_count_before < int(words * 0.6):
+        word_note = "成稿 %d 字，明显少于目标 %d 字，建议补充案例或法条依据" % (
+            word_count_before, words)
+
     # —— SEO 自检（复用 seo_check 的纯规则实现，不二次调 LLM） ——
-    # 字数偏离 ±25% 也不重生成：一次长文成本太高，只在 meta 里回给前端提示。
+    # 压缩后的正文才做 SEO 评分，否则评分的是被丢弃的旧稿，前端会看到对不上的分数。
     seo = {}
     try:
         import seo_check
@@ -1402,9 +1445,15 @@ def _ai_article_inner(topic, kw_main, kw_long, region, year, words, style, cta, 
         "seo_report": seo,
         "word_count": word_count,
         "target_words": words,
+        "compressed": compressed,
+        "word_count_before": word_count_before,
+        "word_note": word_note,
         "meta": {
             "word_count": word_count,
             "target_words": words,
+            "word_count_before": word_count_before,
+            "compressed": compressed,
+            "word_note": word_note,
             "model": cfg.get("model") or "",
             "kw_main": kw_main, "kw_long": kw_long,
             "region": region, "year": year,

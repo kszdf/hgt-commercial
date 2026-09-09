@@ -162,7 +162,14 @@ class ArticleController extends Controller
                 'seo_report'   => $j['seo_report'] ?? $j['items'] ?? null,
                 'word_count'   => (int) ($j['word_count'] ?? mb_strlen($content)),
                 'hit_count'    => (int) ($j['hit_count'] ?? ($j['stats']['banned_hits'] ?? 0)),
-                'meta'         => ['topic' => $data['topic'], 'audience' => $data['audience'] ?? ''],
+                // 字数压缩信息：出稿时若超目标 50% 会自动压缩一次，落库供前端给用户提示
+                'meta'         => [
+                    'topic'             => $data['topic'],
+                    'audience'          => $data['audience'] ?? '',
+                    'word_note'         => $j['word_note'] ?? '',
+                    'compressed'        => (bool) ($j['compressed'] ?? false),
+                    'word_count_before' => (int) ($j['word_count_before'] ?? 0),
+                ],
             ]);
 
             return response()->json(['ok' => true, 'article' => $this->articlePayload($article)]);
@@ -519,6 +526,8 @@ class ArticleController extends Controller
             'seo_report'        => $a->seo_report,
             'word_count'        => (int) $a->word_count,
             'hit_count'         => (int) $a->hit_count,
+            'word_note'         => (string) ($a->meta['word_note'] ?? ''),
+            'compressed'        => (bool) ($a->meta['compressed'] ?? false),
             'wechat_media_id'   => (string) $a->wechat_media_id,
             'wechat_article_url' => (string) $a->wechat_article_url,
             'reviewed_at'       => $a->reviewed_at ? $a->reviewed_at->format('Y-m-d H:i') : null,

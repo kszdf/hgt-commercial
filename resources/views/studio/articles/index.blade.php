@@ -68,6 +68,9 @@
                                 @if($a->hit_count > 0)
                                     <span class="rounded bg-red-50 px-1.5 py-0.5 text-xs text-red-600">违禁词 {{ $a->hit_count }}</span>
                                 @endif
+                                @if(!empty($a->meta['compressed']))
+                                    <span class="rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-600">已自动压缩</span>
+                                @endif
                             </div>
                             <p class="mt-1 text-xs text-slate-400">{{ $a->excerpt(80) }}</p>
                             <p class="mt-1 text-xs text-slate-400">
@@ -77,6 +80,9 @@
                                 · {{ $a->created_at ? $a->created_at->format('Y-m-d H:i') : '-' }}
                                 @if($a->published_at) · 已群发 {{ $a->published_at->format('Y-m-d H:i') }} @endif
                             </p>
+                            @if(!empty($a->meta['word_note']))
+                                <p class="mt-1 text-xs text-amber-600">{{ $a->meta['word_note'] }}</p>
+                            @endif
                         </div>
 
                         <div class="flex shrink-0 flex-wrap items-center gap-2">
@@ -170,6 +176,7 @@ async function viewArticle(id) {
             '<span class="rounded bg-slate-100 px-1.5 py-0.5">' + (a.status_label || '') + '</span>' +
             '<span class="rounded bg-slate-100 px-1.5 py-0.5">SEO ' + (a.seo_score || 0) + '</span>' +
             '<span class="rounded bg-slate-100 px-1.5 py-0.5">' + (a.word_count || 0) + ' 字</span>' +
+            (a.compressed ? '<span class="rounded bg-amber-50 px-1.5 py-0.5 text-amber-600" title="' + (a.word_note || '') + '">已自动压缩</span>' : '') +
             (a.region ? '<span class="rounded bg-slate-100 px-1.5 py-0.5">' + a.region + '</span>' : '') +
             (a.wechat_article_url ? '<a class="text-brand-600 hover:underline" target="_blank" href="' + a.wechat_article_url + '">已群发文章链接</a>' : '');
         document.getElementById('mBody').textContent = a.content || '';

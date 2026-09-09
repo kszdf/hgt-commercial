@@ -19,6 +19,7 @@ use App\Http\Controllers\XhsController;
 use App\Http\Controllers\FootageController;
 use App\Http\Controllers\PublishPackController;
 use App\Http\Controllers\ArticleController;
+use App\Http\Controllers\ZhikuController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -170,6 +171,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/articles/{article}/approve', [ArticleController::class, 'approve'])->name('studio.articles.approve');
     Route::post('/studio/articles/{article}/publish', [ArticleController::class, 'publish'])->name('studio.articles.publish');
     Route::delete('/studio/articles/{article}', [ArticleController::class, 'destroy'])->name('studio.articles.destroy');
+
+    // ---- 智库（AI 财税顾问独立页，原 advisor_chat 对话能力升级而来；问答不落库）----
+    Route::get('/studio/zhiku', [ZhikuController::class, 'index'])->name('studio.zhiku');
+    Route::post('/studio/zhiku/ask', [ZhikuController::class, 'ask'])->name('studio.zhiku.ask');
 
     Route::get('/studio/covers', [CoverAssetController::class, 'index'])->name('studio.covers');
     Route::get('/studio/covers/json', [CoverAssetController::class, 'coversJson']);
