@@ -1202,7 +1202,9 @@ ARTICLE_PROMPT = (
     "【排版硬约束】\n"
     "- 段首空两格，用全角空格（　）实现，不要用半角空格凑\n"
     "- 单段不超过 5 行，段与段之间空一行\n"
-    "- 不使用任何 Markdown 语法（不要 #、**、-、> 等符号），纯文本分段\n"
+    "- 小标题必须单独一行且以 `## ` 开头（例如「## 被稽查后第一步做什么」）；\n"
+    "  这是结构标记，系统会转成公众号排版，不会出现在成稿里，**必须写，否则 SEO 检测不到小节**\n"
+    "- 除小标题的 `## ` 外，正文不要使用 **、-、> 等 Markdown 符号，纯文本分段、段首两个全角空格\n"
     "- emoji 全文不超过 2 个\n"
     "- 数字写全称（如'二十万元'），法条原文除外\n\n"
     "【内容铁律】\n"
@@ -1223,6 +1225,34 @@ ARTICLE_PROMPT = (
     "3) 3-5 个带小标题的分节，逐层把问题讲透（是什么 / 为什么 / 怎么办 / 注意什么）\n"
     "4) 结论段 + 结尾引导（CTA），CTA 只用给定的那一种，不要自创\n"
 )
+
+
+def _article_to_html(body):
+    """把带 `## ` 小标题的纯文本正文转成公众号可用的 HTML。
+
+    只处理两件事：`## 小标题` → <h2>，其余非空行 → <p>（段首全角空格原样保留）。
+    刻意不做完整 Markdown 解析——正文里本就不该有其它标记，真遇到了也原样输出，
+    避免解析器把内容当语法吃掉。
+    """
+    try:
+        from html import escape as _esc
+    except Exception:  # noqa: BLE001
+        def _esc(s):
+            return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    out = []
+    for line in (body or "").splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        m = re.match(r"^#{2,3}\s+(.*)$", s)
+        if m:
+            out.append('<h2 style="margin:20px 0 10px;">%s</h2>' % _esc(m.group(1).strip()))
+        else:
+            # 段首缩进必须用 text-indent 样式：微信编辑器会折叠 HTML 里的普通空格，
+            # 单纯保留段首全角空格不可靠。纯文本版 content 仍保留全角空格。
+            out.append('<p style="text-indent:2em;margin:0 0 12px;line-height:1.75;">%s</p>'
+                       % _esc(s))
+    return "\n".join(out)
 
 
 def ai_article(topic, kw_main="", kw_long="", region="全国", year="", words="2000",
@@ -1285,14 +1315,14 @@ def _ai_article_inner(topic, kw_main, kw_long, region, year, words, style, cta, 
         "- 地域词：%s\n"
         "- 时效年份：%s\n"
         "- 目标字数：%d 字【硬约束：实际字数必须接近这个数，宁可写少绝不能写超；"
-        "写超 50%% 以上视为不合格。这是最常见的失败点，正文写完后请自行数一遍】\n"
+        "写超 40%% 以上视为不合格。这是最常见的失败点，正文写完后请自行数一遍】\n"
         "- 文章结构：%s\n"
         "- 结尾引导：%s\n"
         "%s%s\n\n"
         "请严格按以下四段输出，不要代码块、不要多余说明：\n"
         "【标题】\n（3 个备选标题，一行一个；第 1 条为正式采用标题）\n\n"
         "【摘要】\n（55-80 字）\n\n"
-        "【正文】\n（全文，含小标题、配图建议位与结尾引导）\n\n"
+        "【正文】\n（全文；小标题用 `## ` 开头单独成行，另含配图建议位与结尾引导）\n\n"
         "【标签】\n（3-5 个，形如 #关键词 #关键词）\n"
         % (topic, kw_main, kw_long or "（未提供，请你自行补充 2-3 个）",
            region or "全国（不强调地域）", year or "（按当前年份）",
@@ -1350,6 +1380,11 @@ def _ai_article_inner(topic, kw_main, kw_long, region, year, words, style, cta, 
         tags = re.findall(r"#\s*([^\s#,，、]{1,10})", body)
     tags = tags[:5]
 
+    # 摘要超 80 字主动截断：微信 digest 与搜一搜都只取前 80 字左右，
+    # 让模型自由发挥经常写到 90+，被平台截断后会剩半句话，不如这里截到句读处
+    if len(digest) > 80:
+        digest = digest[:79].rstrip("，。、；：,;:　 ") + "…"
+
     # —— 违禁词后置处理：长文只硬拦 high 级 ——
     # 长文（1500-3500 字）里"最/第一/免费"这类弱词命中率远高于口播稿，
     # 照搬口播稿的"命中即清洗"会把文章改得面目全非，所以：
@@ -1377,16 +1412,16 @@ def _ai_article_inner(topic, kw_main, kw_long, region, year, words, style, cta, 
 
     # —— 字数超标自动压缩 ——
     # 长文模型最常见的失败点是"写超"（目标 1500 实测能写到 3800+）。
-    # 只压一次，且设两道闸门：超过目标 50% 才触发；压完若反而低于目标 60%
+    # 只压一次，且设两道闸门：超过目标 40% 才触发；压完若反而低于目标 60%
     # 说明信息损失过大，弃用压缩稿保留原文——宁可长一点，也不能把干货压没。
     word_count_before = len(body)
     compressed = False
     word_note = ""
-    if word_count_before > int(words * 1.5):
+    if word_count_before > int(words * 1.4):
         cut_prompt = (
             "下面是一篇财税公众号文章，目标 %d 字，但当前写了 %d 字，严重超标。\n"
             "请压缩到 %d 字左右（允许上下浮动 15%%）。要求：\n"
-            "1) 保留全部小标题骨架与核心结论，只删冗余论述、重复举例和口水句；\n"
+            "1) 保留全部小标题骨架（含 `## ` 标记）与核心结论，只删冗余论述、重复举例和口水句；\n"
             "2) 主关键词「%s」每千字仍需出现 5-8 次，不许为了省字把关键词删掉；\n"
             "3) 保留结尾引导语和所有政策文号、年份；\n"
             "4) 保留段首两个全角空格的排版；\n"
@@ -1403,37 +1438,53 @@ def _ai_article_inner(topic, kw_main, kw_long, region, year, words, style, cta, 
             if cut and len(cut) < word_count_before and len(cut) >= int(words * 0.6):
                 body = cut
                 compressed = True
-                word_note = "原稿 %d 字超出目标 %d 字 50%% 以上，已自动压缩至 %d 字" % (
+                word_note = "原稿 %d 字超出目标 %d 字 40%% 以上，已自动压缩至 %d 字" % (
                     word_count_before, words, len(body))
             elif cut and len(cut) < int(words * 0.6):
                 word_note = ("原稿 %d 字超标；自动压缩后仅剩 %d 字，信息损失过大，"
                              "已保留原稿，建议手动删减" % (word_count_before, len(cut)))
             else:
-                word_note = ("原稿 %d 字超出目标 %d 字 50%% 以上，自动压缩未成功，"
+                word_note = ("原稿 %d 字超出目标 %d 字 40%% 以上，自动压缩未成功，"
                              "建议手动删减" % (word_count_before, words))
         except Exception as e:  # noqa: BLE001
             word_note = "原稿 %d 字超标，自动压缩调用失败（%s），建议手动删减" % (
                 word_count_before, e)
+    elif word_count_before > int(words * 1.15):
+        word_note = ("成稿 %d 字，超出目标 %d 字 15%% 以上但未达自动压缩线，"
+                     "如需更精炼可手动删减" % (word_count_before, words))
     elif word_count_before < int(words * 0.6):
         word_note = "成稿 %d 字，明显少于目标 %d 字，建议补充案例或法条依据" % (
             word_count_before, words)
 
+    # —— 话题标签回填正文末尾 ——
+    # 上面的切分会把模型写在正文末尾的 #标签 摘走（存进独立的 tags 字段），
+    # 但搜一搜与公众号推荐看的是正文里的话题标签，这里补回文末。
+    body_md = body
+    if tags:
+        body_md = body_md.rstrip() + "\n" + " ".join("#" + t for t in tags)
+
     # —— SEO 自检（复用 seo_check 的纯规则实现，不二次调 LLM） ——
     # 压缩后的正文才做 SEO 评分，否则评分的是被丢弃的旧稿，前端会看到对不上的分数。
+    # 必须传 body_md（保留 ## 与标签），否则 R12 数不到小标题、R15 数不到标签。
     seo = {}
     try:
         import seo_check
-        seo = seo_check.check(title, digest, body, kw_main, kw_long, region, year) or {}
+        seo = seo_check.check(title, digest, body_md, kw_main, kw_long, region, year) or {}
     except Exception:  # noqa: BLE001
         seo = {}
 
-    word_count = len(body)
+    # content = 去掉 ## 的纯文本版（人工编辑/纯文本场景用）
+    # content_html = 带 <h2>/<p> 的 HTML（推送公众号用，Laravel 侧直接取这个字段）
+    content_plain = re.sub(r"^\s*#{2,3}\s+", "", body_md, flags=re.M)
+    content_html = _article_to_html(body_md)
+    word_count = len(content_plain)
     return {
         "ok": True,
         "title": title,
         "titles": titles,
         "digest": digest,
-        "content": body,
+        "content": content_plain,
+        "content_html": content_html,
         "tags": tags,
         "hits": hits[:30],
         "hit_count": len(hits),
@@ -1483,6 +1534,10 @@ def _ai_article_keywords_inner(topic, region, count):
     cfg = get_text_config() or {}
     if not cfg.get("key"):
         return {"ok": False, "error": "未配置文本模型"}
+    topic = str(topic or "").strip()
+    if not topic:
+        # 空主题必须早退：否则会带着空主题去调一次 LLM，白烧一次调用还让用户干等 20s+
+        return {"ok": False, "error": "缺少文章主题"}
     try:
         count = max(1, min(30, int(count)))
     except Exception:  # noqa: BLE001
@@ -1497,7 +1552,7 @@ def _ai_article_keywords_inner(topic, region, count):
         "3. 每个词标注意图（只能是 信息/对比/交易/本地 四者之一）与商业价值 1-5 分\n"
         "4. 按商业价值降序，只输出前 %d 个\n\n"
         "只输出 JSON 数组，每项：{\"kw\":\"\",\"intent\":\"\",\"value\":5,\"why\":\"\"}\n"
-        % (str(topic or "").strip(), ("，地域限定「%s」" % region if region else ""), count)
+        % (topic, ("，地域限定「%s」" % region if region else ""), count)
     )
     try:
         raw = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
