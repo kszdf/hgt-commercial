@@ -1227,6 +1227,39 @@ ARTICLE_PROMPT = (
 )
 
 
+def _strip_model_meta(body):
+    """清掉模型混进正文里的「自我纠正独白」与残留标记。
+
+    实测案例：模型先输出一版，接着自己点评（"这段写得太像引用？…非常重要。
+    现在用最终内容…重新输出正文如下"），再写第二遍，中间还夹着裸的【正文】标记。
+    这类元叙述一旦进正文，成稿直接废掉，且人工不易发现。
+    这里做三件事：删强特征元指令段、删正文内残留的【xx】标记行、去掉整段被引号包裹的外层引号。
+    """
+    if not body:
+        return body
+    # 这些词在财税正文里几乎不可能出现，误伤风险极低；限长 120 字避免误删长段落
+    meta_pat = re.compile(
+        r"重新输出|非常重要|不得再|上面我|这段写得|现在用最终|以下为最终|修正如下|"
+        r"请忽略以上|重新生成|正文不要|不要加引号|保留首行|重新写一遍|我重新|"
+        r"注意正文|注意不要|上面加了|实际上输出|开篇段落")
+    out = []
+    for line in body.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        # 正文里残留的裸标记行（如第二遍开头又写了个【正文】）
+        if re.match(r"^【[^】]{1,8}】\s*$", s):
+            continue
+        if len(s) < 120 and meta_pat.search(s):
+            continue
+        # 整段被中文引号包裹时去掉外层引号，但保留原有缩进
+        if len(s) > 20 and s.startswith("“") and s.endswith("”"):
+            indent = line[:len(line) - len(line.lstrip())]
+            line = indent + s[1:-1]
+        out.append(line.rstrip())
+    return "\n".join(out)
+
+
 def _article_to_html(body):
     """把带 `## ` 小标题的纯文本正文转成公众号可用的 HTML。
 
@@ -1315,11 +1348,12 @@ def _ai_article_inner(topic, kw_main, kw_long, region, year, words, style, cta, 
         "- 地域词：%s\n"
         "- 时效年份：%s\n"
         "- 目标字数：%d 字【硬约束：实际字数必须接近这个数，宁可写少绝不能写超；"
-        "写超 40%% 以上视为不合格。这是最常见的失败点，正文写完后请自行数一遍】\n"
+        "写超 40%% 以上视为不合格】\n"
         "- 文章结构：%s\n"
         "- 结尾引导：%s\n"
         "%s%s\n\n"
-        "请严格按以下四段输出，不要代码块、不要多余说明：\n"
+        "请严格按以下四段输出。重要：只给最终成稿，不要输出任何思考过程、自我检查、\n"
+        "修改说明，也不要把同一篇正文写两遍。不要代码块、不要多余说明：\n"
         "【标题】\n（3 个备选标题，一行一个；第 1 条为正式采用标题）\n\n"
         "【摘要】\n（55-80 字）\n\n"
         "【正文】\n（全文；小标题用 `## ` 开头单独成行，另含配图建议位与结尾引导）\n\n"
@@ -1348,13 +1382,16 @@ def _ai_article_inner(topic, kw_main, kw_long, region, year, words, style, cta, 
     m = re.search(r"【摘要】\s*(.*?)\s*【正文】", text, re.S)
     if m:
         digest = m.group(1).strip()
-    m = re.search(r"【正文】\s*(.*?)\s*【标签】", text, re.S)
+    # 模型偶尔会先写一版、再自我点评一番（实测出现过"这段写得太像引用…重新输出正文如下"），
+    # 然后输出第二遍。取【最后一个】【正文】块，避免独白和重复内容进正文。
+    _parts = re.split(r"【正文】", text)
+    _body_src = _parts[-1] if len(_parts) > 1 else text
+    m = re.search(r"(.*?)\s*【标签】", _body_src, re.S)
     if m:
         body = m.group(1).strip()
     else:
-        m = re.search(r"【正文】\s*(.*)", text, re.S)
-        if m:
-            body = m.group(1).strip()
+        body = _body_src.strip()
+    body = _strip_model_meta(body)
     m = re.search(r"【标签】\s*(.*)", text, re.S)
     if m:
         tag_text = m.group(1).strip()
