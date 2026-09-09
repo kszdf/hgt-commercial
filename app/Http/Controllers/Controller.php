@@ -16,12 +16,18 @@ abstract class Controller extends BaseController
     protected function studioTenant(Request $request): Tenant
     {
         $user = $request->user();
-        if ($user && $user->isGlobalAdmin()) {
+        // 回退链：优先 pro/enterprise 租户，其次任意租户，最后空模型（保证永不返回 null）
+        $fallback = function () {
             return Tenant::whereIn('plan', ['pro', 'enterprise'])->first()
                 ?? Tenant::first()
                 ?? new Tenant();
+        };
+        if ($user && $user->isGlobalAdmin()) {
+            return $fallback();
         }
-        return $user->tenant;
+        // 普通用户：tenant_id 可能在 tenants 表已无对应记录（历史脏数据/测试数据），
+        // 直接 return $user->tenant 会返回 null → TypeError 500。这里统一兜底，禁止返回 null。
+        return ($user && $user->tenant) ? $user->tenant : $fallback();
     }
 
     /**
