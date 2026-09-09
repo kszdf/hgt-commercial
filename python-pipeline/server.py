@@ -2255,7 +2255,15 @@ def _publish_job(job_id, platforms, data):
         content = str(data.get("description") or data.get("content") or "")
         if not content.strip():
             return [{"error": "content required for mode=article"}]
+        content_html = str(data.get("content_html") or "")
         cover = data.get("cover_path") or ""
+        # 封面兜底：未提供封面时自动生成黑金横版封面，保证 draft/add 不缺 thumb_media_id 而失败；
+        # 用户可在公众号后台草稿箱里替换成自己设计的封面。
+        if not cover:
+            try:
+                cover = _wechat_article_cover(title, "慧根堂财税")
+            except Exception:
+                cover = ""
         unknown = [p for p in platforms if p not in supported]
         if unknown:
             return [{"error": f"unsupported platform(s): {unknown}", "supported": supported_platforms()}]
@@ -2272,6 +2280,7 @@ def _publish_job(job_id, platforms, data):
                 req = PublishRequest(
                     tenant_id=tenant_id, platform=p,
                     title=title, description=content, cover_path=cover,
+                    content_html=content_html,
                     credential_ref=cred_ref, extra=data.get("extra") or {},
                 )
                 res = pub.publish(req, job_id)
@@ -2896,6 +2905,57 @@ def run_job(job_id, payload):
                 active_by_tenant[tenant_id] -= 1
                 if active_by_tenant[tenant_id] <= 0:
                     del active_by_tenant[tenant_id]
+
+
+def _wechat_article_cover(title, brand="慧根堂财税", out_path=None):
+    """生成微信图文封面（横版 900×383，深底+金线+标题），供文章送草稿箱兜底。
+
+    文章出稿默认不带封面，而微信 draft/add 强制要求 thumb_media_id；未提供封面时
+    自动生成一张黑金风格横版封面，保证推送不缺封面而失败。用户可在公众号后台
+    草稿箱里替换成自己设计的封面（更贴合账号调性）。字体缺失时回退默认字体，
+    绝不抛异常（调用方已 try 包裹，失败仅视为「无封面」）。
+    """
+    from PIL import Image, ImageDraw, ImageFont
+    import tempfile
+    W, H = 900, 383
+    if not out_path:
+        out_path = os.path.join(tempfile.gettempdir(), "hgt_cover_%s.png" % uuid.uuid4().hex[:10])
+    img = Image.new("RGB", (W, H), (14, 17, 24))
+    d = ImageDraw.Draw(img)
+    # 顶部到底部轻微竖向渐变
+    for y in range(H):
+        t = y / H
+        c = tuple(int(a + (b - a) * t) for a, b in zip((20, 24, 34), (10, 12, 18)))
+        d.line([(0, y), (W, y)], fill=c)
+    gold = (212, 175, 92)
+    try:
+        f_brand = ImageFont.truetype(r"C:/Windows/Fonts/simhei.ttf", 26)
+        f_title = ImageFont.truetype(r"C:/Windows/Fonts/NotoSerifSC-VF.ttf", 46)
+        f_tag = ImageFont.truetype(r"C:/Windows/Fonts/simhei.ttf", 22)
+    except Exception:
+        f_brand = f_title = f_tag = ImageFont.load_default()
+    d.text((W // 2, 64), brand, font=f_brand, fill=gold, anchor="mm")
+    d.line([(W // 2 - 120, 96), (W // 2 + 120, 96)], fill=gold, width=2)
+    # 标题自动折行（≤2 行）
+    max_w = W - 140
+    lines, cur = [], ""
+    for ch in (title or ""):
+        if d.textlength(cur + ch, font=f_title) > max_w:
+            lines.append(cur)
+            cur = ch
+        else:
+            cur += ch
+    if cur:
+        lines.append(cur)
+    lines = lines[:2]
+    y = 150 + (1 - len(lines)) * 30
+    for ln in lines:
+        d.text((W // 2, y), ln, font=f_title, fill=(245, 240, 230), anchor="mm")
+        y += 76
+    d.line([(W // 2 - 150, y + 6), (W // 2 + 150, y + 6)], fill=gold, width=2)
+    d.text((W // 2, y + 40), "每日财税干货 · 关注不迷路", font=f_tag, fill=(150, 156, 170), anchor="mm")
+    img.save(out_path, "PNG")
+    return out_path
 
 
 def _black_gold_cover(title, subtitle, brand="追梦"):
@@ -3865,6 +3925,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "title": title,
                 "description": content,
                 "content": content,
+                "content_html": data.get("content_html") or "",
                 "cover_path": data.get("cover_path") or "",
                 "extra": data.get("extra") or {},
                 "tenant_id": data.get("tenant_id") or "default",

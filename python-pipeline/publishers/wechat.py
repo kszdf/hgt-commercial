@@ -385,10 +385,12 @@ class WechatMpPublisher(BasePublisher):
             )
 
         # ---- 图文文章：标题 + 正文(description 多段) + 封面图 thumb → draft/add 入草稿箱 ----
-        if not req.video_path and ((req.description or "").strip() or req.cover_path):
+        if not req.video_path and (((req.description or "").strip() or (req.content_html or "").strip()) or req.cover_path):
             extra = req.extra or {}
             paragraphs = [p.strip() for p in (req.description or "").split("\n") if p.strip()]
-            if not paragraphs:
+            # 优先用预排版 HTML（保留 h2/段首缩进）；仅在无 HTML 时才要求 description 有段落
+            has_html = bool((req.content_html or "").strip())
+            if not paragraphs and not has_html:
                 return PublishResult(platform=self.platform_key, status=PublishStatus.FAILED,
                                      error_code="EMPTY_CONTENT", error_message="正文不能为空")
             thumb_id = ""
@@ -407,7 +409,8 @@ class WechatMpPublisher(BasePublisher):
                     platform=self.platform_key, status=PublishStatus.FAILED,
                     error_code="NO_COVER",
                     error_message="请提供封面图：公众号草稿必须指定封面。请在文章页上传封面后重试（建议 900×383 像素 JPG/PNG）。")
-            content = self._build_content(paragraphs, token)
+            # 有预排版 HTML 直接用（不再按 \n 切段丢层级）；否则回退段落拼装
+            content = (req.content_html or "").strip() if has_html else self._build_content(paragraphs, token)
             digest = str(extra.get("digest") or "").strip() or _plain_text(req.description or "")[:80]
             payload = {
                 "articles": [{

@@ -53,6 +53,7 @@ class PublishRequest:
     description: str = ""         # 作品描述/正文
     tags: list[str] = field(default_factory=list)      # 话题标签
     cover_path: Optional[str] = None                  # 封面图路径（可选，图文笔记可单独指定封面）
+    content_html: Optional[str] = None                 # 预排版 HTML（公众号图文用，优先于 description 拼装）
     extra: dict = field(default_factory=dict)          # 平台专属扩展（如 douyin 的 poi_id、youtube 的 privacy_status）
     credential_ref: Optional[str] = None               # 租户在该平台的凭证引用键（真实 secret 不落库）
 
