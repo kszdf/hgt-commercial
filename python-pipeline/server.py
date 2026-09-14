@@ -12,7 +12,7 @@
     GET  /health                     -> {"status":"ok"}
     POST /generate                   -> {"job_id","status":"queued"}
          body: {
-           "mode": "scroll" | "avatar",
+           "mode": "scroll" | "avatar" | "motion" | "manga" | "whiteboard" | "card",
            "dialogue": "...(女：/男： 对话体)",
            "title": "...", "subtitle": "...",
            "bg": "可选背景图",
@@ -48,7 +48,10 @@
     - dry_tts=false（默认）走真实 TTS，需 model_keys.env 中的 dashscope key 与联网。
   - scroll 模式：多声（女：/男：）滚动字幕卡，不出镜。
   - motion 模式：幕后音·动态画面（对标视频号「建筑财税张老师」风格）——男声/女声/男女对话配音 +
-    底部大字字幕 + 动态GIF/生图场景（已取消"智能图解"信息卡），不出镜。
+    底部大字字幕 + 动态GIF/生图场景，不出镜。
+  - card 模式：图解版（信息卡片解说）——稿子 → AI 分屏（哪几句合成一屏/用哪种卡片）→
+    米色卡片 + 元素跟口播逐条浮现 + 底部大字字幕 + 单声配音，不出镜。
+    与 motion 的区别：画面不是生图/GIF，而是把讲的话变成看得见的信息卡（数字/法条/对比）。
   - avatar 模式：单人独白（统一单声线，取消男女对话）；数字人形象为单人出镜，「女：/男：」对话前缀会被自动忽略，整稿用所选单一声线配音。
     - Laravel 容器经 host.docker.internal:8500 调用本服务，服务本身不对外暴露。
 """
@@ -66,12 +69,12 @@ import time
 import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed, wait
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, quote
 
 GPT_SOVITS = r"D:/heygem_data/gpt_sovits"
 # 复用 gpt_sovits 侧已验证的 DeepSeek 写稿封装与违禁词库（key 不进 Laravel，仅本机 model_keys.env）
 sys.path.insert(0, GPT_SOVITS)
-from model_providers import get_text_config, deepseek_chat, ensure_env, tavily_search, get_key  # noqa: E402
+from model_providers import get_text_config, deepseek_chat, ensure_env, tavily_search, get_key, get_planning_config  # noqa: E402
 from asset_fetcher import fetch_policy_asset  # noqa: E402  （政策原文素材采集器）
 import forbidden_words  # noqa: E402
 # 本地 ASR（FunASR）：tools/asr 无 __init__.py，用 sys.path 注入目录后直接 import；
@@ -97,9 +100,11 @@ from footage_edit import edit_footage  # noqa: E402  （真人素材自动精剪
 import requests  # noqa: E402
 import secrets  # noqa: E402
 
-# OAuth2 授权码模式（抖音/小红书）回调基地址；生产可经 env OAUTH_REDIRECT_BASE 覆盖
-OAUTH_REDIRECT_BASE = os.environ.get("OAUTH_REDIRECT_BASE",
-                                     "http://124.222.33.233:8500")
+# OAuth2 授权码模式（抖音/小红书）回调基地址。
+# 抖音开放平台要求回调地址为「已备案域名（https）」，不接受 IP+端口形式；
+# zmgen.cn 已由云 nginx 把 /oauth/* 转发到本服务（实测 200），故默认用它。
+# 可用 env OAUTH_REDIRECT_BASE 覆盖。
+OAUTH_REDIRECT_BASE = os.environ.get("OAUTH_REDIRECT_BASE", "https://zmgen.cn")
 _OAUTH_STATES = {}  # state -> {"platform": str, "exp": float} 防 CSRF 重放
 _OAUTH_STATE_TTL = 600  # state 有效期 10 分钟
 
@@ -184,16 +189,27 @@ HOTSPOT_SEED = [
 
 # ============ AI 文本能力（选题 / 二创，复用 gpt_sovits 的 DeepSeek + 违禁词）============
 def _extract_json_array(text):
-    """从文本中提取第一个 JSON 数组；找不到返回 None。容忍 ``` 包裹与前后多余文本。"""
+    """从文本中提取第一个 JSON 数组；找不到返回 None。容忍 ``` 包裹、字符串化 JSON、前后多余文本。"""
     if not text:
         return None
     text = text.strip()
+    # 模型有时会返回被转义的字符串，如 '"[{...}]"'；先尝试 json.loads，如果是 str 再解一次
     try:
         obj = json.loads(text)
         if isinstance(obj, list):
             return obj
+        if isinstance(obj, str):
+            text = obj.strip()
+            try:
+                obj2 = json.loads(text)
+                if isinstance(obj2, list):
+                    return obj2
+                if isinstance(obj2, dict):
+                    return [obj2]
+            except Exception:
+                pass
         if isinstance(obj, dict):
-            for key in ("topics", "data", "list", "items", "results"):
+            for key in ("topics", "data", "list", "items", "results", "angles"):
                 if isinstance(obj.get(key), list):
                     return obj[key]
             return [obj]
@@ -249,7 +265,7 @@ HOTSPOT_PROMPT = """你是一位资深的财税短视频选题策划，服务对
     {
       "name": "创作角度名称（如：老板视角/案例警示/政策解读）",
       "suggestion": "针对该角度的具体拍摄建议（1-2句，写清钩子与核心信息）",
-      "form": "呈现形式，取值必须为以下之一：avatar(单人数字人出镜) / motion(幕后音·动态画面) / scroll(幕后音·滚动字幕) / manga(AI漫剧) / whiteboard(AI白板图解)"
+      "form": "呈现形式，取值必须为以下之一：avatar(单人数字人出镜) / motion(幕后音·动态画面) / scroll(幕后音·滚动字幕) / manga(AI漫剧) / whiteboard(AI白板图解) / card(图解版·信息卡片解说)"
     }
   ]
 }
@@ -319,6 +335,16 @@ def _hotspot_debug(lines):
         dbg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hotspot_debug.txt")
         with open(dbg_path, "a", encoding="utf-8") as _f:
             _f.write("\n".join(lines) + "\n")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _chat_debug(lines):
+    """把对话编排器的调试/错误信息追加写到 chat_debug.txt（不影响主逻辑）。"""
+    try:
+        dbg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat_debug.txt")
+        with open(dbg_path, "a", encoding="utf-8") as _f:
+            _f.write("[%s] %s\n" % (datetime.datetime.now().isoformat(), "\n".join(lines)))
     except Exception:  # noqa: BLE001
         pass
 
@@ -505,7 +531,7 @@ def ai_hotspot(days, subfields):
             if not isinstance(a, dict):
                 continue
             f = a.get("form") or ""
-            if f not in ("avatar", "motion", "scroll", "manga", "whiteboard",
+            if f not in ("avatar", "motion", "scroll", "manga", "whiteboard", "card",
                          "scroll_male", "scroll_female", "scroll_dual"):  # 兼容旧值
                 f = "motion"
             angles.append({
@@ -777,7 +803,7 @@ def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, 
         dim_hints.append(f"呈现形式：{form}（每条选题的 form 字段固定为「{form}」）")
     dim_block = "\n".join(f"- {h}" for h in dim_hints) if dim_hints else ""
     prompt = (
-        f"你是资深财税短视频选题策划，服务对象是「{industry or '中小企业'}」老板/企业主。\n"
+        f"你是财税短视频选题策划，服务对象是「{industry or '中小企业'}」老板/企业主。\n"
         f"结合关键词「{keywords or '该行业老板的真实经营场景、财税痛点'}」，"
         f"生成 {cnt} 个面向该行业老板的财税垂直选题。\n"
         "硬性要求：\n"
@@ -785,7 +811,7 @@ def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, 
         "- 选题语气像给老板提醒风险或讲清楚一件事，不空泛、不脱离财税；\n"
         + (f"- 维度约束（必须满足）：\n{dim_block}\n" if dim_block else "")
         + "每个选题严格按 JSON 数组输出，元素结构：\n"
-        '{"title":"标题(吸睛、戳老板痛点,≤18字)","angle":"切入角度/财税痛点","potential":"爆款潜力理由","hook":"结尾留资钩子建议","form":"建议形式，取值：avatar(数字人)/motion(幕后音·动态画面)/scroll(幕后音·滚动字幕)/manga(AI漫剧)/whiteboard(AI白板图解)"}\n'
+        '{"title":"标题(吸睛、戳老板痛点,≤18字)","angle":"切入角度/财税痛点","potential":"爆款潜力理由","hook":"结尾留资钩子建议","form":"建议形式，取值：avatar(数字人)/motion(幕后音·动态画面)/scroll(幕后音·滚动字幕)/manga(AI漫剧)/whiteboard(AI白板图解)/card(图解版·信息卡片解说)"}\n'
         "只输出 JSON 数组，不要任何解释或代码块标记。"
     )
     raw = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
@@ -802,7 +828,7 @@ def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, 
     # 从模型输出中提取 JSON 数组（容忍前后多余文本 / 包装对象）
     arr = _extract_json_array(content)
     if arr is None:
-        return [{"title": "解析失败", "angle": content[:200]}]
+        return None   # 让上层感知失败，避免把"解析失败"当成正常角度塞给用户
     # 归一化为 list[dict]，保证前端安全遍历
     topics = []
     for item in arr:
@@ -817,7 +843,7 @@ def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, 
         elif isinstance(item, str) and item.strip():
             topics.append({"title": item.strip()[:60], "angle": "", "potential": "", "hook": "", "form": form or "短视频"})
     if not topics:
-        return [{"title": "解析失败", "angle": content[:200]}]
+        return None
     return topics[:cnt]
 
 
@@ -862,7 +888,8 @@ def _build_role_instruction(role_mode, role_note, keep_manual_roles, mode):
         "single_female": single_female_inst,
         "dual_female_lead": (
             "男女双声对话，**永远女问男答**：女声只负责开场问好、提问、抛场景、追问确认，绝不解答专业问题；"
-            "所有专业解答、法条引用、结论建议一律由男声（张老师，资深财税专家）给出，体现男声的专家形象。"
+            "所有专业解答、法条引用、结论建议一律由男声（张老师，财税专家）给出，体现男声的专家形象，"
+            "但男声不得自报从业年限、不得自我标榜资历。"
             "女声可以称呼男声为「张老师」（如「张老师，我有个事想问您」「张老师您看这样行吗」），"
             "开头或关键处称呼即可，不必每轮都叫。"
             "女声提问/承接可带自然语气词（「哦，这样啊」「明白了」），显得像真在听；"
@@ -871,7 +898,7 @@ def _build_role_instruction(role_mode, role_note, keep_manual_roles, mode):
             "每行以「女：」或「男：」开头，交替自然。"
         ),
         "dual_male_lead": (
-            "男女双声对话，男声（张老师，资深财税专家）开口引出话题，女声提问/补充，男声解答。"
+            "男女双声对话，男声（张老师，财税专家）开口引出话题，女声提问/补充，男声解答。"
             "所有专业解答一律由男声给出，女声只提问与承接，可以称呼「张老师」。"
             "男声解答直接切入正题，不刻意加'嗯/好的/对的'等应答语气词。"
             "每行以「男：」或「女：」开头，交替自然。"
@@ -987,7 +1014,7 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
 
     # 风格基调（由 mode 控制）
     # v4 定稿(2026-08-27): 专家风格 + 适当语气词 + 快慢高低结合; 严禁网红化/过度口语表述
-    EXPERT_TONE = ("资深财税专家/实战顾问的口播风格：专业权威但不端着，像经验丰富的老师傅把一件事给老板讲明白；"
+    EXPERT_TONE = ("财税专家/实战顾问的口播风格：专业但不能端着，像老师傅把一件事给老板讲明白；"
                    "可适当带语气词（'啊''呢''吧''嘛'少量点缀）增强交流感；"
                    "语速快慢结合——重点警示、结论处放慢加重，铺垫衔接处自然加快；"
                    "音调有高低起伏，避免平铺直叙的播音腔；说话干脆利落、不拖长音。")
@@ -999,7 +1026,7 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
     # 亲切是语气, 严谨是内容——"讲得动听"不能变成"讲得不准"
     NARRATIVE_RULE = (
         "【口播分寸铁律——讲故事，但守专业】\n"
-        "- 整体用'讲真事'的自然口吻，像资深财税顾问/律师给老板讲事，亲切但不失专业，不是段子手；\n"
+        "- 整体用'讲真事'的自然口吻，像财税顾问/律师给老板讲事，亲切但不失专业，不是段子手；\n"
         "- 结构按起承转合：起(抛出一个老板熟悉的场景或问题)→承(展开讲清楚)→转(风险/关键转折，制造一点紧张感)"
         "→合(给结论和明确的行动建议)；\n"
         "- 允许用第一人称叙事增加个人色彩('我见过''我处理过''有老板问过我')，口吻真实可信、不吹牛；\n"
@@ -1043,7 +1070,7 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
                  "- 结尾给一句明确结论或行动建议。\n" + EXPERT_TONE)
     else:
         style = ("双声对话：**永远女问男答**——女声(亲切提问/抛场景/称呼'张老师')，"
-                 "男声(资深财税专家'张老师'，负责所有专业解答，权威可信)；"
+                 "男声(财税专家'张老师'，负责所有专业解答，可信但不自夸)；"
                  "男声解答直接切入正题，**不刻意加'嗯/好的/对的/是的'应答语气词**(刻意加显得闷)；"
                  "女声提问可带自然语气词。\n"
                  + EXPERT_TONE)
@@ -1083,7 +1110,7 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
     # content 模式（AI漫剧/白板图解）：不套口播叙事铁律与角色分配，产出内容规整稿
     if mode == "content":
         prompt = (
-            f"你是资深财税内容编辑。请把下面的内容整理为一份「内容规整稿」，供 AI 出片系统直接消费。\n"
+            f"你是财税内容编辑。请把下面的内容整理为一份「内容规整稿」，供 AI 出片系统直接消费。\n"
             f"{ind_hint}"  # 行业背景（选题行业贯穿到二创）
             f"{focus_hint}{preserve_hint}"
             f"{style}"  # content 的完整规则在 style 中
@@ -1171,7 +1198,7 @@ def ai_qc(text, platform=None):
 # 重要认知：百度/谷歌不收录公众号（mp.weixin.qq.com robots.txt 为 Disallow: /），
 # 所以此处的 SEO = 微信站内搜索排名 + 被 AI 搜索引用，不是传统百度 SEO。
 ARTICLE_PROMPT = (
-    "你是资深财税顾问兼微信公众号主编，服务对象是中小企业老板与企业主。\n"
+    "你是财税顾问兼微信公众号主编，服务对象是中小企业老板与企业主。\n"
     "现在写一篇能被微信「搜一搜」搜到、并被微信 AI 搜索优先引用的公众号长文。\n\n"
     "【SEO 前提认知】\n"
     "- 百度/谷歌不收录公众号（mp.weixin.qq.com 的 robots.txt 为 Disallow: /），\n"
@@ -1229,6 +1256,8 @@ ARTICLE_PROMPT = (
     "- 不做硬广、不诱导：不出现价格、不出现加微信、不出现扫码、不出现联系方式，\n"
     "  不写「转发朋友圈」「集赞」「关注我们」这类诱导分享与关注的话术\n"
     "- 禁用第一人称'我'做人设（与口播稿规则相反，这是公众号专属），改用'我们''很多老板''实务中'\n"
+    "- 严禁自我标榜资历：不写「深耕财税X年」「从业X年」「20多年经验」，也不用「资深」「权威」抬自己\n"
+    "  ——读者想了解资历看账号简介即可，正文只讲事、不讲资历\n"
     "- 专业术语后跟一句大白话解释，让非财务出身的老板看得懂\n"
     "- 涉及金额、比例、扣除标准处，附'具体以主管税务机关口径为准'\n\n"
     "【时效与地域】\n"
@@ -1748,13 +1777,15 @@ def ai_deai(text):
 _V2_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 _V2_ADVISOR_PROMPT = (
-    "你是「慧根堂」AI 财税顾问，背靠一位深耕财税20余年、具备税务稽查与历史遗留问题"
+    "你是「慧根堂」AI 财税顾问，背靠一位具备税务稽查与历史遗留问题"
     "处理背景的专家（老张）。面向中小企业老板（决策者，不是会计）做咨询初答。\n"
     "回答铁律：\n"
     "1. 先给结论，再讲依据；口吻冷静专业、讲人话，不堆术语，不客套。\n"
     "2. 法条/政策引用必须真实可溯源（不确定就说不确定，绝不编造文号和数字）。\n"
     "3. 不教逃税、不给规避监管的'技巧'；结尾给合规正解或建议进一步做专项诊断。\n"
-    "4. 控制在 400 字内，分点；最后加一行：'建议带着账面数据做一次 1v1 视频诊断'。"
+    "4. 严禁自我标榜资历：不写「深耕财税X年」「从业X年」「20多年经验」，也不用「资深」抬自己；\n"
+    "   客户想了解资历看账号简介即可，正文只讲事、不讲资历。\n"
+    "5. 控制在 400 字内，分点；最后加一行：'建议带着账面数据做一次 1v1 视频诊断'。"
 )
 
 
@@ -2094,6 +2125,10 @@ TENANT_MAX_JOBS = int(os.environ.get("PIPELINE_TENANT_MAX_JOBS", "2"))       # �
 HARD_TIMEOUT = int(os.environ.get("PIPELINE_HARD_TIMEOUT", "2100"))          # 单任务硬超时 35 分钟（防僵尸）
 REGEN_TIMEOUT = int(os.environ.get("PIPELINE_REGEN_TIMEOUT", "900"))           # 自动重渲染硬超时 15 分钟（兜底重试，远短于主渲染 35 分钟，避免 QC 重试卡死数十分钟）
 MAX_DURATION_SEC = int(os.environ.get("PIPELINE_MAX_DURATION_SEC", "1800"))  # 单次生成时长上限 30 分钟
+# 图解版长片分段（2026-09-11 方案2）：单段渲染安全时长（秒）。成片预估超过它就自动切成多段，
+# 每段各自成一个独立渲染单元（每段耗时远小于 HARD_TIMEOUT）→ 绕开"30 分钟成片需渲 1 小时、
+# 必撞 35 分钟硬超时"的死结；段成品落盘可续跑，全部完成后拼接成整片。
+CARD_SEG_SAFE_SEC = int(os.environ.get("PIPELINE_CARD_SEG_SEC", "360"))
 
 jobs = {}          # job_id -> {"status","out","error","tenant_id","start_ts","step"}
 lock = threading.Lock()
@@ -2463,6 +2498,39 @@ def estimate_duration_sec(dialogue):
     return max(1, round(chars / 4.5))
 
 
+def _split_script_for_card(dialogue, seg_sec=None):
+    """图解版长片切段：把口播稿按「句末标点」切成若干段，每段预估 TTS 时长 ≤ seg_sec。
+    返回 [(seg_index, seg_text), ...]（按顺序）；稿子不超长时返回单段。
+    切句保留标点，段内以换行连接（分屏器按换行分段、按句末标点切句，行为一致）。"""
+    seg_sec = seg_sec or CARD_SEG_SAFE_SEC
+    text = re.sub(r'^\s*(?:女|男|旁白)[:：]\s*', '', dialogue or '', flags=re.M)
+    sents = []
+    for para in [p.strip() for p in text.splitlines() if p.strip()]:
+        buf = ""
+        for ch in para:
+            buf += ch
+            if ch in "。！？!?；;":
+                if buf.strip():
+                    sents.append(buf.strip())
+                buf = ""
+        if buf.strip():
+            sents.append(buf.strip())
+    if not sents:
+        return [(0, dialogue or "")]
+    limit = max(60, int(seg_sec * 4.5))   # 中文约 4.5 字/秒（与 estimate_duration_sec 同口径）
+    groups, cur, cur_len = [], [], 0
+    for s in sents:
+        ln = len(s.replace(" ", ""))
+        if cur and cur_len + ln > limit:
+            groups.append(cur)
+            cur, cur_len = [], 0
+        cur.append(s)
+        cur_len += ln
+    if cur:
+        groups.append(cur)
+    return [(i, "\n".join(g)) for i, g in enumerate(groups)]
+
+
 def _child_env_with_proxy():
     """构造子进程环境：继承当前 env，并显式注入本机代理（127.0.0.1:7897 等），
     保证以 LocalSystem 运行的 8500 服务 spawn 的 python 子进程也能走代理访问外网。
@@ -2489,6 +2557,11 @@ def _child_env_with_proxy():
         env.setdefault("HTTPS_PROXY", proxy)
         env.setdefault("http_proxy", proxy)
         env.setdefault("https_proxy", proxy)
+    # ★ 子脚本统一 UTF-8 输出：Windows 控制台/管道默认 GBK，print 含 emoji(⚠/✅)/生僻字
+    #   会 UnicodeEncodeError 直接把渲染脚本打崩（2026-09-11 avatar 长稿分段即此因）。
+    #   用 setdefault，不覆盖用户显式配置。改这里需 Restart-Service HGTCommercial8500 才生效。
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    env.setdefault("PYTHONUTF8", "1")
     return env
 
 
@@ -2644,14 +2717,85 @@ def _render_with_lock(job_id, args, log_path, timeout=HARD_TIMEOUT, step=None):
     return rc, err
 
 
+def _render_card_segmented(job_id, segs, payload, job_dir, out_path, log_path):
+    """图解版长片分段渲染（2026-09-11 方案2）：把长稿逐段渲染、每段各自成一个独立渲染单元
+    （每段耗时远小于 HARD_TIMEOUT，段成品落盘可复用=断点续跑），全部完成后拼接整片 + 补一次片头。
+    返回 (rc, err)：rc=0 成功；124=某段渲染超时；其它=失败。"""
+    seg_dir = os.path.join(job_dir, "_segs_card")
+    os.makedirs(seg_dir, exist_ok=True)
+    n = len(segs)
+    SCRIPT_CARD = os.path.join(GPT_SOVITS, "make_card_pipeline.py")
+    brand = str(payload.get("brand") or payload.get("ip_name") or "昆山老张讲财税")
+    sub_head = str(payload.get("subtitle") or "").strip()
+    title = str(payload.get("title") or "").strip()
+    mv = payload.get("male_voice") or payload.get("voice") or DEFAULT_MALE
+    seg_outs = []
+    for i, seg_text in segs:
+        seg_out = os.path.join(seg_dir, "seg%d.mp4" % i)
+        if os.path.exists(seg_out) and os.path.getsize(seg_out) > 102400:
+            print("[card-seg] 段%d/%d 已有成品，复用（断点续跑）" % (i + 1, n), flush=True)
+            seg_outs.append(seg_out)
+            continue
+        seg_txt = os.path.join(seg_dir, "seg%d.txt" % i)
+        with open(seg_txt, "w", encoding="utf-8") as f:
+            f.write(seg_text)
+        sargs = [PY310, SCRIPT_CARD, "--text", seg_txt, "--out", seg_out,
+                 "--brand", brand, "--no-intro",
+                 "--seg-index", str(i), "--seg-total", str(n)]
+        if sub_head:
+            sargs += ["--sub", sub_head[:10]]
+        if title and i == 0:      # 标题提示只给首段，避免每段重复出现同名标题
+            sargs += ["--title", title]
+        if mv:
+            sargs += ["--voice", mv]
+        seg_log = os.path.join(seg_dir, "seg%d.log" % i)
+        # 心跳：每段开始刷新 start_ts，避免卡死看门狗按整片耗时误杀长任务
+        _set_job(job_id, start_ts=time.time(), step="rendering",
+                 warning="长片分段渲染中：第 %d/%d 段…" % (i + 1, n))
+        if _is_cancelled(job_id):
+            return (1, "用户已中止")
+        rc, err, ok = 1, "", False
+        for attempt in (1, 2):
+            rc, err = _render_with_lock(job_id, sargs, seg_log,
+                                        timeout=HARD_TIMEOUT, step="rendering")
+            if rc == 0 and os.path.exists(seg_out) and os.path.getsize(seg_out) > 102400:
+                ok = True
+                break
+            print("[card-seg] 段%d 第%d次失败 rc=%s: %s"
+                  % (i + 1, attempt, rc, (err or "")[-200:]), flush=True)
+            if rc == 124:
+                break   # 超时不重试（重试必然同样超时）
+        if not ok:
+            return (rc if rc else 1,
+                    "分段渲染失败（第 %d/%d 段）：%s" % (i + 1, n, (err or "")[-300:]))
+        seg_outs.append(seg_out)
+    # ---- 全部段完成 → 拼接整片（纯 ffmpeg，不占 HEYGEM 渲染锁）----
+    _set_job(job_id, step="rendering", warning="%d 段全部渲染完成，正在拼接整片…" % n)
+    cargs = [PY310, os.path.join(GPT_SOVITS, "concat_segments.py"),
+             "--out", out_path] + seg_outs
+    rc, _, err = run_with_timeout(cargs, GPT_SOVITS, 900, log_path=log_path)
+    if rc != 0 or not os.path.exists(out_path):
+        return (rc if rc else 1, "整片拼接失败：%s" % ((err or "")[-300:]))
+    return (0, "")
+
+
 def run_job(job_id, payload):
     tenant_id = payload.get("tenant_id") or "default"
     edit_style = payload.get("edit_style") or None  # 嵌套自动剪辑：scroll/avatar 成片之上的后处理风格
     try:
         mode = (payload.get("mode") or "scroll").lower()
+        card_segs = None   # 图解版长片分段：非空 = 走分段渲染+拼接（方案2）
         dialogue = payload.get("dialogue", "").strip()
         # 去 BOM（\ufeff）：文件粘贴/上传常带 BOM，会导致首行"女：/男："前缀识别失败
         dialogue = dialogue.lstrip("\ufeff")
+        # ★ 政策文号规范化（显示层）：写稿环节常把「〔2012〕1号」的方括号吃掉 → 粘成「20121号」，
+        #   在此统一修一次（→〔2012〕1号），六种形式的字幕/卡片显示一并受益。
+        #   朗读层另有 qwen_tts 兜底（normalize_for_tts），两层独立、幂等，重复施加无副作用。
+        try:
+            from tts_text_rules import fix_wenhao
+            dialogue = fix_wenhao(dialogue)
+        except Exception as _e:
+            print("fix_wenhao skipped:", _e, flush=True)
         if not dialogue:
             _set_job(job_id, status="failed", error="dialogue required")
             return
@@ -2733,6 +2877,37 @@ def run_job(job_id, payload):
                     "--out", out_path]
             if payload.get("title"):
                 args += ["--title", str(payload["title"])]
+        elif mode == "card":
+            # 图解版（信息卡片解说，2026-09-11 接入）：稿子 → AI 分屏（哪几句合成一屏/用哪种卡片）
+            # → 卡片元素跟口播逐条浮现 + 配音成片。
+            # 铁律：AI 只管「哪几句一屏 + 用哪种卡片」，版面由 make_card_video.py 模板写死，
+            # 永远不会跑偏（当年「智能图解」被砍就死在让 AI 同时管内容+版面）。
+            # 单人单声（同 avatar/manga/whiteboard）：去角色前缀，整稿用所选声线。
+            dialogue = re.sub(r'^\s*(?:女|男|旁白)[:：]\s*', '', dialogue, flags=re.M)
+            with open(dlg_path, "w", encoding="utf-8") as f:
+                f.write(dialogue)
+            SCRIPT_CARD = os.path.join(GPT_SOVITS, "make_card_pipeline.py")
+            args = [PY310, SCRIPT_CARD, "--text", dlg_path, "--out", out_path,
+                    "--brand", str(payload.get("brand") or payload.get("ip_name") or "昆山老张讲财税")]
+            # 固定栏目头副标：优先用副标题（≤10字），缺省由分屏器取稿子首行短标题
+            sub_head = str(payload.get("subtitle") or "").strip()
+            if sub_head:
+                args += ["--sub", sub_head[:10]]
+            if payload.get("title"):
+                args += ["--title", str(payload["title"])]
+            mv = payload.get("male_voice") or payload.get("voice") or d_mv
+            if mv:
+                args += ["--voice", mv]
+            # 长片分段（方案2）：预估成片超过单段安全时长 → 切成多段、逐段独立渲染后拼接。
+            # 必要性：30 分钟成片任何形式都需渲 1 小时以上，单任务必撞 35 分钟硬超时；分段后
+            # 每段各自计时（远小于上限），且段成品落盘可续跑。
+            _est = estimate_duration_sec(dialogue)
+            if _est > CARD_SEG_SAFE_SEC:
+                _cand = _split_script_for_card(dialogue)
+                if len(_cand) > 1:
+                    card_segs = _cand
+                    print("[card] 预估 %ds 超过单段安全时长 %ds → 自动分 %d 段渲染后拼接"
+                          % (_est, CARD_SEG_SAFE_SEC, len(card_segs)), flush=True)
         elif mode == "motion":
             # 幕后音·动态画面（对标视频号「建筑财税张老师」风格）：
             # 男声/女声/男女对话 → 双声 TTS + 动态GIF/生图场景 + 中部滚动字幕（motion_v4 内部完成）
@@ -2844,7 +3019,11 @@ def run_job(job_id, payload):
         if _is_cancelled(job_id):
             _set_job(job_id, status="cancelled", step="cancelled", error="用户已中止")
             return
-        rc, err = _render_with_lock(job_id, args, log_path)
+        if card_segs:
+            # 长片分段：逐段独立渲染（每段各自计时）→ 全部完成后拼接整片
+            rc, err = _render_card_segmented(job_id, card_segs, payload, job_dir, out_path, log_path)
+        else:
+            rc, err = _render_with_lock(job_id, args, log_path)
         if rc == 0 and os.path.exists(out_path):
             if _is_cancelled(job_id):
                 _set_job(job_id, status="cancelled", step="cancelled", error="用户已中止")
@@ -2857,7 +3036,9 @@ def run_job(job_id, payload):
             # 可重生成缺陷（音频缺失 / 中段静音）→ 触发一次上游重渲染，而非输出次品
             regen_codes = {"no_audio", "mid_silence"}
             needs_regen = any(i.get("code") in regen_codes for i in qc.get("issues", []))
-            if needs_regen and not payload.get("_regen"):
+            # 分段长片不做同步兜底重渲染：regen 会用单段参数重跑整稿（超长必超时），
+            # 且分段成品已落盘、重跑代价极高；交由 QC 透明告警 + 用户决定。
+            if needs_regen and not payload.get("_regen") and not card_segs:
                 payload["_regen"] = True
                 payload["regen_attempts"] = payload.get("regen_attempts", 0) + 1
                 # 重渲染为「同步兜底重试」：用独立 REGEN_TIMEOUT（默认 15 分钟，远短于主渲染 35 分钟），
@@ -2889,8 +3070,13 @@ def run_job(job_id, payload):
                     target=lambda: _publish_job(job_id, list(_auto_targets), payload),
                     daemon=True).start()
         elif rc == 124:
-            _set_job(job_id, status="failed",
-                     error=f"渲染超时（超过 {HARD_TIMEOUT} 秒硬上限），已自动终止以释放资源。请缩短内容或分批生成。")
+            if card_segs:
+                _set_job(job_id, status="failed",
+                         error=f"长片分段渲染超时：某一段超过 {HARD_TIMEOUT} 秒硬上限。"
+                               f"请调小单段时长（PIPELINE_CARD_SEG_SEC）或缩短内容。")
+            else:
+                _set_job(job_id, status="failed",
+                         error=f"渲染超时（超过 {HARD_TIMEOUT} 秒硬上限），已自动终止以释放资源。请缩短内容或分批生成。")
         else:
             tail = (err or "")[-4000:]
             _set_job(job_id, status="failed", error=tail)
@@ -3008,7 +3194,9 @@ def _black_gold_cover(title, subtitle, brand="追梦"):
 from chat_orchestrator import ChatOrchestrator  # noqa: E402
 
 _CHAT_ORCH = ChatOrchestrator(ai_topic, ai_rewrite, deepseek_chat, get_text_config,
-                              search_fn=tavily_search, get_key_fn=get_key)
+                              search_fn=tavily_search, get_key_fn=get_key,
+                              planning_cfg_fn=get_planning_config)
+_CHAT_ORCH._plan_model = (os.environ.get("PLANNING_MODEL") or "").strip()  # 空=默认 flash（推荐留空）；勿设 deepseek-v4-pro（已停用）
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -3229,6 +3417,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 data = json.loads(data)
             except Exception:  # noqa: BLE001
                 return self._send(400, {"error": "bad json (double-encoded)"})
+
+        # ---- OAuth2 授权（账号级）：Laravel 解密该账号的 client_key/client_secret 经 body 传入，
+        #      明文不出 Laravel 容器、不进 URL/日志。多应用矩阵（每个抖音号一套应用凭证）靠此路由。
+        if p.path.startswith("/oauth/authorize/"):
+            platform = p.path.rsplit("/", 1)[-1]
+            return self._handle_oauth_authorize(platform, p.query or "", data)
 
         if p.path == "/generate":
             return self._handle_generate(data)
@@ -3703,12 +3897,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
         return out
 
     # ---- P4 OAuth2 授权码模式：抖音/小红书 ----
-    def _handle_oauth_authorize(self, platform: str, query: str = ""):
+    def _handle_oauth_authorize(self, platform: str, query: str = "", body: dict | None = None):
         if platform not in ("douyin", "xiaohongshu"):
             return self._send(400, {"error": "unsupported oauth platform (use douyin/xiaohongshu)"})
+        body = body or {}
         # 功能包一：账号级授权，query 可带 account_id（platform_accounts.id）
         params = dict(q.split("=") for q in query.split("&") if "=" in q) if query else {}
-        account_id = params.get("account_id", "")
+        account_id = str(body.get("account_id") or params.get("account_id", "") or "")
+        # 多应用矩阵：每个账号一套开放平台应用凭证，由 Laravel 解密后经 body 传入；
+        # 未传时回退全局 env（单应用部署方式，向后兼容）。
+        client_key = str(body.get("client_key") or params.get("client_key") or "")
+        client_secret = str(body.get("client_secret") or params.get("client_secret") or "")
+        if platform == "douyin":
+            scope = str(body.get("scope") or "video.create")
+        else:
+            scope = str(body.get("scope") or "note.write")
         # 清理过期 state
         now = time.time()
         expired = [k for k, v in _OAUTH_STATES.items() if now >= v["exp"]]
@@ -3716,26 +3919,30 @@ class Handler(http.server.BaseHTTPRequestHandler):
             _OAUTH_STATES.pop(k, None)
         state = secrets.token_urlsafe(24)
         _OAUTH_STATES[state] = {"platform": platform, "exp": now + _OAUTH_STATE_TTL,
-                                "account_id": account_id}
+                                "account_id": account_id,
+                                "client_key": client_key, "client_secret": client_secret}
         redirect_uri = f"{OAUTH_REDIRECT_BASE}/oauth/callback/{platform}"
+        redirect_q = quote(redirect_uri, safe="")
 
         if platform == "douyin":
-            cid = os.environ.get("DOUYIN_CLIENT_ID", "")
+            cid = client_key or os.environ.get("DOUYIN_CLIENT_ID", "")
             if not cid:
-                return self._send(500, {"error": "DOUYIN_CLIENT_ID 未配置"})
+                return self._send(500, {"error": "抖音 client_key 未配置（账号凭证为空且 env DOUYIN_CLIENT_ID 未设置）"})
             # 抖音 scope 见开放平台；video.create 为发布权限
             url = (f"https://open.douyin.com/platform/oauth/connect/"
-                   f"?client_key={cid}&response_type=code&scope=video.create"
-                   f"&redirect_uri={redirect_uri}&state={state}")
+                   f"?client_key={cid}&response_type=code&scope={scope}"
+                   f"&redirect_uri={redirect_q}&state={state}")
         else:  # xiaohongshu
-            app_id = os.environ.get("XHS_APP_ID", "")
+            app_id = client_key or os.environ.get("XHS_APP_ID", "")
             if not app_id:
                 return self._send(500, {"error": "XHS_APP_ID 未配置"})
             url = (f"https://open.xiaohongshu.com/platform/oauth/authorize"
-                   f"?app_id={app_id}&redirect_uri={redirect_uri}"
-                   f"&scope=note.write&state={state}&response_type=code")
+                   f"?app_id={app_id}&redirect_uri={redirect_q}"
+                   f"&scope={scope}&state={state}&response_type=code")
         return self._send(200, {"platform": platform, "authorize_url": url,
-                                "redirect_uri": redirect_uri})
+                                "redirect_uri": redirect_uri,
+                                "account_id": account_id,
+                                "app": "account" if client_key else "env"})
 
     def _handle_oauth_callback(self, platform: str, query: str):
         if platform not in ("douyin", "xiaohongshu"):
@@ -3753,8 +3960,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         try:
             if platform == "douyin":
-                cid = os.environ.get("DOUYIN_CLIENT_ID", "")
-                sec = os.environ.get("DOUYIN_CLIENT_SECRET", "")
+                # 多应用矩阵：优先用 state 里带过来的账号级应用凭证，缺省回退全局 env
+                cid = ss.get("client_key") or os.environ.get("DOUYIN_CLIENT_ID", "")
+                sec = ss.get("client_secret") or os.environ.get("DOUYIN_CLIENT_SECRET", "")
+                if not cid or not sec:
+                    return self._send(400, {"error": "该账号未配置抖音应用凭证（client_key/client_secret）"})
                 r = requests.get("https://open.douyin.com/oauth/access_token",
                                  params={"client_key": cid, "client_secret": sec,
                                          "code": code, "grant_type": "authorization_code"},
@@ -3772,9 +3982,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         "open_id": d.get("open_id"),
                         "expires_at": time.time() + int(d.get("expires_in", 7200)),
                     })
+                    # 记住该账号的应用凭证，供 token 过期后自动 refresh（refresh_token 与应用绑定）
+                    matrix_publish.store_account_app(platform, f"{platform}:{account_id}", {
+                        "client_key": cid, "client_secret": sec,
+                        "open_id": d.get("open_id"),
+                    })
             else:  # xiaohongshu
-                app_id = os.environ.get("XHS_APP_ID", "")
-                app_secret = os.environ.get("XHS_APP_SECRET", "")
+                app_id = ss.get("client_key") or os.environ.get("XHS_APP_ID", "")
+                app_secret = ss.get("client_secret") or os.environ.get("XHS_APP_SECRET", "")
                 r = requests.post("https://open.xiaohongshu.com/api/open/oauth/access_token",
                                   json={"app_id": app_id, "app_secret": app_secret,
                                         "grant_type": "authorization_code", "code": code},
@@ -4014,7 +4229,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if not topic:
             return self._send(400, {"error": "topic required"})
         prompt = (
-            "你是一名深耕财税获客的短视频运营，擅长写朋友圈转化文案。"
+            "你是一名专注财税获客的短视频运营，擅长写朋友圈转化文案。"
+            "文案中不得出现「深耕财税X年」「从业X年」等资历标榜表述。"
             f"请围绕选题【{topic}】"
             + (f"、核心卖点【{selling}】" if selling else "")
             + "，产出 3 版朋友圈文案（每版不超过 100 字）："
@@ -4444,6 +4660,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
         tenant = data.get("tenant") or ""
         if not message and not action:
             return self._send(400, {"error": "message required"})
+        # 重复提问：在 busy 闸门之前拦截，直接复用记忆答案，绝不 blank/busy/异步。
+        # 记忆提示：同一句话再说一遍，照样答；若之前答过，提示"刚答过"并引导新问题。
+        try:
+            _rep = _CHAT_ORCH.check_repeat(sid, message)
+        except Exception:
+            _rep = None
+        if _rep:
+            if _rep[0] == "answer":
+                return self._send(200, {"stage": "answer", "message": _rep[1],
+                                        "session_id": sid})
+            # "status" 重复：不拦截，继续走正常同步流程(重算时效)，由 step 在答案后附提示
         # 同会话并发保护：一个会话同时只跑一个 step，避免内存 written/angles 互相覆盖
         with _chat_running_lock:
             if sid and _chat_running.get(sid):
@@ -4462,12 +4689,36 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         _chat_done[sid] = res
                 except Exception as e:  # noqa: BLE001
                     traceback.print_exc()
+                    _chat_debug(["chat error sid=%s msg=%s error=%s" % (sid, message, str(e))])
                     with _chat_running_lock:
                         _chat_done[sid] = {"stage": "error", "ok": False, "error": str(e), "session_id": sid}
                 finally:
                     with _chat_running_lock:
                         _chat_running.pop(sid, None)
-            threading.Thread(target=_run, daemon=True).start()
+            # 看门狗：批量出稿（本周 7 篇）耗时较长，给 10 分钟；其余 4 分钟。
+            _is_batch = any(w in (message or "") for w in
+                            ("本周都写", "这周都写", "一周都写", "本周全写", "一周全写", "批量出稿"))
+            _wd_secs = 600.0 if _is_batch else 240.0
+            _wd_mins = 10 if _is_batch else 4
+
+            def _timeout_guard():
+                with _chat_running_lock:
+                    if _chat_running.get(sid) and sid not in _chat_done:
+                        _chat_done[sid] = {"stage": "error", "ok": False,
+                                           "error": "处理超时（超过 %d 分钟）。可能是模型响应慢，请刷新后重试或换个说法。" % _wd_mins,
+                                           "session_id": sid}
+                        _chat_running.pop(sid, None)
+                        _chat_debug(["chat timeout sid=%s msg=%s" % (sid, message)])
+            watchdog = threading.Timer(_wd_secs, _timeout_guard)
+            watchdog.daemon = True
+            watchdog.start()
+            t = threading.Thread(target=_run, daemon=True)
+            t.start()
+            # 线程结束时取消看门狗，避免残留计时器
+            def _cleanup_watchdog():
+                t.join()
+                watchdog.cancel()
+            threading.Thread(target=_cleanup_watchdog, daemon=True).start()
             return self._send(200, {"stage": "async", "session_id": sid,
                                     "job_id": sid,
                                     "message": "已开始处理。这一步可能要 1~4 分钟（长出稿），我会持续更新进度，请稍候。"})
@@ -4479,9 +4730,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._send(200, {"ok": False, "error": str(e)})
 
     _LONG_WORDS = ("全写", "认可", "可以，全写", "就按这个", "拆角度", "出角度", "出几个角度",
-                   "重新拆", "写第", "重写第", "按这个全写", "角度方案", "全网搜", "搜一下",
+                   "重新拆", "换个角度", "再拆一次", "再拆一遍", "重新出角度", "角度不够", "再来一次", "不要这些",
+                   "写第", "重写第", "按这个全写", "角度方案", "全网搜", "搜一下",
                    "参考", "检索", "有没有结合", "是不是结合", "是否结合", "分析一下", "帮我看",
-                   "搜索", "查一下", "能不能结合")
+                   "搜索", "查一下", "能不能结合",
+                   "规划", "排期", "策划", "一周内容", "选题方案", "排一周", "排期表",
+                   "本周都写", "这周都写", "一周都写", "本周全写", "一周全写", "全部写出来", "批量出稿")
 
     @staticmethod
     def _looks_long(message, action):
@@ -4492,8 +4746,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
         msg = (message or "").strip()
         if not msg:
             return False
-        # 任何包含主题展开意涵的长句，保守起见都异步（避免漏判导致超时）
-        return any(w in msg for w in Handler._LONG_WORDS) or len(msg) >= 12
+        # 状态问句（"X写了吗/出了没/做好没"）走 orchestrator 同步快路径：
+        # 这些句子常见 10~20 字，但应答只需查会话状态，不能因长度>=12 就被丢异步。
+        try:
+            if _CHAT_ORCH._is_status_inquiry(msg):
+                return False
+        except Exception:
+            pass
+        # 仅命中已知长任务关键词才走异步；不再用 len>=12 一刀切，避免普通问句被误伤。
+        return any(w in msg for w in Handler._LONG_WORDS)
 
     def _handle_chat_status(self, sid):
         """GET /chat/status/<sid>：查询异步长任务进度。"""
@@ -4638,6 +4899,8 @@ if __name__ == "__main__":
     print(f"[pipeline] recovered {recovered} interrupted job(s) from disk")
     wd = threading.Thread(target=watchdog_loop, daemon=True)
     wd.start()
+    print(f"[pipeline] guard: global_max={GLOBAL_MAX_JOBS} tenant_max={TENANT_MAX_JOBS} "
+          f"hard_timeout={HARD_TIMEOUT}s card_seg_sec={CARD_SEG_SAFE_SEC}s max_duration={MAX_DURATION_SEC}s")
     srv = http.server.ThreadingHTTPServer(("0.0.0.0", port), Handler)
     print(f"[pipeline] listening on :{port}")
     srv.serve_forever()

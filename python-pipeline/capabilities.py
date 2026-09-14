@@ -178,6 +178,7 @@ CAPABILITIES = {
              "options": [
                  "scroll:单字幕滚动", "avatar:数字人出镜",
                  "motion:动态图文", "manga:漫剧", "whiteboard:白板手绘",
+                 "card:图解版（信息卡片解说）",
              ], "default": "scroll:单字幕滚动", "required": True},
             {"key": "title", "label": "封面主标题", "type": "text",
              "required": False, "hint": "不超过 10 个字最好"},

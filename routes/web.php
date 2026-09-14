@@ -20,6 +20,9 @@ use App\Http\Controllers\FootageController;
 use App\Http\Controllers\PublishPackController;
 use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\ZhikuController;
+use App\Http\Controllers\CrmController;
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\ReceptionController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -65,6 +68,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/studio/scroll', [VideoController::class, 'showScroll']);
     Route::post('/studio/scroll/generate', [VideoController::class, 'generate']);
     Route::get('/studio/scroll/status/{jobId}', [VideoController::class, 'status']);
+    Route::get('/studio/video/status/{jobId}', [VideoController::class, 'status'])->name('studio.video.status');
     Route::get('/studio/scroll/job-log/{jobId}', [VideoController::class, 'jobLog']);
     Route::get('/studio/scroll/download/{jobId}', [VideoController::class, 'download']);
     // 出片中止：前端点击「中止」后由 onAbort 调此端点，转发 8500 标记 job 取消
@@ -175,6 +179,19 @@ Route::middleware('auth')->group(function () {
     // ---- 智库（AI 财税顾问独立页，原 advisor_chat 对话能力升级而来；问答不落库）----
     Route::get('/studio/zhiku', [ZhikuController::class, 'index'])->name('studio.zhiku');
     Route::post('/studio/zhiku/ask', [ZhikuController::class, 'ask'])->name('studio.zhiku.ask');
+
+    // ---- 客户档案 CRM（线索入档 / 列表；后端 8500 /crm）----
+    Route::get('/studio/crm', [CrmController::class, 'index'])->name('studio.crm');
+    Route::post('/studio/crm/list', [CrmController::class, 'list'])->name('studio.crm.list');
+    Route::post('/studio/crm/store', [CrmController::class, 'store'])->name('studio.crm.store');
+
+    // ---- 老张 1v1 视频诊断预约（后端 8500 /booking，每月限 30 单）----
+    Route::get('/studio/booking', [BookingController::class, 'index'])->name('studio.booking');
+    Route::post('/studio/booking/store', [BookingController::class, 'store'])->name('studio.booking.store');
+
+    // ---- AI 客服自动接待配置（后端 8500 /reception-config；当前仅持久化配置）----
+    Route::get('/studio/reception', [ReceptionController::class, 'index'])->name('studio.reception');
+    Route::post('/studio/reception/save', [ReceptionController::class, 'save'])->name('studio.reception.save');
 
     Route::get('/studio/covers', [CoverAssetController::class, 'index'])->name('studio.covers');
     Route::get('/studio/covers/json', [CoverAssetController::class, 'coversJson']);

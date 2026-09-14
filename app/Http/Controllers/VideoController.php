@@ -82,7 +82,7 @@ class VideoController extends Controller
         }
 
         $data = $request->validate([
-            'mode' => ['sometimes', 'in:scroll,avatar,motion,manga,whiteboard'],
+            'mode' => ['sometimes', 'in:scroll,avatar,motion,manga,whiteboard,card'],
             'dialogue' => ['required', 'string'],
             'title' => ['nullable', 'string', 'max:20'],
             'subtitle' => ['nullable', 'string', 'max:40'],
@@ -229,7 +229,7 @@ class VideoController extends Controller
             'dry_tts' => (bool) $request->input('dry_tts', false),
             'male_voice' => $request->input('male_voice') ?: $tenant->default_male_voice,
             'female_voice' => $request->input('female_voice') ?: $tenant->default_female_voice,
-            'voice_form' => $request->input('voice_form', 'dialogue'),
+            'voice_form' => $request->input('voice_form', 'male_mono'),
             'natural' => (bool) $request->input('natural', false),
             'i2v' => (bool) $request->input('i2v', false),   // 漫剧 AI 图生视频动效
             'edit_style' => $request->input('edit_style') ?: null,   // 成片包装：fast=Ken Burns+片尾留资卡+转场

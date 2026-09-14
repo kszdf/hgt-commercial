@@ -70,6 +70,7 @@
                             <option value="scroll">📋 幕后音·滚动字幕</option>
                             <option value="manga">📖 AI 漫剧</option>
                             <option value="whiteboard">✍️ AI 白板图解</option>
+                            <option value="card">🧩 图解版（信息卡片解说）</option>
                         </select>
                     </div>
                     <div>
@@ -231,6 +232,7 @@ const formLabelMap = {
     'scroll': '幕后音·滚动字幕',
     'manga': 'AI 漫剧',
     'whiteboard': 'AI 白板图解',
+    'card': '图解版（信息卡片解说）',
     // 兼容旧值（动态画面曾拆 3 项声线）
     'scroll_male': '男声幕后音·动态画面',
     'scroll_female': '女声幕后音·动态画面',

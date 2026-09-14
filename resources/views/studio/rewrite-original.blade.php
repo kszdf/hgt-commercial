@@ -21,6 +21,7 @@
                         <option value="scroll">📋 幕后音·滚动字幕</option>
                         <option value="manga">📖 AI 漫剧</option>
                         <option value="whiteboard">✍️ AI 白板图解</option>
+                        <option value="card">🧩 图解版（信息卡片解说）</option>
                     </select>
                     <p id="modeHint" class="mt-1 text-xs text-brand-600"></p>
                 </div>

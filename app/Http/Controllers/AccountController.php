@@ -161,22 +161,46 @@ class AccountController extends Controller
         return 'active';
     }
 
-    /** OAuth 授权入口：代理 8500 /oauth/authorize/{platform}?account_id={id}，返回 authorize_url。 */
+    /** OAuth 授权入口：代理 8500 /oauth/authorize/{platform}，返回 authorize_url。
+     *
+     * 多应用矩阵：抖音/小红书每个账号各自一套开放平台应用（client_key/client_secret），
+     * 解密后经 POST body 传给 8500（明文不出 Laravel 容器、不进 URL/日志）。
+     */
     public function oauthAuthorize(Request $request, PlatformAccount $account)
     {
         $this->assertTenantOwner($request, $account->tenant_id);
         if (! in_array($account->platform, ['douyin', 'xiaohongshu'], true)) {
             return response()->json(['error' => '该平台不支持 OAuth 授权（仅抖音/小红书）'], 422);
         }
+        $info = $account->account_info ?: [];
+        $payload = ['account_id' => $account->id];
+        $key = (string) ($info['client_key'] ?? $info['app_id'] ?? '');
+        $secret = (string) ($info['client_secret'] ?? $info['app_secret'] ?? '');
+        if ($key !== '') {
+            $payload['client_key'] = $key;
+        }
+        if ($secret !== '') {
+            $payload['client_secret'] = $secret;
+        }
+        // 逃生口：各应用审批通过的权限可能不同，账号信息里可写 scope 覆盖默认值
+        $scope = (string) ($info['scope'] ?? '');
+        if ($scope !== '') {
+            $payload['scope'] = $scope;
+        }
         try {
-            $resp = app(PipelineClient::class)->get(
-                '/oauth/authorize/' . $account->platform . '?account_id=' . $account->id, 30
+            $resp = app(PipelineClient::class)->postJson(
+                '/oauth/authorize/' . $account->platform, $payload, 30
             );
         } catch (PipelineUnavailableException $e) {
             return response()->json(['error' => '授权服务暂时不可用，请稍后重试'], 503);
         }
         if (! $resp->successful()) {
-            return response()->json(['error' => '授权服务返回错误，请确认微服务已启动'], 502);
+            $msg = '授权服务返回错误，请确认微服务已启动';
+            $body = $resp->json();
+            if (is_array($body) && ! empty($body['error'])) {
+                $msg = (string) $body['error'];
+            }
+            return response()->json(['error' => $msg], 502);
         }
         return response()->json($resp->json());
     }

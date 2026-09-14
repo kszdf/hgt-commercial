@@ -7,7 +7,7 @@
     {{-- 说明 --}}
     <div class="mb-5 rounded-xl border border-slate-200 bg-white px-4 py-3">
         <div class="text-sm font-semibold text-slate-700">发布渠道</div>
-        <p class="mt-0.5 text-sm text-slate-500">登记各平台发布账号，统一管理名称 / 标签 / 每日上限。抖音、小红书 OAuth 授权后自动发布；视频号人工发布。</p>
+        <p class="mt-0.5 text-sm text-slate-500">登记各平台发布账号，统一管理名称 / 标签 / 每日上限。抖音 / 小红书：先填开放平台应用凭证（加密保存），再点「去授权」；视频号人工发布。</p>
     </div>
 
     {{-- 新增渠道按钮 --}}
@@ -141,6 +141,17 @@
                     class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700">
             </div>
 
+            {{-- 开放平台应用凭证：抖音/小红书/公众号按平台显示对应字段（加密存储，不回显） --}}
+            <div id="credentialArea" class="hidden">
+                <label class="mb-1 block text-slate-600" id="credLabel1">应用凭证</label>
+                <input type="text" name="account_info[client_key]" id="cred1" autocomplete="off"
+                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-[13px] text-slate-700">
+                <label class="mb-1 mt-3 block text-slate-600" id="credLabel2">应用密钥</label>
+                <input type="text" name="account_info[client_secret]" id="cred2" autocomplete="off"
+                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-[13px] text-slate-700">
+                <p id="credHint" class="mt-1 text-xs text-slate-400"></p>
+            </div>
+
             <div class="flex justify-end gap-2 pt-2">
                 <button type="button" onclick="closeAccountModal()" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">取消</button>
                 <button type="submit" class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">保存</button>
@@ -205,12 +216,24 @@
     }
 
     const CRED_LABELS = {
-        // 抖音/小红书走 OAuth 授权、无需手填凭证；视频号无公开 API 人工发布。
-        // 公众号（wechat）：2026-09-09 恢复——文章是三大产出物之一，用于送草稿箱与群发，
-        // 采用 client_credential 模式，需手填 AppID + AppSecret。
+        // 抖音/小红书：多应用矩阵——每个账号各自一套开放平台应用凭证，OAuth 授权时按其
+        // client_key 跳转（4 个抖音号 = 4 个应用，互不混用）。视频号无公开 API，人工发布，无需凭证。
+        douyin: ['Client Key（open.douyin.com → 应用详情）',
+                 'Client Secret',
+                 '保存后点列表里的「去授权」，用该抖音号登录完成授权（回调域名需已在抖音后台配置）'],
+        xiaohongshu: ['App ID（开放平台 → 应用管理）',
+                      'App Secret',
+                      '保存后点列表里的「去授权」完成授权'],
         wechat: ['AppID（公众号后台 → 设置与开发 → 基本配置）',
                  'AppSecret',
                  '填完后还需到公众号后台「基本配置 → IP白名单」加入本服务器出口 IP，否则换取 access_token 会被拒绝'],
+    };
+
+    // 各平台凭证字段 → account_info 键（后端白名单：client_key/client_secret/appid/appsecret）
+    const CRED_KEYS = {
+        douyin: ['client_key', 'client_secret'],
+        xiaohongshu: ['client_key', 'client_secret'],
+        wechat: ['appid', 'appsecret'],
     };
 
     function onPlatformChange(platform) {
@@ -220,7 +243,10 @@
             area.classList.remove('hidden');
             document.getElementById('credLabel1').textContent = labels[0];
             document.getElementById('credLabel2').textContent = labels[1];
-            document.getElementById('credHint').textContent = labels[2];
+            document.getElementById('credHint').textContent = labels[2] || '';
+            const keys = CRED_KEYS[platform] || ['client_key', 'client_secret'];
+            document.getElementById('cred1').name = 'account_info[' + keys[0] + ']';
+            document.getElementById('cred2').name = 'account_info[' + keys[1] + ']';
         } else {
             area.classList.add('hidden');
         }

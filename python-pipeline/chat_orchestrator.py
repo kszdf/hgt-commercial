@@ -21,6 +21,7 @@
 """
 import json
 import os
+import re
 import time
 import uuid
 import threading
@@ -38,15 +39,17 @@ except Exception:  # noqa: BLE001
 
 # 主提示词（写稿规范的轻量化固化，注入到意图理解里让 AI 保持一致口径）
 MASTER_PROMPT = (
-    "你是一名资深财税与股权专家助理，服务「%s」——一位%s、"
+    "你是一名财税与股权专家助理，服务「%s」——"
     "具备税务稽查与历史遗留问题处理背景的专家。你在帮其运营面向中小企业老板的财税短视频。\n"
-    % (EXPERT_NAME, EXPERT_YEARS or "资深财税专家")
+    % (EXPERT_NAME,)
     + "写稿铁律（成稿时交给改写器遵守，你在意图判断时也要据此理解用户意图）：\n"
     "1. 面向受众：初次创业及已有规模的中小老板（决策者，不是会计）。\n"
     "2. 口吻：冷静、专业、权威、讲人话；禁情感语气词与网络流行语（'打肿脸充胖子''真金白银'等）。\n"
     "3. ★悬念必须落在口播正文的开口第一句，不放标题；标题只作提示语。\n"
     "4. 不教逃税、不提供规避监管的'技巧'；数据/法条必须可溯源、不编造。\n"
-    "5. 收尾给合规建议或专业咨询引导，不硬塞营销话术。"
+    "5. 收尾给合规建议或专业咨询引导，不硬塞营销话术。\n"
+    "6. ★严禁自我标榜资历：正文不得出现「深耕财税X年」「从业X年」「做了X年财税」等年限表述，"
+    "也不得用「资深」「老法师」抬自己；客户想了解资历看账号简介即可，正文只讲事。"
 )
 
 # 常量：可接受的数量范围
@@ -55,11 +58,13 @@ MIN_COUNT, MAX_COUNT = 1, 10
 
 class ChatOrchestrator:
     def __init__(self, ai_topic_fn, ai_rewrite_fn, deepseek_chat_fn, text_cfg_fn,
-                 search_fn=None, get_key_fn=None):
+                 search_fn=None, get_key_fn=None, planning_cfg_fn=None):
         self._ai_topic = ai_topic_fn
         self._ai_rewrite = ai_rewrite_fn
         self._chat = deepseek_chat_fn
         self._cfg = text_cfg_fn
+        self._plan_cfg = planning_cfg_fn or text_cfg_fn   # 规划层模型配置（可 env 覆盖）
+        self._plan_model = ""            # 由 server 注入 env PLANNING_MODEL；空=默认 flash
         self._search = search_fn            # 联网检索（tavily_search），未注入则检索能力关闭
         self._get_key = get_key_fn or (lambda n: None)
         self._sessions = {}
@@ -322,13 +327,16 @@ class ChatOrchestrator:
             "  \"action\": \"ask\" | \"answer\" | \"propose\" | \"write\",\n"
             "  \"asked\": \"(action=ask 时，追问还缺的要素的话术，简短一句，专业不啰嗦)\",\n"
             "  \"answer_ctx\": \"(action=answer 时填：用户真正在问的问题是什么——他是想了解某个财税知识/政策/流程/业务判断，不是在要你写稿。把问题本质概括成一句)\",\n"
+            "  \"answer\": \"(action=answer 时填：你作为财税顾问的正面回答正文，结论先行、讲人话、不堆术语、不反问'拍给谁看'，可直接用；非 answer 动作时填空字符串)\",\n"
             "  \"pick\": (action=write 时，用户想写的角度。填整数下标【从0开始】或 'all' 或 'next'。否则 null)\n"
             "}\n\n"
             "判定规则（先判断意图，再决定动作）：\n"
             "- ★最重要：先判断用户到底想要什么。用户可能是在【问一个财税/业务问题】（想知道政策、法规、流程、某做法合不合规、业务怎么开展、某件事怎么处理），"
             "而不是在【让你写口播稿】。\n"
             "- 若用户是在问问题、要解释、要建议、要讨论（哪怕是闲聊里带出'注册公司''注销''免税''风险''怎么获客'这类词）→ action=answer。"
-            "此时【绝对不要】追问'拍给哪类老板看'，也不要去拆角度。你要像一个资深财税顾问一样正面回答他。\n"
+            "此时【绝对不要】追问'拍给哪类老板看'，也不要去拆角度。你要像一个财税顾问一样正面回答他。\n"
+            "- ★action=answer 时，必须同时在 answer 字段写出【完整、正面、专业的回答正文】（先给结论再讲依据，讲人话、不堆术语、不反问'拍给谁看'），"
+            "不要只写'这个问题需要查一下'之类推脱——用户要的就是这个回答，把它直接生成出来，系统会复用、不再二次调用模型。\n"
             "- 判断是否'要写稿'的硬信号：用户明确说了要做内容/视频/口播/文案/选题/脚本（如'写条口播''做成视频''出几个选题''帮我写个文案'），"
             "或本会话正处于出稿流程中（已有主题/受众、在拆角度/改稿阶段）且这句是对该流程的推进。\n"
             "- 若用户是在补充信息/回答追问（如'给会计看''要3条''面向餐饮老板'）→ 提取进 extract（不适用 answer）。\n"
@@ -336,6 +344,7 @@ class ChatOrchestrator:
             "你要把这个推断写进 extract.audience，绝不要反问'给刚注册的还是已有规模的老板看'——那种问题本身就不合逻辑（已有规模的人不会纠结注册选择题）。"
             "凡主题含 注册/创业/新办/个体户/注册资本/要不要开公司 → audience 推断为'准备注册或刚注册的创业者'；含 经营/开票/利润/成本 → '已注册在经营的中小老板'；含 建筑/挂靠 → '建筑老板'。\n"
             "- 若用户明确要出内容且给出或已齐 主题+受众+关键要求 → action=propose。\n"
+            "- 若用户要求【重新拆角度 / 换个角度 / 再拆一次 / 角度不够再来】（即对已有方案不满意，想再出一版角度）→ action=propose，直接重新拆角度。\n"
             "- 若用户对已出的角度方案表 确认（如'可以''就按这个''认可'）→ action=write, pick='all'。\n"
             "- 若用户挑了具体某条（如'写第2条''第3个''就做第一个'）→ action=write, pick=对应下标。\n"
             "- 若用户在成稿阶段还要继续写下一条（如'继续''下一条'）→ action=write, pick='next'。\n"
@@ -346,6 +355,10 @@ class ChatOrchestrator:
             "  ②用户要的是【口播稿/逐字稿/角度/出稿】（如'写条口播''出稿''给几个角度''改成我的口径'）→ cap 必须 null，走 propose/write，不要填 rewrite；\n"
             "  ③只有用户明确要做【出片/选题/热点/获客评分/质检/公众号文章/小红书/发布包/素材剪辑/声音克隆/爆款拆解】这类具体动作时，才填对应 cap；\n"
             "  ④拿不准就填 null。填 null 最坏是走普通对话，填错 cap 会打断用户正在做的事。\n"
+            "- ★状态问句（最高优先级，逐字对照）：用户用'…写了吗/出了没/做好了没/完成没/有没有做/是不是出了'这类句式"
+            "询问某件事【是否已完成/是否已做】，这是状态询问，不是下达指令。此时 action 必须='answer'、cap 必须=null，"
+            "并在 answer_ctx 写明'用户在问<某对象>是否已完成'。绝不可因为句里含'公众号文章/视频/小红书'等词就填 cap——"
+            "那会变成'让他现在去写一篇'，答非所问。例如'今天的微信公众号文章写了吗'→ action=answer（回答'还没写，要现在写吗'），cap=null。\n"
             "铁律：宁可多判 answer 也不要机械地当写稿指令——答非所问是最大的失败。用户问问题，你就 answer；用户要内容，你才 propose/write。\n"
             "★关于 cap 的两条硬约束（违反会直接造成答非所问，务必遵守）：\n"
             "1. 用户只是在【问问题、要解释、要建议、要讨论】（哪怕句里带'注册公司''注销''免税''公转私'等词）"
@@ -376,11 +389,269 @@ class ChatOrchestrator:
                 obj = {}
         return obj
 
+    # ---- 主动规划模式：用户要"排期/策划/一周内容"时，AI 主动甩出 7 天排期 ----
+    _PLAN_WORDS = ("帮我规划", "规划一下", "规划本周", "规划下周", "规划这周", "排期", "排个期",
+                   "策划一下", "策划本周", "策划下周", "一周内容", "下周内容", "本周内容",
+                   "内容排期", "帮我排", "选题方案", "出个方案", "排个计划", "计划一下",
+                   "给我排", "内容规划", "帮我安排", "安排一下内容", "排一周", "排期表")
+    # 排期批量出稿触发词：一次把本周 7 天都写成稿（区别于"全写"=把当前角度全写）
+    _PLAN_WRITE_WORDS = ("本周都写", "这周都写", "一周都写", "本周全写", "这周全写", "一周全写",
+                         "本周写完", "一周写完", "整周写", "七天都写", "七天全写",
+                         "本周都出稿", "把这周都写", "把一周都写", "全部写出来", "批量出稿")
+    _WEEK_PILLARS = [
+        ("周一", "创业起步财税"), ("周二", "日常财税合规"), ("周三", "稽查应对手记"),
+        ("周四", "历史遗留稽查"), ("周五", "股权设计"), ("周六", "电商专题"), ("周日", "政策速递"),
+    ]
+
+    @staticmethod
+    def _parse_json_array(raw):
+        """从 LLM 输出里尽可能解析出 JSON 数组；失败返回 None。"""
+        import re as _re
+        if raw is None:
+            return None
+        if isinstance(raw, list):
+            return raw
+        if isinstance(raw, dict):
+            return [raw]
+        txt = str(raw).strip()
+        if txt.startswith("```"):
+            txt = txt.strip("`")
+            if txt[:4].lower() == "json":
+                txt = txt[4:]
+            txt = txt.strip()
+        try:
+            obj = json.loads(txt)
+            if isinstance(obj, list):
+                return obj
+            if isinstance(obj, dict):
+                return [obj]
+        except Exception:
+            pass
+        m = _re.search(r"\[.*\]", txt, _re.S)
+        if m:
+            try:
+                obj = json.loads(m.group(0))
+                if isinstance(obj, list):
+                    return obj
+            except Exception:
+                pass
+        m = _re.search(r"\{.*\}", txt, _re.S)
+        if m:
+            try:
+                obj = json.loads(m.group(0))
+                if isinstance(obj, dict):
+                    return [obj]
+            except Exception:
+                pass
+        return None
+
+    def _chat_plan(self, prompt, timeout=90):
+        """规划层专用 LLM 调用：默认 flash（2 秒级）。PLANNING_MODEL 可覆盖，但勿再设 deepseek-v4-pro（2026-09-14 已下线，请求会被路由到 V4.1 Flash）。"""
+        cfg = self._plan_cfg() if callable(self._plan_cfg) else self._cfg()
+        if not isinstance(cfg, dict):
+            cfg = self._cfg()
+        model = self._plan_model or cfg.get("model") or "deepseek-v4-flash"
+        # 护栏：V4 Pro 已于 2026-09-14 下线，任何 pro 引用一律回退 flash
+        if "pro" in str(model).lower():
+            model = cfg.get("model") or "deepseek-v4-flash"
+        thinking = "disabled" if self._plan_model else None
+        return self._chat(prompt, model, cfg.get("key"), cfg.get("base_url"), timeout=timeout, thinking=thinking)
+
+    def _detect_plan(self, message):
+        m = str(message or "").strip().lower()
+        return any(w in m for w in self._PLAN_WORDS)
+
+    def _detect_plan_write(self, s, message):
+        """是否要把本周排期 7 天全部写成稿（需 session 已有 plan_days）。"""
+        if not s.get("plan_days"):
+            return False
+        m = str(message or "").strip()
+        return any(w in m for w in self._PLAN_WRITE_WORDS)
+
+    @staticmethod
+    def _extract_plan_topic(message):
+        """规划卡片专用：识别【规划选题】<topic>　受众：<audience> 直通 propose。"""
+        import re as _re
+        m = _re.search(r"【规划选题】(.+?)\s*受众[:：]\s*(.+)", str(message or ""))
+        if m:
+            return m.group(1).strip(), m.group(2).strip()
+        return None
+
+    def _do_plan(self, s, message):
+        if s.get("id"):
+            self._set_progress(s["id"], "thinking", "正在结合七支柱排期为你规划下周内容…")
+        pref = ""
+        if "建筑" in message or "工程" in message:
+            pref = "（建筑深度内容建议走「慧根堂建筑财税」专号；这里以通用号老张号为主，建筑仅作钩子导流）"
+        prompt = (
+            "你是「昆山老张讲财税」的内容策划搭档，服务对象是中小企业老板（创业/经营/稽查/股权/电商）。\n"
+            "请基于以下「七支柱日更排期」为下一周（周一到周日）规划 7 天短视频选题，每天 1 条，覆盖全部 7 个支柱：\n"
+            + "\n".join("- %s：%s" % (d, p) for d, p in self._WEEK_PILLARS) + "\n"
+            "要求：\n"
+            "1. 每条必须是该支柱下的真实财税痛点，戳老板刚需（如公转私、虚开发票、金税四期、个税、股权架构等），不空泛。\n"
+            "2. 选题要能挂留资钩子（引导评论/私信），且尽量命中微信搜一搜真实搜索词。\n"
+            "3. 为每条标注：建议形式（从 数字人出镜/幕后音·动态画面/幕后音·滚动字幕/AI漫剧/AI白板图解/图解版·信息卡片 中选最合适的一种）、一句话推荐理由。\n"
+            "4. 有老张实战视角（稽查后果/合规底线/金额测算），不抄爆款模板。\n"
+            + pref + "\n"
+            "严格输出 JSON 数组（不要任何解释/代码块标记）：\n"
+            '[{"day":"周一","pillar":"创业起步财税","topic":"选题标题(≤18字,戳痛点)","form":"建议形式","why":"一句话推荐理由"}]\n'
+            "顺序必须按周一到周日，共 7 条。"
+        )
+        try:
+            raw = self._chat_plan(prompt, timeout=90)
+        except Exception as e:  # noqa: BLE001
+            return {"stage": "ask", "message": "规划生成失败（%s）。稍后点「重新规划」再试？" % e}
+        topics = self._parse_json_array(raw)
+        if not isinstance(topics, list) or not topics:
+            return {"stage": "ask", "message": "规划时模型返回格式异常，没生成出排期。点下面「重新规划」再试一次。",
+                    "next": [{"id": "plan", "name": "重新规划", "icon": "📅", "cmd": "重新规划本周内容"}]}
+        days = []
+        for t in topics[:7]:
+            if not isinstance(t, dict):
+                continue
+            days.append({
+                "day": (t.get("day") or "").strip(),
+                "pillar": (t.get("pillar") or "").strip(),
+                "topic": (t.get("topic") or "").strip(),
+                "form": (t.get("form") or "").strip(),
+                "why": (t.get("why") or "").strip(),
+            })
+        if not days:
+            return {"stage": "ask", "message": "规划结果解析为空，点下面「重新规划」再试一次。",
+                    "next": [{"id": "plan", "name": "重新规划", "icon": "📅", "cmd": "重新规划本周内容"}]}
+        s["plan_days"] = days
+        return {
+            "stage": "plan",
+            "plan": {"days": days},
+            "message": "我帮你把下周 7 天内容排好了（覆盖全部七支柱）。点任一天直接开写；也可点「本周 7 条全写」一次全部出稿，或点「重新规划」换一批。",
+            "next": [
+                {"id": "plan_write", "name": "本周 7 条全写", "icon": "🚀", "cmd": "本周都写出来"},
+                {"id": "plan", "name": "重新规划", "icon": "📅", "cmd": "重新规划本周内容"},
+            ],
+        }
+
+    def _plan_angles_batch(self, s, days):
+        """一次 LLM 调用，为本周每天的主题定一个最佳切入角度；失败返回 {}（降级用原主题写）。"""
+        listing = "\n".join("%d. 【%s·%s】%s" % (i + 1, d.get("day") or "", d.get("pillar") or "", d.get("topic") or "")
+                            for i, d in enumerate(days))
+        prompt = (
+            "你是「昆山老张讲财税」的爆款选题搭档，服务中小企业老板。\n"
+            "下面是下周 7 天的选题排期，请为每一天定一个最抓人的【切入角度标题】"
+            "（≤16字，必须有悬念/冲突/金额感，站老板视角，不要平铺直叙），并给一句【结尾留资钩子方向】。\n"
+            + listing + "\n"
+            "严格输出 JSON 数组（不要任何解释/代码块标记），顺序与上面完全一致，共 %d 条：\n" % len(days)
+            + '[{"topic":"原主题(照抄)","title":"切入角度标题","hook":"结尾钩子方向"}]'
+        )
+        try:
+            raw = self._chat_plan(prompt, timeout=90)
+        except Exception:  # noqa: BLE001
+            return {}
+        arr = self._parse_json_array(raw)
+        m = {}
+        if isinstance(arr, list):
+            for i, it in enumerate(arr):
+                if i >= len(days):
+                    break
+                if isinstance(it, dict):
+                    tp = (days[i].get("topic") or "").strip()
+                    if tp:
+                        m[tp] = {"title": (it.get("title") or "").strip(),
+                                 "angle": (it.get("angle") or "").strip(),
+                                 "hook": (it.get("hook") or "").strip()}
+        return m
+
+    def _do_plan_write(self, s):
+        """本周排期批量出稿：一次为 7 天各定角度，再并发写稿（单篇失败不中断整批）。
+        并发度 4 —— 实测串行 7 篇需 210s（逼近 240s 看门狗），并发后约 50-70s。"""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        days = s.get("plan_days") or []
+        if not days:
+            return self._do_plan(s, "帮我规划本周财税内容")
+        sid = s.get("id") or ""
+        total = len(days)
+        if sid:
+            self._set_progress(sid, "thinking", "正在为本周 %d 条各定最佳切入角度…" % total)
+        angle_map = self._plan_angles_batch(s, days)
+
+        def _write_one(d):
+            topic = (d.get("topic") or "").strip()
+            if not topic:
+                return None
+            a = angle_map.get(topic) or {}
+            title = a.get("title") or topic
+            angle = a.get("angle") or ""
+            hook = a.get("hook") or ""
+            source = title
+            if angle:
+                source += "\n【切入角度】" + angle
+            if hook:
+                source += "\n【结尾留资钩子方向】" + hook
+            try:
+                res = self._ai_rewrite(
+                    source, "script",
+                    focus=s.get("requirement") or None,
+                    industry=(s.get("audience") or (d.get("pillar") or "").strip() or None),
+                )
+            except Exception as e:  # noqa: BLE001
+                res = {"error": str(e)}
+            rewritten = ""
+            if isinstance(res, dict):
+                rewritten = res.get("rewritten") or (res.get("ok") and (res.get("text") or "")) or res.get("script") or ""
+            return {"day": (d.get("day") or "").strip(), "pillar": (d.get("pillar") or "").strip(),
+                    "title": title, "angle": angle, "script": rewritten,
+                    "form": d.get("form") or ""}
+
+        results = [None] * total
+        done = 0
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            futs = {ex.submit(_write_one, d): i for i, d in enumerate(days)}
+            for fut in as_completed(futs):
+                i = futs[fut]
+                try:
+                    results[i] = fut.result()
+                except Exception as e:  # noqa: BLE001
+                    results[i] = {"day": (days[i].get("day") or ""), "pillar": "", "title": "",
+                                  "angle": "", "script": "", "form": "", "error": str(e)}
+                done += 1
+                if sid:
+                    self._set_progress(sid, "writing", "本周已完成 %d/%d 篇…" % (done, total))
+
+        # 按排期顺序汇总（并发完成顺序是乱的），并统一编号。
+        # widx = 该篇在 session['written'] 里的真实下标（失败篇为 None），供前端"改这篇"精确定位，
+        # 避免存在失败篇时 results 与 written 下标错位、改错稿。
+        out = []
+        for e in results:
+            if not e:
+                continue
+            if e.get("script"):
+                e["angle_idx"] = len(s.get("written") or [])
+                e["widx"] = e["angle_idx"]
+                out.append(e)
+                s.setdefault("written", []).append(e)
+            else:
+                e["angle_idx"] = -1
+                e["widx"] = None
+                out.append(e)
+        s["history"].append("本周批量成稿")
+        ok = sum(1 for x in out if x.get("script"))
+        return {
+            "stage": "written",
+            "batch": True,
+            "results": out,
+            "message": "本周 %d 天内容已全部写成稿（成功 %d 篇，失败 %d 篇）。可逐篇点「改这篇」微调。"
+                       % (len(out), ok, len(out) - ok),
+            "next": [
+                {"id": "video_render", "name": "做成片", "icon": "🎬", "cmd": "做成片"},
+                {"id": "qc", "name": "文案质检", "icon": "🛡️", "cmd": "质检"},
+                {"id": "publish_pack", "name": "打发布包", "icon": "📦", "cmd": "打成发布包"},
+            ],
+        }
+
     # ---- 执行 ----
     def _do_propose(self, s):
         industry = s.get("audience") or s.get("topic") or "中小企业"
         keywords = "；".join(x for x in [s.get("topic"), s.get("requirement")] if x)
-        count = int(s.get("count") or 5)
+        count = int(s.get("count") or 8)   # 默认一次拆 8 条，前 3 条标🔥推荐，减少多次往返
         # 讨论中拍板的结论注入：出角度必须遵循，避免"聊完又回模板"
         if s.get("decisions"):
             d_hint = "\n\n【本空间讨论中已明确的结论】（必须遵守，这是用户拍板过的）：\n" + "\n".join(
@@ -396,14 +667,27 @@ class ChatOrchestrator:
         if s.get("id"):
             self._set_progress(s["id"], "thinking", "正在结合主题与证据拆角度方案…")
         topics = self._ai_topic(industry=industry, keywords=keywords, count=count)
+        if not topics:
+            return {
+                "stage": "ask",
+                "message": "这次拆角度时模型返回格式异常，没拆出可用方案。你可以换个说法重说主题，或把要求拆成两句再试。",
+                "next": [
+                    {"id": "tweak", "name": "重新拆角度", "icon": "🎯", "cmd": "重新拆角度"},
+                ],
+            }
+        # 给前 3 条标🔥推荐位（爆款潜力更高，前端可高亮），其余不标
+        if isinstance(topics, list):
+            for idx, t in enumerate(topics):
+                if isinstance(t, dict):
+                    t["hot"] = idx < 3
         s["angles"] = topics
         s["chosen"] = []
+        s.pop("_await_video_confirm", None)
         return {
             "stage": "propose",
             "angles": topics,
-            "tip": "以上是参照你的四要素、本空间已有的检索证据和写稿规范拆出的角度方案。"
-                   "你可以说'就按这个全写'，或指定写某条（如'写第2条'）。"
-                   "想看证据对应关系或调整方向，直接说。",
+            "tip": "以上参照你的四要素、本空间已有的检索证据和写稿规范一次拆出 %d 个角度，前 3 条（标🔥）为高热度推荐。"
+                   "你说'就按这个全写'我直接干，或指定写某条（如'写第2条'）。想看证据对应或调整方向，直接说。" % len(topics),
             "next": [
                 {"id": "write", "name": "全部写成稿", "icon": "✍️", "cmd": "全写"},
                 {"id": "tweak", "name": "重新拆角度", "icon": "🎯", "cmd": "重新拆角度"},
@@ -458,18 +742,71 @@ class ChatOrchestrator:
             if isinstance(res, dict):
                 rewritten = res.get("rewritten") or res.get("ok") and (res.get("text") or "") or res.get("script") or ""
             if not rewritten:
-                rewritten = res.get("error") or "（改写失败）"
+                err = res.get("error") if isinstance(res, dict) else None
+                return {"stage": "error",
+                        "error": (err or "改写服务没有返回内容，可能是模型超时。请刷新页面后重试，或换个说法再发一次。"),
+                        "session_id": sid}
             entry = {"angle_idx": i, "title": title, "angle": angle, "script": rewritten}
             out.append(entry)
-            s.setdefault("written", []).append(entry)
+            # widx = 该篇在 session["written"] 中的真实下标；前端「改这篇」据此定位，
+            # 避免单条写稿时因缺 widx 被前端判为"失败篇"而不渲染按钮。
+            _wl = s.setdefault("written", [])
+            entry["widx"] = len(_wl)
+            _wl.append(entry)
             if sid:
                 self._set_progress(sid, "writing", "已完成第 %d/%d 篇，继续…" % (seq, total))
         s["history"].append("成稿")
+        s["_await_video_confirm"] = True
         return {
             "stage": "written",
             "results": out,
+            "message": "口播稿已经写好了。你先看看内容，想改字数、时长、表述直接说；满意了就点「做成片」出视频，也可以先「二创改写」。",
             "next": [
                 {"id": "video_render", "name": "做成片", "icon": "🎬", "cmd": "做成片"},
+                {"id": "rewrite", "name": "二创改写", "icon": "✍️", "cmd": "二创改写"},
+                {"id": "qc", "name": "文案质检", "icon": "🛡️", "cmd": "质检"},
+                {"id": "publish_pack", "name": "打发布包", "icon": "📦", "cmd": "打成发布包"},
+            ],
+        }
+
+    def _adjust_last_script_words(self, s, n):
+        """写稿后用户说"改成N字/缩短到N字"→ 重写最新一篇到目标字数（不新增篇、不打断流程）。"""
+        written = s.get("written") or []
+        if not written:
+            return None
+        entry = written[-1]
+        src = entry.get("title") or s.get("topic") or ""
+        if entry.get("angle"):
+            src += "\n【切入角度】" + entry["angle"]
+        if entry.get("hook"):
+            src += "\n【结尾留资钩子方向】" + entry["hook"]
+        focus = (s.get("requirement") or "")
+        focus += ("；全文严格控制在%d字左右（±10%%）" % n)
+        try:
+            res = self._ai_rewrite(
+                src, "script",
+                focus=focus or None,
+                industry=(s.get("audience") or s.get("topic") or None),
+            )
+        except Exception as e:  # noqa: BLE001
+            self._chat_log(s.get("id"), "WARN | _adjust_last_script_words 改写异常：%s" % e)
+            return {"stage": "ask", "message": "字数调整没成功（模型调用异常），你再说一次或手动改下。"}
+        rewritten = ""
+        if isinstance(res, dict):
+            rewritten = res.get("rewritten") or (res.get("ok") and (res.get("text") or "")) or res.get("script") or ""
+        if not rewritten:
+            return {"stage": "ask", "message": "字数调整没成功（模型没有返回内容，可能是超时），你再说一次或手动改下。"}
+        entry["script"] = rewritten
+        entry["widx"] = len(written) - 1
+        self._chat_log(s.get("id"), "OUT | adjust_last_script_words -> %d 字" % n)
+        s["_await_video_confirm"] = True
+        return {
+            "stage": "written",
+            "results": [entry],
+            "message": "已按 %d 字重写这一篇，你看看顺不顺。还想改字数、时长、表述继续说；满意了点「做成片」出视频。" % n,
+            "next": [
+                {"id": "video_render", "name": "做成片", "icon": "🎬", "cmd": "做成片"},
+                {"id": "rewrite", "name": "二创改写", "icon": "✍️", "cmd": "二创改写"},
                 {"id": "qc", "name": "文案质检", "icon": "🛡️", "cmd": "质检"},
                 {"id": "publish_pack", "name": "打发布包", "icon": "📦", "cmd": "打成发布包"},
             ],
@@ -512,9 +849,71 @@ class ChatOrchestrator:
             rewritten = res.get("error") or "（改写失败）"
         target["script"] = rewritten            # 原地覆盖
         target["revised"] = True
+        target["widx"] = idx                    # 原地覆盖，下标不变；显式带给前端「改这篇」
         s["history"].append("改写第" + str(idx + 1) + "篇")
+        s["_await_video_confirm"] = True
         return {"stage": "written", "results": [target], "revised": True,
-                "tip": "已按你的要求重写该篇。还要调整就说'改第N篇+要求'，或继续下一批。"}
+                "message": "已按你的要求重写该篇。还想改字数、时长、表述继续说；满意了点「做成片」出视频。",
+                "next": [
+                    {"id": "video_render", "name": "做成片", "icon": "🎬", "cmd": "做成片"},
+                    {"id": "rewrite", "name": "二创改写", "icon": "✍️", "cmd": "二创改写"},
+                    {"id": "qc", "name": "文案质检", "icon": "🛡️", "cmd": "质检"},
+                ]}
+
+    # ---- 口播稿修改（字数/时长/表述）----
+    # 写稿后、出片前，用户可能要求调整。这里统一识别并处理，避免误走能力卡片或答非所问。
+    _MODIFY_WORDS = ("改字数", "改时长", "改表述", "换一种说法", "重写", "改写", "重写成",
+                     "缩短", "加长", "扩写", "精简", "调整", "字数", "时长", "表述")
+
+    def _is_script_modify_request(self, msg):
+        """判断用户是否在要求修改已写好的口播稿（字数/时长/表述）。"""
+        m = str(msg or "").strip()
+        if not m:
+            return False
+        # 必须同时命中"改/调整/缩短/加长"类动词 + "字数/时长/表述/说法"等对象
+        has_verb = any(w in m for w in ("改", "换", "重写", "改写", "调整", "缩短", "加长", "扩写", "精简"))
+        has_obj = any(w in m for w in ("字数", "字", "时长", "秒", "表述", "说法", " wording", "这段"))
+        return has_verb and has_obj
+
+    def _handle_script_modify(self, s, message):
+        """处理写稿后的修改请求：字数/时长/表述。返回 None 表示不是修改请求，交给后续流程。"""
+        written = s.get("written") or []
+        if not written:
+            return None
+        m = str(message or "").strip()
+        if not m:
+            return None
+        if not self._is_script_modify_request(m):
+            return None
+        # 1) 字数调整（含 "改成N字/缩短到N字"）
+        _wc = re.search(r"(\d{3,5})\s*字", m)
+        if _wc and any(w in m for w in ("改", "字数", "缩短", "加长", "扩写", "精简", "调")):
+            _n = int(_wc.group(1))
+            if 300 <= _n <= 5000:
+                return self._adjust_last_script_words(s, _n)
+        # 2) 时长调整：按中文口播约 3.5 字/秒换算成字数，再调用字数调整
+        _sec = re.search(r"(\d{1,3})\s*秒", m)
+        if _sec and any(w in m for w in ("改", "时长", "缩短", "加长", "控制", "调")):
+            sec = int(_sec.group(1))
+            if 10 <= sec <= 300:
+                target_words = int(sec * 3.5)
+                # 把时长要求也写进会话 requirement，让 _adjust_last_script_words  focus 生效
+                old_req = s.get("requirement") or ""
+                dur_req = "全文时长控制在%d秒左右（约%d字）" % (sec, target_words)
+                if dur_req not in old_req:
+                    s["requirement"] = (old_req + "；" + dur_req).strip("；")
+                return self._adjust_last_script_words(s, target_words)
+        # 3) 纯 "改字数" 但没给数字 → 追问
+        if any(w in m for w in ("字数", "字")) and not _wc:
+            return {"stage": "ask", "message": "想改成多少字？直接说'改成800字'或'缩短到600字'。"}
+        # 4) 纯 "改时长" 但没给秒数 → 追问
+        if any(w in m for w in ("时长", "秒")) and not _sec:
+            return {"stage": "ask", "message": "想控制在多少秒？直接说'缩短到30秒'或'控制在60秒'。"}
+        # 5) 改表述/换一种说法/重写 → 用 _do_revise 重写最后一篇
+        if any(w in m for w in ("表述", "说法", " wording", "这段", "重写", "改写")):
+            u = {"extract": {"requirement": m}}
+            return self._do_revise(s, u, "rev%d" % (len(written) - 1))
+        return None
 
     # ---- 联网检索问答（Tavily 真检索 + DeepSeek 基于结果正面回答）----
     # 说明：用户问"有没有/搜一下/参考XX"这类事实时，不再硬拽去出稿，
@@ -596,17 +995,69 @@ class ChatOrchestrator:
             "message": ans or "已检索到相关内容，来源见下方链接。",
         }
 
-    def _do_answer(self, s, question, need_search=False):
+    def _chat_log(self, sid, msg):
+        """对话运行日志：便于定位'没反应'到底是前端没渲染、请求超时还是 LLM 异常。"""
+        try:
+            import os, datetime
+            d = datetime.date.today().isoformat()
+            os.makedirs("data/chat_logs", exist_ok=True)
+            ts = datetime.datetime.now().strftime("%H:%M:%S")
+            with open(f"data/chat_logs/{d}.log", "a", encoding="utf-8") as f:
+                f.write(f"[{ts}] sid={sid} | {msg}\n")
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _do_general_answer(self, s, question):
+        """通用问答兜底：不限于财税。任何非出稿意图的对话（技术/运营/常识/闲聊/其它业务），
+        都调大模型正面回答，避免'没反应'或'答非所问'。失败时也绝不静默。"""
+        if s.get("id"):
+            self._set_progress(s["id"], "thinking", "正在思考…")
+        cfg = self._cfg()
+        prompt = (
+            "你是一个知识渊博、逻辑清晰的中文智能助手，在财税领域尤具专长，也能回答其它领域的问题。\n"
+            "用户说：" + question + "\n\n"
+            "要求：\n"
+            "1. 先给结论/直接回应，再展开要点；讲人话、不堆术语、不端着；\n"
+            "2. 若是财税/合规/工商类问题，按资深财税顾问口径答，注意时效与依据，拿不准明说'以最新官方口径/当地税务机关为准'；\n"
+            "3. 若是技术/运营/管理/其它领域问题，用对应领域专业但通俗的方式回答；\n"
+            "4. 不要反问'拍给谁看'，不要硬往出稿/写稿流程带；除非用户明确想做成内容，否则不主动推写稿；\n"
+            "5. 只输出回答正文，不要代码块标记、不要 JSON。"
+        )
+        try:
+            ans = self._chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
+            if isinstance(ans, dict):
+                ans = ans.get("content") or ""
+        except Exception:  # noqa: BLE001
+            ans = ""
+        if not ans:
+            return {"stage": "answer",
+                    "message": "我这边一下没接住，你再发一次、或者换个说法试试？我重新接。"}
+        return {"stage": "answer", "message": ans}
+
+    def _route_answer(self, s, u, message, question=None):
+        """问答路由收口：合并意图识别与回答生成，避免每轮双调用模型。
+
+        - u 为 _understand 的返回（可能已含 answer 字段）；
+        - 非搜索类问题且 u.answer 已生成 → 直接复用，省掉第二次模型请求；
+        - 搜索类（需联网核口径）或 u.answer 缺失 → 走 _do_answer 原高质量路径。
+        """
+        q = (question or (u.get("answer_ctx") if isinstance(u, dict) else None) or message).strip() or message
+        need_search = self._answer_needs_search(message)
+        prepared = (u.get("answer") if isinstance(u, dict) else None) if not need_search else None
+        return self._do_answer(s, q, need_search=need_search, prepared=prepared)
+
+    def _do_answer(self, s, question, need_search=False, prepared=None):
         """正面回答用户的财税/业务问题（不写稿、不追问受众），像资深顾问一样答到点子上。
 
         - 政策/法规有时效或拿不准 → need_search=True 走联网检索再答；
-        - 知识/经验类 → 直接用专家口径答，末尾轻带一句"要不要我把这条做成内容"。
+        - 知识/经验类 → 直接用专家口径答，末尾轻带一句"要不要我把这条做成内容"；
+        - prepared 非空：直接复用意图识别阶段已生成的回答（合并调用优化，省掉第二次模型请求）。
         """
         if s.get("id"):
             phase = "searching" if need_search else "thinking"
             msg = ("正在核对最新政策口径…" if need_search else "正在想这个问题…")
             self._set_progress(s["id"], phase, msg)
-        # 需要核实时效 → 联网检索作为事实基础
+        # 需要核实时效 → 联网检索作为事实基础（此路径仍需独立生成，保证口径准确）
         if need_search:
             key = self._get_key("TAVILY_API_KEY")
             if key and self._search:
@@ -626,7 +1077,7 @@ class ChatOrchestrator:
                             MASTER_PROMPT
                             + "\n\n用户在问一个财税/业务问题：" + question
                             + "\n\n以下是联网检索到的官方/资讯内容（作为核实时效的依据，不要编造未出现的内容）：\n" + ev
-                            + "\n\n请以资深财税顾问的口吻正面回答用户。要求：\n"
+                            + "\n\n请以财税顾问的口吻正面回答用户。要求：\n"
                             "1. 先直接给结论（政策现在是否适用/流程大致如何/该注意什么）；\n"
                             "2. 引用依据时标注来源（可提'据检索到的最新口径'），拿不准就明说'建议以当地税务机关为准'；\n"
                             "3. 讲人话，别堆术语；必要时分点；\n"
@@ -643,26 +1094,29 @@ class ChatOrchestrator:
                             return {"stage": "answer", "message": ans, "sources": src}
                 except Exception:  # noqa: BLE001
                     pass  # 检索失败降级纯知识回答
-        # 纯知识/经验回答（不联网或检索失败）
-        cfg = self._cfg()
-        prompt = (
-            MASTER_PROMPT
-            + "\n\n用户在问一个财税/业务问题（不是在让你写稿）：" + question
-            + "\n\n请以资深财税顾问的身份，正面、直接地回答他。要求：\n"
-            "1. 先给结论，再讲依据/要点，讲人话、不堆术语；\n"
-            "2. 像同行聊天一样自然，不要机械、不要套模板、不要反问'拍给谁看'；\n"
-            "3. 涉及具体数字/法条/政策时效，若不能百分百确定就说明'以最新官方口径/当地税务机关为准'，不要编造；\n"
-            "4. 有不同情形（如注册公司 vs 个体户、老板 vs 会计）就分情形说清，体现真在思考他的处境；\n"
-            "5. 末尾可以自然带一句是否要把它做成口播/图文，一句带过即可。\n"
-            "只输出回答正文，不要代码块、不要 JSON。"
-        )
-        try:
-            ans = self._chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
-            if isinstance(ans, dict):
-                ans = ans.get("content") or ""
-        except Exception:  # noqa: BLE001
-            ans = ""
-        return {"stage": "answer", "message": ans or "这个问题我帮你想想再答——你补充点背景，比如你是老板还是会计、具体什么情况？"}
+        # 纯知识/经验回答：优先复用意图识别阶段已生成的答案（合并成 1 次模型调用），否则现调
+        if prepared:
+            ans = prepared
+        else:
+            cfg = self._cfg()
+            prompt = (
+                MASTER_PROMPT
+                + "\n\n用户在问一个财税/业务问题（不是在让你写稿）：" + question
+                + "\n\n请以财税顾问的身份，正面、直接地回答他。要求：\n"
+                "1. 先给结论，再讲依据/要点，讲人话、不堆术语；\n"
+                "2. 像同行聊天一样自然，不要机械、不要套模板、不要反问'拍给谁看'；\n"
+                "3. 涉及具体数字/法条/政策时效，若不能百分百确定就说明'以最新官方口径/当地税务机关为准'，不要编造；\n"
+                "4. 有不同情形（如注册公司 vs 个体户、老板 vs 会计）就分情形说清，体现真在思考他的处境；\n"
+                "5. 末尾可以自然带一句是否要把它做成口播/图文，一句带过即可。\n"
+                "只输出回答正文，不要代码块、不要 JSON。"
+            )
+            try:
+                ans = self._chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
+                if isinstance(ans, dict):
+                    ans = ans.get("content") or ""
+            except Exception:  # noqa: BLE001
+                ans = ""
+        return {"stage": "answer", "message": ans or "我正想呢，你再发一次这条、或者多带一句背景，我重新接？"}
 
     def _do_meta_review(self, s, msg):
         """协作审查：用户问'有没有结合XX/参考了XX'时，基于本空间已有证据+角度/成稿，正面回答并给推理链。
@@ -759,6 +1213,7 @@ class ChatOrchestrator:
     _PRODUCE_WORDS = (
         "写第", "全写", "都写", "出稿", "成稿", "开始写", "就写", "写吧", "出个稿",
         "改第", "重写第", "改写第", "出角度", "拆角度", "来几个角度", "出几个角度",
+        "重新拆", "重新出角度", "换个角度", "再拆一次", "再拆一遍", "角度不够", "再来一次", "不要这些",
         "认可", "就按这个", "按这个", "确认", "同意", "就这个", "按这个全写",
     )
 
@@ -768,6 +1223,170 @@ class ChatOrchestrator:
         if not m:
             return False
         return any(w in m for w in self._PRODUCE_WORDS)
+
+    # 明确"要写内容"但没给主题的拦截词：命中且提取不出主题 → 自然反问方向，
+    # 不甩带占位符的通用模板、也不一次性甩"主题+受众"两个问题（受众按话题自动推断）。
+    _BLANK_PRODUCE_WORDS = (
+        "口播", "脚本", "文案", "视频", "图文", "选题", "拆角度", "出稿",
+        "写一条", "写个", "写成", "写一篇", "写篇", "出一条", "出一篇",
+        "做一条", "来一条", "写一份", "出个", "出条", "做个", "来个", "出片", "做视频",
+        "写稿", "整篇", "整一个", "写一段", "来一篇", "来一条",
+        "文章", "公众号", "推文", "小红书",
+    )
+
+    # 空白写稿判定的二次清洗词：去掉动作/类型/域修饰词后若什么都不剩，才算"没给主题"
+    _BLANK_STRIP = (
+        "帮我", "请", "给我", "我", "来", "出", "做", "写", "生成", "整",
+        "一个", "一篇", "一段", "一条", "一期", "一则", "这个", "那个", "那篇",
+        "条", "份", "个", "篇", "的", "关于", "讲讲", "财税", "税务",
+        "工商", "老板", "企业", "内容", "视频", "脚本", "文案", "口播",
+        "图文", "选题", "公众号", "文章", "稿", "出片", "成片", "小红书", "推文",
+    )
+
+    def _is_blank_produce_request(self, msg):
+        """用户说'要写内容'但没给主题 → 应当自然反问方向，而不是甩模板或堆两问。
+
+        判定：去掉动作词 + 内容类型词 + 常见域修饰词（出个/财税/老板…）后，
+        若什么都不剩，才算"没给主题"。这样"给我写一篇XX的公众号文章"会留下
+        XX 不被误判，而"出个财税视频脚本"会被正确识别为空白请求。
+        """
+        m = (msg or "").strip()
+        if not m:
+            return False
+        if not any(w in m for w in self._BLANK_PRODUCE_WORDS):
+            return False
+        left = m
+        for w in self._BLANK_STRIP:
+            left = left.replace(w, "")
+        left = left.strip(" ，。！？、:：\"'\u3000")
+        return len(left) < 2
+
+    # 用户抱怨/求助："没反应/卡了/不动/问细些才回"——这种话要先接住，避免被误判成能力触发
+    _COMPLAINT_WORDS = ("没反应", "没响应", "不动了", "卡了", "卡住了", "问细些", "问细一点",
+                        "怎么不回", "不回我", "没动静", "没声了", "点不动", "没反应了", "又不反应",
+                        "又问", "还要问", "还要我说", "没听懂", "听不懂")
+
+    def _looks_like_complaint(self, msg):
+        m = str(msg or "").strip()
+        if not m:
+            return False
+        return any(w in m for w in self._COMPLAINT_WORDS)
+
+    # —— 状态问句识别：用户是在"问某事做完没"（X写了吗 / X出了没 / X做好了没），不是在下达指令 ——
+    #   这是"像人一样对话"最关键的一环：人听到"今天的文章写了吗"会先回答"写了/没写"，
+    #   而不是把它理解成"现在去写一篇"。之前引擎因为有"公众号文章"关键词就误触发成写稿指令，答非所问。
+    _STATUS_VERBS = ("写", "做", "出", "搞", "弄", "完", "生成", "排", "剪", "录", "配",
+                     "拍", "渲染", "发布", "发", "生产", "交付", "上线", "准备")
+    # 强状态句式：动作动词 + (了/好/完/出来) + (吗/没)，如"写了吗""出完了没""准备好了没"
+    _STATUS_STRONG = re.compile(
+        r"(?:写|做|出|搞|弄|完|生成|排|剪|录|配|拍|渲染|发布|发|生产|交付|上线|准备)"
+        r"(?:好了?|完了?|成了?|出来了?|了没|了吗|了没有|好没|成没|出来没)", re.U)
+    # 弱状态句式：有没有/是不是 + 动作动词（+了/好/完）
+    _STATUS_WEAK = re.compile(
+        r"有没有.*(?:写|做|出|搞|弄|生成|排|剪|录|配|拍|渲染|发布|发|生产|交付|上线)"
+        r"|是不是.*(?:写|做|出|搞|弄|生成|排|剪|录|配|拍|渲染|发布|发|生产|交付|上线).*(?:了|好|完)",
+        re.U)
+
+    def _is_status_inquiry(self, msg):
+        m = (msg or "").strip()
+        if not m or len(m) > 60:   # 太长基本是正文/段落，不是一句状态问话
+            return False
+        if not re.search(r"[吗沒没呢？\?]", m):
+            return False
+        if not re.search(r"(?:写|做|出|搞|弄|完|生成|排|剪|录|配|拍|渲染|发布|发|生产|交付|上线|准备)", m):
+            return False
+        if self._STATUS_STRONG.search(m):
+            return True
+        if self._STATUS_WEAK.search(m):
+            return True
+        return False
+
+    _STATUS_OBJ_MAP = (
+        (("公众号", "文章", "推文", "微信"), "article"),
+        (("小红书", "笔记", "种草"), "xhs"),
+        (("视频", "短片", "片子", "口播视频", "数字人", "图解", "漫画", "白板", "滚动", "头像", "成片"), "video"),
+        (("口播", "稿", "脚本", "逐字稿", "文案"), "script"),
+        (("选题", "角度", "规划", "排期"), "propose"),
+    )
+
+    def _status_object(self, m):
+        for kws, obj in self._STATUS_OBJ_MAP:
+            if any(w in m for w in kws):
+                return obj
+        return "generic"
+
+    # ---- 模型驱动的"自然回复"生成（状态问/重复问的话术不再写死，交由模型） ----
+    def _gen_reply(self, instruction, facts="", timeout=45):
+        """单次模型调用，生成一段自然的对话回复。
+
+        代码只负责给出【真实事实】(facts) 和【本轮任务】(instruction)，
+        具体怎么说得自然、口语、不套模板，全部交给模型，杜绝写死中文分支。
+        返回纯文本；模型失败/为空时返回空串（由调用方兜底）。
+        """
+        cfg = self._cfg()
+        prompt = (
+            MASTER_PROMPT + "\n\n"
+            "你是'对话出稿工作台'的财税顾问助手。说话要像真人顾问：口语化、讲人话、不堆术语、"
+            "不套模板、不反问用户'拍给谁看'。你只负责把回复说自然、说准确；所有事实依据都已由系统查好"
+            "写在下面，不要编造没发生的事，也不要自行启动任何写稿/出片动作。\n"
+        )
+        if facts:
+            prompt += "【当前真实状态（据此如实回答，不要夸大或虚构）】\n" + facts + "\n\n"
+        prompt += (
+            "【本轮任务】\n" + instruction + "\n\n"
+            "只输出回复正文，不要代码块、不要 JSON、不要前缀标签，一两句即可。"
+        )
+        try:
+            ans = self._chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=timeout)
+            if isinstance(ans, dict):
+                ans = ans.get("content") or ""
+            ans = (ans or "").strip()
+            if ans.startswith("```"):
+                ans = ans.strip("`")
+                if ans[:4].lower() == "json":
+                    ans = ans[4:]
+                ans = ans.strip()
+            return ans
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def _gather_facts(self, s):
+        """代码查真实状态，喂给模型当事实依据（不掺杂话术）。"""
+        facts = []
+        written = s.get("written") or []
+        if written:
+            facts.append("本空间今天已经累计成稿 %d 篇口播稿。" % len(written))
+        else:
+            facts.append("本空间今天还没有成稿。")
+        lar = s.get("last_action_ready") or {}
+        if lar.get("cap_id") and time.time() - lar.get("ts", 0) < 600:
+            cap_name = (_CAP.get(lar["cap_id"]) or {}).get("name", lar["cap_id"]) if _CAP else lar["cap_id"]
+            facts.append("最近已经为用户准备好一张「%s」的执行卡片，参数已齐，点开始就能生成。" % cap_name)
+        return "\n".join(facts) if facts else "（暂无已产出的内容）"
+
+    def _do_status_inquiry(self, s, message):
+        """自然回答"X 做了没"：模型驱动，如实说状态 + 给出下一步，绝不误开能力卡片。"""
+        m = str(message or "").strip()
+        obj = self._status_object(m)
+        label = {"article": "公众号文章", "xhs": "小红书图文", "video": "视频",
+                 "script": "口播稿", "propose": "选题/排期"}.get(obj, "内容")
+        facts = self._gather_facts(s)
+        repeat_note = ""
+        if s.get("_is_repeat"):
+            repeat_note = "用户刚才已经问过一模一样的问题，你可以温和地提一句'刚说过'，但结论不变，依旧如实回答。\n"
+        instruction = (
+            "用户问：'%s'（他在问%s这件事做到没）。\n" % (m, label)
+            + repeat_note
+            + "请如实说明现在的状态（做了/没做/做了多少），然后自然地问问用户要不要现在就做这件事；"
+            + "如果他问的对象已经有准备好的执行卡片，提醒他直接点卡片上的「开始执行」即可。保持一句到两句，口语、干脆。"
+        )
+        ans = self._gen_reply(instruction, facts, timeout=45)
+        if not ans:
+            # 兜底：模型失败时给一句事实陈述，绝不空白
+            ans = "今天这个空间里%s还没做呢。要现在做吗？把主题和给谁看告诉我，我马上来。" % label
+        self._chat_log(s.get("id"), "OUT | status-inquiry(model) | obj=%s" % obj)
+        return {"stage": "answer", "message": ans}
+
 
     # 求知/问句特征：问"政策/流程/风险/怎么办/怎么/是否/能不能/多少钱/要不要/行不行"类
     _Q_WORDS = ("吗", "么", "？", "?", "怎么", "如何", "是否", "能不能", "可不可以", "行不行",
@@ -796,6 +1415,93 @@ class ChatOrchestrator:
                           "2026", "最新", "是否适用", "现行", "细则", "公告", "条例", "办法", "优惠")
     def _answer_needs_search(self, msg):
         return any(w in msg for w in self._SEARCH_NEED_WORDS)
+
+    # ---- 本地意图兜底：LLM 解析失败时纯规则判定，杜绝"说啥都没反应" ----
+    def _local_intent_fallback(self, s, message):
+        """LLM 解析不到意图时的硬规则兜底（不依赖大模型）。
+
+        返回：'write'（进写稿流程）/ 'ask_topic'（连主题都没有要问）/
+              'answer'（像在问问题）/ None（真判断不出，交回默认 ask）。
+        """
+        import re
+        m = str(message or "").strip()
+        # 出稿类信号：明确写稿词，或含 第N条/写/稿/角度/拆 等
+        if self._is_produce_cmd(m) or any(w in m for w in
+                                         ("写", "稿", "出", "角度", "第", "条", "篇",
+                                          "做一批", "来几个", "拆", "全写", "都写")):
+            # 若这句明确命中某个平台能力（如"公众号文章"），让 _match_capability 调度能力卡片，
+            # 不要兜底成普通写稿，避免"有时走能力、有时走普通稿"的体验分裂。
+            cap_hit = self._match_capability(m)
+            if cap_hit:
+                return None
+            if s.get("topic"):
+                return "write"
+            # ★LLM 失败时仍尝试从请求句里抓主题，避免明确指令被反问"先讲主题"。
+            t = self._extract_topic_from_msg(m)
+            if t and len(t) >= 2:
+                s["topic"] = t
+                return "write"
+            return "ask_topic"
+        # 纯问题（问句/求知词）→ 正面回答
+        if self._looks_like_question(m):
+            return "answer"
+        return None
+
+    def _pick_from_msg(self, message):
+        """从'写第N条/全写/继续'这类话里解析出 pick 值（下标/ 'all' / 'next'）。"""
+        import re
+        m = str(message or "").strip()
+        if any(w in m for w in ("全写", "都写", "全部", "all", "all写")):
+            return "all"
+        if any(w in m for w in ("继续", "下一条", "下一篇", "再写", "接着", "next", "第几", "下一个")):
+            return "next"
+        mm = re.search(r"第\s*(\d+)\s*[条个篇集]", m)
+        if mm:
+            return max(0, int(mm.group(1)) - 1)
+        # 含"写"但没说哪条 → 默认接着写未完成的
+        if "写" in m or "稿" in m:
+            return "next"
+        return "next"
+
+    # ---- 从用户请求句里清洗出真实主题（避免"给我写一篇XX的公众号文章"把整句当主题） ----
+    _TOPIC_EXTRACT_PAT = re.compile(
+        r"(?:帮我|请|给|来)?(?:我)?(?:写|做|来|生成|整)"
+        r"(?:写个|做个|来个|一篇|一个|一段|一条|一期|一则)?[的]?"
+        r"(?:关于|讲讲|说说|谈谈|聊聊)?(.{2,40}?)(?:的)?"
+        r"(?:公众号|文章|稿|文案|口播|图文|视频|内容|推文|脚本|方案)",
+        re.UNICODE,
+    )
+
+    @staticmethod
+    def _jaccard(a, b):
+        """简单 Jaccard 相似度：用于判断用户是否重复发送同一请求。"""
+        sa = set(a)
+        sb = set(b)
+        if not sa and not sb:
+            return 1.0
+        inter = len(sa & sb)
+        union = len(sa | sb)
+        return inter / union if union else 0.0
+
+    def _extract_topic_from_msg(self, message):
+        """从'给我写一篇XX的公众号文章'里提取出'XX'；提取失败返回原句去噪后的结果。"""
+        m = str(message or "").strip()
+        mm = self._TOPIC_EXTRACT_PAT.search(m)
+        if mm:
+            t = mm.group(1).strip("的 ")
+            if t and len(t) >= 2:
+                return t
+        # 兜底：去掉常见动作前缀/后缀
+        noise = (
+            "帮我", "请", "给我", "给", "来", "写", "做", "生成", "整", "一篇",
+            "一个", "一段", "一条", "一期", "一则", "的", "关于", "讲讲",
+            "公众号", "文章", "稿", "文案", "口播", "图文", "视频", "内容", "推文", "脚本", "方案",
+        )
+        t = m
+        for w in noise:
+            t = t.replace(w, "")
+        t = t.strip(" ，。！？、:：\"'\u3000")
+        return t if len(t) >= 2 else ""
 
     # ---- 受众推断：话题往往自带受众，能推理出来就不该反问用户 ----
     # 关键词 → (受众, 一句话理由)。按话题阶段匹配：注册/成立/创业 → 准备中的创业者。
@@ -937,6 +1643,7 @@ class ChatOrchestrator:
     # ---- 对外入口：一次对话回合 ----
     def step(self, sid, message, tenant="", action=None):
         s = self._get(sid)
+        s["_last_norm"] = self._norm_msg(message)
         if tenant and not s.get("tenant"):
             s["tenant"] = tenant
         self._touch(s)
@@ -963,6 +1670,16 @@ class ChatOrchestrator:
         self._auto_title(s)          # 主题定下来后自动起名，避免列表里一片"未命名"
         result["title"] = s.get("title") or ""
         result["kind"] = s.get("kind") or "temp"
+        # 记录"最近回答"到会话缓存，供重复提问时复用(记忆) + 提示
+        if result.get("stage") == "answer" and result.get("message"):
+            cache = s.setdefault("_answered_cache", {})
+            clean = result["message"]
+            if s.get("_last_norm"):
+                cache[s["_last_norm"]] = clean
+                if len(cache) > 12:
+                    for k in list(cache.keys())[:len(cache) - 12]:
+                        cache.pop(k, None)
+        s["_is_repeat"] = False
         self._save(s)                # 落盘：重启/超时都不丢
         return result
 
@@ -971,7 +1688,10 @@ class ChatOrchestrator:
     # 而是给出可点的动作清单（stage=pipeline, actions[]），由前端渲染按钮引导到既有生产页。
     _ACTION_KEYWORDS = {
         "voice":  ["配音", "语音", "合成声音", "出音频", "生成声音", "去配音"],
-        "render": ["出片", "做成片", "生成视频", "做视频", "渲染", "数字人", "出视频", "去出片"],
+        # ★"成片/出成品/做个视频"等也归到 render 动作词里，由对话编排器统一控制流程，
+        # 避免绕过"写稿→改稿→确认"直接进能力卡片。
+        "render": ["出片", "做成片", "生成视频", "做视频", "渲染", "数字人", "出视频", "去出片",
+                   "成片", "出成品", "做个视频"],
         "qc":     ["质检", "检查稿子", "查违禁词", "审稿", "看看有没有问题", "违规", "风险词"],
         "publish":["发布", "去发布", "发视频", "分发", "发到抖音"],
     }
@@ -988,14 +1708,44 @@ class ChatOrchestrator:
             return None
         written = s.get("written") or []
         angles = s.get("angles") or []
+
+        # ★【出片流程硬规则】必须按"选题→写口播稿→改稿（字数/时长/表述）→确认→出片"走，
+        # 绝不允许没稿就直接弹 video_render 卡片，更不允许把用户的随口话当成脚本。
+        if hits.get("render"):
+            if not written:
+                if not s.get("topic"):
+                    s["awaiting_topic_for_write"] = True
+                    self._chat_log(s.get("id"), "OUT | render-without-topic -> ask topic first")
+                    return {
+                        "stage": "ask",
+                        "message": "好，出片前先写口播稿。告诉我这条视频讲什么主题，我出完稿后你改字数、时长、表述都可以，确认后再出片。",
+                    }
+                # 有主题但没稿：直接拆角度，进入"选题→写稿"流程；写完后才给出片确认
+                self._chat_log(s.get("id"), "OUT | render-with-topic -> propose angles for video")
+                return self._do_propose(s)
+            # 有稿：先展示口播稿，让用户确认是否改字数/时长/表述，满意了再点做成片
+            last = written[-1]
+            s["_await_video_confirm"] = True
+            self._chat_log(s.get("id"), "OUT | render-with-script -> show script & ask modify/confirm")
+            return {
+                "stage": "written",
+                "message": "口播稿已准备好。你看看要不要调整——改字数、改时长、改表述都可以；满意了再点「做成片」出视频。",
+                "results": [last],
+                "next": [
+                    {"id": "video_render", "name": "做成片", "icon": "🎬", "cmd": "做成片"},
+                    {"id": "rewrite", "name": "二创改写", "icon": "✍️", "cmd": "二创改写"},
+                    {"id": "qc", "name": "文案质检", "icon": "🛡️", "cmd": "质检"},
+                ],
+            }
+
         if not written and not angles:
             return {
                 "stage": "ask",
                 "message": "还没有成稿可以进入下一步。先把主题、受众跟我说，出完稿我再帮你接配音/出片。",
             }
         actions = []
-        # 配音/出片：只要有稿就能去 scroll 出片页（把稿带去）；会话稿存内存，跨页需经 session_id
-        if hits.get("voice") or hits.get("render"):
+        # 配音：只要有稿就能去 scroll 出片页（把稿带去）；会话稿存内存，跨页需经 session_id
+        if hits.get("voice"):
             actions.append({
                 "type": "goto", "label": "去出片/配音（图解短视频页）", "url": "/studio/scroll",
                 "hint": "把当前这批发到「滚动视频出片」继续配音与合成",
@@ -1037,10 +1787,10 @@ class ChatOrchestrator:
     # =====================================================================
 
     # 关键词快匹配（命中即走能力，不劳 LLM，稳定且省 token）
+    # ★注意：video_render（生成视频/出片）不在关键词列表里——它必须从"选题→写口播稿→改稿→确认"
+    # 的完整对话流程中触发，绝不能在聊天里被一句"生成视频"直接唤起，否则会把用户随口一句话当成脚本，
+    # 出现"没有口播稿内容就开始生成视频"的荒唐结果。
     _CAP_KEYWORDS = {
-        "video_render": ("出片", "生成视频", "做成视频", "做视频", "出视频", "渲染",
-                         "拍成视频", "生成成片", "视频生成", "做个视频", "出成片",
-                         "成片", "出成品", "做个视频"),
         "topic": ("选题", "给我选题", "出选题", "选几个题", "想几个选题", "找选题"),
         "hotspot": ("热点选题", "追热点", "热点话题", "最近热点"),
         "rewrite": ("二创", "改写", "改成我的", "爆改", "重写成", "改成"),
@@ -1149,7 +1899,12 @@ class ChatOrchestrator:
                     if target:
                         break
                 if target:
-                    vals[target["key"]] = rest
+                    # 主题/标题/关键词类参数必须做清洗，避免"给我写一篇XXX的公众号文章"
+                    # 把整个脏句填进去（如"给我写一篇个人卡收款严重性的"）。
+                    if target["key"] in ("topic", "kw_main", "title", "keywords", "industry"):
+                        vals[target["key"]] = self._extract_topic_from_msg(rest)
+                    else:
+                        vals[target["key"]] = rest
 
         miss = _CAP.missing_params(cid, vals)
         s["pending_cap"] = {"id": cid, "vals": vals}
@@ -1177,7 +1932,10 @@ class ChatOrchestrator:
 
         # 参数齐 → 可执行
         s["pending_cap"] = None
-        return {
+        # 记录当前能力卡状态，方便识别后续"开始执行/确认"类消息
+        s["last_action_ready"] = {"cap_id": cid, "vals": vals, "ts": time.time(),
+                                  "msg": str(message or "")[:120]}
+        res = {
             "stage": "action_ready",
             "cap": cap_info,
             "vals": vals,
@@ -1185,6 +1943,167 @@ class ChatOrchestrator:
             "next": _CAP.next_suggestions(cid),
             "tip": "跑完我会告诉你结果，并提示下一步能做什么。",
         }
+        self._chat_log(s.get("id"), "OUT | action_ready cap=%s vals_keys=%s" % (cid, ",".join(vals.keys())))
+        return res
+
+    def _apply_param_change(self, s, lar, message):
+        """能力卡片已 ready 后，用户说"改个字数/风格/地区"等 → 更新 vals 并返回新卡片。"""
+        cid = lar.get("cap_id")
+        cap = _CAP.get(cid) if _CAP else None
+        if not cap:
+            return {"changed": False}
+        params = cap.get("params") or []
+        vals = dict(lar.get("vals") or {})
+        changed = False
+        reply = []
+        m = str(message or "").strip()
+
+        # ---- 硬规则：快速命中常见参数（省一次 LLM，又快又稳） ----
+        for p in params:
+            key = p["key"]
+            typ = p.get("type") or "text"
+            opts = p.get("options") or []
+            if typ == "select" and opts:
+                for opt in opts:
+                    opt = str(opt)
+                    if ":" in opt:
+                        _ov, ol = opt.split(":", 1)
+                    else:
+                        _ov = ol = opt
+                    # 用户说"1500字"要能命中"1500:1500字"
+                    if ol in m or opt in m or _ov in m:
+                        if vals.get(key) != opt:
+                            vals[key] = opt
+                            changed = True
+                            reply.append("%s改为%s" % (p.get("label", key), ol))
+                        break
+            elif typ == "text" and key == "region":
+                for r in ("苏州", "昆山", "江苏", "上海", "安徽", "浙江", "全国", "本地"):
+                    if r in m:
+                        if vals.get(key) != r:
+                            vals[key] = r
+                            changed = True
+                            reply.append("地域改为%s" % r)
+                        break
+            elif typ == "text" and key == "year":
+                mm = re.search(r"(20\d{2})年?", m)
+                if mm:
+                    y = mm.group(1)
+                    if vals.get(key) != y:
+                        vals[key] = y
+                        changed = True
+                        reply.append("年份改为%s" % y)
+            elif typ == "bool":
+                pos = any(w in m for w in ("要", "开", "是", "启用", "打开", "生成后", "true"))
+                neg = any(w in m for w in ("不要", "不用", "不需要", "不想", "别", "关", "否", "关闭", "false"))
+                # 同时出现或只有否定 → 按否定处理；只有肯定 → 开启
+                if pos or neg:
+                    v = False if neg else True
+                    old = vals.get(key)
+                    # None 与 False 视为相同（默认值未显式改动过）
+                    if not (old is None and v is False) and old != v:
+                        vals[key] = v
+                        changed = True
+                        reply.append("%s%s" % (p.get("label", key), "开启" if v else "关闭"))
+            elif key == "words":
+                mm = re.search(r"(\d+)\s*[字kK]", m)
+                if mm:
+                    n = int(mm.group(1))
+                    best = None
+                    best_diff = None
+                    for opt in opts:
+                        opt = str(opt)
+                        if ":" not in opt:
+                            continue
+                        try:
+                            on = int(opt.split(":", 1)[0])
+                        except Exception:
+                            continue
+                        diff = abs(on - n)
+                        if best_diff is None or diff < best_diff:
+                            best_diff = diff
+                            best = opt
+                    if best and vals.get(key) != best:
+                        vals[key] = best
+                        changed = True
+                        reply.append("字数改为%s" % best.split(":", 1)[1])
+
+        # ---- 硬规则没中 → 用 LLM 轻量解析 ----
+        if not changed:
+            param_desc = []
+            for p in params:
+                opts = p.get("options") or []
+                opt_txt = ""
+                if opts:
+                    opt_txt = "，可选：" + " / ".join(str(o).split(":")[-1] for o in opts)
+                param_desc.append("- %s（%s%s）当前=%r" % (
+                    p["key"], p.get("label", ""), opt_txt, vals.get(p["key"])))
+            prompt = (
+                "你是对话工作台的参数修改识别器。用户看到一张能力参数卡片后，回复了一句话。"
+                "请判断他是否在修改/补充某个参数，并输出 JSON（不要任何其它文字）。\n\n"
+                "能力：%s\n当前参数：\n%s\n\n用户回复：%s\n\n"
+                "只输出 JSON：\n"
+                "{\n"
+                '  "changed": true/false,\n'
+                '  "changes": [{"key": "参数key", "value": "新值"}],\n'
+                '  "reply": "一句话告知用户已改/未改"\n'
+                "}\n"
+                "规则：\n"
+                "1. 只在确实修改某个参数时 changed=true；闲聊/确认/开始执行等无关内容 changed=false。\n"
+                    "2. select 类型必须严格使用可选值里完整的一项（如 '1500:1500字'）。\n"
+                    "3. bool 类型 value 用 true/false。\n"
+                    "4. 不新增 params 列表里没有的 key。\n"
+                    "5. reply 用自然口语，不超过 30 字。" % (cap["name"], "\n".join(param_desc), m)
+            )
+            try:
+                cfg = self._cfg()
+                raw = self._chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=30)
+                if isinstance(raw, dict):
+                    raw = raw.get("content") or ""
+                parsed = None
+                text = (raw or "").strip()
+                if text:
+                    # 尝试从 ```json ... ``` 中提取
+                    if "```" in text:
+                        for block in re.findall(r"```(?:json)?\s*([\s\S]*?)```", text):
+                            try:
+                                parsed = json.loads(block.strip())
+                                break
+                            except Exception:
+                                pass
+                    if not parsed:
+                        try:
+                            parsed = json.loads(text)
+                        except Exception:
+                            # 找第一个 { ... }
+                            mm = re.search(r"\{[\s\S]*\}", text)
+                            if mm:
+                                try:
+                                    parsed = json.loads(mm.group(0))
+                                except Exception:
+                                    parsed = None
+            except Exception:
+                parsed = None
+            if parsed and parsed.get("changed") and isinstance(parsed.get("changes"), list):
+                valid_keys = {pp["key"] for pp in params}
+                _has = False
+                for ch in parsed["changes"]:
+                    k = ch.get("key")
+                    v = ch.get("value")
+                    if k in valid_keys:
+                        vals[k] = v
+                        changed = True
+                        _has = True
+                if _has:
+                    reply.append(parsed.get("reply", "已按你的要求调整参数。"))
+
+        if not changed:
+            return {"changed": False}
+
+        s["last_action_ready"] = {"cap_id": cid, "vals": vals, "ts": time.time(),
+                                  "msg": lar.get("msg", "")}
+        return {"changed": True, "vals": vals,
+                "reply": "、".join(reply) if reply else "已按你的要求调整参数。"}
 
     def _do_action_done(self, s, cap_id, ok, data):
         """能力执行完回灌：AI 总结 + 纠偏提醒 + 下一步引导。"""
@@ -1207,7 +2126,9 @@ class ChatOrchestrator:
                "\n".join("- %s %s：%s" % (n["icon"], n["name"], n["desc"]) for n in nxt) or "（无）")
         )
         try:
-            ans = self._chat(prompt, self._cfg()[0], self._cfg()[1]) if callable(self._cfg) else None
+            _cfg = self._cfg()
+            ans = self._chat(prompt, _cfg["model"], _cfg["key"], _cfg.get("base_url"), timeout=90) \
+                if callable(self._cfg) else None
         except Exception:  # noqa: BLE001
             ans = None
         return {
@@ -1220,29 +2141,274 @@ class ChatOrchestrator:
             "tip": "点下面的卡片继续，或说你要做什么。",
         }
 
+    # —— 重复提问识别（记忆提示）——
+    # 同一句话再说一遍：①照样答(复用/重算，绝不 busy/空白)；②若之前答过，让模型自然提示"刚答过"并引导新问题。
+    # 话术不再写死，交由模型生成；这里只保留一个模型失败时的安全兜底。
+    _REPEAT_FALLBACK = "（这句刚才回答过啦，结论不变。还想聊点别的吗？）"
+
+    def _norm_msg(self, msg):
+        m = (msg or "").strip().lower()
+        m = m.strip("。？?!！，,.~～；;：:、 ")
+        m = re.sub(r"\s+", "", m)
+        return m
+
+    def check_repeat(self, sid, message):
+        """供 server 在 busy 闸门之前调用。
+        返回:
+          ("answer", text) -> 非状态类重复，复用上次真实答案、由模型自然重述(记忆)，server 同步返回，绝不进 busy/异步
+          ("status", None)  -> 状态问句重复，标记后走正常同步流程重算(保证时效)，由 step 的 _do_status_inquiry 模型生成带提示回复
+          None              -> 非重复，正常流程
+        """
+        s = self._get(sid)
+        if not s:
+            return None
+        norm = self._norm_msg(message)
+        if not norm:
+            return None
+        cache = s.get("_answered_cache") or {}
+        if norm in cache and cache[norm]:
+            if self._is_status_inquiry(message):
+                s["_is_repeat"] = True
+                return ("status", None)
+            # 非状态类重复：用上次真实答案当事实，模型自然重述 + 引导下一步（话术不写死）
+            s["_is_repeat"] = True
+            facts = "用户又把刚才的问题原样问了一遍。你刚才的回答要点是：\n" + cache[norm]
+            instruction = ("用户重复提问，请自然地告诉用户你刚才已经回答过这个问题，把结论再说一遍，"
+                          "并顺势引导他聊点别的，或者让你直接动手做点什么（写稿/出片/发文都行）。不要生硬。")
+            ans = self._gen_reply(instruction, facts, timeout=45)
+            if not ans:
+                ans = cache[norm] + self._REPEAT_FALLBACK
+            return ("answer", ans)
+        return None
+
     def _step_core(self, s, message):
+        sid = s.get("id")
+        self._chat_log(sid, f"IN  | {str(message)[:80]}")
+        if sid:
+            self._set_progress(sid, "thinking", "正在理解你的意图…")
         s["history"].append(f"用户: {message}")
         if len(s["history"]) > 12:
             s["history"] = s["history"][-12:]
 
+        # —— 0) 用户反馈"没反应/卡了/不动"时的紧急引导 ——
+        # 排最前：避免 LLM 或关键词匹配把它误当成"开始某个能力"。
+        if self._looks_like_complaint(message):
+            lar = s.get("last_action_ready") or {}
+            if lar.get("cap_id") and time.time() - lar.get("ts", 0) < 600:
+                cap_name = (_CAP.get(lar["cap_id"]) or {}).get("name", lar["cap_id"])
+                self._chat_log(sid, "OUT | complaint-with-ready | %s" % lar["cap_id"])
+                return {
+                    "stage": "action_ready",
+                    "cap": {"id": lar["cap_id"], "name": cap_name},
+                    "vals": lar.get("vals") or {},
+                    "message": "我在。参数已经齐了，点卡片里的「开始执行」我就跑%s；如果卡片没显示，刷新一下页面。" % cap_name,
+                    "tip": "不用重复发，点「开始执行」即可。",
+                }
+            self._chat_log(sid, "OUT | complaint-no-ready")
+            return {"stage": "ask",
+                    "message": "我在。刚才没接上，你直接说想做什么，比如'给我写一篇个人卡收款严重性的公众号文章'。"}
+
+        # —— 0.4) 重复提问识别（记忆提示）——
+        # 与 server 层 check_repeat 互补：保证无论入口(直连 step / 经 server)都能接住重复，绝不 blank/答非所问。
+        # 非状态类 → 复用上次真实答案、由模型自然重述；状态类(写了吗/出了没) → 走正常流程重算时效，由 _do_status_inquiry 模型生成带提示回复。
+        _rn = s.get("_last_norm")
+        _rc = s.get("_answered_cache") or {}
+        _is_rep = bool(_rn and _rn in _rc and _rc[_rn])
+        if _is_rep:
+            s["_is_repeat"] = True
+            if not self._is_status_inquiry(message):
+                cached = _rc[_rn]
+                facts = "用户又把刚才的问题原样问了一遍。你刚才的回答要点是：\n" + cached
+                instruction = ("用户重复提问，请自然地告诉用户你刚才已经回答过这个问题，把结论再说一遍，"
+                              "并顺势引导他聊点别的，或者让你直接动手做点什么（写稿/出片/发文都行）。不要生硬。")
+                ans = self._gen_reply(instruction, facts, timeout=45)
+                if not ans:
+                    ans = cached + self._REPEAT_FALLBACK
+                self._chat_log(sid, "OUT | repeat reuse (in-step, model)")
+                return {"stage": "answer", "message": ans}
+            # 状态类重复：继续往下走 _do_status_inquiry，由模型生成带提示回复
+
+        # —— 0.5) 口播稿已备好，用户确认出片 → 直接弹出 video_render 卡片 ——
+        #   前提：必须已有 written 稿；否则走 _detect_pipeline 的"先写稿"分支。
+        #   "做成片"是明确确认；"出片/生成视频"若紧接着刚展示的口播稿（_await_video_confirm 为 True），
+        #   也视为确认。其他情况（如用户还没看过稿就说"生成视频"）先展示稿、问是否修改。
+        #   这里同时接住写稿后的"改字数/时长/表述"请求，避免被误判成新指令。
+        written = s.get("written") or []
+        if written and not (s.get("pending_cap") or {}).get("id"):
+            _m = str(message or "").strip()
+            explicit_confirm = any(w in _m for w in ("做成片", "开始出片", "确认出片"))
+            intent_confirm = s.get("_await_video_confirm") and any(w in _m for w in ("出片", "生成视频", "做成片", "开始出片", "确认出片"))
+            if (explicit_confirm or intent_confirm) and not self._looks_like_complaint(_m):
+                self._chat_log(sid, "OUT | video-render confirm -> render card")
+                s["_await_video_confirm"] = False
+                return self._do_capability(s, "", "video_render")
+            if self._is_script_modify_request(_m):
+                mod = self._handle_script_modify(s, _m)
+                if mod:
+                    self._chat_log(sid, "OUT | script-modify handled")
+                    return mod
+
+        # —— 0.52) 用户明确要"重新拆角度"（或同义表达）且本空间已有主题 → 直接重拆，不绕 LLM 意图识别。
+        #   避免模型把"重新拆角度"误判为 answer/ask，或觉得"已经拆过"而卡住。
+        if not (s.get("pending_cap") or {}).get("id") and s.get("topic") and not written:
+            _m = str(message or "").strip()
+            if any(w in _m for w in ("重新拆", "重新出角度", "换个角度", "再拆一次", "再拆一遍",
+                                      "角度不够", "再来一次", "不要这些")):
+                self._chat_log(sid, "OUT | explicit re-propose -> _do_propose")
+                return self._do_propose(s)
+
+        # —— 0.55) 上一轮在等"写什么主题" → 这一句就是主题，直接进入写稿 ——
+        #   让"想写点什么？"→"公转私"或"个体户怎么报税"的来回像真人对话一样连贯，
+        #   不再甩占位模板，也不再追问受众（按话题自动推断）。
+        if not (s.get("pending_cap") or {}).get("id") and s.get("awaiting_topic_for_write"):
+            _m = str(message or "").strip()
+            if self._is_blank_produce_request(_m):
+                # 又发了空指令：重新自然问一次（落到下面 0.6）
+                pass
+            else:
+                s["awaiting_topic_for_write"] = False
+                topic = self._extract_topic_from_msg(_m) or _m
+                s["topic"] = topic
+                # 受众按话题自动推断，推不出才留空（后续写稿时再问，不堆两个问题）
+                if not s.get("audience"):
+                    inferred = self._infer_audience(s, _m)
+                    if inferred:
+                        s["audience"] = inferred
+                self._chat_log(sid, "IN | awaiting_topic_for_write -> topic=%s" % topic)
+                return self._do_propose(s)
+
         # —— 能力调度（对话驱动一切）——
         # 1) 正在收集某个能力的参数：这句就是答案（除非他改主意要出稿/取消）
         pc = s.get("pending_cap") or {}
+        # —— 0.7) 状态问句识别：用户是在"问某事做完没"（X写了吗/X出了没），不是在下指令 ——
+        #   必须排在能力匹配 / LLM 2.5 分类之前：否则"今天的公众号文章写了吗"会被
+        #   "公众号文章"关键词误触发成写稿指令，答非所问。像人一样先回答"做了/没做"。
+        if not pc.get("id") and self._is_status_inquiry(message):
+            return self._do_status_inquiry(s, message)
         if pc.get("id"):
             _m = str(message or "").strip()
+            # ★表单收集中若用户抛来一个"真实问题"（不是填参/确认/取消）→ 先正面回答，
+            #   不把它当成参数值吞掉（否则表现就是答非所问）。pending_cap 保留，用户答完可继续填表。
+            _is_form_ctrl = any(w in _m for w in
+                                ("开始执行", "开始", "执行", "确认", "跑", "走起", "取消", "算了", "不用了", "go"))
+            if self._looks_like_question(_m) and not self._is_produce_cmd(_m) and not _is_form_ctrl:
+                _FISCAL = ("税", "票", "账", "股东", "股权", "注册", "个体", "公司", "稽查", "合规",
+                           "公转私", "老板", "政策", "法规", "申报", "财务", "会计", "企业", "经营",
+                           "利润", "成本", "建筑", "挂靠", "发票", "纳税", "风险", "注销", "合伙")
+                if any(w in _m for w in _FISCAL):
+                    self._chat_log(sid, "OUT | pending_cap + 财税问答 -> 先答后留表")
+                    return self._do_answer(s, _m, need_search=self._answer_needs_search(_m))
+                self._chat_log(sid, "OUT | pending_cap + 通用问答 -> 先答后留表")
+                return self._do_general_answer(s, _m)
             if _m in ("取消", "算了", "不用了", "退出", "不做了"):
                 s["pending_cap"] = None
-            elif not self._is_produce_cmd(_m) or len(_m) >= 6:
+                self._chat_log(sid, "OUT | pending_cap cleared by cancel")
+                return {"stage": "ask", "message": "已取消，继续说你要做什么。"}
+            # 参数还没齐时用户就说「开始执行/开始」→ 给出明确反馈，避免像"没反应"
+            if any(w in _m for w in ("开始执行", "开始", "执行", "确认", "跑", "走起", "go")):
+                cap_info = {"id": pc["id"], "name": (_CAP.get(pc["id"]) or {}).get("name", pc["id"])}
+                self._chat_log(sid, "OUT | pending_cap early-confirm hint")
+                return {
+                    "stage": "action_ready",
+                    "cap": cap_info,
+                    "vals": pc.get("vals") or {},
+                    "message": "已收到确认，参数齐了立刻跑；现在可以先补全卡片里的参数，或点「开始执行」。",
+                    "tip": "如果卡片没显示，刷新一下页面。",
+                }
+            if not self._is_produce_cmd(_m) or len(_m) >= 6:
                 r = self._do_capability(s, message, pc["id"])
                 if r:
                     return r
-        # 2) 这句话命中某个平台能力（出片/选题/质检/发布包…）→ 进入能力流程
+        # 1.6) 能力参数已齐、卡片已展示后：用户说「开始/确认」或重复发送同样请求 →
+        #      8500 侧不直接执行能力（执行端点是 Laravel /studio/chat/action），但给出明确反馈，
+        #      绝不像"没反应"一样空白。
         if not pc.get("id"):
+            lar = s.get("last_action_ready") or {}
+            if lar.get("cap_id") and time.time() - lar.get("ts", 0) < 600:
+                _m = str(message or "").strip()
+                if any(w in _m for w in ("开始执行", "开始", "执行", "确认", "跑", "走起", "go")):
+                    cap_info = {"id": lar["cap_id"],
+                                "name": (_CAP.get(lar["cap_id"]) or {}).get("name", lar["cap_id"])}
+                    self._chat_log(sid, "OUT | last_action_ready confirm hint")
+                    return {
+                        "stage": "action_ready",
+                        "cap": cap_info,
+                        "vals": lar.get("vals") or {},
+                        "message": "已收到确认，点卡片里的「开始执行」我立刻就跑。",
+                        "tip": "如果卡片没显示，刷新一下页面。",
+                    }
+                last_msg = lar.get("msg") or ""
+                if last_msg and (_m == last_msg or _m in last_msg or last_msg in _m or
+                                 self._jaccard(_m, last_msg) > 0.6):
+                    cap_info = {"id": lar["cap_id"],
+                                "name": (_CAP.get(lar["cap_id"]) or {}).get("name", lar["cap_id"])}
+                    self._chat_log(sid, "OUT | last_action_ready repeated request")
+                    return {
+                        "stage": "action_ready",
+                        "cap": cap_info,
+                        "vals": lar.get("vals") or {},
+                        "message": "参数已经准备好了，点下方卡片里的「开始执行」即可运行；无需重复发送。",
+                        "tip": "如果卡片没显示，刷新一下页面。",
+                    }
+                # 1.65) 用户想修改/补充已 ready 卡片的参数（如"字数改成1500"）
+                applied = self._apply_param_change(s, lar, _m)
+                if applied.get("changed"):
+                    cap_info = {"id": lar["cap_id"],
+                                "name": (_CAP.get(lar["cap_id"]) or {}).get("name", lar["cap_id"])}
+                    self._chat_log(sid, "OUT | last_action_ready param changed")
+                    return {
+                        "stage": "action_ready",
+                        "cap": cap_info,
+                        "vals": applied.get("vals") or lar.get("vals") or {},
+                        "message": "%s，点「开始执行」我就按这个跑。" % applied.get("reply", "已调整参数"),
+                        "tip": "跑完我会告诉你结果，并提示下一步能做什么。",
+                    }
+                # 不是确认、不是重复、也不是改参数：不再用 idle 提示吞掉这句——
+                # 否则卡片展示后用户说"配音/去发布/随便问个问题"会全被卡死在这里。
+                # 直接放行，让后续管线/检索/问答分支正常接手（卡片本身仍停在屏幕上）。
+                self._chat_log(sid, "OUT | last_action_ready fall-through (no confirm/repeat/param-change)")
+
+        # 1.5)【主动规划意图】"规划/排期/策划/一周内容" → 生成 7 天内容排期
+        #     【排期卡片点击直通】【规划选题】<主题>　受众：<受众> → 直接拆角度
+        #     两者都必须排在能力关键词匹配之前：否则"帮我规划本周内容""公转私…选题"
+        #     会被「智能选题」能力抢走，用户点了没反应。
+        if not pc.get("id"):
+            # 排期批量出稿：用户点「本周 7 条全写」或说"本周都写出来" → 7 天各写一篇
+            if self._detect_plan_write(s, message):
+                return self._do_plan_write(s)
+            _pt = self._extract_plan_topic(message)
+            if _pt:
+                s["topic"] = _pt[0]
+                s["audience"] = _pt[1] or s.get("audience") or "已注册、正在经营的中小老板"
+                return self._do_propose(s)
+            if self._detect_plan(message):
+                return self._do_plan(s, message)
+        # 2) 这句话命中某个平台能力（出片/选题/质检/发布包…）→ 进入能力流程
+        # ★写稿后"改成N字/缩短到N字"等字数调整：直接重写最新一篇，不打断流程去走二创能力
+        if not pc.get("id") and (s.get("written") or []):
+            _m = str(message).strip()
+            _wc = re.search(r"(\d{3,5})\s*字", _m)
+            if _wc and any(w in _m for w in ("改", "字数", "缩短", "加长", "扩写", "精简", "调")):
+                _n = int(_wc.group(1))
+                if 300 <= _n <= 5000:
+                    _adj = self._adjust_last_script_words(s, _n)
+                    if _adj:
+                        return _adj
+        if not pc.get("id"):
+            # ★铁律：能力路由必须优先于"空白写稿"——"出片/做视频/小红书/公众号文章/选题"
+            #   等明确是平台能力，若先走空白写稿会被误劫持成"普通口播稿"（用户点了没反应/答非所问）。
             cid = self._match_capability(message)
             if cid:
                 r = self._do_capability(s, message, cid)
                 if r:
                     return r
+            # 0.6) 自然对话：要写内容但没给主题 → 像人一样只问"想写点什么"，
+            #      受众按话题自动推断（不堆两个问题）；并标记"在等主题"以续接下一句。
+            if self._is_blank_produce_request(message):
+                s["awaiting_topic_for_write"] = True
+                self._chat_log(sid, "OUT | blank-produce | ask-direction")
+                return {"stage": "ask",
+                        "message": "好嘞，想写点什么？给我个方向我马上开写——比如讲公转私的风险、个体户怎么报税，或者股东借款那点事。你说主题，我来搭骨架、出成稿。"}
 
         # 2.5)【LLM 能力判定】关键词没命中时，用 LLM 判断是不是想调用某个能力。
         #      刻意不新增调用次数：下面原本就要调 _understand，这里提前调并复用同一份结果。
@@ -1282,8 +2448,42 @@ class ChatOrchestrator:
         # 用户在回答我上一轮的反问 → 接续讨论（除非这条是在下出稿/拆解指令）
         if s.get("pending_question") and not self._is_produce_cmd(message):
             return self._do_followup(s, message)
+        # ★受众追问兜底捕获：上一轮系统问了"主要给谁看"（missing=['受众']），这句若不是新指令，
+        #   就直接当作受众答案接纳——避免 LLM 把"给中小老板看"这种短回答误判成 action=answer、
+        #   不写回 s["audience"]，导致用户被卡在"主要给谁看？"死循环（写稿永不推进）。
+        _aud_captured = False
+        if s.get("_await_audience"):
+            if self._is_produce_cmd(message):
+                s["_await_audience"] = False  # 用户换了新指令，放弃受众追问
+                s.pop("_await_audience_pick", None)
+            else:
+                _ans = message.strip()
+                if _ans and 0 < len(_ans) <= 40:
+                    s["audience"] = _ans
+                    s["_await_audience"] = False
+                    _aud_captured = True
+                    self._chat_log(s.get("id"), "OUT | 受众答案已捕获 -> %s" % _ans[:20])
         # 复用 2.5 已算好的结果，避免重复调 LLM（关键词命中时 _u 为 None，这里现算）
-        u = _u if isinstance(_u, dict) else self._understand(s, message)
+        # ★防御：LLM 调用异常绝不能冒泡导致整条请求失败（前端表现为"没反应"），必须兜回 None 走硬规则
+        if _aud_captured:
+            u = {"action": "write", "pick": s.pop("_await_audience_pick", None) or "all"}
+        else:
+            try:
+                u = _u if isinstance(_u, dict) else self._understand(s, message)
+            except Exception:  # noqa: BLE001
+                u = None
+                self._chat_log(s.get("id"), f"WARN | _understand 异常降级硬规则 | {str(message)[:60]}")
+        # —— 本地兜底：LLM 解析失败（返回空/无 action）→ 硬规则判定，杜绝"说啥都没反应" ——
+        if not isinstance(u, dict) or not u.get("action"):
+            fb = self._local_intent_fallback(s, message)
+            if fb == "write":
+                u = {"action": "write", "pick": self._pick_from_msg(message)}
+            elif fb == "answer":
+                u = {"action": "answer"}
+            elif fb == "ask_topic":
+                return {"stage": "ask", "message": "先告诉我这条想讲什么主题，我再帮你写。"}
+            else:
+                u = u if isinstance(u, dict) else {}
         ex = u.get("extract") or {}
         if isinstance(ex, dict):
             for k in ("topic", "audience", "requirement"):
@@ -1323,6 +2523,9 @@ class ChatOrchestrator:
                     hint = "这条主要是给谁看的？"
                     if s.get("topic"):
                         hint = f"「{s['topic'][:30]}」这条，主要给谁看？可点下面的，或直接说："
+                    # 记下"在等受众答案"，并把本次写稿意图(pick)存下来，用户补完受众直接接着写
+                    s["_await_audience"] = True
+                    s["_await_audience_pick"] = (u.get("pick") if isinstance(u, dict) else None) or "all"
                     return {"stage": "ask", "message": hint, "missing": ["受众"],
                             "options": ["准备注册/刚注册的创业者", "已注册、正在经营的中小老板",
                                         "建筑行业的老板/包工头", "企业财务/会计人员"]}
@@ -1330,7 +2533,10 @@ class ChatOrchestrator:
             # 用户对"已写成稿"提出修改（pick=revN）→ 重写 written[N]，不新增篇
             if isinstance(pick, str) and pick.startswith("rev"):
                 return self._do_revise(s, u, pick)
-            return self._do_write(s, pick)
+            res = self._do_write(s, pick)
+            # ★不再自动接 video_render 卡片：出片必须等用户看过口播稿、确认不改了再点"做成片"，
+            # 避免"没稿就生成视频"或跳过"改字数/时长/表述"中间环节。
+            return res
 
         if action == "propose":
             # 要素齐才拆角度；否则先补齐要素（受众可推断就不问）
@@ -1344,6 +2550,9 @@ class ChatOrchestrator:
                     hint = "这条内容主要给谁看？"
                     if s.get("topic"):
                         hint = f"「{s['topic'][:30]}」这条，主要给谁看？可点下面的，或直接说："
+                    # 记下"在等受众答案"，并把本次写稿意图(pick)存下来，用户补完受众直接接着写
+                    s["_await_audience"] = True
+                    s["_await_audience_pick"] = (u.get("pick") if isinstance(u, dict) else None) or "all"
                     return {"stage": "ask", "message": hint, "missing": ["受众"],
                             "options": ["准备注册/刚注册的创业者", "已注册、正在经营的中小老板",
                                         "建筑行业的老板/包工头", "企业财务/会计人员"]}
@@ -1352,21 +2561,57 @@ class ChatOrchestrator:
         # ★正面回答：用户在问财税/业务问题（LLM 判定 answer，或兜底规则命中）。
         #   规则兜底：问句/求知句且不是明确的出稿指令 → 答，不追问"拍给谁看"。
         if action == "answer":
-            q = (u.get("answer_ctx") or message).strip() or message
-            return self._do_answer(s, q, need_search=self._answer_needs_search(message))
+            return self._route_answer(s, u, message)
         if self._looks_like_question(message) and not self._is_produce_cmd(message):
-            return self._do_answer(s, message, need_search=self._answer_needs_search(message))
+            return self._route_answer(s, u, message, question=message)
 
-        # action == ask 或未识别：缺要素则追问，已齐则提示可开始
-        missing = [lab for lab, k in (("主题", "topic"), ("受众", "audience"), ("关键要求", "requirement")) if not s.get(k)]
+        # ★关键修复（根治"要问细些才能回话"）：
+        #   不要对"随便问问/闲聊/说不清"的短消息追问主题。
+        #   只有用户明确想出内容（命中出稿信号），或本空间已在出稿流程中（已有主题/受众），
+        #   才追问缺的要素；否则一律当作问答/闲聊，直接调大模型正面回应——
+        #   绝不再甩"还缺主题，你补一下""你补充点背景"这类逼用户问细的话。
+        _wants_content = bool(
+            s.get("topic") or s.get("audience")
+            or self._is_produce_cmd(message)
+            or any(w in message for w in self._PRODUCE_HINT)
+            or any(w in message for w in ("出片", "出稿", "选题", "公众号", "小红书",
+                                          "内容", "做一批", "来几个", "写一条", "写个", "写成"))
+        )
+        if not _wants_content:
+            # 财税/工商类问题走专业顾问口径（必要时联网核口径），其余走通用问答。
+            _FISCAL_KW = ("税", "票", "账", "公户", "私户", "股东", "分红", "股权", "注册", "个体",
+                          "公司", "申报", "稽查", "合规", "财务", "会计", "增值税", "所得", "印花",
+                          "企业", "经营", "利润", "成本", "报销", "工薪", "社保", "建筑", "挂靠",
+                          "预缴", "发票", "纳税", "风险", "处罚", "政策", "法规", "执照", "注销",
+                          "清算", "审计", "汇算", "公转私", "个独", "合伙", "老板")
+            if any(w in message for w in _FISCAL_KW):
+                self._chat_log(s.get("id"), "GEN | 无出稿意图·财税问答兜底")
+                return self._route_answer(s, u, message, question=message)
+            self._chat_log(s.get("id"), "GEN | 无出稿意图·通用问答兜底（不再追问主题）")
+            return self._do_general_answer(s, message)
+        # action == ask 或未识别：只有主题/受众缺失才追问（"关键要求"是可选项，缺失不追问）
+        missing = []
+        if not s.get("topic"):
+            missing.append("主题")
+        if not s.get("audience"):
+            inferred = self._infer_audience(s, message)
+            if inferred:
+                s["audience"] = inferred
+            else:
+                missing.append("受众")
         if missing:
             asked = u.get("asked") or ""
             msg = asked or ("我们先对齐一下：还缺 " + "、".join(missing) + "，你补一下？")
             return {"stage": "ask", "message": msg, "missing": missing}
-        return {
-            "stage": "ask",
-            "message": "四要素我已记下（主题、受众、关键要求都齐了）。跟我说：开始出稿，或做一批，我就按写稿规范帮你拆角度方案。",
-        }
+        # 主题+受众已齐 → 用户这句若含出稿意图直接拆角度，不再让用户多说一句"开始出稿"
+        if self._is_produce_cmd(message) or any(w in message for w in
+                                                ("角度", "做一批", "来几个", "开始写", "开始出",
+                                                 "继续", "下一条", "这篇", "那条", "拆角度")):
+            return self._do_propose(s)
+        # ★通用问答兜底：非出稿意图且主题受众已齐的对话（技术/运营/常识/闲聊等），
+        #   直接调大模型正面回答，不再甩"说开始出稿"这种答非所问的话。
+        self._chat_log(s.get("id"), f"GEN | 通用问答兜底 | {str(message)[:60]}")
+        return self._do_general_answer(s, message)
 
     def reset(self, sid):
         with self._lock:

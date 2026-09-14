@@ -42,6 +42,15 @@ except Exception:
     HAS_PIL = False
 import uuid
 
+# ★ Windows 控制台/管道默认 GBK，print 含 emoji(⚠/✅ 等) 或生僻字会 UnicodeEncodeError
+#   直接把脚本打崩（2026-09-11：avatar 长稿分段时那行 "⚠ 自动分段" 即因此崩溃）。
+#   统一把 stdout/stderr 切成 UTF-8 并容错，杜绝此类崩溃。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 GPT_SOVITS = r"D:/heygem_data/gpt_sovits"
 sys.path.insert(0, GPT_SOVITS)
@@ -56,7 +65,7 @@ DEFAULT_MODEL = "/code/data/BGZSP20260721_t18_silent.mp4"  # 容器内男模路�
 DEFAULT_MALE_VOICE = ""   # 新租户初始无自带声音；须由租户克隆/选择后显式传入
 DEFAULT_FEMALE_VOICE = ""
 
-from qwen_tts import synth as qwen_synth
+from qwen_tts import synth as qwen_synth, DEFAULT_VOICE_ID
 
 
 def _clean(text):
@@ -141,7 +150,7 @@ def synth_concat(segs, male_voice, female_voice, tmpdir, gap=0.25):
         if os.path.exists(_cached) and os.path.getsize(_cached) > 1000:
             shutil.copy(_cached, wav)
         else:
-            qwen_synth(_clean_txt, voice, wav,
+            qwen_synth(_clean_txt, voice or DEFAULT_VOICE_ID, wav,
                        model="cosyvoice-v3-plus", speech_rate=1.0, pitch_rate=1.0, volume=50)
             try:
                 os.makedirs(CACHE, exist_ok=True)

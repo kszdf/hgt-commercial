@@ -13,6 +13,7 @@
         <button type="button" data-form="scroll" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('scroll')">📋 幕后音·滚动字幕</button>
         <button type="button" data-form="manga" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('manga')">📖 AI 漫剧</button>
         <button type="button" data-form="whiteboard" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('whiteboard')">✍️ AI 白板图解</button>
+        <button type="button" data-form="card" class="form-btn rounded-lg px-4 py-2 text-sm font-medium transition" onclick="selectForm('card')">🧩 图解版</button>
         <span class="mx-1 h-4 w-px bg-slate-200"></span>
         <span class="text-xs text-slate-400">动态画面声线：</span>
         <button type="button" data-form="male_mono" class="form-btn rounded-lg px-3 py-2 text-sm font-medium transition" onclick="selectForm('male_mono')">男声</button>
@@ -431,7 +432,8 @@ function setBtnLoading(isLoading, text) {
                     'motion':      { mode: 'motion',      voiceForm: d.config && d.config.voice_form ? d.config.voice_form : 'male_mono' },
                     'scroll':      { mode: 'scroll',      voiceForm: d.config && d.config.voice_form ? d.config.voice_form : 'male_mono' },
                     'manga':       { mode: 'manga',       voiceForm: null },
-                    'whiteboard':  { mode: 'whiteboard',  voiceForm: null }
+                    'whiteboard':  { mode: 'whiteboard',  voiceForm: null },
+                    'card':        { mode: 'card',        voiceForm: null }
                 }[d.mode];
                 if (dm) {
                     setMode(dm.mode);
@@ -483,6 +485,7 @@ function setBtnLoading(isLoading, text) {
             'scroll':        { mode: 'scroll', voiceForm: 'male_mono',   label: '幕后音·滚动字幕' },
             'manga':         { mode: 'manga', voiceForm: null,           label: 'AI 漫剧' },
             'whiteboard':    { mode: 'whiteboard', voiceForm: null,      label: 'AI 白板图解' },
+            'card':          { mode: 'card',       voiceForm: null,      label: '图解版（信息卡片解说）' },
             // 兼容旧值（动态画面曾拆 3 项声线）→ 统一 motion，声线出片页再选
             'scroll_male':   { mode: 'motion', voiceForm: 'male_mono',   label: '男声幕后音·动态画面' },
             'scroll_female': { mode: 'motion', voiceForm: 'female_mono', label: '女声幕后音·动态画面' },
@@ -596,7 +599,7 @@ function setMode(m) {
     // 声线选择：数字人/漫剧=单声线下拉；滚动字幕=由 setVoiceForm 决定
     const singleVW = document.getElementById('singleVoiceWrap');
     const dualVW = document.getElementById('dualVoiceWrap');
-    if (m === 'avatar' || m === 'manga' || m === 'whiteboard') {
+    if (m === 'avatar' || m === 'manga' || m === 'whiteboard' || m === 'card') {
         singleVW.classList.remove('hidden');
         dualVW.classList.add('hidden');
     } else {
@@ -634,6 +637,12 @@ function setMode(m) {
         hint.innerHTML = '<span class="text-emerald-600">AI 白板：内容 → 要点提炼 → 手绘逐笔动画 → 配音 全自动</span>';
         hint.className = 'text-[11px] font-normal text-emerald-600';
         warning.classList.add('hidden');
+    } else if (m === 'card') {
+        // 图解版（信息卡片解说）：稿子 → AI 分屏 → 卡片元素跟口播逐条浮现
+        label.innerHTML = '口播稿（<span class="text-slate-400">写完整讲稿即可，AI 自动分成「一屏讲几句」并配信息卡片；数字/法条/对比会自动做成卡片</span>）';
+        hint.innerHTML = '<span class="text-emerald-600">图解版：稿子 → AI 分屏 → 卡片逐条浮现 → 配音 全自动</span>';
+        hint.className = 'text-[11px] font-normal text-emerald-600';
+        warning.classList.add('hidden');
     } else {
         // 幕后音·动态画面：接受任意格式
         label.innerHTML = '文稿内容（<span class="text-slate-400">支持对话 / 独白 / 改写稿，自动适配</span>）';
@@ -650,6 +659,7 @@ const FORM_MAP = {
     scroll:      { mode: 'scroll', vf: 'male_mono' },
     manga:       { mode: 'manga', vf: null },
     whiteboard:  { mode: 'whiteboard', vf: null },
+    card:        { mode: 'card', vf: null },
     male_mono:   { mode: 'motion', vf: 'male_mono' },
     female_mono: { mode: 'motion', vf: 'female_mono' },
     dialogue:    { mode: 'motion', vf: 'dialogue' },
@@ -670,6 +680,7 @@ function highlightForm() {
         else if (f === 'motion') active = isMotion;                          // 动态画面大按钮：模式高亮
         else if (f === 'manga') active = currentMode === 'manga';
         else if (f === 'whiteboard') active = currentMode === 'whiteboard';
+        else if (f === 'card') active = currentMode === 'card';
         else if (f === 'scroll') active = currentMode === 'scroll';
         else if (f === 'male_mono' || f === 'female_mono' || f === 'dialogue') active = isMotion && voiceForm === f;  // 声线细项
         b.className = 'form-btn rounded-lg px-4 py-2 text-sm font-medium transition ' +
@@ -1348,18 +1359,18 @@ async function handleGenerate(e) {
                 title: document.getElementById('title').value,
                 subtitle: document.getElementById('subtitle').value,
                 motion_style: document.getElementById('motion_style')?.value || '财经严谨',
-                edit_style: (currentMode === 'manga' || currentMode === 'whiteboard') ? '' : (document.getElementById('edit_style')?.value || ''),
+                edit_style: (currentMode === 'manga' || currentMode === 'whiteboard' || currentMode === 'card') ? '' : (document.getElementById('edit_style')?.value || ''),
                 dry_tts: false,
                 // 韵律参数不向前端发送：声调/快慢/音量由后端脚本按情绪自动调教（v4 定稿），
                 // 避免前端硬编码默认值覆盖专业调好的自动韵律
                 natural: document.getElementById('natural').checked,
-                male_voice: (currentMode === 'avatar' || currentMode === 'manga' || currentMode === 'whiteboard' || (currentMode === 'scroll' && voiceForm === 'mono'))
+                male_voice: (currentMode === 'avatar' || currentMode === 'manga' || currentMode === 'whiteboard' || currentMode === 'card' || (currentMode === 'scroll' && voiceForm === 'mono'))
                     ? (document.getElementById('singleVoice').value || null)
                     : (document.getElementById('maleVoice').value || null),
-                female_voice: (currentMode === 'avatar' || currentMode === 'manga' || currentMode === 'whiteboard' || (currentMode === 'scroll' && voiceForm === 'mono'))
+                female_voice: (currentMode === 'avatar' || currentMode === 'manga' || currentMode === 'whiteboard' || currentMode === 'card' || (currentMode === 'scroll' && voiceForm === 'mono'))
                     ? null
                     : (document.getElementById('femaleVoice').value || null),
-                voice_form: currentMode === 'avatar' || currentMode === 'manga' || currentMode === 'whiteboard' ? null : voiceForm,
+                voice_form: currentMode === 'avatar' || currentMode === 'manga' || currentMode === 'whiteboard' || currentMode === 'card' ? null : voiceForm,
                 i2v: currentMode === 'manga' ? (document.getElementById('i2v')?.checked || false) : false,
                 model: currentMode === 'avatar' ? (document.getElementById('model').value || null) : null,
                 cover_id: document.getElementById('coverId').value ? parseInt(document.getElementById('coverId').value, 10) : null,

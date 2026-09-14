@@ -52,6 +52,7 @@
                         <option value="scroll">📋 幕后音·滚动字幕</option>
                         <option value="manga">📖 AI 漫剧</option>
                         <option value="whiteboard">✍️ AI 白板图解</option>
+                        <option value="card">🧩 图解版（信息卡片解说）</option>
                     </select>
                     <p id="modeHint" class="mt-1 text-xs text-brand-600"></p>
                     <label id="forceUnifiedWrap" class="mt-2 hidden flex cursor-pointer items-center gap-2 text-xs text-slate-500">
@@ -274,7 +275,7 @@ function mapTopicFormToMode(form) {
     if (!form) return 'avatar';
     const f = String(form).trim();
     // 5 值直接透传
-    if (['avatar','motion','scroll','manga','whiteboard'].includes(f)) return f;
+    if (['avatar','motion','scroll','manga','whiteboard','card'].includes(f)) return f;
     // 兼容旧值（动态画面曾拆 3 项声线）→ 统一归为 motion（声线到出片页再选）
     if (['scroll_male','scroll_female','scroll_dual'].includes(f)) return 'motion';
     // 兼容旧值/Topic API 返回值
@@ -285,7 +286,7 @@ function mapTopicFormToMode(form) {
 }
 function setModeSelect(value) {
     const sel = document.getElementById('mode');
-    if (sel && ['avatar','motion','scroll','manga','whiteboard'].includes(value)) sel.value = value;
+    if (sel && ['avatar','motion','scroll','manga','whiteboard','card'].includes(value)) sel.value = value;
 }
 function showSourceBanner(type, count, sourceUrl) {
     const banner = document.getElementById('sourceBanner');
@@ -336,6 +337,7 @@ function getFormLabel(form) {
         'scroll': '幕后音·滚动字幕',
         'manga': 'AI 漫剧',
         'whiteboard': 'AI 白板图解',
+        'card': '图解版（信息卡片解说）',
         '单声口播': '单声',
         '幕后音口播_单人': '单声',
         '幕后音口播_双人': '双声'

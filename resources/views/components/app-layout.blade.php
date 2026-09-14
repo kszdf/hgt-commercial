@@ -7,13 +7,19 @@
     <title>@yield('title', '追梦 · 商用短视频智能工作台')</title>
     <meta name="description" content="追梦 — 面向企业的短视频智能生产 SaaS 平台，提供智能选题、文案二创、数字人出片、配音、字幕与多平台分发能力。">
     <meta name="theme-color" content="#928eea">
+    {{-- 对话工作台等页面迭代极快，浏览器缓存旧 HTML/内联 JS 会导致"修复后前端仍空白/没反应"的假象，必须禁止页面缓存。 --}}
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta property="og:type" content="website">
     <meta property="og:title" content="追梦 · 商用短视频智能工作台">
     <meta property="og:description" content="面向企业的短视频智能生产 SaaS 平台：选题、二创、出片、配音、字幕、分发一站式。">
     <meta property="og:image" content="/images/logo.jpg">
     <link rel="icon" href="/images/logo.jpg">
-    <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=inter:400,500,600&display=swap" rel="stylesheet" />
+    {{-- 2026-09-11 性能修复：移除国外字体站 fonts.bunny.net 引用。
+         该域名实测国内访问 1s 起步、网络差时超时 5-15s，会阻塞首屏渲染，
+         是"打开网页特别慢"的主因之一。改用系统字体栈（见 app.css --font-sans），
+         中文场景反而更清晰，且零外部请求。 --}}
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>

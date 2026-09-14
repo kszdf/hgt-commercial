@@ -82,6 +82,36 @@
     .rail-item.active .rail-sub { color: #6366f1; }
     .rail-item .rail-ops { display: none; gap: 2px; }
     .rail-item:hover .rail-ops { display: inline-flex; }
+    /* ===== 右侧「产物」面板：对话产出的成稿/视频/图文自动汇聚于此，可随时收起 =====
+       字号与配色沿用本页既有档位（12.5px 主名 / 11px 副名 / slate+indigo），保持全站一致 */
+    .chat-artifacts {
+        flex: 0 0 auto;
+        width: 340px;
+        min-width: 340px;
+        display: flex;
+        flex-direction: column;
+        background: #ffffff;
+        border-left: 1px solid var(--surface-card-border, #e2e8f0);
+        transition: width .18s ease, min-width .18s ease;
+    }
+    .chat-artifacts.collapsed { width: 0; min-width: 0; border-left: none; overflow: hidden; }
+    .af-item {
+        display: flex; align-items: flex-start; gap: 8px;
+        cursor: pointer; border-radius: 8px; padding: 7px 8px;
+        border: 1px solid transparent; transition: background .12s, border-color .12s;
+    }
+    .af-item:hover { background: #f8fafc; }
+    .af-item.active { background: #eef2ff; border-color: #c7d2fe; }
+    .af-item .af-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 500; color: #334155; }
+    .af-item.active .af-name { color: #4338ca; }
+    .af-item .af-sub { font-size: 11px; color: #94a3b8; }
+    .af-item.active .af-sub { color: #6366f1; }
+    .af-dot {
+        position: absolute; top: -3px; right: -3px;
+        height: 7px; width: 7px; border-radius: 9999px; background: #ef4444;
+    }
+    @media (max-width: 1440px) { .chat-artifacts { width: 300px; min-width: 300px; } }
+    @media (max-width: 1180px) { .chat-artifacts { display: none; } }
     /* ===== 对话页专用：保留完整 6 菜单侧栏（图标+文字），不再收成图标条，避免"素材与账户"组入口丢失 ===== */
 </style>
 <script>
@@ -134,6 +164,11 @@
                 </button>
             </div>
             <div class="flex items-center gap-1.5">
+                <button id="afOpenBtn" type="button" title="显示产物面板"
+                    class="relative rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5.5A1.5 1.5 0 015.5 4h13A1.5 1.5 0 0120 5.5v13a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 014 18.5v-13zM9.5 4v16"/></svg>
+                    <span id="afDot" class="af-dot hidden"></span>
+                </button>
                 <button id="delSpaceBtn" type="button" title="删除当前对话"
                     class="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-red-600">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -152,6 +187,10 @@
                 <div class="flex items-end gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm focus-within:border-indigo-300">
                     <textarea id="userInput" rows="1" placeholder="说出你想做什么——AI 帮你拆角度 → 出稿 → 改稿 → 配音 → 出片，一句话驱动整条生产线。"
                         class="max-h-40 flex-1 resize-none rounded-lg border-0 bg-transparent px-2 py-1.5 text-sm text-slate-700 outline-none placeholder:text-slate-400"></textarea>
+                    <button id="planWeekBtn" type="button"
+                        class="shrink-0 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50">
+                        📅 规划
+                    </button>
                     <button id="sendBtn" type="button"
                         class="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50">
                         发送
@@ -163,6 +202,24 @@
             </div>
         </div>
     </div>
+
+    {{-- 右：产物面板（成稿/视频/图文自动汇聚，可随时收起；首次有产物时自动展开） --}}
+    <aside id="artifactRail" class="chat-artifacts collapsed">
+        <div class="flex h-12 shrink-0 items-center justify-between border-b border-slate-200/70 px-3">
+            <div class="flex min-w-0 items-center gap-1.5">
+                <span class="text-sm font-semibold text-slate-700">产物</span>
+                <span id="afCount" class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-500">0</span>
+            </div>
+            <button id="afCloseBtn" type="button" title="收起产物面板"
+                class="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
+            </button>
+        </div>
+        <div id="afList" class="flex-1 space-y-0.5 overflow-y-auto p-2">
+            <p class="px-3 py-8 text-center text-xs leading-relaxed text-slate-400">这次对话产出的成稿、视频、图文会自动出现在这里。</p>
+        </div>
+        <div id="afPreview" class="hidden max-h-[46%] shrink-0 overflow-y-auto border-t border-slate-200/70 bg-slate-50/60 p-3"></div>
+    </aside>
 
 </div>
 
@@ -288,6 +345,128 @@
         chatBox.appendChild(wrap);
         stickToBottom(true);
         return bubble;
+    }
+
+    // ==================== 右侧「产物」面板 ====================
+    // 对话产出的成稿/视频/图文统一在此汇聚：结果一出就自动显示在右侧，也能人工收起。
+    // 实时对话与回看历史（openSession 回放 resultBlock）走同一处登记 → 保证"随时都在"。
+    let ARTIFACTS = [];          // {key,type,title,sub,status,url,text}
+    let afActive = null;         // 当前预览的产物 key
+    let afClosedByUser = false;  // 用户手动收起过 → 不再自动弹开，只在按钮上点红点
+
+    function setArtifactsOpen(open) {
+        const rail = document.getElementById('artifactRail');
+        if (!rail) return;
+        rail.classList.toggle('collapsed', !open);
+        const b = document.getElementById('afOpenBtn');
+        if (b) b.classList.toggle('hidden', open);
+        const dot = document.getElementById('afDot');
+        if (dot && open) dot.classList.add('hidden');
+    }
+
+    // 登记/更新一条产物（同 key 覆盖，避免重复）
+    function pushArtifact(a) {
+        if (!a || !a.key) return;
+        const i = ARTIFACTS.findIndex(x => x.key === a.key);
+        if (i >= 0) {
+            ARTIFACTS[i] = Object.assign({}, ARTIFACTS[i], a);
+        } else {
+            a.ts = a.ts || Date.now();
+            ARTIFACTS.unshift(a);
+            if (!afClosedByUser) setArtifactsOpen(true);
+            else {
+                const dot = document.getElementById('afDot');
+                if (dot) dot.classList.remove('hidden');
+            }
+        }
+        if (!afActive) afActive = a.key;
+        renderArtifacts();
+    }
+
+    const _AF_ICON = { script: '📄', video: '🎬', image: '📕', audio: '🎧', file: '📎' };
+    const _AF_LABEL = { script: '口播稿', video: '视频', image: '图文', audio: '配音', file: '文件' };
+
+    function renderArtifacts() {
+        const list = document.getElementById('afList');
+        const cnt = document.getElementById('afCount');
+        if (cnt) cnt.textContent = String(ARTIFACTS.length);
+        if (!list) return;
+        if (!ARTIFACTS.length) {
+            list.innerHTML = '<p class="px-3 py-8 text-center text-xs leading-relaxed text-slate-400">这次对话产出的成稿、视频、图文会自动出现在这里。</p>';
+            return;
+        }
+        list.innerHTML = ARTIFACTS.map(a => {
+            const active = a.key === afActive ? ' active' : '';
+            return '<div class="af-item' + active + '" data-af="' + esc(a.key) + '" title="' + esc(a.title || '') + '">'
+                + '<span class="mt-0.5 text-sm leading-none">' + (_AF_ICON[a.type] || '📎') + '</span>'
+                + '<div class="min-w-0 flex-1">'
+                +   '<p class="af-name truncate">' + esc(a.title || '未命名') + '</p>'
+                +   '<p class="af-sub truncate">' + esc(a.sub || _AF_LABEL[a.type] || '') + '</p>'
+                + '</div></div>';
+        }).join('');
+        list.querySelectorAll('.af-item').forEach(el => {
+            el.addEventListener('click', () => { afActive = el.dataset.af; renderArtifacts(); renderAfPreview(); });
+        });
+        renderAfPreview();
+    }
+
+    function renderAfPreview() {
+        const box = document.getElementById('afPreview');
+        if (!box) return;
+        const a = ARTIFACTS.find(x => x.key === afActive);
+        if (!a) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+        box.classList.remove('hidden');
+        let h = '<div class="mb-2 flex items-center justify-between gap-2">'
+            + '<p class="truncate text-[12.5px] font-medium text-slate-700">' + esc(a.title || '') + '</p>'
+            + '<button type="button" id="afPvClose" title="收起预览" class="shrink-0 rounded p-0.5 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600">'
+            + '<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button></div>';
+        if (a.type === 'video' && a.url) {
+            h += '<div class="overflow-hidden rounded-lg border border-slate-200 bg-black">'
+               + '<video controls preload="metadata" class="block max-h-[300px] w-full" src="' + esc(a.url) + '"></video></div>'
+               + '<div class="mt-2 flex flex-wrap gap-2">'
+               + '<a href="' + esc(a.url) + '" download="' + esc(a.title || 'video') + '.mp4" class="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50">⬇ 下载</a>'
+               + '</div>';
+        } else if (a.type === 'script' || a.type === 'file') {
+            h += '<div class="max-h-[260px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-2.5 text-[12.5px] leading-relaxed text-slate-700">' + esc(a.text || '') + '</div>';
+        } else if (a.type === 'image' && a.url) {
+            h += '<img src="' + esc(a.url) + '" alt="' + esc(a.title || '') + '" class="w-full rounded-lg border border-slate-200">';
+        } else {
+            h += '<p class="text-xs text-slate-400">这类产物暂不支持预览，可直接在对话里操作。</p>';
+        }
+        box.innerHTML = h;
+        const c = document.getElementById('afPvClose');
+        if (c) c.addEventListener('click', () => { afActive = null; renderArtifacts(); renderAfPreview(); });
+    }
+
+    // 从编排器返回数据里抽取产物（resultBlock 每渲染一条 AI 消息都会经过）
+    function collectArtifacts(r) {
+        if (!r || typeof r !== 'object') return;
+        if (r.stage === 'written' && Array.isArray(r.results)) {
+            r.results.forEach((w, i) => {
+                if (!w || !w.script) return;
+                const t = w.title || ('口播稿' + (i + 1));
+                pushArtifact({
+                    key: 'script:' + t + ':' + String(w.script).slice(0, 24),
+                    type: 'script', title: t,
+                    sub: '口播稿 · ' + String(w.script).length + ' 字',
+                    text: String(w.script),
+                });
+            });
+        }
+        const jid = (r.data && r.data.job_id) || r.job_id;
+        if (jid) {
+            const st = String((r.data && r.data.status) || r.status || '').toLowerCase();
+            // 历史回放时后端未必带状态：能存档说明任务早已结束，按完成处理
+            // （否则回看旧会话时成片永远卡在"渲染中"，拿不到播放地址）
+            const done = (st === 'done' || st === '');
+            pushArtifact({
+                key: 'job:' + jid, type: 'video',
+                title: (r.title || '成片') + '（' + String(jid).slice(0, 6) + '）',
+                sub: done ? '视频 · 渲染完成' : '视频 · 渲染中…',
+                url: done ? ('/studio/scroll/download/' + encodeURIComponent(jid)) : null,
+                status: st || 'running',
+            });
+        }
     }
 
     // 这些能力参数齐了就直接跑，不让用户多点一次「开始执行」
@@ -435,6 +614,11 @@
     });
 
     function resultBlock(r) {
+        // 顺手登记产物 → 右侧面板随时显示；失败不影响正文渲染
+        try { collectArtifacts(r); } catch (_) { /* noop */ }
+        if (r.stage === 'busy') {
+            return '<p class="text-amber-600">⏳ ' + esc(r.message || '上一条消息还在处理中，请稍候，完成后会自动出现。') + '</p>';
+        }
         if (r.stage === 'answer') {
             // 顾问式正面回答（不写稿、不追问受众）
             const h = ['<div class="space-y-2">'];
@@ -512,6 +696,26 @@
             }
             return h.join('');
         }
+        if (r.stage === 'plan') {
+            const days = (r.plan && r.plan.days) || [];
+            const h = ['<p class="font-medium text-slate-800">📅 我帮你排的下周内容（点任一天直接开写）：</p>',
+                       '<div class="mt-2 grid gap-2 sm:grid-cols-2">'];
+            days.forEach(d => {
+                const topic = (d.topic || '').replace(/\n/g, ' ');
+                const msg = '【规划选题】' + topic + '　受众：已注册、正在经营的中小老板';
+                h.push('<button type="button" data-msg="' + esc(msg).replace(/<br>/g, ' ')
+                    + '" class="act-msg text-left rounded-lg border border-indigo-200 bg-white p-3 transition hover:border-indigo-400 hover:bg-indigo-50">'
+                    + '<div class="flex items-center justify-between gap-2"><span class="text-[11px] font-semibold text-indigo-700">'
+                    + esc(d.day || '') + ' · ' + esc(d.pillar || '') + '</span>'
+                    + '<span class="text-[10px] text-slate-400">' + esc(d.form || '') + '</span></div>'
+                    + '<p class="mt-1 text-sm font-medium text-slate-800">' + esc(topic) + '</p>'
+                    + (d.why ? '<p class="mt-0.5 text-[11px] text-slate-500">' + esc((d.why || '').replace(/\n/g, ' ')) + '</p>' : '')
+                    + '</button>');
+            });
+            h.push('</div>');
+            h.push(nextCardHtml(r.next, '<p class="mt-2 text-xs text-slate-500">也可以直接说"全写这一周"（后续批量出稿），或挑某天细化。</p>'));
+            return h.join('');
+        }
         if (r.stage === 'propose') {
             const h = ['<p class="font-medium text-slate-800">💡 我已按你的主题和写稿规范拆出角度方案，你看看：</p>',
                        '<div class="mt-2 grid gap-2">'];
@@ -521,16 +725,21 @@
             return h.join('');
         }
         if (r.stage === 'written') {
-            const all = (r.results || []).map((w, i) => ({
+            const all = (r.results || []).filter(w => w.script).map((w, i) => ({
                 title: w.title || ('口播稿' + (i + 1)), script: w.script || ''
             }));
             lastWritten = all;   // 供整批导出按钮取数
-            const h = ['<p class="font-medium text-slate-800">' + (r.revised ? '✅ 已按要求重写' : '✅ 成稿如下（每段为可直接配音的口播稿）') + '：</p><div class="mt-2 space-y-3">'];
+            const h = ['<p class="font-medium text-slate-800">' + (r.message ? '✅ ' + esc(r.message) : (r.revised ? '✅ 已按要求重写：' : '✅ 成稿如下（每段为可直接配音的口播稿）：')) + '</p><div class="mt-2 space-y-3">'];
             (r.results || []).forEach((w, i) => {
+                // widx：批量出稿用后端真实下标（有失败篇时不至于错位）；
+                // 单条写稿/历史数据没有 widx 时，只要本篇有成稿就用本地下标兜底，空稿则不渲染按钮。
+                const ridx = (w.widx === undefined || w.widx === null) ? (w.script ? i : null) : w.widx;
+                const revBtn = (ridx === null) ? ''
+                    : '<button type="button" data-rev="' + ridx + '" class="revise-btn shrink-0 rounded border border-slate-300 px-2 py-0.5 text-[11px] text-slate-500 transition hover:bg-slate-100">✎ 改这篇</button>';
                 h.push('<div class="rounded-lg border border-slate-200 bg-white p-3">'
                     + '<div class="flex items-center justify-between gap-2">'
-                    + '<p class="font-semibold text-slate-800">' + esc(w.title || ('口播稿' + (i + 1))) + '</p>'
-                    + '<button type="button" data-rev="' + i + '" class="revise-btn shrink-0 rounded border border-slate-300 px-2 py-0.5 text-[11px] text-slate-500 transition hover:bg-slate-100">✎ 改这篇</button>'
+                    + '<p class="font-semibold text-slate-800">' + (w.day ? '<span class="mr-1.5 rounded bg-indigo-100 px-1.5 py-0.5 text-[11px] font-normal text-indigo-700">' + esc(w.day) + (w.pillar ? ' · ' + esc(w.pillar) : '') + '</span>' : '') + esc(w.title || ('口播稿' + (i + 1))) + '</p>'
+                    + revBtn
                     + '</div>'
                     + '<p class="mt-2 whitespace-pre-wrap text-slate-700">' + esc(w.script || '') + '</p>'
                     + '<div class="mt-2 border-t border-slate-100 pt-2">' + exportBar(w.title || ('口播稿' + (i + 1)), [w], 'single', i) + '</div></div>');
@@ -595,6 +804,43 @@
             const c = r.cap || {};
             const payload = encodeURIComponent(JSON.stringify({ cap: c.id, vals: r.vals || {}, next: r.next || [] }));
             const isAuto = _AUTO_CAPS.includes(c.id);
+            let _modePicker = '';
+            let _vfPicker = '';
+            if (c.id === 'video_render') {
+                const _modes = [
+                    { m: 'scroll', icon: '📜', name: '滚动字幕' },
+                    { m: 'avatar', icon: '🧑', name: '数字人出镜' },
+                    { m: 'motion', icon: '🎞️', name: '动态图文' },
+                    { m: 'manga', icon: '📚', name: '漫剧' },
+                    { m: 'whiteboard', icon: '🖊️', name: '白板手绘' },
+                    { m: 'card', icon: '🧩', name: '图解版' }
+                ];
+                const _curM = (r.vals && r.vals.mode) || 'scroll';
+                _modePicker = '<div class="mt-2"><p class="text-[11px] font-medium text-slate-500">选择视频形式</p>'
+                    + '<div class="mt-1 flex flex-wrap gap-2" data-mode-group>'
+                    + _modes.map(x => '<button type="button" data-mode="' + x.m + '" class="mode-opt rounded-lg border px-2.5 py-1 text-xs ' + (x.m === _curM ? 'border-indigo-500 bg-indigo-50 text-indigo-700 font-medium' : 'border-slate-200 text-slate-600 hover:border-indigo-300') + '">' + x.icon + ' ' + x.name + '</button>').join('')
+                    + '</div></div>';
+                const _vfs = [
+                    { v: 'dialogue', name: '双声对话（女问男答）' },
+                    { v: 'male_mono', name: '男声独白（单声）' },
+                    { v: 'female_mono', name: '女声独白（单声）' }
+                ];
+                const _forceMono = (_curM === 'avatar' || _curM === 'card');
+                const _curV = (r.vals && r.vals.voice_form) || 'male_mono';
+                const _vfHint = _forceMono
+                    ? '<p class="mt-1 text-[10px] text-amber-500">⚠️ ' + (_curM === 'card' ? '图解版为单人解说' : '数字人出镜为单人出镜') + '，仅支持单声独白，已为你禁用双声对话</p>'
+                    : '';
+                _vfPicker = '<div class="mt-2"><p class="text-[11px] font-medium text-slate-500">配音形式</p>'
+                    + '<div class="mt-1 flex flex-wrap gap-2" data-vf-group>'
+                    + _vfs.map(x => {
+                        const _disabled = (_forceMono && x.v === 'dialogue');
+                        const _cls = _disabled
+                            ? 'vf-opt rounded-lg border px-2.5 py-1 text-xs border-slate-200 text-slate-300 cursor-not-allowed line-through'
+                            : 'vf-opt rounded-lg border px-2.5 py-1 text-xs ' + (x.v === _curV ? 'border-indigo-500 bg-indigo-50 text-indigo-700 font-medium' : 'border-slate-200 text-slate-600 hover:border-indigo-300');
+                        return '<button type="button" data-vf="' + x.v + '" class="' + _cls + '"' + (_disabled ? ' disabled' : '') + '>' + x.name + '</button>';
+                    }).join('')
+                    + '</div>' + _vfHint + '</div>';
+            }
             const h = [
                 '<p class="font-medium text-slate-800">' + esc(c.icon || '▶️') + ' ' + esc(r.message || ('准备好了，可以开始' + (c.name || ''))) + '</p>',
                 '<div class="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-500"><table class="w-full">'
@@ -610,9 +856,14 @@
                     + '</td><td class="py-0.5 text-slate-700">' + esc(v) + '</td></tr>');
             });
             h.push('</table></div>');
-            h.push('<div class="mt-2 flex flex-wrap gap-2">'
-                + '<button type="button" data-cap="' + payload + '" data-autorun="' + (isAuto ? '1' : '0') + '" class="cap-run rounded-lg px-4 py-1.5 text-xs font-medium transition ' + (isAuto ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700') + '" ' + (isAuto ? 'disabled' : '') + '>' + (isAuto ? '⏳ 自动执行中…' : '▶ 开始执行') + '</button>'
-                + '</div>');
+            h.push(_modePicker + _vfPicker);
+            let _runBtn;
+            if (c.id === 'video_render' && !isAuto) {
+                _runBtn = '<button type="button" data-cap="' + payload + '" onclick="runVideoRender(this)" class="cap-run rounded-lg px-4 py-1.5 text-xs font-medium bg-indigo-600 text-white transition hover:bg-indigo-700">▶ 开始执行</button>';
+            } else {
+                _runBtn = '<button type="button" data-cap="' + payload + '" data-autorun="' + (isAuto ? '1' : '0') + '" class="cap-run rounded-lg px-4 py-1.5 text-xs font-medium transition ' + (isAuto ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700') + '" ' + (isAuto ? 'disabled' : '') + '>' + (isAuto ? '⏳ 自动执行中…' : '▶ 开始执行') + '</button>';
+            }
+            h.push('<div class="mt-2 flex flex-wrap gap-2">' + _runBtn + '</div>');
             h.push('<p class="mt-2 text-xs text-slate-500">' + esc(r.tip || '') + '</p>');
             return h.join('');
         }
@@ -659,7 +910,10 @@
             return h.join('');
         }
         if (r.stage === 'done') {
-            return '<p>' + esc(r.message || '本批已全部写完。') + '</p>';
+            return '<p>' + esc(r.summary || r.message || '本批已全部写完。') + '</p>';
+        }
+        if (r.stage === 'reset') {
+            return '<p class="text-slate-500">已重置本次会话。</p>';
         }
         return '<p>' + esc(r.error || r.message || '（已完成）') + '</p>';
     }
@@ -725,6 +979,9 @@
         localStorage.setItem(SID_KEY, sid);
         spaceTitleEl.textContent = title || '新对话';
         spaceIconEl.textContent = title ? '📁' : '💬';
+        // 切会话 → 产物流水清空；随后由历史回放（resultBlock）自动重建本会话的产出
+        ARTIFACTS = []; afActive = null; afClosedByUser = false;
+        try { renderArtifacts(); setArtifactsOpen(false); } catch (_) { /* 初始化早于面板挂载时忽略 */ }
         renderSessions();
     }
 
@@ -855,7 +1112,11 @@
 
     async function doSend() {
         const msg = input.value.trim();
-        if (!msg || busy) return;
+        if (!msg) return;
+        if (busy) {
+            appendMsg('ai', '<span class="text-amber-600">⏳ 上一条消息还在处理，请稍候，完成后会自动出现。</span>');
+            return;
+        }
         lastMsg = msg;
         busy = true; sendBtn.disabled = true; input.value = '';
         appendMsg('user', esc(msg));
@@ -938,10 +1199,38 @@
                 await sleep(3000); continue;
             }
             if (st.stage === 'pending') {
-                const msg = (st.progress && st.progress.msg) || '正在处理…';
-                bubble.innerHTML = '<span class="text-slate-400">⏳ ' + esc(msg) + '　已 ' + sec + ' 秒'
-                    + '</span><div class="mt-2 flex gap-1"><div class="h-1 w-12 animate-pulse rounded bg-indigo-400"></div>'
-                    + '<div class="h-1 w-8 animate-pulse rounded bg-indigo-300"></div><div class="h-1 w-5 animate-pulse rounded bg-indigo-200"></div></div>';
+                const prog = st.progress || {};
+                const phase = prog.phase || 'working';
+                const msg = prog.msg || '正在处理…';
+                const sec = Math.round((Date.now() - t0) / 1000);
+                // 阶段步骤条：让"还在跑"这件事一眼可见，区分卡死
+                const steps = [
+                    {k: 'thinking', t: '理解意图'},
+                    {k: 'searching', t: '检索政策'},
+                    {k: 'reviewing', t: '协作审查'},
+                    {k: 'proposing', t: '拆角度'},
+                    {k: 'writing', t: '成稿'},
+                ];
+                const phaseMap = {thinking: 0, searching: 1, reviewing: 2, proposing: 3, writing: 4};
+                const cur = (phase in phaseMap) ? phaseMap[phase] : 0;
+                let bar = '<div class="mt-1 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs">';
+                steps.forEach((s, i) => {
+                    const on = i <= cur;
+                    bar += '<span class="' + (on ? 'text-indigo-600 font-medium' : 'text-slate-400') + '">'
+                        + (i === cur ? '▶ ' : '') + s.t + (i < steps.length - 1 ? ' →' : '') + '</span>';
+                });
+                bar += '</div>';
+                // 仅长任务（>3s）显示取消按钮，避免一闪而过
+                const cancelBtn = sec > 3
+                    ? '<button type="button" id="chatCancelBtn" class="mt-2 inline-block rounded border border-slate-300 bg-white px-3 py-1 text-xs text-slate-500 transition hover:bg-slate-50">✕ 取消等待</button>'
+                    : '';
+                bubble.innerHTML = '<div class="text-slate-500">⏳ ' + esc(msg) + '　已 ' + sec + ' 秒'
+                    + (sec > 25 ? '（长任务可能需 1~4 分钟）' : '') + '</div>' + bar + cancelBtn;
+                const cb = bubble.querySelector('#chatCancelBtn');
+                if (cb) cb.onclick = () => {
+                    keep = false;
+                    bubble.innerHTML = '<span class="text-slate-400">已取消当前等待。后台可能仍在生成，刷新页面或点进左侧本会话即可查看最新结果。</span>';
+                };
             } else if (st.stage && ['done', 'written', 'propose', 'search', 'review', 'ask', 'answer'].includes(st.stage)) {
                 safeRender(bubble, st);   // 后台跑完，完整结果渲染（resultBlock 出错时降级为原文 JSON）
                 updateMeta(st); loadSessions();
@@ -969,7 +1258,10 @@
             }
             await sleep(3000);
         }
-        if (keep === false) {
+        // 只有当循环是因为总超时（>330s）自然退出且仍未拿到结果时，才显示兜底提示。
+        // 注意：循环内 break 会设置 keep=false，但 break 前已经 safeRender 或显示 error，
+        // 所以这里只处理"函数执行完仍未 break"的极少数超时情况，避免覆盖正常结果。
+        if (keep !== false) {
             bubble.innerHTML = '<span class="text-amber-600">长时间未返回结果，可能仍在后台处理。</span> '
                 + '<span class="text-slate-400">可刷新页面，到左侧空间点进本会话查看最新状态。</span>';
         }
@@ -996,6 +1288,60 @@
             runCapAction(capBtn, payload);
         }
     });
+
+    // 出片卡片：用户选形式/配音后构造 payload 再执行
+    function runVideoRender(btn) {
+        try {
+            const card = btn.closest('.chat-bubble') || btn.parentElement;
+            const mg = card.querySelector('[data-mode-group]');
+            const msel = mg ? mg.querySelector('.mode-opt.border-indigo-500') : null;
+            const modeVal = msel ? msel.dataset.mode : 'scroll';
+            const vg = card.querySelector('[data-vf-group]');
+            const vsel = vg ? vg.querySelector('.vf-opt.border-indigo-500') : null;
+            const vfVal = vsel ? vsel.dataset.vf : 'male_mono';
+            const raw = JSON.parse(decodeURIComponent(btn.dataset.cap));
+            raw.vals = raw.vals || {};
+            raw.vals.mode = modeVal;
+            raw.vals.voice_form = vfVal;
+            runCapAction(btn, raw);
+        } catch (e) {
+            console.error('runVideoRender failed', e);
+        }
+    }
+    // 形式/配音选择高亮切换（事件委托）
+    if (typeof chatBox !== 'undefined' && chatBox) {
+        chatBox.addEventListener('click', function (e) {
+            const mo = e.target.closest('.mode-opt');
+            if (mo) {
+                mo.parentElement.querySelectorAll('.mode-opt').forEach(b => b.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium'));
+                mo.classList.add('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium');
+                const isAvatar = (mo.dataset.mode === 'avatar' || mo.dataset.mode === 'card');
+                // 切到数字人/图解版：禁用「双声对话」并强制改选单声；切走其它形式：恢复双声可点
+                document.querySelectorAll('[data-vf-group] .vf-opt').forEach(btn => {
+                    const isDialogue = (btn.dataset.vf === 'dialogue');
+                    if (isAvatar && isDialogue) {
+                        btn.classList.add('border-slate-200', 'text-slate-300', 'cursor-not-allowed', 'line-through');
+                        btn.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium');
+                        btn.disabled = true;
+                        if (btn.classList.contains('border-indigo-500')) {
+                            btn.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium');
+                            const male = document.querySelector('[data-vf-group] .vf-opt[data-vf="male_mono"]');
+                            if (male) male.classList.add('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium');
+                        }
+                    } else if (!isAvatar && isDialogue) {
+                        btn.classList.remove('border-slate-200', 'text-slate-300', 'cursor-not-allowed', 'line-through');
+                        btn.disabled = false;
+                    }
+                });
+                return;
+            }
+            const vo = e.target.closest('.vf-opt');
+            if (vo) {
+                vo.parentElement.querySelectorAll('.vf-opt').forEach(b => b.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium'));
+                vo.classList.add('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium');
+            }
+        });
+    }
 
     // ---------- 能力执行（对话里点「开始执行」，或被自动触发）----------
     async function runCapAction(btn, payload) {
@@ -1062,7 +1408,7 @@
         const timer = setInterval(async () => {
             tries++;
             try {
-                const r = await fetch('/studio/scroll/status/' + encodeURIComponent(jobId), { headers: { 'Accept': 'application/json' } });
+                const r = await fetch('/studio/video/status/' + encodeURIComponent(jobId), { headers: { 'Accept': 'application/json' } });
                 const j = await r.json();
                 const st = j.status || j.data?.status || '';
                 if (st === 'done' || st === 'failed' || tries > 90) {
@@ -1071,6 +1417,10 @@
                     if (ok) {
                         // 视频内嵌预览：直接用 Laravel 现有 inline 端点（带 cookie 鉴权）
                         const videoUrl = '/studio/scroll/download/' + encodeURIComponent(jobId);
+                        // 右侧产物面板：同一条任务从「渲染中」翻成「已完成」，可直接播放/下载
+                        pushArtifact({ key: 'job:' + jobId, type: 'video',
+                            title: '成片（' + String(jobId).slice(0, 6) + '）',
+                            sub: '视频 · 渲染完成', url: videoUrl, status: 'done' });
                         appendMsg('ai',
                             '<p class="font-medium text-slate-800">🎉 视频渲染完成</p>'
                             + '<div class="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-black">'
@@ -1083,6 +1433,8 @@
                             +   '<button type="button" data-msg="改成小红书图文" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">📕 一鱼多吃·小红书</button>'
                             + '</div>');
                     } else {
+                        pushArtifact({ key: 'job:' + jobId, type: 'video',
+                            sub: '视频 · ' + (st === 'failed' ? '渲染失败' : '渲染超时'), status: st || 'failed' });
                         appendMsg('ai', '<p class="text-rose-600">⚠️ 渲染' + (st === 'failed' ? '失败' : '超时（已盯了 12 分钟）') + '</p>'
                             + '<p class="mt-1 text-xs text-slate-500">可以重新执行一次，或跟我说要改什么。</p>');
                     }
@@ -1120,6 +1472,8 @@
     }
 
     sendBtn.onclick = doSend;
+    const planWeekBtn = document.getElementById('planWeekBtn');
+    if (planWeekBtn) planWeekBtn.onclick = () => doSend('帮我规划本周财税内容');
     input.addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
         // 自动撑高
@@ -1134,6 +1488,14 @@
     };
     document.getElementById('renameBtn').onclick = renameCurrent;
     document.getElementById('delSpaceBtn').onclick = () => { if (sid) deleteSession(sid); };
+
+    // 产物面板：顶栏按钮展开 / 面板内按钮收起（与会话列同一套交互习惯）
+    const afOpenBtnEl = document.getElementById('afOpenBtn');
+    if (afOpenBtnEl) afOpenBtnEl.onclick = () => { afClosedByUser = false; setArtifactsOpen(true); };
+    const afCloseBtnEl = document.getElementById('afCloseBtn');
+    if (afCloseBtnEl) afCloseBtnEl.onclick = () => { afClosedByUser = true; setArtifactsOpen(false); };
+    renderArtifacts();
+    setArtifactsOpen(false);
 
     // ---------- 启动 ----------
     (async function init() {

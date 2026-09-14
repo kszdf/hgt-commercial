@@ -79,6 +79,7 @@ class VideoJob extends Model
             'scroll'     => '滚动字幕卡',
             'manga'      => 'AI 漫剧',
             'whiteboard' => 'AI 白板图解',
+            'card'       => '图解版（信息卡片解说）',
             'xhs'        => '小红书图文',
             default      => $this->mode ?: '—',
         };

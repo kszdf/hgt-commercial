@@ -80,4 +80,44 @@ def remove_account_token(platform: str, account_key: str):
         _save_cache()
 
 
+# ---- 账号级「应用凭证」缓存（多应用矩阵） ----
+# 每个抖音号对应一套开放平台应用（client_key/client_secret）。授权回调时把该账号用到的
+# 应用凭证一并记住，供 access_token 过期后按同应用自动 refresh（refresh_token 与应用绑定）。
+_ACCOUNT_APPS: dict = {}
+_APP_CACHE_FILE = os.path.join(os.path.dirname(__file__), "_account_app_cache.json")
+
+
+def _load_app_cache():
+    try:
+        with open(_APP_CACHE_FILE, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        for k, v in raw.items():
+            platform, _, account_key = k.partition(":")
+            _ACCOUNT_APPS[(platform, account_key)] = v
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _save_app_cache():
+    try:
+        with open(_APP_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump({f"{p}:{k}": v for (p, k), v in _ACCOUNT_APPS.items()},
+                      f, ensure_ascii=False)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def store_account_app(platform: str, account_key: str, app: dict):
+    """记住账号所用开放平台应用凭证（client_key/client_secret/open_id）。"""
+    with _lock:
+        _ACCOUNT_APPS[(platform, account_key)] = app
+        _save_app_cache()
+
+
+def get_account_app(platform: str, account_key: str) -> dict | None:
+    with _lock:
+        return _ACCOUNT_APPS.get((platform, account_key))
+
+
 _load_cache()
+_load_app_cache()
