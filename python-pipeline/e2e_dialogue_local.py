@@ -189,6 +189,15 @@ def test_cap_cards():
         ok = cap_id(r) == want
         record("能力卡片[%s]" % label, ok, "cap=%s" % cap_id(r))
 
+    # 关键修复验证：只说能力名、没给主题 → 应进入 action_ask 追问主题，不能硬凑"微信"当主题
+    o = new_orch()
+    sid = "cap_article_blank"
+    r = run(o, sid, "请给我写一篇微信公众号文章")
+    vals = (r or {}).get("vals") or {}
+    ok = (stage(r) == "action_ask" and cap_id(r) == "article" and
+          not vals.get("topic"))
+    record("公众号能力空白请求→追问主题", ok, "stage=%s cap=%s topic=%s" % (stage(r), cap_id(r), vals.get("topic")))
+
 # ============================================================
 # 规划
 # ============================================================

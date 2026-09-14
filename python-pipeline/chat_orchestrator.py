@@ -1464,11 +1464,13 @@ class ChatOrchestrator:
         return "next"
 
     # ---- 从用户请求句里清洗出真实主题（避免"给我写一篇XX的公众号文章"把整句当主题） ----
-    _TOPIC_EXTRACT_PAT = re.compile(
-        r"(?:帮我|请|给|来)?(?:我)?(?:写|做|来|生成|整)"
-        r"(?:写个|做个|来个|一篇|一个|一段|一条|一期|一则)?[的]?"
-        r"(?:关于|讲讲|说说|谈谈|聊聊)?(.{2,40}?)(?:的)?"
-        r"(?:公众号|文章|稿|文案|口播|图文|视频|内容|推文|脚本|方案)",
+    # 旧正则用非贪婪捕获，会把"微信公众号文章"拆成主题="微信"+后缀"公众号文章"，
+    # 导致用户只说了能力名、没给主题时，把"微信"当主题硬填进去。新方案只切掉动作前缀，
+    # 主题用 noise 清洗，"写一篇微信公众号文章"正确返回空，"写一篇关于公转私的公众号文章"正确返回"公转私"。
+    _TOPIC_PREFIX_PAT = re.compile(
+        r"^(?:帮我|请给我|请|给我|给|来)?(?:我)?"
+        r"(?:写个|做个|来个|来一个|写一篇|做一篇|写|做|来|生成|整)"
+        r"(?:一篇|一个|一段|一条|一期|一则)?[的]?",
         re.UNICODE,
     )
 
@@ -1483,25 +1485,44 @@ class ChatOrchestrator:
         union = len(sa | sb)
         return inter / union if union else 0.0
 
+    # 主题提取后若只剩这些词，说明用户其实没给主题，只是触发了能力名
+    _TOPIC_RESIDUE_WORDS = {
+        "微信", "公众", "公众号", "小红书", "图文", "笔记", "视频", "文章",
+        "稿", "文案", "推文", "脚本", "方案", "内容", "个", "的", "关于",
+    }
+
     def _extract_topic_from_msg(self, message):
-        """从'给我写一篇XX的公众号文章'里提取出'XX'；提取失败返回原句去噪后的结果。"""
+        """从'给我写一篇XX的公众号文章'里提取出'XX'；没提取到（或只剩能力残留词）返回空字符串。"""
         m = str(message or "").strip()
-        mm = self._TOPIC_EXTRACT_PAT.search(m)
-        if mm:
-            t = mm.group(1).strip("的 ")
-            if t and len(t) >= 2:
-                return t
-        # 兜底：去掉常见动作前缀/后缀
-        noise = (
-            "帮我", "请", "给我", "给", "来", "写", "做", "生成", "整", "一篇",
-            "一个", "一段", "一条", "一期", "一则", "的", "关于", "讲讲",
-            "公众号", "文章", "稿", "文案", "口播", "图文", "视频", "内容", "推文", "脚本", "方案",
+        if not m:
+            return ""
+        # 1. 切掉动作前缀（"请给我写一篇""帮我写个"等）
+        m = self._TOPIC_PREFIX_PAT.sub("", m)
+        # 2. 去掉结尾的内容类型后缀（按长度降序，避免"微信公众号文章"被拆成"微信"）
+        content_suffixes = (
+            "微信公众号文章", "公众号文章", "公众号推文", "公众号文案", "公众号",
+            "微信文章", "微信", "小红书图文", "小红书笔记", "小红书",
+            "口播稿", "口播", "图文", "视频", "文章", "稿", "文案", "推文", "脚本", "方案", "内容",
         )
         t = m
-        for w in noise:
-            t = t.replace(w, "")
+        for suf in content_suffixes:
+            if t.endswith(suf):
+                t = t[:-len(suf)]
+                break
+        # 3. 去掉常见介词/量词前缀（保留"个"，避免误伤"个人卡"这类主题；量词已被前缀吃掉）
+        t = re.sub(r"^(?:的|关于|讲讲|一下|一个|一篇|这个|那个)\s*", "", t)
+        # 4. 清理首尾标点和末尾"的"
+        t = t.rstrip("的 ")
         t = t.strip(" ，。！？、:：\"'\u3000")
-        return t if len(t) >= 2 else ""
+        # 5. 过滤：空/单字/只剩能力残留词 → 认为没给主题
+        if not t or len(t) < 2:
+            return ""
+        stripped = t
+        for w in sorted(self._TOPIC_RESIDUE_WORDS, key=len, reverse=True):
+            stripped = stripped.replace(w, "")
+        if not stripped.strip():
+            return ""
+        return t
 
     # ---- 受众推断：话题往往自带受众，能推理出来就不该反问用户 ----
     # 关键词 → (受众, 一句话理由)。按话题阶段匹配：注册/成立/创业 → 准备中的创业者。
@@ -1902,7 +1923,10 @@ class ChatOrchestrator:
                     # 主题/标题/关键词类参数必须做清洗，避免"给我写一篇XXX的公众号文章"
                     # 把整个脏句填进去（如"给我写一篇个人卡收款严重性的"）。
                     if target["key"] in ("topic", "kw_main", "title", "keywords", "industry"):
-                        vals[target["key"]] = self._extract_topic_from_msg(rest)
+                        extracted = self._extract_topic_from_msg(rest)
+                        if extracted:
+                            vals[target["key"]] = extracted
+                        # 没提取到真实主题：不填，让 missing_params 继续追问
                     else:
                         vals[target["key"]] = rest
 
