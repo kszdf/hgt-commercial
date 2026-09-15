@@ -146,6 +146,20 @@ def test_render_no_script_safe():
     ok = stage(r) == "ask" and cap_id(r) is None
     record("无稿时'生成视频'不弹视频卡片", ok, "stage=%s cap=%s" % (stage(r), cap_id(r)))
 
+# "生成一条关于滞纳金改成迟纳金的短视频"：主题陈述里的"改成"不是二创改写诉求，
+# 应提取主题直接拆角度（出稿流程），绝不进 rewrite 追问"要改写的原文"。
+def test_video_with_topic():
+    o = new_orch()
+    sid = "video_topic"
+    r = run(o, sid, "那给生成一条关于滞纳金改成迟纳金的短视频，时长不超过1分钟，要摆事实讲道理有吸引力。")
+    st = stage(r)
+    cid = cap_id(r)
+    topic = o._sessions.get(sid, {}).get("topic") or ""
+    angles = r.get("angles") or []
+    ok = st == "propose" and len(angles) >= 5 and "滞纳金" in topic
+    record("生成关于X的短视频→拆角度(不进二创改写)", ok,
+           "stage=%s cap=%s topic=%s angles=%d" % (st, cid, topic, len(angles)))
+
 # 写稿后"改字数/时长/表述"→ 走修改流程，不误开能力
 def test_script_modify():
     o = new_orch()
@@ -395,6 +409,7 @@ def test_merge_single_call():
 if __name__ == "__main__":
     test_render_chain()
     test_render_no_script_safe()
+    test_video_with_topic()
     test_script_modify()
     test_param_change()
     test_cap_cards()

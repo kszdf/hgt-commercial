@@ -1817,7 +1817,9 @@ class ChatOrchestrator:
     _CAP_KEYWORDS = {
         "topic": ("选题", "给我选题", "出选题", "选几个题", "想几个选题", "找选题"),
         "hotspot": ("热点选题", "追热点", "热点话题", "最近热点"),
-        "rewrite": ("二创", "改写", "改编", "改成我的", "改成我的口径", "改成我的风格", "爆改", "重写成", "改成"),
+        # ★"改成"裸词严禁入表：用户说"滞纳金改成迟纳金""个税改成季报"是在陈述主题(A改成B)，
+        # 不是要把稿子改成自己的口径。真改写说法必须带"我的/口径/风格/重写成"等稿件语境。
+        "rewrite": ("二创", "改写", "改编", "改成我的", "改成我的口径", "改成我的风格", "爆改", "重写成"),
         "article": ("公众号文章", "公众号长文", "公众号推文", "公众号文案", "篇公众号",
                     "写成文章", "发公众号", "推文", "写篇长文", "篇长文", "公众号"),
         "strategist": ("获客军师", "选题打分", "评估选题", "这个选题值不值",
@@ -2290,6 +2292,22 @@ class ChatOrchestrator:
                 if mod:
                     self._chat_log(sid, "OUT | script-modify handled")
                     return mod
+
+        # —— 0.51) "生成/做/来一条…关于X的短视频" → 有主题的出片诉求：先拆角度。
+        #   出片铁律：选题→拆角度→写稿→确认→出片，绝不直接弹片。
+        #   背景（09-15 修）：'生成一条关于滞纳金改成迟纳金的短视频'里"A改成B"是主题陈述，
+        #   曾被 rewrite 裸词"改成"抢走、追问"要改写的原文"，答非所问。
+        if not (s.get("pending_cap") or {}).get("id") and not written:
+            _m = str(message or "").strip()
+            if any(w in _m for w in ("短视频", "视频")) and any(
+                    w in _m for w in ("生成", "做一条", "来一条", "写一条", "出一条",
+                                      "整一条", "做一版", "做一段", "来一段")):
+                _tm = re.search(r"关于(.{2,24}?)的", _m)
+                _t = _tm.group(1).strip(" ，。、") if _tm else ""
+                if _t and not any(w in _t for w in ("视频", "生成", "做", "写", "我")):
+                    s["topic"] = _t
+                    self._chat_log(sid, "OUT | video-with-topic(0.51) -> propose (topic=%s)" % _t)
+                    return self._do_propose(s)
 
         # —— 0.52) 用户明确要"重新拆角度"（或同义表达）且本空间已有主题 → 直接重拆，不绕 LLM 意图识别。
         #   避免模型把"重新拆角度"误判为 answer/ask，或觉得"已经拆过/已写稿"而卡住。
