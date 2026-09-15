@@ -363,6 +363,29 @@ def test_rewrite_existing_script():
     ok2 = cap_id(r2) == "rewrite" and stage(r2) == "action_ask"
     record("口播稿改成我的风格→进二创改写", ok2, "stage=%s cap=%s" % (stage(r2), cap_id(r2)))
 
+def test_stale_rewrite_card_override():
+    """rewrite 待填卡片挂着时，用户改口说'生成一条关于X的短视频'→ 必须清卡重路由到拆角度，
+    不能把这句话当原文参数吞掉、永远追问（09-15 真机复现的卡死路径）。"""
+    o = new_orch()
+    sid = "stale_rewrite_card"
+    r1 = run(o, sid, "我有一段口播稿，帮我改成我的风格")
+    ok1 = stage(r1) == "action_ask" and cap_id(r1) == "rewrite"
+    record("前置：rewrite 卡片挂起", ok1, "stage=%s cap=%s" % (stage(r1), cap_id(r1)))
+    # 改口：不出稿诉求，不是贴原文
+    r2 = run(o, sid, "那给生成一条关于滞纳金改成迟纳金的短视频，时长不超过1分钟，要摆事实讲道理有吸引力。")
+    st2, cid2 = stage(r2), cap_id(r2)
+    ok2 = st2 == "propose" and cid2 is None and len(r2.get("angles") or []) >= 5 \
+          and (r2.get("topic") or "") == "滞纳金改成迟纳金"
+    record("挂rewrite卡时改口生成视频→清卡重拆角度", ok2,
+           "stage=%s cap=%s topic=%s angles=%d" % (st2, cid2, r2.get("topic"), len(r2.get("angles") or [])))
+    # 同类：挂着 rewrite 卡时说要写公众号 → 应回到出稿链路追问主题，不再追问原文
+    o2 = new_orch()
+    sid2 = "stale_rewrite_card2"
+    run(o2, sid2, "我有一段口播稿，帮我改成我的风格")
+    r3 = run(o2, sid2, "帮我写一篇公众号文章")
+    ok3 = cap_id(r3) != "rewrite"
+    record("挂rewrite卡时改口写公众号→不再追问原文", ok3, "stage=%s cap=%s" % (stage(r3), cap_id(r3)))
+
 def test_merge_single_call():
     calls = {"n": 0}
     def counting_chat(prompt, model, key, base_url=None, timeout=None, thinking=None):
@@ -422,6 +445,7 @@ if __name__ == "__main__":
     test_repropose()
     test_repropose_after_write()
     test_rewrite_existing_script()
+    test_stale_rewrite_card_override()
     test_merge_single_call()
     total = len(results); failed = sum(1 for _, ok, _ in results if not ok)
     print("\n==== 本地端到端对话测试：%d 项，失败 %d ====" % (total, failed))

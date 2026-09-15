@@ -2293,6 +2293,19 @@ class ChatOrchestrator:
                     self._chat_log(sid, "OUT | script-modify handled")
                     return mod
 
+        # —— 0.50) 旧"二创改写"卡片还挂着等原文，但用户这句是新的干活指令（短句+出稿词）
+        #   → 视为改主意，清掉旧卡片，落到后面 0.51/写稿链路正常路由。
+        #   背景（09-15 修）：旧会话挂着 rewrite 待填卡片时，"那给生成一条关于滞纳金改成迟纳金的
+        #   短视频…"被当成参数值吞掉、永远追问"要改写的原文"（真机复现 stage=action_ask cap=rewrite）。
+        #   真贴原文的特征是长文本；短句+出稿动词=新指令，绝不吞。
+        if (s.get("pending_cap") or {}).get("id") == "rewrite":
+            _m0 = str(message or "").strip()
+            if len(_m0) < 80 and "【" not in _m0 and (
+                    any(w in _m0 for w in self._BLANK_PRODUCE_WORDS)
+                    or self._is_produce_cmd(_m0)):
+                s["pending_cap"] = None
+                self._chat_log(sid, "OUT | stale rewrite card cleared by new produce cmd(0.50)")
+
         # —— 0.51) "生成/做/来一条…关于X的短视频" → 有主题的出片诉求：先拆角度。
         #   出片铁律：选题→拆角度→写稿→确认→出片，绝不直接弹片。
         #   背景（09-15 修）：'生成一条关于滞纳金改成迟纳金的短视频'里"A改成B"是主题陈述，
