@@ -313,6 +313,28 @@ def test_repropose():
     ok2 = stage(r2) == "propose" and len(r2.get("angles") or []) >= 5
     record("换个角度→重新出角度方案", ok2, "stage=%s" % stage(r2))
 
+def test_repropose_after_write():
+    """P2 边界（审计唯一 FAIL）：已写稿状态下说"换个角度再拆一次"→ 必须重拆角度方案，
+    不能当"稿已写好"回掉。同时断言旧稿保留（session.written 不为空），不静默丢弃数据。"""
+    o = new_orch()
+    sid = "repropose_after_write"
+    sess = o._get(sid)
+    sess["topic"] = "公转私的风险"
+    sess["audience"] = "已注册、正在经营的中小老板"
+    run(o, sid, "拆角度")
+    a1 = len(o._sessions.get(sid, {}).get("angles") or [])
+    # 写一版稿 → written 置位
+    run(o, sid, "就按这个全写")
+    written_before = len(o._sessions.get(sid, {}).get("written") or [])
+    # 已写稿后说"换个角度再拆一次" → 应重拆角度方案
+    r = run(o, sid, "换个角度再拆一次")
+    st = stage(r)
+    a2 = len(r.get("angles") or [])
+    written_after = len(o._sessions.get(sid, {}).get("written") or [])
+    ok = st == "propose" and a2 >= 5 and written_after >= written_before
+    record("P2 已写稿后'换个角度再拆一次'→重拆角度(旧稿保留)",
+           ok, "stage=%s angles=%d->%d written=%d->%d" % (st, a1, a2, written_before, written_after))
+
 def test_rewrite_existing_script():
     """用户说'有逐字稿，帮我改编'→ 应进二创改写能力追问原文，不能拆角度或写新稿。"""
     o = new_orch()
@@ -383,6 +405,7 @@ if __name__ == "__main__":
     test_status_inquiry()
     test_repeat_nonstatus()
     test_repropose()
+    test_repropose_after_write()
     test_rewrite_existing_script()
     test_merge_single_call()
     total = len(results); failed = sum(1 for _, ok, _ in results if not ok)

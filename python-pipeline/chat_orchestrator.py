@@ -2292,12 +2292,15 @@ class ChatOrchestrator:
                     return mod
 
         # —— 0.52) 用户明确要"重新拆角度"（或同义表达）且本空间已有主题 → 直接重拆，不绕 LLM 意图识别。
-        #   避免模型把"重新拆角度"误判为 answer/ask，或觉得"已经拆过"而卡住。
-        if not (s.get("pending_cap") or {}).get("id") and s.get("topic") and not written:
+        #   避免模型把"重新拆角度"误判为 answer/ask，或觉得"已经拆过/已写稿"而卡住。
+        #   关键修复（P2）：无论是否已写稿都重拆——写稿后说"换个角度/重新拆"也应重出角度方案，
+        #   而不是被当成"稿已写好"的提示语回掉。旧稿保留在 session.written（右栏产物仍在），不静默丢弃，
+        #   _do_propose 内部会 pop("_await_video_confirm")，不会残留出片确认状态。
+        if not (s.get("pending_cap") or {}).get("id") and s.get("topic"):
             _m = str(message or "").strip()
             if any(w in _m for w in ("重新拆", "重新出角度", "换个角度", "再拆一次", "再拆一遍",
                                       "角度不够", "再来一次", "不要这些")):
-                self._chat_log(sid, "OUT | explicit re-propose -> _do_propose")
+                self._chat_log(sid, "OUT | explicit re-propose (written=%s) -> _do_propose" % bool(written))
                 return self._do_propose(s)
 
         # —— 0.53) 用户有逐字稿/口播稿/原文，要求改写/改编/改成自己口径 → 直接进二创改写能力。
