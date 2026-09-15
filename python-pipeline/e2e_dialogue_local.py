@@ -313,6 +313,20 @@ def test_repropose():
     ok2 = stage(r2) == "propose" and len(r2.get("angles") or []) >= 5
     record("换个角度→重新出角度方案", ok2, "stage=%s" % stage(r2))
 
+def test_rewrite_existing_script():
+    """用户说'有逐字稿，帮我改编'→ 应进二创改写能力追问原文，不能拆角度或写新稿。"""
+    o = new_orch()
+    sid = "rewrite_existing"
+    r1 = run(o, sid, "我给你个逐字稿，你可以帮我改编吗")
+    st1 = stage(r1)
+    cid1 = cap_id(r1)
+    ok1 = st1 == "action_ask" and cid1 == "rewrite"
+    record("有逐字稿要改编→进二创改写并追问原文", ok1, "stage=%s cap=%s" % (st1, cid1))
+    # 同义表达
+    r2 = run(new_orch(), "rewrite_syn", "我有一段口播稿，帮我改成我的风格")
+    ok2 = cap_id(r2) == "rewrite" and stage(r2) == "action_ask"
+    record("口播稿改成我的风格→进二创改写", ok2, "stage=%s cap=%s" % (stage(r2), cap_id(r2)))
+
 def test_merge_single_call():
     calls = {"n": 0}
     def counting_chat(prompt, model, key, base_url=None, timeout=None, thinking=None):
@@ -369,6 +383,7 @@ if __name__ == "__main__":
     test_status_inquiry()
     test_repeat_nonstatus()
     test_repropose()
+    test_rewrite_existing_script()
     test_merge_single_call()
     total = len(results); failed = sum(1 for _, ok, _ in results if not ok)
     print("\n==== 本地端到端对话测试：%d 项，失败 %d ====" % (total, failed))

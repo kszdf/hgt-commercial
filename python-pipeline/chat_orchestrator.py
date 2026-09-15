@@ -360,11 +360,14 @@ class ChatOrchestrator:
             "并在 answer_ctx 写明'用户在问<某对象>是否已完成'。绝不可因为句里含'公众号文章/视频/小红书'等词就填 cap——"
             "那会变成'让他现在去写一篇'，答非所问。例如'今天的微信公众号文章写了吗'→ action=answer（回答'还没写，要现在写吗'），cap=null。\n"
             "铁律：宁可多判 answer 也不要机械地当写稿指令——答非所问是最大的失败。用户问问题，你就 answer；用户要内容，你才 propose/write。\n"
-            "★关于 cap 的两条硬约束（违反会直接造成答非所问，务必遵守）：\n"
+            "★关于 cap 的三条硬约束（违反会直接造成答非所问，务必遵守）：\n"
             "1. 用户只是在【问问题、要解释、要建议、要讨论】（哪怕句里带'注册公司''注销''免税''公转私'等词）"
             "→ cap 必须填 null，action=answer。\n"
             "2. 用户要的是【口播稿、逐字稿、角度方案】（如'写条口播''出稿''来几个角度'）"
             "→ cap 必须填 null，走 propose/write 出稿链路，不要填成别的能力。\n"
+            "3. 但用户明确是在对【已有稿子/逐字稿/原文】做改写/改编/二创/改成自己口径/改成自己风格时"
+            "（如'我给你个逐字稿，帮我改编''这段口播稿改一下''把别人的爆款改成我的口吻'）"
+            "→ cap 必须填 'rewrite'，action=ask；如果用户已经把原文贴在消息里了，把原文放进 answer 或 asked 让用户确认/下一步。"
             "只有用户明确要【做】一件具体的事（出片、质检、选题、公众号文章、小红书图文、爆款拆解、"
             "发布素材包、克隆声音、素材剪辑、给选题打分）时，才填对应的 cap。\n"
         )
@@ -1814,7 +1817,7 @@ class ChatOrchestrator:
     _CAP_KEYWORDS = {
         "topic": ("选题", "给我选题", "出选题", "选几个题", "想几个选题", "找选题"),
         "hotspot": ("热点选题", "追热点", "热点话题", "最近热点"),
-        "rewrite": ("二创", "改写", "改成我的", "爆改", "重写成", "改成"),
+        "rewrite": ("二创", "改写", "改编", "改成我的", "改成我的口径", "改成我的风格", "爆改", "重写成", "改成"),
         "article": ("公众号文章", "公众号长文", "公众号推文", "公众号文案", "篇公众号",
                     "写成文章", "发公众号", "推文", "写篇长文", "篇长文", "公众号"),
         "strategist": ("获客军师", "选题打分", "评估选题", "这个选题值不值",
@@ -1850,6 +1853,14 @@ class ChatOrchestrator:
             return None
         m = str(message).strip()
         low = m.lower()
+        # ★特例：用户有逐字稿/口播稿/原文/文案/脚本，并要求改写/改编/二创/改成自己口径时，
+        # 必须进 rewrite 能力，不要被 _CAP_EXCLUDE 里的"逐字稿/口播稿"误拦截成"写新稿"。
+        rewrite_words = self._CAP_KEYWORDS.get("rewrite", ())
+        script_indicators = ("逐字稿", "口播稿", "原文", "稿子", "文案", "脚本", "来稿", "这篇稿")
+        has_rewrite = any(w in m for w in rewrite_words)
+        has_script = any(w in m for w in script_indicators)
+        if has_rewrite and has_script:
+            return "rewrite"
         # 「出片」等词若与出稿词共现（如"出稿后出片"），优先算能力；只在纯出稿语境排除
         if any(w in m for w in self._CAP_EXCLUDE) and not any(
                 w in low for w in ("出片", "生成视频", "做成视频", "质检", "打包", "小红书")):
@@ -1928,7 +1939,15 @@ class ChatOrchestrator:
                             vals[target["key"]] = extracted
                         # 没提取到真实主题：不填，让 missing_params 继续追问
                     else:
-                        vals[target["key"]] = rest
+                        # ★改写能力 guard：用户说"我有逐字稿，帮我改编"时，去掉关键词后的余句
+                        # 只是请求话术，不是真正的原文。除非余句足够长（>=80 字）且像正文，否则不自动填 text。
+                        if cid == "rewrite" and target["key"] == "text":
+                            _request_tail = ("你可以帮我吗", "我可以", "你能", "请帮我", "帮我一下",
+                                               "你可以帮我", "你可以帮我改编", "你可以帮我改写")
+                            if len(rest) >= 80 and not any(t in rest for t in _request_tail):
+                                vals[target["key"]] = rest
+                        else:
+                            vals[target["key"]] = rest
 
         miss = _CAP.missing_params(cid, vals)
         s["pending_cap"] = {"id": cid, "vals": vals}
@@ -2280,6 +2299,19 @@ class ChatOrchestrator:
                                       "角度不够", "再来一次", "不要这些")):
                 self._chat_log(sid, "OUT | explicit re-propose -> _do_propose")
                 return self._do_propose(s)
+
+        # —— 0.53) 用户有逐字稿/口播稿/原文，要求改写/改编/改成自己口径 → 直接进二创改写能力。
+        #   避免被 _CAP_EXCLUDE 的"逐字稿/口播稿"误拦截成"写新稿/拆角度"。
+        if not (s.get("pending_cap") or {}).get("id") and not written:
+            _m = str(message or "").strip()
+            _rewrite_words = ("改写", "改编", "改成我的", "改成我的口径", "改成我的风格",
+                              "爆改", "重写成", "二创")
+            _script_markers = ("逐字稿", "口播稿", "原文", "稿子", "文案", "脚本", "来稿", "这篇稿")
+            if any(w in _m for w in _rewrite_words) and any(w in _m for w in _script_markers):
+                self._chat_log(sid, "OUT | explicit rewrite request -> rewrite cap")
+                _r = self._do_capability(s, message, "rewrite")
+                if _r:
+                    return _r
 
         # —— 0.55) 上一轮在等"写什么主题" → 这一句就是主题，直接进入写稿 ——
         #   让"想写点什么？"→"公转私"或"个体户怎么报税"的来回像真人对话一样连贯，
