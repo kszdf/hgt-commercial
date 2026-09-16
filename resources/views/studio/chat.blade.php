@@ -1200,7 +1200,7 @@
             h.push(_modePicker + _vfPicker);
             let _runBtn;
             if (c.id === 'video_render' && !isAuto) {
-                _runBtn = '<button type="button" data-cap="' + payload + '" onclick="runVideoRender(this)" class="cap-run rounded-lg px-4 py-1.5 text-xs font-medium bg-indigo-600 text-white transition hover:bg-indigo-700">▶ 开始执行</button>';
+                _runBtn = '<button type="button" data-cap="' + payload + '" data-video-run="1" class="cap-run rounded-lg px-4 py-1.5 text-xs font-medium bg-indigo-600 text-white transition hover:bg-indigo-700">▶ 开始执行</button>';
             } else {
                 _runBtn = '<button type="button" data-cap="' + payload + '" data-autorun="' + (isAuto ? '1' : '0') + '" class="cap-run rounded-lg px-4 py-1.5 text-xs font-medium transition ' + (isAuto ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700') + '" ' + (isAuto ? 'disabled' : '') + '>' + (isAuto ? '⏳ 自动执行中…' : '▶ 开始执行') + '</button>';
             }
@@ -1627,6 +1627,8 @@
         if (capBtn && capBtn.dataset.cap && !capBtn.disabled) {
             let payload = null;
             try { payload = JSON.parse(decodeURIComponent(capBtn.dataset.cap)); } catch (_) { return; }
+            // 出片卡片：先注入用户在卡片上选的视频形式/配音形式，再执行（避免双重触发）
+            if (capBtn.dataset.videoRun) { runVideoRender(capBtn); return; }
             runCapAction(capBtn, payload);
         }
     });
