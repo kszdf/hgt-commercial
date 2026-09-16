@@ -195,6 +195,8 @@
         {{-- ③ 输入区：始终可见，固定底部 --}}
         <div class="chat-input border-t border-slate-200 bg-white px-4 py-3">
             <div class="chat-bubble-wrap">
+                {{-- 固定操作栏：复制/赞/踩/朗读/重新生成/分享，对最新一条 AI 回复生效 --}}
+                <div id="msgToolbar" class="mb-1.5 flex items-center gap-1 pl-1"></div>
                 <div id="quickReplies" class="mb-2 hidden flex-wrap gap-1.5"></div>
                 <div class="flex items-end gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm focus-within:border-indigo-300">
                     <textarea id="userInput" rows="1" placeholder="说出你想做什么——AI 帮你拆角度 → 出稿 → 改稿 → 配音 → 出片，一句话驱动整条生产线。"
@@ -335,6 +337,9 @@
         }
     }, { passive: true });
 
+    // 最新一条可操作的 AI 回复气泡（输入框上方的固定工具栏对它生效）
+    let _lastAiBubble = null;
+
     function appendMsg(role, html, opts) {
         opts = opts || {};
         const wrap = document.createElement('div');
@@ -348,19 +353,19 @@
             av.textContent = '阿';
         }
         const col = document.createElement('div');
-        col.className = 'bubble-col flex min-w-0 flex-col ' + (role === 'user' ? 'items-end' : 'items-start');
-        // 每条 AI 消息都挂操作栏（含欢迎卡，与 WorkBuddy 一致）；仅系统状态提示用 opts.noTools 排除
-        if (role === 'ai' && !opts.noTools) col.appendChild(buildMsgActions());
+        col.className = 'bubble-col flex min-w-0 flex-1 flex-col ' + (role === 'user' ? 'items-end' : 'items-start');
         const bubble = document.createElement('div');
         // 用户消息不再用高亮紫色，改浅灰底+深色字，保持右对齐
         bubble.className = 'chat-bubble rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ' +
             (role === 'user'
                 ? 'rounded-tr-sm bg-slate-100 text-slate-800 border border-slate-200'
-                : 'rounded-tl-sm bg-white text-slate-800 border border-slate-200 shadow-sm');
+                : 'rounded-tl-sm w-full bg-white text-slate-800 border border-slate-200 shadow-sm');
         bubble.innerHTML = html;
         col.appendChild(bubble);
         wrap.appendChild(av); wrap.appendChild(col);
         chatBox.appendChild(wrap);
+        // 记录最新一条可操作的 AI 回复（固定工具栏在输入框上方，对它生效）
+        if (role === 'ai' && !opts.noTools) _lastAiBubble = bubble;
         stickToBottom(true);
         return bubble;
     }
@@ -394,10 +399,18 @@
         });
         return acts;
     }
+    // 固定工具栏：常驻在输入对话框上方，始终可见，对最新一条 AI 回复生效
+    (function mountToolbar() {
+        const tb = document.getElementById('msgToolbar');
+        if (tb) tb.appendChild(buildMsgActions());
+    })();
     function onMsgAction(action, btn) {
+        // 工具栏固定在输入框上方：作用于最新一条 AI 回复
         const wrapEl = btn.closest('.chat-bubble-wrap');
-        const bubble = wrapEl ? wrapEl.querySelector('.chat-bubble') : null;
-        const text = bubble ? (bubble.innerText || '') : '';
+        const inMsg = wrapEl ? wrapEl.querySelector('.chat-bubble') : null;
+        const bubble = inMsg || _lastAiBubble;
+        if (!bubble) { toast('还没有可操作的 AI 回复'); return; }
+        const text = bubble.innerText || '';
         if (action === 'copy') {
             copyText(text);
         } else if (action === 'like') {
