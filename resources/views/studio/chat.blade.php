@@ -343,26 +343,33 @@
     function appendMsg(role, html, opts) {
         opts = opts || {};
         const wrap = document.createElement('div');
-        wrap.className = 'chat-bubble-wrap flex items-start gap-3 ' + (role === 'user' ? 'flex-row-reverse' : '');
+        const col = document.createElement('div');
         const av = document.createElement('div');
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-bubble rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ';
         if (role === 'user') {
+            // 用户消息：头像在右、气泡靠右自动宽（与输入框右边缘对齐）
+            wrap.className = 'chat-bubble-wrap flex items-start gap-3 flex-row-reverse';
             av.className = 'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium bg-indigo-100 text-indigo-700';
             av.textContent = '我';
+            col.className = 'bubble-col flex min-w-0 flex-1 flex-col items-end';
+            bubble.className += 'rounded-tr-sm bg-slate-100 text-slate-800 border border-slate-200';
         } else {
-            av.className = 'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold bg-white text-indigo-600 ring-2 ring-indigo-100';
+            // AI 消息：头像内联在消息头部行，气泡占满整列——与底部输入框同宽、左右边缘对齐
+            wrap.className = 'chat-bubble-wrap';
+            av.className = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold bg-white text-indigo-600 ring-2 ring-indigo-100';
             av.textContent = '阿';
+            const head = document.createElement('div');
+            head.className = 'mb-1.5 flex items-center gap-2';
+            head.appendChild(av);
+            col.className = 'bubble-col flex min-w-0 flex-col';
+            col.appendChild(head);
+            bubble.className += 'w-full bg-white text-slate-800 border border-slate-200 shadow-sm';
         }
-        const col = document.createElement('div');
-        col.className = 'bubble-col flex min-w-0 flex-1 flex-col ' + (role === 'user' ? 'items-end' : 'items-start');
-        const bubble = document.createElement('div');
-        // 用户消息不再用高亮紫色，改浅灰底+深色字，保持右对齐
-        bubble.className = 'chat-bubble rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ' +
-            (role === 'user'
-                ? 'rounded-tr-sm bg-slate-100 text-slate-800 border border-slate-200'
-                : 'rounded-tl-sm w-full bg-white text-slate-800 border border-slate-200 shadow-sm');
         bubble.innerHTML = html;
         col.appendChild(bubble);
-        wrap.appendChild(av); wrap.appendChild(col);
+        wrap.appendChild(col);
+        if (role === 'user') wrap.appendChild(av);
         chatBox.appendChild(wrap);
         // 记录最新一条可操作的 AI 回复（固定工具栏在输入框上方，对它生效）
         if (role === 'ai' && !opts.noTools) _lastAiBubble = bubble;
