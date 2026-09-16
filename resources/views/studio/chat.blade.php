@@ -383,15 +383,24 @@
             }
         });
 
+        let lastPolishResearch = '';  // 联网参考，随发送带入对话
         async function polishAndFill(raw) {
             try {
                 const d = await api('/studio/chat/polish', { text: raw });
-                if (d && d.polished) input.value = d.polished;
+                if (d && d.polished) {
+                    input.value = d.polished;
+                    lastPolishResearch = (d.research || '').trim();
+                    if (lastPolishResearch) {
+                        micStatus.textContent = '🔎 已联网核对参考，可直接发送（发送时一并参考）';
+                        micStatus.classList.remove('hidden');
+                        return;  // 保持提示可见，等用户发送
+                    }
+                }
             } catch (err) {
                 /* 整理失败：保留原话，用户可手动改 */
             } finally {
                 autoGrow(input);
-                micStatus.classList.add('hidden');
+                if (!lastPolishResearch) micStatus.classList.add('hidden');
             }
         }
     }
@@ -1451,6 +1460,7 @@
         }
         lastMsg = msg;
         busy = true; sendBtn.disabled = true; input.value = '';
+        if (lastPolishResearch) { lastPolishResearch = ''; micStatus.classList.add('hidden'); }
         appendMsg('user', esc(msg));
         const thinking = appendMsg('ai', '<span class="text-slate-400">…正在理解并处理</span>', { noTools: true });
         // 秒数计时：长任务（如"全写"5 篇）要 1~4 分钟，让用户知道"还在跑 + 已跑多久"，区分卡死

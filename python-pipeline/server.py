@@ -3670,11 +3670,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     # ---- 语音输入整理：把口语化/啰嗦/有口误的口述整理成清晰指令 ----
     def _handle_polish(self, data):
-        """POST /polish
+        """POST /polish  —— 语音预处理：原始口述 → 正常表述 + 意图路由
         {"text": "<语音识别原始文本>"}
-        → {"ok": true, "polished": "<整理后文本>"}
-        复用 DeepSeek 轻度改写：去口语赘余、修正口误、保留原意与财税关键信息。
-        不擅自补充财税结论。超时/无 key 时降级返回原文（ok=false 但带 polished=原文）。
+        → {"ok": true, "polished": "<整理后指令>", "tags": [...], "research": "<联网参考,可选>"}
+
+        两点设计（对应用户反馈）：
+        1) 不直接用原始文字：用 DeepSeek 结合财税语境纠正口误/同音错字（如「吃辣基金」→滞纳金），
+           理顺成通顺、完整的行动指令，保留用户真实意图与全部约束（时长/体裁/参考要求）。
+        2) 按内容灵活调用工具：识别到「按同类爆款/参考/查/最新/网上/热点」等即自动调 Tavily 联网检索，
+           把参考摘要随整理结果一并返回，前端提示用户「已联网核对」，发送时下游撰写会据此落地。
+        降级：模型/检索不可用则分别退回原文或空参考，不阻断整理。
         """
         try:
             if not isinstance(data, dict):
@@ -3683,37 +3688,101 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not raw:
                 return self._send(400, {"error": "text required"})
             if len(raw) <= 6:
-                return self._send(200, {"ok": True, "polished": raw})  # 太短无需整理
+                return self._send(200, {"ok": True, "polished": raw, "tags": []})  # 太短无需整理
             cfg = get_text_config() or {}
-            prompt = (
-                "你是「慧根堂财税短视频出稿助手」的语音整理模块。用户用语音口述了想让 AI 做的事（一句话需求/指令/想法），"
-                "语音识别可能有口误、啰嗦、重复、口语 filler。\n"
-                "任务：把下面这段口语整理成一句清晰、准确、可直接作为对 AI 助手指令的自然中文。\n"
-                "要求：\n"
-                "1. 修正明显口误，删除「嗯/那个/然后然后/就是说/这个/那个/啊/对吧」等赘余与重复；\n"
-                "2. 保留原意、关键主体（税种/业务/受众/动作：出稿/改写/出片/选题）与所有具体信息；\n"
-                "3. 不动专业财税事实，不擅自补充用户没说的结论；\n"
-                "4. 输出一句通顺、长度适中（30–80 字内）的话，不加引号、不加解释、不写「整理后：」；\n"
-                "5. 若原文已通顺，则基本保持原样只去赘余。\n"
-                "只输出最终结果文本。\n\n【原始口述】\n" + raw
+
+            # ---- Step 1：原始口述 → 正常表述 + 意图标签 ----
+            norm_prompt = (
+                "你是「慧根堂财税短视频出稿助手」的语音预处理模块。用户输入是语音识别原始稿，"
+                "常有口误、同音错字、啰嗦、断句、重复词。\n"
+                "背景：慧根堂是财税机构，用户（张老师）常口述短视频/口播稿/逐字稿/公众号需求。"
+                "常见同音错字纠正（结合语境判断，不限于此）：\n"
+                "- 「吃辣基金 / 迟纳金 / 滞钠金 / 滞纳金」→ 滞纳金\n"
+                "- 「税收征管发 / 征管办法 / 征管法征求意见稿」→ 税收征管法（征求意见）\n"
+                "- 「行政强执发 / 强制法」→ 行政强制法\n"
+                "- 「口波」→ 口播（稿）；「猪字稿 / 逐字高」→ 逐字稿\n"
+                "- 「不准向前 / 本斤」→ 不再向前 / 本金\n"
+                "任务：\n"
+                "1. 结合财税语境纠正识别错误与同音错字，把口语理顺成通顺、完整、可直接作为对 AI 助手指令的自然中文；\n"
+                "2. 保留原意、关键主体（税种/法律/业务/受众/动作：写稿/改写/出片/选题）与所有约束"
+                "（如「一分钟左右」「按同类爆款」「参考网上」）；\n"
+                "3. 不动专业财税事实，不擅自补充用户没说的结论或数据；\n"
+                "4. 若用户表达了「写/生成/做」某内容的明确意图，整理成一条清晰行动指令"
+                "（含：主题 + 体裁 + 关键约束），但只转写用户已说的，严禁代写正文；\n"
+                "5. 严禁原样照搬口语 filler，必须输出整理后的正常表述。\n"
+                "输出格式（不要多余解释）：\n"
+                "【整理后指令】\n<一句话指令>\n"
+                "【意图标签】\n<从下列选，可多个逗号分隔，没有写 无>："
+                "写稿(口播/逐字稿/公众号/小红书), 改写, 出片, 选题, 需要联网检索, 询问\n\n"
+                "【原始口述】\n" + raw
             )
             try:
-                content = deepseek_chat(prompt, cfg.get("model", ""), cfg.get("key", ""),
-                                        cfg.get("base_url"), timeout=30)
+                norm = deepseek_chat(norm_prompt, cfg.get("model", ""), cfg.get("key", ""),
+                                     cfg.get("base_url"), timeout=35)
             except Exception as e:  # noqa: BLE001
                 traceback.print_exc()
                 # 模型不可用：降级返回原文，前端照常可发送
-                return self._send(200, {"ok": False, "polished": raw, "error": str(e)})
-            if isinstance(content, dict):
-                content = content.get("content") or json.dumps(content, ensure_ascii=False)
-            polished = (content or "").strip()
-            if not polished:
-                polished = raw
-            return self._send(200, {"ok": True, "polished": polished})
+                return self._send(200, {"ok": False, "polished": raw, "error": str(e), "tags": []})
+            if isinstance(norm, dict):
+                norm = norm.get("content") or json.dumps(norm, ensure_ascii=False)
+            norm = (norm or "").strip()
+            polished, tags = self._parse_polish(norm, raw)
+
+            # ---- Step 2：灵活路由 —— 需联网检索则调 Tavily ----
+            research = ""
+            need_search = ("需要联网检索" in tags) or any(
+                k in polished for k in ("同类爆款", "参考", "查一下", "最新", "网上", "热点", "类似视频", "爆款"))
+            if need_search:
+                try:
+                    key = get_key("TAVILY_API_KEY")
+                    if key:
+                        sr = tavily_search(polished, key, topic="general", days=180, max_results=5, timeout=12)
+                        research = self._fmt_research(sr)
+                except Exception as e:  # noqa: BLE001
+                    traceback.print_exc()
+                    research = ""  # 检索失败不阻断整理
+
+            return self._send(200, {"ok": True, "polished": polished, "tags": tags, "research": research})
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
             fb = (data.get("text") or "") if isinstance(data, dict) else ""
-            return self._send(200, {"ok": False, "error": str(e), "polished": fb})
+            return self._send(200, {"ok": False, "error": str(e), "polished": fb, "tags": []})
+
+    @staticmethod
+    def _parse_polish(text, fallback):
+        """从模型结构化输出中解析「整理后指令」与「意图标签」；格式不符则整体当指令。"""
+        cmd = ""
+        tag = ""
+        m_cmd = re.search(r"【整理后指令】\s*(.*?)\s*(?:【意图标签】|$)", text, re.S)
+        m_tag = re.search(r"【意图标签】\s*(.*)", text, re.S)
+        if m_cmd:
+            cmd = m_cmd.group(1).strip()
+        else:
+            # 没按格式：去掉常见前缀后整体作为指令
+            cmd = re.sub(r"^\s*(整理后[:：]|指令[:：])\s*", "", text).strip()
+        if m_tag:
+            tag = m_tag.group(1).strip()
+        if not cmd:
+            cmd = fallback
+        # 清洗指令里可能残留的标记行
+        cmd = re.sub(r"【.*?】", "", cmd).strip()
+        return cmd, tag
+
+    @staticmethod
+    def _fmt_research(sr):
+        """把 Tavily 结果压缩成可附在指令后的简短参考要点。"""
+        rows = (sr.get("results") or []) if isinstance(sr, dict) else []
+        if not rows:
+            return ""
+        parts = []
+        for r in rows[:5]:
+            title = (r.get("title") or "").strip()
+            content = (r.get("content") or "").strip()
+            if len(content) > 150:
+                content = content[:150] + "…"
+            line = "· " + title + (("：" + content) if content else "")
+            parts.append(line)
+        return "\n".join(parts)
 
     # ---- 自动发布：调 publishers 适配器把成片分发到指定平台 ----
     def _handle_publish(self, data):
