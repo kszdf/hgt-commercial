@@ -52,7 +52,7 @@
         min-height: 0;
         overflow-y: auto;
         overflow-x: hidden;
-        padding: 1.5rem 1.5rem 1.5rem;  /* 上下都多留点呼吸 */
+        padding: 1.5rem 1rem 1.5rem;  /* 左右 1rem 与底部输入区 px-4 对齐，上下边缘严格对齐 */
     }
     .chat-input { flex: 0 0 auto; }
     /* 对话流居中、限宽，与 WorkBuddy 对话观感一致 */
@@ -198,17 +198,21 @@
                 {{-- 固定操作栏：复制/赞/踩/朗读/重新生成/分享，对最新一条 AI 回复生效 --}}
                 <div id="msgToolbar" class="mb-1.5 flex items-center gap-1 pl-1"></div>
                 <div id="quickReplies" class="mb-2 hidden flex-wrap gap-1.5"></div>
-                <div class="flex items-end gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm focus-within:border-indigo-300">
-                    <textarea id="userInput" rows="1" placeholder="说出你想做什么——AI 帮你拆角度 → 出稿 → 改稿 → 配音 → 出片，一句话驱动整条生产线。"
-                        class="max-h-40 flex-1 resize-none rounded-lg border-0 bg-transparent px-2 py-1.5 text-sm text-slate-700 outline-none placeholder:text-slate-400"></textarea>
-                    <button id="planWeekBtn" type="button"
-                        class="shrink-0 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50">
-                        📅 规划
-                    </button>
-                    <button id="sendBtn" type="button"
-                        class="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50">
-                        发送
-                    </button>
+                {{-- 输入框：WorkBuddy 同款高个圆角框——文字区在上占满，按钮在框内右下角 --}}
+                <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm focus-within:border-indigo-300">
+                    <textarea id="userInput" rows="3" placeholder="说出你想做什么——AI 帮你拆角度 → 出稿 → 改稿 → 配音 → 出片，一句话驱动整条生产线。"
+                        class="block w-full resize-none rounded-lg border-0 bg-transparent px-1.5 py-1 text-sm leading-relaxed text-slate-700 outline-none placeholder:text-slate-400"
+                        style="min-height:84px;max-height:220px"></textarea>
+                    <div class="mt-1 flex items-center justify-end gap-2">
+                        <button id="planWeekBtn" type="button"
+                            class="shrink-0 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50">
+                            📅 规划
+                        </button>
+                        <button id="sendBtn" type="button"
+                            class="shrink-0 rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50">
+                            发送
+                        </button>
+                    </div>
                 </div>
                 <p class="mt-1.5 text-center text-[11px] text-slate-400">
                     内容由 AI 生成，请核实重要信息
@@ -1709,7 +1713,7 @@
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
         // 自动撑高
         e.target.style.height = 'auto';
-        e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
+        e.target.style.height = Math.min(e.target.scrollHeight, 220) + 'px';
     });
     document.getElementById('newChatBtn').onclick = () => { createSession(''); };
     document.getElementById('newNamedBtn').onclick = () => {
