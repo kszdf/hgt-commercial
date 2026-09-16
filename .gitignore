@@ -94,3 +94,11 @@ python-pipeline/hotspot_debug.txt
 /.backup-feature-pack-*/
 resources/views/components/workspace-layout.blade.php.bak.v2
 python-pipeline/data/
+
+# ===== 本地测试/调试产物（误提交清理 2026-09-16）=====
+python-pipeline/8501_*.log
+python-pipeline/*_run.log
+python-pipeline/chat_debug.txt
+python-pipeline/frontend_render_test.html
+python-pipeline/produce_all_*/
+php/php.ini.bak_*
