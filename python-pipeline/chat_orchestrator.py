@@ -1256,6 +1256,13 @@ class ChatOrchestrator:
         m = (msg or "").strip()
         if not m:
             return False
+        # ★动作词保护（2026-09-16）：「下一步」卡片按钮发送的是「用+能力名」（如"用生成视频"），
+        # 这类含 出片/生成视频/做成片/配音/质检/发布 的消息是生产链动作指令，绝不能被空白写稿
+        # 反问劫持（"用生成视频"剥掉"生成/视频"只剩一个"用"字→被误判成"没给主题"→答非所问）。
+        # 直接放行，交回能力路由 / _detect_pipeline 处理。
+        for _words in self._ACTION_KEYWORDS.values():
+            if any(w in m for w in _words):
+                return False
         if not any(w in m for w in self._BLANK_PRODUCE_WORDS):
             return False
         left = m
@@ -1750,6 +1757,20 @@ class ChatOrchestrator:
             # 有稿：先展示口播稿，让用户确认是否改字数/时长/表述，满意了再点做成片
             last = written[-1]
             s["_await_video_confirm"] = True
+            # ★已出过片（2026-09-16）：不再假装"稿子刚准备好"，如实告知成片在右侧产物区，
+            # 把 成片质检/发布素材包 推到前面，重出一条放最后（本会话出过片才有 last_job_id）。
+            if s.get("last_job_id"):
+                self._chat_log(s.get("id"), "OUT | render-with-script+rendered -> point artifact & qc/publish")
+                return {
+                    "stage": "written",
+                    "message": "这条稿子已经出过片了，成片就在右侧「产物」区，点开就能播放或下载。接下来最顺的是给成片做个质检（黑屏/没声音/字幕压字），或者直接打包发布素材；刚改过稿想重出一条的话，满意了点「做成片」。",
+                    "results": [last],
+                    "next": [
+                        {"id": "qc_video", "name": "成片质检", "icon": "🔬", "cmd": "成片质检"},
+                        {"id": "publish_pack", "name": "发布素材包", "icon": "📦", "cmd": "发布素材包"},
+                        {"id": "video_render", "name": "做成片", "icon": "🎬", "cmd": "做成片"},
+                    ],
+                }
             self._chat_log(s.get("id"), "OUT | render-with-script -> show script & ask modify/confirm")
             return {
                 "stage": "written",
@@ -1867,6 +1888,12 @@ class ChatOrchestrator:
         if any(w in m for w in self._CAP_EXCLUDE) and not any(
                 w in low for w in ("出片", "生成视频", "做成视频", "质检", "打包", "小红书")):
             return None
+        # ★成片质检优先（2026-09-16）："对刚成片做质检/检查一下这个视频有没有问题"同时带
+        # "片/视频"和 质检/检查 语境，必须路由到 qc_video——qc 的裸"质检"在词表里排前面会把
+        # 它抢走，用户拿到的是稿子质检报告而不是成片体检（真机踩坑：用户原话"对刚成片做质检"被误路由到 qc）。
+        if ("质检" in m or "检查" in m or "审一下" in m) and any(
+                w in m for w in ("成片", "视频", "片子")):
+            return "qc_video"
         for cid, words in self._CAP_KEYWORDS.items():
             if _CAP.is_hidden(cid):      # 本期隐藏的能力不参与关键词路由
                 continue
@@ -2276,7 +2303,15 @@ class ChatOrchestrator:
         if not _CAP:
             return None
         cap = _CAP.get(cap_id) or {}
+        # ★记录最近成片 job_id（2026-09-16）：此前 last_job_id 只在 _ctx 里被读、从没人写入，
+        # 导致 成片质检/发布素材包 的 job_id 永远带不出来、要用户手填。视频任务回灌自带 job_id。
+        if cap_id == "video_render" and ok and isinstance(data, dict) and data.get("job_id"):
+            s["last_job_id"] = str(data.get("job_id"))
         nxt = _CAP.next_suggestions(cap_id)
+        # ★状态感知引导（2026-09-16）：本会话已出过片时，文案质检完成不再推荐"生成视频"
+        # 重复出片，改推 成片质检 → 发布素材包（与 next_suggestions("video_render") 同链）。
+        if cap_id == "qc" and s.get("last_job_id"):
+            nxt = _CAP.next_suggestions("video_render")
         brief = json.dumps(data or {}, ensure_ascii=False)[:1200]
         prompt = (
             MASTER_PROMPT + "\n\n"
