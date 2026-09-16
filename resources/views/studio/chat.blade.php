@@ -55,11 +55,23 @@
         padding: 1.5rem 1.5rem 1.5rem;  /* 上下都多留点呼吸 */
     }
     .chat-input { flex: 0 0 auto; }
-    .chat-bubble-wrap { max-width: 820px; margin: 0 auto; width: 100%; padding-left: 0.5rem; }
-    .chat-bubble { max-width: 92%; }
-    /* 大屏让气泡自然靠左（不要因 margin:auto 在 1440+ 屏时两侧留大块空白） */
-    @media (min-width: 1024px) { .chat-bubble-wrap { margin-left: max(1.5rem, calc((100% - 820px) / 2 - 0px)); padding-left: 0; } }
-    @media (max-width: 640px)  { .chat-bubble-wrap { max-width: 100%; padding-left: 0; } }
+    /* 对话流居中、限宽，与 WorkBuddy 对话观感一致 */
+    .chat-bubble-wrap { max-width: 768px; margin: 0 auto; width: 100%; }
+    .chat-bubble { max-width: 100%; }
+    @media (max-width: 640px)  { .chat-bubble-wrap { max-width: 100%; } }
+
+    /* 每条 AI 消息上方的操作工具栏（复制/赞/踩/朗读/重新生成/分享） */
+    .msg-actions { display: flex; gap: 1px; margin-bottom: 5px; opacity: 1; }
+    .msg-actions button {
+        display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+        height: 26px; padding: 0 7px; border: 0; border-radius: 7px; background: transparent;
+        color: #94a3b8; cursor: pointer; font-size: 12px; line-height: 1;
+        transition: background .12s, color .12s;
+    }
+    .msg-actions button:hover { background: #f1f5f9; color: #6366f1; }
+    .msg-actions button.active { color: #6366f1; background: #eef2ff; }
+    .msg-actions svg { height: 15px; width: 15px; }
+    .msg-actions .lbl { font-size: 11.5px; }
     /* 关键：对话气泡内文字一律可选可复制（默认就是 text，但显式声明防被任何父级 user-select 继承影响） */
     .chat-bubble, .chat-bubble * {
         -webkit-user-select: text;
@@ -328,23 +340,148 @@
         wrap.className = 'chat-bubble-wrap flex items-start gap-3 ' + (role === 'user' ? 'flex-row-reverse' : '');
         const av = document.createElement('div');
         if (role === 'user') {
-            av.className = 'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium bg-indigo-100 text-indigo-700 order-2';
+            av.className = 'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium bg-indigo-100 text-indigo-700';
             av.textContent = '我';
         } else {
-            av.className = 'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold bg-white text-indigo-600 order-1 ring-2 ring-indigo-100';
+            av.className = 'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold bg-white text-indigo-600 ring-2 ring-indigo-100';
             av.textContent = '阿';
         }
+        const col = document.createElement('div');
+        col.className = 'bubble-col flex min-w-0 flex-col ' + (role === 'user' ? 'items-end' : 'items-start');
+        if (role === 'ai') col.appendChild(buildMsgActions());
         const bubble = document.createElement('div');
         // 用户消息不再用高亮紫色，改浅灰底+深色字，保持右对齐
         bubble.className = 'chat-bubble rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ' +
             (role === 'user'
-                ? 'rounded-tr-sm bg-slate-100 text-slate-800 order-1 border border-slate-200'
-                : 'rounded-tl-sm bg-white text-slate-800 order-2 border border-slate-200 shadow-sm');
+                ? 'rounded-tr-sm bg-slate-100 text-slate-800 border border-slate-200'
+                : 'rounded-tl-sm bg-white text-slate-800 border border-slate-200 shadow-sm');
         bubble.innerHTML = html;
-        wrap.appendChild(av); wrap.appendChild(bubble);
+        col.appendChild(bubble);
+        wrap.appendChild(av); wrap.appendChild(col);
         chatBox.appendChild(wrap);
         stickToBottom(true);
         return bubble;
+    }
+
+    // ==================== 每条 AI 消息操作栏（复制/赞/踩/朗读/重新生成/分享） ====================
+    const MSG_ICON = {
+        copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>',
+        like: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 11v9H4a1 1 0 01-1-1v-7a1 1 0 011-1h3zm0 0l4-7a2 2 0 013.7 1.3L13.6 10H19a2 2 0 012 2v1a4 4 0 01-4 4h-5l-3 3v-3H7"/></svg>',
+        dislike: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 13V4h3a1 1 0 011 1v7a1 1 0 01-1 1h-3zm0 0l-4 7a2 2 0 01-3.7-1.3L10.4 14H5a2 2 0 01-2-2v-1a4 4 0 014-4h5l3-3v3h0z" transform="rotate(180 12 12)"/></svg>',
+        read: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13"/></svg>',
+        regen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 0115.5-6.2L21 8M21 3v5h-5M21 12a9 9 0 01-15.5 6.2L3 16M3 21v-5h5"/></svg>',
+        share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>'
+    };
+    function buildMsgActions() {
+        const acts = document.createElement('div');
+        acts.className = 'msg-actions';
+        const items = [
+            { a: 'copy', t: '复制', show: MSG_ICON.copy },
+            { a: 'like', t: '赞', show: MSG_ICON.like },
+            { a: 'dislike', t: '踩', show: MSG_ICON.dislike },
+            { a: 'read', t: '朗读', show: MSG_ICON.read },
+            { a: 'regen', t: '重新生成', show: MSG_ICON.regen },
+            { a: 'share', t: '分享', show: MSG_ICON.share }
+        ];
+        items.forEach(function (it) {
+            const b = document.createElement('button');
+            b.type = 'button'; b.title = it.t; b.dataset.action = it.a;
+            b.innerHTML = it.show + '<span class="lbl">' + it.t + '</span>';
+            b.addEventListener('click', function () { onMsgAction(it.a, b); });
+            acts.appendChild(b);
+        });
+        return acts;
+    }
+    function onMsgAction(action, btn) {
+        const wrapEl = btn.closest('.chat-bubble-wrap');
+        const bubble = wrapEl ? wrapEl.querySelector('.chat-bubble') : null;
+        const text = bubble ? (bubble.innerText || '') : '';
+        if (action === 'copy') {
+            copyText(text);
+        } else if (action === 'like') {
+            btn.classList.toggle('active');
+            const sib = btn.parentElement.querySelector('[data-action="dislike"]');
+            if (sib) sib.classList.remove('active');
+            toast(btn.classList.contains('active') ? '已点赞' : '已取消赞');
+        } else if (action === 'dislike') {
+            btn.classList.toggle('active');
+            const sib = btn.parentElement.querySelector('[data-action="like"]');
+            if (sib) sib.classList.remove('active');
+            toast(btn.classList.contains('active') ? '已点踩' : '已取消踩');
+        } else if (action === 'read') {
+            toggleRead(text, btn);
+        } else if (action === 'regen') {
+            const u = findPrevUserText(wrapEl);
+            if (u) { input.value = u; toast('正在重新生成…'); doSend(); }
+            else toast('没找到上一句输入，无法重新生成');
+        } else if (action === 'share') {
+            if (navigator.share) {
+                navigator.share({ title: '慧根堂出稿助手', text: text }).catch(function () {});
+            } else {
+                copyText(text);
+                toast('已复制内容，可粘贴分享');
+            }
+        }
+    }
+    function copyText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () { toast('已复制'); })
+                .catch(function () { fallbackCopy(text); });
+        } else { fallbackCopy(text); }
+    }
+    function fallbackCopy(text) {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            document.execCommand('copy'); document.body.removeChild(ta);
+            toast('已复制');
+        } catch (e) { toast('复制失败，请手动选择'); }
+    }
+    function findPrevUserText(fromWrap) {
+        const wraps = Array.prototype.slice.call(chatBox.querySelectorAll('.chat-bubble-wrap'));
+        for (let i = wraps.length - 1; i >= 0; i--) {
+            const w = wraps[i];
+            if (w === fromWrap) continue;
+            if (w.className.indexOf('flex-row-reverse') === -1) continue; // 只认用户消息
+            const ub = w.querySelector('.chat-bubble');
+            const t = ub ? (ub.innerText || '').trim() : '';
+            if (t) return t;
+        }
+        return '';
+    }
+    let _readingBtn = null;
+    function toggleRead(text, btn) {
+        if (!('speechSynthesis' in window)) { toast('当前浏览器不支持朗读'); return; }
+        if (_readingBtn === btn) {
+            window.speechSynthesis.cancel();
+            btn.classList.remove('active'); _readingBtn = null; return;
+        }
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'zh-CN'; u.rate = 1; u.pitch = 1;
+        const voices = window.speechSynthesis.getVoices() || [];
+        const zh = voices.find(function (v) { return /zh|chinese/i.test((v.lang || '') + (v.name || '')); });
+        if (zh) u.voice = zh;
+        u.onend = function () { btn.classList.remove('active'); _readingBtn = null; };
+        u.onerror = function () { btn.classList.remove('active'); _readingBtn = null; };
+        window.speechSynthesis.speak(u);
+        _readingBtn = btn; btn.classList.add('active');
+        toast('开始朗读');
+    }
+    function toast(msg) {
+        let t = document.getElementById('hgtToast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = 'hgtToast';
+            t.style.cssText = 'position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:99999;'
+                + 'background:rgba(15,23,42,.92);color:#fff;font-size:12.5px;padding:7px 14px;border-radius:999px;'
+                + 'box-shadow:0 6px 20px rgba(0,0,0,.22);transition:opacity .2s;pointer-events:none;';
+            document.body.appendChild(t);
+        }
+        t.textContent = msg; t.style.opacity = '1';
+        clearTimeout(t._timer);
+        t._timer = setTimeout(function () { t.style.opacity = '0'; }, 1600);
     }
 
     // ==================== 右侧「产物」面板 ====================
