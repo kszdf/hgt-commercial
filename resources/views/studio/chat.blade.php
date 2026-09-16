@@ -1765,13 +1765,11 @@
                         pushArtifact({ key: 'job:' + jobId, type: 'video',
                             title: '成片（' + String(jobId).slice(0, 6) + '）',
                             sub: '视频 · 渲染完成', url: videoUrl, status: 'done' });
+                        // 成片只在右侧「产物」面板呈现（自动弹出、可播放/下载），会话区只发文字通知
                         appendMsg('ai',
                             '<p class="font-medium text-slate-800">🎉 视频渲染完成</p>'
-                            + '<div class="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-black">'
-                            +   '<video controls preload="metadata" class="block max-h-[420px] w-full" src="' + esc(videoUrl) + '"></video>'
-                            + '</div>'
+                            + '<p class="mt-1 text-slate-600">成片已放入右侧「产物」区，点开即可播放或下载。</p>'
                             + '<div class="mt-2 flex flex-wrap gap-2">'
-                            +   '<a href="' + esc(videoUrl) + '" download="' + esc(jobId) + '.mp4" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50">⬇ 下载 mp4</a>'
                             +   '<button type="button" data-msg="对刚成片做质检" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">🛡️ 成片质检</button>'
                             +   '<button type="button" data-msg="打成发布包" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">📦 打发布包</button>'
                             +   '<button type="button" data-msg="改成小红书图文" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">📕 一鱼多吃·小红书</button>'
