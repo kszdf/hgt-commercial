@@ -181,7 +181,7 @@ CAPABILITIES = {
                  "card:图解版（信息卡片解说）",
              ], "default": "scroll:单字幕滚动", "required": True},
             {"key": "title", "label": "封面主标题", "type": "text",
-             "required": False, "hint": "不超过 10 个字最好"},
+             "required": False, "hint": "不超过 10 个字最好", "from": "topic"},
             {"key": "subtitle", "label": "封面副标题", "type": "text",
              "required": False, "hint": "补充说明，不超过 20 字"},
             {"key": "voice_form", "label": "配音形式", "type": "select",
