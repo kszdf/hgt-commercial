@@ -329,6 +329,7 @@
         rec.interimResults = true;
         rec.continuous = true;
         let finalText = '';
+        let manualStop = false;  // 只有手动点麦克风才算结束；浏览器静音自动断开时自动续录
 
         rec.onresult = (e) => {
             let interim = '';
@@ -341,32 +342,42 @@
             autoGrow(input);
         };
         rec.onerror = (e) => {
-            micStatus.classList.add('hidden');
-            micBtn.classList.remove('bg-rose-50', 'border-rose-300', 'text-rose-600');
-            micBtn.dataset.recording = '';
-            if (e.error && e.error === 'not-allowed') {
+            if (e.error === 'not-allowed') {
+                manualStop = true;  // 权限拒绝：终止会话
+                micStatus.classList.add('hidden');
+                micBtn.classList.remove('bg-rose-50', 'border-rose-300', 'text-rose-600');
+                micBtn.dataset.recording = '';
                 alert('麦克风权限被拒绝，请在浏览器地址栏允许麦克风后重试。');
             }
+            // no-speech / network / aborted 等瞬时错误：不收尾，由 onend 自动续录
         };
         rec.onend = () => {
-            if (!micBtn.dataset.recording) return;  // 异常结束不收尾
+            if (!micBtn.dataset.recording) return;  // 已收尾
+            if (manualStop) { finishVoice(); return; }
+            // 浏览器因停顿/静音自动断开：立即无缝续录，已识别文字保留
+            try { rec.start(); }
+            catch (_) { setTimeout(() => { try { rec.start(); } catch (_2) { finishVoice(); } }, 400); }
+        };
+        function finishVoice() {
             micBtn.dataset.recording = '';
             micBtn.classList.remove('bg-rose-50', 'border-rose-300', 'text-rose-600');
+            micStatus.textContent = '● 正在整理表述…';
             const raw = input.value.trim();
             if (!raw) { micStatus.classList.add('hidden'); return; }
-            micStatus.textContent = '● 正在整理表述…';
             micStatus.classList.remove('hidden');
             polishAndFill(raw);
-        };
+        }
 
         micBtn.addEventListener('click', () => {
             if (micBtn.dataset.recording) {
-                rec.stop();  // 触发 onend 收尾整理
+                manualStop = true;
+                try { rec.stop(); } catch (_) { finishVoice(); }  // 手动结束 → 触发 onend 收尾整理
             } else {
+                manualStop = false;
                 finalText = input.value.trim() ? input.value.trim() + ' ' : '';
                 micBtn.dataset.recording = '1';
                 micBtn.classList.add('bg-rose-50', 'border-rose-300', 'text-rose-600');
-                micStatus.textContent = '● 正在聆听…（说完后点一次麦克风结束）';
+                micStatus.textContent = '● 正在聆听…（中间停顿不断句，点麦克风结束）';
                 micStatus.classList.remove('hidden');
                 try { rec.start(); } catch (_) { /* 已在录音则忽略 */ }
             }
