@@ -1897,6 +1897,127 @@ class ChatOrchestrator:
             "last_job_id": s.get("last_job_id") or "",
         }
 
+    # —— 贴稿改写：用户贴一段成稿/长文并要求改写/修改/润色/调整/改口语 → 直接改写，绝不问主题 ——
+    # ★09-16 修：用户用「修改/润色/调整/改口语化」等动词（不在 rewrite 词表），引擎原会把它当
+    #   「写新稿」需求缺主题反问。这里单独识别「贴了长成稿 + 改写类动词」，直接调 _ai_rewrite 出稿。
+    _REWRITE_PHRASES = (
+        "帮我改写", "请改写", "帮我改编", "请改编", "二创改写", "重新修改", "请修改", "修改一下",
+        "改一下", "改写一下", "润色一下", "请润色", "优化一下", "改口语化", "更口语化",
+        "口语化一点", "改得更口语", "顺一下", "调整一下", "重新写", "重写一篇", "重新生成",
+        "改成我的口径", "改成我的风格", "改成我的", "改我的口吻", "像专家", "像财税专家",
+        "改得口语", "重新改写", "再改改", "帮我改", "请帮我改", "把这段改",
+    )
+    _POLITE_PREFIX = ("请", "帮我", "麻烦你", "麻烦", "我想", "我要", "可以", "能")
+
+    def _looks_like_draft(self, text):
+        """粗略判断一段文字像不像成稿（口播稿/逐字稿）。"""
+        t = (text or "").strip()
+        if len(t) < 80:
+            return False
+        if '【' in t and '】' in t:
+            return True
+        if t.count('。') + t.count('！') + t.count('？') >= 3:
+            return True
+        if any(k in t for k in ('钩子', '正文', '口播', '逐字稿')):
+            return True
+        return False
+
+    def _clean_req(self, a):
+        a = (a or "").strip().strip("：:").strip()
+        for p in self._POLITE_PREFIX:
+            if a.startswith(p):
+                a = a[len(p):].strip()
+        return a.strip(" ，。！？、:：\"' \n")
+
+    def _split_pasted_source(self, message):
+        """从消息拆出『被改写的原文』和『改写要求』。原文=最长且像成稿的块；其余短句=要求。"""
+        m = (message or "").strip().strip('"').strip("'").strip()
+        if not m:
+            return "", ""
+        # 1) 换行分隔：指令在首行或末行（短），稿在长块。优先于冒号，避免稿内自带冒号被误切。
+        lines = [l for l in m.split("\n") if l.strip()]
+        if len(lines) >= 2:
+            if len(lines[0].strip()) < 40 and self._looks_like_draft("\n".join(lines[1:])):
+                return "\n".join(lines[1:]).strip(), self._clean_req(lines[0])
+            if len(lines[-1].strip()) < 40 and self._looks_like_draft("\n".join(lines[:-1])):
+                return "\n".join(lines[:-1]).strip(), self._clean_req(lines[-1])
+        # 2) 冒号分隔：仅当短边(<40字)像指令、长边像稿（稿内自带冒号不误切）
+        for sep in ('：', ':'):
+            if sep in m:
+                a, b = m.split(sep, 1)
+                if len(a.strip()) < 40 and len(b) >= 80 and self._looks_like_draft(b):
+                    return b.strip(), self._clean_req(a)
+                if len(b.strip()) < 40 and len(a) >= 80 and self._looks_like_draft(a):
+                    return a.strip(), self._clean_req(b)
+        # 3) 无分隔符：去掉改写类短语，剩余长块当原文
+        rest = m
+        req = ""
+        for p in self._REWRITE_PHRASES:
+            if p in rest:
+                rest = rest.replace(p, "")
+                if len(p) > len(req):
+                    req = p
+        rest = rest.strip(" ，。！？、:：\"' \n")
+        if len(rest) >= 80 and self._looks_like_draft(rest):
+            return rest, (self._clean_req(req) if req else "")
+        # 4) 兜底：整段够长就当原文（这种情况通常用户没带改写动词，调用方会再判）
+        if len(m) >= 120 and self._looks_like_draft(m):
+            return m, ""
+        return "", ""
+
+    def _is_paste_rewrite(self, message):
+        """用户贴了一段成稿/长文，并表达要改写/修改/润色/调整/改口语等 → True。"""
+        m = (message or "").strip()
+        if len(m) < 80:
+            return False
+        src, _ = self._split_pasted_source(m)
+        if not src:
+            return False
+        return any(p in m for p in self._REWRITE_PHRASES)
+
+    def _do_rewrite_pasted(self, s, message):
+        """贴稿改写：直接按用户要求改写所贴文本，绝不问主题、不弹确认卡。"""
+        src, req = self._split_pasted_source(str(message))
+        if not src:
+            return None
+        sid = s.get("id") or ""
+        if sid:
+            self._set_progress(sid, "writing", "正在按你的要求改写这段口播稿…")
+        source = src
+        if req:
+            source += "\n【用户本次修改要求】" + req
+        try:
+            res = self._ai_rewrite(source, "script", focus=(req or None))
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            res = {"error": str(e)}
+        rewritten = ""
+        if isinstance(res, dict):
+            rewritten = res.get("rewritten") or (res.get("ok") and (res.get("text") or "")) or res.get("script") or ""
+        if not rewritten:
+            err = res.get("error") if isinstance(res, dict) else None
+            return {"stage": "error",
+                    "error": (err or "改写服务没有返回内容，可能是模型超时。请刷新页面后重试，或换个说法再发一次。"),
+                    "session_id": sid}
+        entry = {"title": "改写稿", "angle": "", "script": rewritten, "is_paste_rewrite": True}
+        _wl = s.setdefault("written", [])
+        entry["widx"] = len(_wl)
+        _wl.append(entry)
+        s["last_text"] = src  # 存源稿，便于后续「二创改写」能力从 last_text 取原文
+        s["history"].append("改写贴稿")
+        s["_await_video_confirm"] = True
+        s["pending_cap"] = None  # 清掉待填卡，避免后续消息被吞
+        return {
+            "stage": "written",
+            "results": [entry],
+            "message": "已按你的要求把这段口播稿改好了——保留你的三个观点，表述更口语、更像专家聊观点、结尾邀大家讨论。看看满不满意，要再调直接说；满意就点「做成片」。",
+            "next": [
+                {"id": "video_render", "name": "做成片", "icon": "🎬", "cmd": "做成片"},
+                {"id": "rewrite", "name": "二创改写", "icon": "✍️", "cmd": "二创改写"},
+                {"id": "qc", "name": "文案质检", "icon": "🛡️", "cmd": "质检"},
+            ],
+        }
+
     def _do_capability(self, s, message, cap_id=None):
         """进入/推进一个能力：收参数 → 参数齐就交给前端执行。"""
         if not _CAP:
@@ -2333,6 +2454,15 @@ class ChatOrchestrator:
                                       "角度不够", "再来一次", "不要这些")):
                 self._chat_log(sid, "OUT | explicit re-propose (written=%s) -> _do_propose" % bool(written))
                 return self._do_propose(s)
+
+        # —— 0.54) 用户贴了一段成稿/长文，并要求改写/修改/润色/调整/改口语 → 直接改写所贴文本，
+        #   绝不问主题、不弹确认卡。覆盖「修改/润色/调整/改口语化」等不在 rewrite 词表的动词
+        #   （原会被当「写新稿」缺主题反问）。0.53 之前执行，贴稿改写走直达通道。
+        if not (s.get("pending_cap") or {}).get("id") and self._is_paste_rewrite(message):
+            self._chat_log(sid, "OUT | paste-rewrite detected -> direct rewrite (no theme ask)")
+            _r = self._do_rewrite_pasted(s, message)
+            if _r:
+                return _r
 
         # —— 0.53) 用户有逐字稿/口播稿/原文，要求改写/改编/改成自己口径 → 直接进二创改写能力。
         #   避免被 _CAP_EXCLUDE 的"逐字稿/口播稿"误拦截成"写新稿/拆角度"。
