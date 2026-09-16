@@ -132,6 +132,25 @@ class StudioController extends Controller
         return response()->json($resp->json());
     }
 
+    /** 语音输入整理：口述文本 → 8500 /polish 轻度润色为清晰指令。 */
+    public function chatPolish(Request $request)
+    {
+        $data = $request->validate([
+            'text' => ['required', 'string', 'max:2000'],
+        ]);
+        try {
+            $resp = app(PipelineClient::class)->post('/polish', $data, 40);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['ok' => false, 'polished' => $data['text'],
+                                    'error' => '对话服务暂时不可用，已保留原话可手动修改'], 200);
+        }
+        if (! $resp->successful()) {
+            return response()->json(['ok' => false, 'polished' => $data['text'],
+                                    'error' => '整理服务暂不可用，已保留原话'], 200);
+        }
+        return response()->json($resp->json());
+    }
+
     /** 对话出稿·二期：会话/主题空间列表（左侧栏）。 */
     public function chatSessions()
     {

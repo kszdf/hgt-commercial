@@ -104,6 +104,8 @@ Route::middleware('auth')->group(function () {
     // 对话出稿工作台·一期（对话引导 选题+改写+成稿）
     Route::get('/studio/chat', [StudioController::class, 'chat'])->name('studio.chat');
     Route::post('/studio/chat/send', [StudioController::class, 'chatSend']);
+    // 语音输入整理：口述文本 → 8500 /polish 轻度润色为清晰指令
+    Route::post('/studio/chat/polish', [StudioController::class, 'chatPolish']);
     // 对话成稿导出：docx/pdf/xlsx/md/txt（网站侧即时生成，不依赖 8500）
     Route::post('/studio/chat/export', [StudioController::class, 'chatExport'])->name('studio.chat.export');
 

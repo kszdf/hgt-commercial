@@ -1,0 +1,72 @@
+{
+  "videos": {
+    "motion": {
+      "status": "done",
+      "step": "done",
+      "error": null,
+      "qc_video": {
+        "ok": true,
+        "kind": "video",
+        "issues": [],
+        "score": 100,
+        "level": "low",
+        "status": "passed",
+        "duration": 36.566667
+      },
+      "cover": null,
+      "warning": null,
+      "video_path": "D:\\heygem_data\\hgt-commercial\\python-pipeline\\produce_all_20260913_014848\\videos\\motion.mp4"
+    },
+    "manga": {
+      "status": "done",
+      "step": "done",
+      "error": null,
+      "qc_video": {
+        "ok": true,
+        "kind": "video",
+        "issues": [],
+        "score": 100,
+        "level": "low",
+        "status": "passed",
+        "duration": 32.566667
+      },
+      "cover": null,
+      "warning": null,
+      "video_path": "D:\\heygem_data\\hgt-commercial\\python-pipeline\\produce_all_20260913_014848\\videos\\manga.mp4"
+    },
+    "whiteboard": {
+      "status": "done",
+      "step": "done",
+      "error": null,
+      "qc_video": {
+        "ok": true,
+        "kind": "video",
+        "issues": [],
+        "score": 100,
+        "level": "low",
+        "status": "passed",
+        "duration": 20.48898
+      },
+      "cover": null,
+      "warning": null,
+      "video_path": "D:\\heygem_data\\hgt-commercial\\python-pipeline\\produce_all_20260913_014848\\videos\\whiteboard.mp4"
+    },
+    "card": {
+      "status": "done",
+      "step": "done",
+      "error": null,
+      "qc_video": {
+        "ok": true,
+        "kind": "video",
+        "issues": [],
+        "score": 100,
+        "level": "low",
+        "status": "passed",
+        "duration": 32.508005
+      },
+      "cover": null,
+      "warning": null,
+      "video_path": "D:\\heygem_data\\hgt-commercial\\python-pipeline\\produce_all_20260913_014848\\videos\\card.mp4"
+    }
+  }
+}

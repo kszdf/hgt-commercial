@@ -3520,6 +3520,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_policy_asset(data)
         if p.path == "/publish":
             return self._handle_publish(data)
+        if p.path == "/polish":
+            return self._handle_polish(data)
         if p.path == "/clone":
             # DEPRECATED：无任何调用方（Laravel 与 8385 均未引用），保留仅为兼容旧链路。
             return self._handle_clone(data)
@@ -3665,6 +3667,53 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
             return self._send(200, {"ok": False, "error": str(e)})
+
+    # ---- 语音输入整理：把口语化/啰嗦/有口误的口述整理成清晰指令 ----
+    def _handle_polish(self, data):
+        """POST /polish
+        {"text": "<语音识别原始文本>"}
+        → {"ok": true, "polished": "<整理后文本>"}
+        复用 DeepSeek 轻度改写：去口语赘余、修正口误、保留原意与财税关键信息。
+        不擅自补充财税结论。超时/无 key 时降级返回原文（ok=false 但带 polished=原文）。
+        """
+        try:
+            if not isinstance(data, dict):
+                return self._send(400, {"error": "invalid request body"})
+            raw = (data.get("text") or "").strip()
+            if not raw:
+                return self._send(400, {"error": "text required"})
+            if len(raw) <= 6:
+                return self._send(200, {"ok": True, "polished": raw})  # 太短无需整理
+            cfg = get_text_config() or {}
+            prompt = (
+                "你是「慧根堂财税短视频出稿助手」的语音整理模块。用户用语音口述了想让 AI 做的事（一句话需求/指令/想法），"
+                "语音识别可能有口误、啰嗦、重复、口语 filler。\n"
+                "任务：把下面这段口语整理成一句清晰、准确、可直接作为对 AI 助手指令的自然中文。\n"
+                "要求：\n"
+                "1. 修正明显口误，删除「嗯/那个/然后然后/就是说/这个/那个/啊/对吧」等赘余与重复；\n"
+                "2. 保留原意、关键主体（税种/业务/受众/动作：出稿/改写/出片/选题）与所有具体信息；\n"
+                "3. 不动专业财税事实，不擅自补充用户没说的结论；\n"
+                "4. 输出一句通顺、长度适中（30–80 字内）的话，不加引号、不加解释、不写「整理后：」；\n"
+                "5. 若原文已通顺，则基本保持原样只去赘余。\n"
+                "只输出最终结果文本。\n\n【原始口述】\n" + raw
+            )
+            try:
+                content = deepseek_chat(prompt, cfg.get("model", ""), cfg.get("key", ""),
+                                        cfg.get("base_url"), timeout=30)
+            except Exception as e:  # noqa: BLE001
+                traceback.print_exc()
+                # 模型不可用：降级返回原文，前端照常可发送
+                return self._send(200, {"ok": False, "polished": raw, "error": str(e)})
+            if isinstance(content, dict):
+                content = content.get("content") or json.dumps(content, ensure_ascii=False)
+            polished = (content or "").strip()
+            if not polished:
+                polished = raw
+            return self._send(200, {"ok": True, "polished": polished})
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            fb = (data.get("text") or "") if isinstance(data, dict) else ""
+            return self._send(200, {"ok": False, "error": str(e), "polished": fb})
 
     # ---- 自动发布：调 publishers 适配器把成片分发到指定平台 ----
     def _handle_publish(self, data):

@@ -203,16 +203,23 @@
                     <textarea id="userInput" rows="3" placeholder="说出你想做什么——AI 帮你拆角度 → 出稿 → 改稿 → 配音 → 出片，一句话驱动整条生产线。"
                         class="block w-full resize-none rounded-lg border-0 bg-transparent px-1.5 py-1 text-sm leading-relaxed text-slate-700 outline-none placeholder:text-slate-400"
                         style="min-height:84px;max-height:220px"></textarea>
-                    <div class="mt-1 flex items-center justify-end gap-2">
-                        <button id="planWeekBtn" type="button"
-                            class="shrink-0 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50">
-                            📅 规划
+                    <div class="mt-1 flex items-center justify-between gap-2">
+                        <button id="micBtn" type="button" title="语音输入：点一下开始，说完再点一次结束"
+                            class="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+                            🎤 语音
                         </button>
-                        <button id="sendBtn" type="button"
-                            class="shrink-0 rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50">
-                            发送
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button id="planWeekBtn" type="button"
+                                class="shrink-0 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50">
+                                📅 规划
+                            </button>
+                            <button id="sendBtn" type="button"
+                                class="shrink-0 rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50">
+                                发送
+                            </button>
+                        </div>
                     </div>
+                    <span id="micStatus" class="mt-1 hidden text-[11px] text-rose-500"></span>
                 </div>
                 <p class="mt-1.5 text-center text-[11px] text-slate-400">
                     内容由 AI 生成，请核实重要信息
@@ -297,6 +304,85 @@
     function esc(s) {
         return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;').replace(/\n/g, '<br>');
+    }
+
+    // 输入框随内容撑高（最高 220px）
+    function autoGrow(el) {
+        el.style.height = 'auto';
+        el.style.height = Math.min(el.scrollHeight, 220) + 'px';
+    }
+
+    // 语音输入：点麦克风开始 → 实时上屏 → 再点结束 → 自动整理表述
+    function setupMic() {
+        const micBtn = document.getElementById('micBtn');
+        const micStatus = document.getElementById('micStatus');
+        const input = document.getElementById('userInput');
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) {
+            micBtn.disabled = true;
+            micBtn.title = '当前浏览器不支持语音输入，请用 Chrome / Edge 桌面版';
+            micBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            return;
+        }
+        const rec = new SR();
+        rec.lang = 'zh-CN';
+        rec.interimResults = true;
+        rec.continuous = true;
+        let finalText = '';
+
+        rec.onresult = (e) => {
+            let interim = '';
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+                const t = e.results[i][0].transcript;
+                if (e.results[i].isFinal) finalText += t;
+                else interim += t;
+            }
+            input.value = (finalText + interim).trim();
+            autoGrow(input);
+        };
+        rec.onerror = (e) => {
+            micStatus.classList.add('hidden');
+            micBtn.classList.remove('bg-rose-50', 'border-rose-300', 'text-rose-600');
+            micBtn.dataset.recording = '';
+            if (e.error && e.error === 'not-allowed') {
+                alert('麦克风权限被拒绝，请在浏览器地址栏允许麦克风后重试。');
+            }
+        };
+        rec.onend = () => {
+            if (!micBtn.dataset.recording) return;  // 异常结束不收尾
+            micBtn.dataset.recording = '';
+            micBtn.classList.remove('bg-rose-50', 'border-rose-300', 'text-rose-600');
+            const raw = input.value.trim();
+            if (!raw) { micStatus.classList.add('hidden'); return; }
+            micStatus.textContent = '● 正在整理表述…';
+            micStatus.classList.remove('hidden');
+            polishAndFill(raw);
+        };
+
+        micBtn.addEventListener('click', () => {
+            if (micBtn.dataset.recording) {
+                rec.stop();  // 触发 onend 收尾整理
+            } else {
+                finalText = input.value.trim() ? input.value.trim() + ' ' : '';
+                micBtn.dataset.recording = '1';
+                micBtn.classList.add('bg-rose-50', 'border-rose-300', 'text-rose-600');
+                micStatus.textContent = '● 正在聆听…（说完后点一次麦克风结束）';
+                micStatus.classList.remove('hidden');
+                try { rec.start(); } catch (_) { /* 已在录音则忽略 */ }
+            }
+        });
+
+        async function polishAndFill(raw) {
+            try {
+                const d = await api('/studio/chat/polish', { text: raw });
+                if (d && d.polished) input.value = d.polished;
+            } catch (err) {
+                /* 整理失败：保留原话，用户可手动改 */
+            } finally {
+                autoGrow(input);
+                micStatus.classList.add('hidden');
+            }
+        }
     }
 
     // 渲染"下一步建议"卡片：点一下自动发送短指令（走老 _detect_pipeline 或新能力调度）
@@ -1711,10 +1797,10 @@
     if (planWeekBtn) planWeekBtn.onclick = () => doSend('帮我规划本周财税内容');
     input.addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
-        // 自动撑高
-        e.target.style.height = 'auto';
-        e.target.style.height = Math.min(e.target.scrollHeight, 220) + 'px';
+        autoGrow(e.target);  // 自动撑高
     });
+    // 语音输入（Web Speech API）+ 自动整理
+    setupMic();
     document.getElementById('newChatBtn').onclick = () => { createSession(''); };
     document.getElementById('newNamedBtn').onclick = () => {
         const t = prompt('给这个空间起个名字（如「注册公司引流系列」）：', '');

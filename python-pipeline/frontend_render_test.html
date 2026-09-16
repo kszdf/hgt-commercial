@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="4BaKdifpnuFuTBa6D0CZUb">
+<head data-page-node-id="kz0KWFLXVhwp78Y8hFQBF5">
+<meta charset="UTF-8" data-page-node-id="UXqkYG7BwGnrxtVOGE6raE">
+<title>chat action_ready 渲染测试</title>
+<style>
+body { font-family: system-ui, sans-serif; padding: 20px; background:#f8fafc; }
+.card { max-width: 640px; margin: 20px auto; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+pre { background:#f1f5f9; padding:12px; border-radius:8px; overflow:auto; font-size:12px; }
+</style>
+</head>
+<body data-page-node-id="vWzC2sH3LiCcJjc7mrS93X">
+<h2 data-page-node-id="S96EumbhQgjNBEaCig8Pcw">后端返回 JSON</h2>
+<pre id="json" data-page-node-id="ypzdet9PWbTQEORe7dLgg9"></pre>
+<h2 data-page-node-id="oNVjyNy2Fr7NtvqHhLfBsM">resultBlock 渲染结果</h2>
+<div id="render" class="card" data-page-node-id="0SI5F98St7oQksgPKP4xCH"></div>
+<script>
+const DATA = {"stage": "action_ready", "cap": {"id": "article", "name": "公众号文章", "icon": "📰", "desc": "选题或口播稿 → 1500-2500 字公众号长文，内置搜一搜 SEO 优化", "long": true}, "vals": {"region": "全国", "words": "2000:2000字", "style": "干货科普", "cta": "评论区留言", "topic": "今天微信了吗"}, "message": "参数齐了，点「开始执行」我就去跑**公众号文章**。（刚帮你把稿写好了，确认一下直接出片）", "next": [{"id": "qc", "name": "文案质检", "icon": "🛡️", "desc": "发之前查一遍：违禁词、敏感表述、逻辑漏洞"}, {"id": "video_render", "name": "生成视频", "icon": "🎬", "desc": "把口播稿做成成品视频（配音+字幕+画面）"}, {"id": "xhs", "name": "小红书图文", "icon": "📕", "desc": "同一内容改成小红书图文笔记，一鱼多吃"}], "tip": "跑完我会告诉你结果，并提示下一步能做什么。", "session_id": "80c3d1c6ebd64c88af5f19052167baa6", "topic": "", "audience": "", "count": 0, "title": "", "kind": "temp"};
+
+document.getElementById('json').textContent = JSON.stringify(DATA, null, 2);
+
+function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/\n/g, '<br>');
+}
+function nextCardHtml(list, prefix) {
+    if (!list || !list.length) return prefix || '';
+    let h = (prefix || '<p class="mt-2 text-xs text-slate-500">下一步：</p>')
+          + '<div class="mt-1 flex flex-wrap gap-2">';
+    list.forEach(n => {
+        const msg = n.cmd || ('用' + (n.name || ''));
+        h += '<button type="button" data-msg="' + esc(msg)
+            + '" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">'
+            + esc(n.icon || '▶️') + ' ' + esc(n.name || msg) + '</button>';
+    });
+    h += '</div>';
+    return h;
+}
+const _AUTO_CAPS = ['topic', 'rewrite', 'xhs', 'hotspot'];
+function collectArtifacts(r) { if (!r || typeof r !== 'object') return; }
+
+function resultBlock(r) {
+    try { collectArtifacts(r); } catch (_) { /* noop */ }
+    if (r.stage === 'answer') { return '<p>'+esc(r.message)+'</p>'; }
+    if (r.stage === 'search') { return '<p>search</p>'; }
+    if (r.stage === 'review') { return '<p>review</p>'; }
+    if (r.stage === 'ask') {
+        let h = ['<p>' + esc(r.message || '') + '</p>'];
+        if (r.options && r.options.length) {
+            h.push('<div class="mt-2 flex flex-wrap gap-2">');
+            r.options.forEach(o => { h.push('<button>'+esc(o)+'</button>'); });
+            h.push('</div>');
+        }
+        return h.join('');
+    }
+    if (r.stage === 'plan') { return '<p>plan</p>'; }
+    if (r.stage === 'propose') { return '<p>propose</p>'; }
+    if (r.stage === 'written') { return '<p>written</p>'; }
+    if (r.stage === 'action_ask') { return '<p>action_ask</p>'; }
+    if (r.stage === 'action_ready') {
+        const c = r.cap || {};
+        const payload = encodeURIComponent(JSON.stringify({ cap: c.id, vals: r.vals || {}, next: r.next || [] }));
+        const isAuto = _AUTO_CAPS.includes(c.id);
+        let _modePicker = '';
+        let _vfPicker = '';
+        if (c.id === 'video_render') {
+            // omitted for article test
+        }
+        const h = [
+            '<p class="font-medium text-slate-800">' + esc(c.icon || '▶️') + ' ' + esc(r.message || ('准备好了，可以开始' + (c.name || ''))) + '</p>',
+            '<div class="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-500"><table class="w-full">'
+        ];
+        const labels = { dialogue: '口播稿', text: '原文', topic: '主题', industry: '行业', keywords: '关键词',
+                         count: '数量', platform: '平台', hook: '钩子', mode: '视频形式', title: '主标题',
+                         subtitle: '副标题', voice_form: '配音形式', focus: '侧重点', job_id: '视频任务',
+                         url: '链接', audio_path: '音频路径' };
+        Object.keys(r.vals || {}).forEach(k => {
+            let v = String(r.vals[k] ?? '');
+            if (v.length > 60) v = v.slice(0, 60) + '…';
+            h.push('<tr><td class="pr-2 py-0.5 text-slate-400 whitespace-nowrap">' + esc(labels[k] || k)
+                + '</td><td class="py-0.5 text-slate-700">' + esc(v) + '</td></tr>');
+        });
+        h.push('</table></div>');
+        h.push(_modePicker + _vfPicker);
+        let _runBtn;
+        if (c.id === 'video_render' && !isAuto) {
+            _runBtn = '<button>runVideoRender</button>';
+        } else {
+            _runBtn = '<button type="button" data-cap="' + payload + '" data-autorun="' + (isAuto ? '1' : '0') + '" class="cap-run rounded-lg px-4 py-1.5 text-xs font-medium transition ' + (isAuto ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700') + '" ' + (isAuto ? 'disabled' : '') + '>' + (isAuto ? '⏳ 自动执行中…' : '▶ 开始执行') + '</button>';
+        }
+        h.push('<div class="mt-2 flex flex-wrap gap-2">' + _runBtn + '</div>');
+        h.push('<p class="mt-2 text-xs text-slate-500">' + esc(r.tip || '') + '</p>');
+        return h.join('');
+    }
+    if (r.stage === 'action_done') { return '<p>action_done</p>'; }
+    if (r.stage === 'act_result') { return '<p>act_result</p>'; }
+    if (r.stage === 'pipeline') { return '<p>pipeline</p>'; }
+    if (r.stage === 'done') { return '<p>' + esc(r.message || '本批已全部写完。') + '</p>'; }
+    return '<p>' + esc(r.error || r.message || '（已完成）') + '</p>';
+}
+
+try {
+    document.getElementById('render').innerHTML = resultBlock(DATA);
+} catch (e) {
+    document.getElementById('render').innerHTML = '<p style="color:red">渲染异常：' + esc(e.message) + '</p>';
+}
+</script>
+</body>
+</html>
