@@ -209,7 +209,7 @@
                     </button>
                 </div>
                 <p class="mt-1.5 text-center text-[11px] text-slate-400">
-                    对话都会自动留着，下次回来接着聊 · 起个名就存入左侧「空间」 · 改主意随时说"全写 / 写第N条 / 做成片 / 配音"
+                    内容由 AI 生成，请核实重要信息
                 </p>
             </div>
         </div>
@@ -349,7 +349,7 @@
         }
         const col = document.createElement('div');
         col.className = 'bubble-col flex min-w-0 flex-col ' + (role === 'user' ? 'items-end' : 'items-start');
-        // 工具栏只挂在「实质 AI 回复」上方；欢迎提示卡、系统状态提示等用 opts.noTools 排除
+        // 每条 AI 消息都挂操作栏（含欢迎卡，与 WorkBuddy 一致）；仅系统状态提示用 opts.noTools 排除
         if (role === 'ai' && !opts.noTools) col.appendChild(buildMsgActions());
         const bubble = document.createElement('div');
         // 用户消息不再用高亮紫色，改浅灰底+深色字，保持右对齐
@@ -704,7 +704,7 @@
             + '<p class="mt-3 rounded-lg bg-indigo-50/60 px-3 py-2 text-[13px] text-slate-600">'
             + esc(variant.hint) + '</p>'
             + '<p class="mt-2 text-xs text-slate-400">' + variant.footer + '</p>'
-        , { noTools: true });
+        );
         // 点示例卡 = 自动填入并发送（div+role=button：点击 ≠ 选词，本卡不会拦截拖选/双击选词）
         chatBox.querySelectorAll('.sample-card').forEach((card, i) => {
             card.addEventListener('click', () => {
