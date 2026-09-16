@@ -335,7 +335,8 @@
         }
     }, { passive: true });
 
-    function appendMsg(role, html) {
+    function appendMsg(role, html, opts) {
+        opts = opts || {};
         const wrap = document.createElement('div');
         wrap.className = 'chat-bubble-wrap flex items-start gap-3 ' + (role === 'user' ? 'flex-row-reverse' : '');
         const av = document.createElement('div');
@@ -348,7 +349,8 @@
         }
         const col = document.createElement('div');
         col.className = 'bubble-col flex min-w-0 flex-col ' + (role === 'user' ? 'items-end' : 'items-start');
-        if (role === 'ai') col.appendChild(buildMsgActions());
+        // 工具栏只挂在「实质 AI 回复」上方；欢迎提示卡、系统状态提示等用 opts.noTools 排除
+        if (role === 'ai' && !opts.noTools) col.appendChild(buildMsgActions());
         const bubble = document.createElement('div');
         // 用户消息不再用高亮紫色，改浅灰底+深色字，保持右对齐
         bubble.className = 'chat-bubble rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ' +
@@ -702,7 +704,7 @@
             + '<p class="mt-3 rounded-lg bg-indigo-50/60 px-3 py-2 text-[13px] text-slate-600">'
             + esc(variant.hint) + '</p>'
             + '<p class="mt-2 text-xs text-slate-400">' + variant.footer + '</p>'
-        );
+        , { noTools: true });
         // 点示例卡 = 自动填入并发送（div+role=button：点击 ≠ 选词，本卡不会拦截拖选/双击选词）
         chatBox.querySelectorAll('.sample-card').forEach((card, i) => {
             card.addEventListener('click', () => {
@@ -1323,13 +1325,13 @@
         const msg = input.value.trim();
         if (!msg) return;
         if (busy) {
-            appendMsg('ai', '<span class="text-amber-600">⏳ 上一条消息还在处理，请稍候，完成后会自动出现。</span>');
+            appendMsg('ai', '<span class="text-amber-600">⏳ 上一条消息还在处理，请稍候，完成后会自动出现。</span>', { noTools: true });
             return;
         }
         lastMsg = msg;
         busy = true; sendBtn.disabled = true; input.value = '';
         appendMsg('user', esc(msg));
-        const thinking = appendMsg('ai', '<span class="text-slate-400">…正在理解并处理</span>');
+        const thinking = appendMsg('ai', '<span class="text-slate-400">…正在理解并处理</span>', { noTools: true });
         // 秒数计时：长任务（如"全写"5 篇）要 1~4 分钟，让用户知道"还在跑 + 已跑多久"，区分卡死
         let _t0 = Date.now();
         const _tm = setInterval(() => {
@@ -1557,7 +1559,7 @@
         const hasBtn = btn && btn.tagName;
         const silent = !hasBtn;   // 自动触发时不展示原始 JSON，等 AI 总结统一输出
         if (hasBtn) { btn.disabled = true; btn.textContent = '⏳ 正在执行…'; }
-        appendMsg('ai', '<p class="text-slate-500">⏳ 正在跑「' + esc((payload.cap || '')) + '」，请稍候…</p>');
+        appendMsg('ai', '<p class="text-slate-500">⏳ 正在跑「' + esc((payload.cap || '')) + '」，请稍候…</p>', { noTools: true });
         try {
             const res = await api('/studio/chat/action', {
                 method: 'POST',
@@ -1568,21 +1570,21 @@
 
             // 长任务（出片）：给出任务号并轮询进度
             if (data.job_id) {
-                appendMsg('ai', '<p class="font-medium text-slate-800">🎬 已提交渲染，任务号 <code class="text-[11px]">' + esc(data.job_id) + '</code></p>'
+                appendMsg('ai', '<p class="font-medium text-slate-800">🎬 已提交渲染，任务号 <code class="text-[11px]">' + esc(data.job_id) + '</code></p>', { noTools: true }
                     + '<p class="mt-1 text-slate-600">视频要渲染几分钟，我会一直盯着进度，完成后告诉你。</p>');
                 pollJob(data.job_id, payload);
             } else if (silent) {
                 // 自动执行：直接交给 AI 总结，不在中间暴露原始 JSON
                 await sendActionResult(payload.cap, true, data, payload.next || []);
             } else {
-                appendMsg('ai', '<p class="font-medium text-slate-800">✅ ' + esc(payload.cap || '') + ' 跑完了</p>'
+                appendMsg('ai', '<p class="font-medium text-slate-800">✅ ' + esc(payload.cap || '') + ' 跑完了</p>', { noTools: true }
                     + '<pre class="mt-1 max-h-60 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-2 text-[11px] text-slate-600">'
                     + esc(JSON.stringify(data, null, 1).slice(0, 1500)) + '</pre>');
                 // 把结果交给 AI 总结 + 引导下一步（AI 回复里自带下一步卡片）
                 await sendActionResult(payload.cap, true, data, payload.next || []);
             }
         } catch (err) {
-            appendMsg('ai', '<p class="text-rose-600">❌ 没跑通：' + esc(err.message || '未知错误') + '</p>'
+            appendMsg('ai', '<p class="text-rose-600">❌ 没跑通：' + esc(err.message || '未知错误') + '</p>', { noTools: true }
                 + '<p class="mt-1 text-xs text-slate-500">可以改一下参数再来，或跟我说你要做什么，我换个方式帮你。</p>');
             await sendActionResult(payload.cap, false, { error: String(err.message || '') });
         } finally {
@@ -1644,7 +1646,7 @@
                     } else {
                         pushArtifact({ key: 'job:' + jobId, type: 'video',
                             sub: '视频 · ' + (st === 'failed' ? '渲染失败' : '渲染超时'), status: st || 'failed' });
-                        appendMsg('ai', '<p class="text-rose-600">⚠️ 渲染' + (st === 'failed' ? '失败' : '超时（已盯了 12 分钟）') + '</p>'
+                        appendMsg('ai', '<p class="text-rose-600">⚠️ 渲染' + (st === 'failed' ? '失败' : '超时（已盯了 12 分钟）') + '</p>', { noTools: true }
                             + '<p class="mt-1 text-xs text-slate-500">可以重新执行一次，或跟我说要改什么。</p>');
                     }
                     await sendActionResult(payload.cap, ok, { job_id: jobId, status: st }, payload.next || []);
