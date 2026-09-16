@@ -383,7 +383,6 @@
             }
         });
 
-        let lastPolishResearch = '';  // 联网参考，随发送带入对话
         async function polishAndFill(raw) {
             try {
                 const d = await api('/studio/chat/polish', { text: raw });
@@ -449,6 +448,7 @@
 
     // 最新一条可操作的 AI 回复气泡（输入框上方的固定工具栏对它生效）
     let _lastAiBubble = null;
+    let lastPolishResearch = '';  // 联网参考（/polish 返回），供 doSend 清理提示用，须挂顶层作用域
 
     function appendMsg(role, html, opts) {
         opts = opts || {};
