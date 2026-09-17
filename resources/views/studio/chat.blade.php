@@ -1483,7 +1483,9 @@
             // 异步长任务（B 版）：8500 已返回 async，后台线程在跑，前端轮询 /chat/status
             if (data.stage === 'async') {
                 await pollAsyncJob(data.job_id || sid, thinking, msg);
-                thinking.remove();
+                // ★绝不能 thinking.remove()：pollAsyncJob 已把最终结果（或取消/错误提示）
+                //   渲染进 thinking 气泡本身，这里再删就是把刚出炉的回答当场删掉，
+                //   只剩"阿"头像空壳（2026-09-17 真机踩坑：重新拆角度结果闪没）。
                 return;   // finally 会复位 busy
             }
             thinking.remove();
