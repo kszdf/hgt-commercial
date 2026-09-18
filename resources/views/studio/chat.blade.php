@@ -1057,6 +1057,7 @@
             const isAuto = _AUTO_CAPS.includes(c.id);
             let _modePicker = '';
             let _vfPicker = '';
+            let _modelPicker = '';
             if (c.id === 'video_render') {
                 const _modes = [
                     { m: 'scroll', icon: '📜', name: '滚动字幕' },
@@ -1091,6 +1092,20 @@
                         return '<button type="button" data-vf="' + x.v + '" class="' + _cls + '"' + (_disabled ? ' disabled' : '') + '>' + x.name + '</button>';
                     }).join('')
                     + '</div>' + _vfHint + '</div>';
+                // 数字人模特 / 场景选择（用户自传模特，来自 /studio/models/json）
+                let _modelOpts = '<option value="">默认（老张·办公桌前）</option>';
+                (AVATAR_MODELS || []).forEach(function (m) {
+                    const _label = esc(m.name) + (m.scene ? ' · ' + esc(m.scene) : '') + (m.resolution ? ' (' + esc(m.resolution) + ')' : '');
+                    _modelOpts += '<option value="User:' + esc(m.id) + '">' + _label + '</option>';
+                });
+                _modelPicker = '<div class="mt-2" data-avatar-model-wrap style="display:none">'
+                    + '<p class="text-[11px] font-medium text-slate-500">数字人模特 / 场景</p>'
+                    + '<select data-avatar-model class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700">'
+                    + _modelOpts
+                    + '</select>'
+                    + '<p class="mt-1 text-[10px] text-slate-400">在「数字人模特」页上传新场景后，此处可选；未上传则用默认。</p>'
+                    + '<a href="/studio/models" target="_blank" class="mt-1 inline-block text-[10px] text-indigo-600 hover:underline">＋ 去上传新场景</a>'
+                    + '</div>';
             }
             const h = [
                 '<p class="font-medium text-slate-800">' + esc(c.icon || '▶️') + ' ' + esc(r.message || ('准备好了，可以开始' + (c.name || ''))) + '</p>',
@@ -1107,7 +1122,7 @@
                     + '</td><td class="py-0.5 text-slate-700">' + esc(v) + '</td></tr>');
             });
             h.push('</table></div>');
-            h.push(_modePicker + _vfPicker);
+            h.push(_modePicker + _vfPicker + _modelPicker);
             let _runBtn;
             if (c.id === 'video_render' && !isAuto) {
                 _runBtn = '<button type="button" data-cap="' + payload + '" data-video-run="1" class="cap-run rounded-lg px-4 py-1.5 text-xs font-medium bg-indigo-600 text-white transition hover:bg-indigo-700">▶ 开始执行</button>';
@@ -1565,10 +1580,13 @@
             const vg = card.querySelector('[data-vf-group]');
             const vsel = vg ? vg.querySelector('.vf-opt.border-indigo-500') : null;
             const vfVal = vsel ? vsel.dataset.vf : 'male_mono';
+            const modelSel = card.querySelector('[data-avatar-model]');
+            const modelVal = (modeVal === 'avatar' && modelSel) ? modelSel.value : '';
             const raw = JSON.parse(decodeURIComponent(btn.dataset.cap));
             raw.vals = raw.vals || {};
             raw.vals.mode = modeVal;
             raw.vals.voice_form = vfVal;
+            raw.vals.model = modelVal;
             runCapAction(btn, raw);
         } catch (e) {
             console.error('runVideoRender failed', e);
@@ -1599,6 +1617,12 @@
                         btn.disabled = false;
                     }
                 });
+                // 切到数字人出镜时显示「选场景」下拉，切走其它形式则隐藏
+                const _mw = mo.closest('.chat-bubble');
+                if (_mw) {
+                    const _aw = _mw.querySelector('[data-avatar-model-wrap]');
+                    if (_aw) _aw.style.display = (mo.dataset.mode === 'avatar') ? '' : 'none';
+                }
                 return;
             }
             const vo = e.target.closest('.vf-opt');
@@ -1767,6 +1791,13 @@
             {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
     }
     const SCHED_UID = 'default';
+    let AVATAR_MODELS = [];
+    async function fetchAvatarModels() {
+        try {
+            const d = await api('/studio/models/json');
+            AVATAR_MODELS = (d && d.models) || [];
+        } catch (e) { AVATAR_MODELS = []; }
+    }
     function renderPending(pending) {
         window.__pendingItems = pending || [];
         const badge = document.getElementById('pendingBadge');
@@ -1827,6 +1858,8 @@
         // 定时任务：加载待发内容角标 + 每分钟轮询
         loadPending();
         setInterval(loadPending, 60000);
+        // 出片卡：预拉取用户自传数字人模特列表（供「选场景」下拉）
+        fetchAvatarModels();
     })();
 })();
 </script>
