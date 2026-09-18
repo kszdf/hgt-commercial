@@ -85,31 +85,10 @@
                 <span class="ws-label font-semibold {{ $v2Mode ? 'sr-only' : '' }}">文章库</span>
             </a>
 
-            <!-- ③ 智库：AI 财税顾问独立提问页（原对话里的 advisor_chat 能力升级而来） -->
-            <a href="/studio/zhiku" title="智库（AI 财税顾问）" class="{{ request()->is('studio/zhiku*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-                <span class="ws-label font-semibold {{ $v2Mode ? 'sr-only' : '' }}">智库</span>
-            </a>
+            <!-- 2026-09-18：智库/客户档案/1v1预约/AI客服 4个未开发能力图标已摘除（张老师拍板暂不开发），
+                 路由与页面文件保留，将来恢复只需把导航项加回来。 -->
 
-            <!-- ④ 客户档案：CRM 线索入档 / 阶段管理（后端 8500 /crm） -->
-            <a href="/studio/crm" title="客户档案" class="{{ request()->is('studio/crm*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a3 3 0 10-2.5-4.5"/></svg>
-                <span class="ws-label font-semibold {{ $v2Mode ? 'sr-only' : '' }}">客户档案</span>
-            </a>
-
-            <!-- ⑤ 1v1 预约：老张视频诊断限抢（后端 8500 /booking，每月限 30 单） -->
-            <a href="/studio/booking" title="1v1 预约" class="{{ request()->is('studio/booking*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                <span class="ws-label font-semibold {{ $v2Mode ? 'sr-only' : '' }}">1v1 预约</span>
-            </a>
-
-            <!-- ⑥ AI 客服：自动接待配置（后端 8500 /reception-config） -->
-            <a href="/studio/reception" title="AI 客服" class="{{ request()->is('studio/reception*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 18v-6a9 9 0 0118 0v6M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/></svg>
-                <span class="ws-label font-semibold {{ $v2Mode ? 'sr-only' : '' }}">AI 客服</span>
-            </a>
-
-            <!-- ⑦ 账号：各平台发布账号登记 / OAuth 授权（抖音多应用，09-12 加回入口） -->
+            <!-- ⑤ 账号：各平台发布账号登记 / OAuth 授权（抖音多应用，09-12 加回入口） -->
             <a href="/studio/accounts" title="账号（发布账号与授权）" class="{{ request()->is('studio/accounts*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
                 <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 <span class="ws-label font-semibold {{ $v2Mode ? 'sr-only' : '' }}">账号</span>
