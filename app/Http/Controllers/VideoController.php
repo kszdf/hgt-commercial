@@ -110,8 +110,16 @@ class VideoController extends Controller
             'voice_form' => ['sometimes', 'nullable', 'string', 'in:dialogue,male_mono,female_mono,mono'],
             'i2v' => ['sometimes', 'boolean'],   // 漫剧 AI 图生视频动效模式(每幕约0.24元/秒)
             'batch_id' => ['nullable', 'string', 'max:36'],
+            'batch' => ['sometimes', 'boolean'],
+            'scripts' => ['sometimes', 'nullable', 'array'],
+            'scripts.*' => ['string'],
             'industry' => ['sometimes', 'nullable', 'string', 'max:40'],   // 财税老板行业分群（选题贯穿）
         ]);
+
+        // —— 批量出片（图解版并发）：scripts 数组逐条提交，靠并发闸 429 自然限流，不阻塞 HTTP ——
+        if (!empty($data['batch']) && !empty($data['scripts']) && is_array($data['scripts'])) {
+            return $this->handleBatchGenerate($request, $tenant, $user, $data);
+        }
 
         // —— 单次时长上限（后端硬约束）——
         // 试用期内更严格：单条 ≤ TRIAL_MAX_DURATION_SEC（默认 600 秒 = 10 分钟）；
@@ -284,6 +292,115 @@ class VideoController extends Controller
             'mode' => $mode,
             'usage' => $tenant->usageThisMonth(),
             'quota' => $tenant->quota_monthly,
+        ]);
+    }
+
+    /**
+     * 批量出片：把 N 条口播稿逐条提交到 8500，靠并发闸（Laravel 租户闸 + 8500 全局闸）429 自然限流。
+     * 不阻塞 HTTP 请求（每条 /generate 立即返回 job_id）；溢出部分作为 pending 交前端定时重试。
+     * 仅数字人(avatar)走 HEYGEM 串行锁；图解版(card/motion/whiteboard/scroll/manga)无锁可真并发。
+     */
+    private function handleBatchGenerate($request, $tenant, $user, array $data)
+    {
+        $mode = $data['mode'] ?? 'scroll';
+        $voiceForm = $data['voice_form'] ?? 'male_mono';
+        $baseModel = $request->input('model');   // 仅 avatar 用
+        $batchId = (string) \Illuminate\Support\Str::uuid();
+        $jobs = [];
+        $pending = [];
+        $maxDuration = $tenant->isTrialActive()
+            ? (int) env('TRIAL_MAX_DURATION_SEC', 600)
+            : (int) env('MAX_VIDEO_DURATION_SEC', 1800);
+
+        foreach ($data['scripts'] as $i => $scriptText) {
+            $scriptText = trim((string) $scriptText);
+            if ($scriptText === '') {
+                continue;
+            }
+            $perTitle = $data['title'] ?? null;
+            // 单条时长上限（超了直接记失败，不算 pending，避免死重试）
+            if ($this->estimateDurationSec($scriptText) > $maxDuration) {
+                $jobs[] = ['index' => $i, 'job_id' => null, 'title' => $perTitle, 'error' => '时长超限'];
+                continue;
+            }
+            // 数字人模特解析（仅 avatar）：User:{id} -> 容器路径
+            $modelForThis = null;
+            if ($mode === 'avatar' && $baseModel && str_starts_with($baseModel, 'User:')) {
+                $assetId = substr($baseModel, 5);
+                $asset = \App\Models\ModelAsset::where('id', $assetId)
+                    ->where('tenant_id', $tenant->id)
+                    ->where('status', 'ready')
+                    ->first();
+                $modelForThis = $asset ? $asset->containerPath() : null;
+            }
+            $payload = [
+                'mode' => $mode,
+                'dialogue' => $scriptText,
+                'title' => $perTitle,
+                'subtitle' => $data['subtitle'] ?? null,
+                'motion_style' => $request->input('motion_style', '财经严谨'),
+                'dry_tts' => (bool) ($data['dry_tts'] ?? false),
+                'male_voice' => $request->input('male_voice') ?: $tenant->default_male_voice,
+                'female_voice' => $request->input('female_voice') ?: $tenant->default_female_voice,
+                'voice_form' => $voiceForm,
+                'natural' => (bool) ($data['natural'] ?? false),
+                'i2v' => (bool) ($data['i2v'] ?? false),
+                'edit_style' => $request->input('edit_style') ?: null,
+                'model' => $modelForThis,
+                'scene' => $request->input('scene'),
+                'tenant_id' => (string) $tenant->id,
+            ];
+            foreach (['male_rate', 'female_rate', 'male_pitch', 'female_pitch', 'male_vol', 'female_vol'] as $k) {
+                if ($request->has($k)) {
+                    $payload[$k] = $request->input($k);
+                }
+            }
+            foreach (['subtitle_size', 'subtitle_lines', 'subtitle_outline', 'subtitle_position', 'subtitle_style', 'subtitle_font'] as $k) {
+                if ($request->has($k)) {
+                    $payload[$k] = $request->input($k);
+                }
+            }
+
+            try {
+                $resp = app(PipelineClient::class)->post('/generate', $payload, 15);
+            } catch (PipelineUnavailableException $e) {
+                $pending[] = ['index' => $i, 'title' => $perTitle, 'dialogue' => $scriptText, 'error' => '出片服务不可用'];
+                continue;
+            }
+            if ($resp->successful()) {
+                $jid = $resp->json('job_id');
+                \App\Models\VideoJob::create([
+                    'tenant_id' => $tenant->id,
+                    'user_id' => $user->id,
+                    'job_id' => $jid,
+                    'batch_id' => $batchId,
+                    'mode' => $mode,
+                    'title' => $perTitle,
+                    'industry' => $data['industry'] ?? null,
+                    'dialogue' => $scriptText,
+                    'status' => 'queued',
+                    'heartbeat_at' => now(),
+                    'dedupe_key' => null,
+                ]);
+                foreach (array_filter([$payload['male_voice'] ?? null, $payload['female_voice'] ?? null]) as $vid) {
+                    \App\Models\TenantVoice::where('tenant_id', $tenant->id)
+                        ->where('voice_id', $vid)->increment('use_count');
+                }
+                $jobs[] = ['index' => $i, 'job_id' => $jid, 'title' => $perTitle, 'preview' => mb_substr($scriptText, 0, 40)];
+            } elseif ($resp->status() === 429 || in_array($resp->json('code'), ['tenant_busy', 'global_busy'], true)) {
+                $pending[] = ['index' => $i, 'title' => $perTitle, 'dialogue' => $scriptText];
+            } else {
+                $jobs[] = ['index' => $i, 'job_id' => null, 'title' => $perTitle, 'error' => $resp->json('error') ?: '提交失败'];
+            }
+        }
+
+        return response()->json([
+            'ok' => true,
+            'batch' => true,
+            'batch_id' => $batchId,
+            'count' => count($jobs) + count($pending),
+            'jobs' => $jobs,
+            'pending' => $pending,
         ]);
     }
 

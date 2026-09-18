@@ -2132,7 +2132,8 @@ CARD_SEG_SAFE_SEC = int(os.environ.get("PIPELINE_CARD_SEG_SEC", "360"))
 
 jobs = {}          # job_id -> {"status","out","error","tenant_id","start_ts","step"}
 lock = threading.Lock()
-render_lock = threading.Lock()   # HEYGEM 单 GPU 串行渲染锁：同一时刻仅一个视频在渲染，杜绝多任务抢 GPU 互相拖慢
+from contextlib import nullcontext
+render_lock = threading.Lock()   # HEYGEM 单 GPU 串行渲染锁：仅数字人(avatar)模式使用；图解版模式不抢此锁，可真并发
 active_total = 0              # 全局在跑任务数（用于并发护栏）
 active_by_tenant = {}         # tenant_id -> 在跑任务数
 
@@ -2741,14 +2742,18 @@ def _post_process(job_id, payload, out_path, job_dir, edit_style):
     return out_path
 
 
-def _render_with_lock(job_id, args, log_path, timeout=HARD_TIMEOUT, step=None):
-    """串行占用 HEYGEM 渲染锁执行一次渲染，期间更新 step。
+def _render_with_lock(job_id, args, log_path, timeout=HARD_TIMEOUT, step=None, lock=None):
+    """串行占用渲染锁执行一次渲染，期间更新 step。
     锁在调用最开始获取：若锁被其他任务占用，本线程会阻塞在获取锁处，
     此时 step 仍为 'queued'，前端可据此显示"排队中"。拿到锁后才切到 'rendering'。
     timeout: 单次渲染硬超时（秒）；主渲染用 HARD_TIMEOUT，重渲染传 REGEN_TIMEOUT 明显更短。
     step: 可选，显式指定写入的 step（如重渲染保持 'rerender'，避免被覆盖成 'rendering'
-          导致前端无法区分「自动重试」与「普通渲染」，用户误以为卡死）。"""
-    with render_lock:
+          导致前端无法区分「自动重试」与「普通渲染」，用户误以为卡死）。
+    lock: 传入 threading.Lock 才做串行限制（数字人 avatar 走 HEYGEM 单 GPU 锁）；
+          传 None（默认）则不串行——用于图解版(card/motion/whiteboard/scroll/manga)，
+          它们走 TTS+AI生图、不占 HEYGEM，可多任务真并发（受 GLOBAL_MAX_JOBS 上限约束）。"""
+    _lock = lock if lock is not None else nullcontext()
+    with _lock:
         _set_job(job_id, step=(step if step is not None else "rendering"))
         rc, _, err = run_with_timeout(args, GPT_SOVITS, timeout, log_path=log_path)
     return rc, err
@@ -2794,7 +2799,7 @@ def _render_card_segmented(job_id, segs, payload, job_dir, out_path, log_path):
         rc, err, ok = 1, "", False
         for attempt in (1, 2):
             rc, err = _render_with_lock(job_id, sargs, seg_log,
-                                        timeout=HARD_TIMEOUT, step="rendering")
+                                        timeout=HARD_TIMEOUT, step="rendering", lock=None)
             if rc == 0 and os.path.exists(seg_out) and os.path.getsize(seg_out) > 102400:
                 ok = True
                 break
@@ -3060,7 +3065,9 @@ def run_job(job_id, payload):
             # 长片分段：逐段独立渲染（每段各自计时）→ 全部完成后拼接整片
             rc, err = _render_card_segmented(job_id, card_segs, payload, job_dir, out_path, log_path)
         else:
-            rc, err = _render_with_lock(job_id, args, log_path)
+            # 仅数字人(avatar)占用 HEYGEM 单 GPU 串行锁；图解版模式不抢锁，可真并发
+            rc, err = _render_with_lock(job_id, args, log_path,
+                                        lock=(render_lock if mode == "avatar" else None))
         if rc == 0 and os.path.exists(out_path):
             if _is_cancelled(job_id):
                 _set_job(job_id, status="cancelled", step="cancelled", error="用户已中止")
@@ -3084,7 +3091,8 @@ def run_job(job_id, payload):
                 _set_job(job_id, step="rerender", regen_attempted=True,
                          warning="终检检出音频缺陷（缺失/中段静音），正在自动重试修复（至多约 15 分钟）…")
                 rc2, err2 = _render_with_lock(job_id, args, log_path,
-                                              timeout=REGEN_TIMEOUT, step="rerender")
+                                              timeout=REGEN_TIMEOUT, step="rerender",
+                                              lock=(render_lock if mode == "avatar" else None))
                 if rc2 == 0 and os.path.exists(out_path):
                     out_path = _post_process(job_id, payload, out_path, job_dir, edit_style)
                     qc2 = ai_qc_video(out_path)

@@ -1124,12 +1124,16 @@
             h.push('</table></div>');
             h.push(_modePicker + _vfPicker + _modelPicker);
             let _runBtn;
+            let _batchBtn = '';
             if (c.id === 'video_render' && !isAuto) {
                 _runBtn = '<button type="button" data-cap="' + payload + '" data-video-run="1" class="cap-run rounded-lg px-4 py-1.5 text-xs font-medium bg-indigo-600 text-white transition hover:bg-indigo-700">▶ 开始执行</button>';
+                if (lastWritten && lastWritten.length >= 1) {
+                    _batchBtn = '<button type="button" data-cap="' + payload + '" data-batch-run="1" class="cap-run rounded-lg px-4 py-1.5 text-xs font-medium bg-emerald-600 text-white transition hover:bg-emerald-700">🚀 批量出片（已写 ' + lastWritten.length + ' 条稿）</button>';
+                }
             } else {
                 _runBtn = '<button type="button" data-cap="' + payload + '" data-autorun="' + (isAuto ? '1' : '0') + '" class="cap-run rounded-lg px-4 py-1.5 text-xs font-medium transition ' + (isAuto ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700') + '" ' + (isAuto ? 'disabled' : '') + '>' + (isAuto ? '⏳ 自动执行中…' : '▶ 开始执行') + '</button>';
             }
-            h.push('<div class="mt-2 flex flex-wrap gap-2">' + _runBtn + '</div>');
+            h.push('<div class="mt-2 flex flex-wrap gap-2">' + _runBtn + _batchBtn + '</div>');
             h.push('<p class="mt-2 text-xs text-slate-500">' + esc(r.tip || '') + '</p>');
             return h.join('');
         }
@@ -1565,6 +1569,7 @@
             let payload = null;
             try { payload = JSON.parse(decodeURIComponent(capBtn.dataset.cap)); } catch (_) { return; }
             // 出片卡片：先注入用户在卡片上选的视频形式/配音形式，再执行（避免双重触发）
+            if (capBtn.dataset.batchRun) { runBatchRender(capBtn); return; }
             if (capBtn.dataset.videoRun) { runVideoRender(capBtn); return; }
             runCapAction(capBtn, payload);
         }
@@ -1590,6 +1595,31 @@
             runCapAction(btn, raw);
         } catch (e) {
             console.error('runVideoRender failed', e);
+        }
+    }
+    // 批量出片：取已写口播稿(lastWritten) 逐条提交，由后端并发渲染
+    function runBatchRender(btn) {
+        try {
+            const card = btn.closest('.chat-bubble') || btn.parentElement;
+            const mg = card.querySelector('[data-mode-group]');
+            const msel = mg ? mg.querySelector('.mode-opt.border-indigo-500') : null;
+            const modeVal = msel ? msel.dataset.mode : 'scroll';
+            const vg = card.querySelector('[data-vf-group]');
+            const vsel = vg ? vg.querySelector('.vf-opt.border-indigo-500') : null;
+            const vfVal = vsel ? vsel.dataset.vf : 'male_mono';
+            const raw = JSON.parse(decodeURIComponent(btn.dataset.cap));
+            const scripts = (lastWritten || []).map(function (w) { return (w.script || '').trim(); }).filter(Boolean);
+            if (!scripts.length) { alert('没有可用的已写口播稿，先写出几条口播稿再批量出片。'); return; }
+            const batchId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('b' + Date.now() + Math.random().toString(36).slice(2));
+            raw.vals = raw.vals || {};
+            raw.vals.batch = true;
+            raw.vals.batch_id = batchId;
+            raw.vals.mode = modeVal;
+            raw.vals.voice_form = vfVal;
+            raw.vals.scripts = scripts;
+            runCapAction(btn, raw);
+        } catch (e) {
+            console.error('runBatchRender failed', e);
         }
     }
     // 形式/配音选择高亮切换（事件委托）
@@ -1646,6 +1676,17 @@
             });
             if (res && res.ok === false) throw new Error(res.error || '后端返回失败');
             const data = (res && res.data) || {};
+
+            // 批量出片：聚合多任务进度（N 条各自轮询，全部完成统一汇报）
+            if (data.batch && data.jobs) {
+                const total = (data.jobs ? data.jobs.length : 0) + (data.pending ? data.pending.length : 0);
+                _batchState[data.batch_id] = { total: total, done: 0, finished: false, cap: payload.cap, next: payload.next || [] };
+                appendMsg('ai', '<p class="font-medium text-slate-800">🚀 已提交批量出片，共 ' + total + ' 条（任务组 ' + esc(data.batch_id) + '）</p>'
+                    + '<p class="mt-1 text-slate-600">我会盯着每条进度，受并发上限约束会分批渲染，全部完成后统一告诉你。</p>');
+                pollBatch(data.jobs, payload, data.batch_id);
+                if (data.pending && data.pending.length) { retryBatchPending(data.pending, payload, data.batch_id); }
+                return;
+            }
 
             // 长任务（出片）：给出任务号并轮询进度
             if (data.job_id) {
@@ -1730,6 +1771,71 @@
                 }
             } catch (_) { /* 网络抖动，下一轮继续 */ }
         }, 8000);
+    }
+
+    // ---------- 批量出片：多任务聚合轮询 ----------
+    const _batchState = {};   // batchId -> { total, done, finished, cap, next }
+    function _pollOneJob(jobId, batchId, meta) {
+        const timer = setInterval(async () => {
+            try {
+                const r = await fetch('/studio/video/status/' + encodeURIComponent(jobId), { headers: { 'Accept': 'application/json' } });
+                const j = await r.json();
+                const st = j.status || j.data?.status || '';
+                if (st === 'done' || st === 'failed') {
+                    clearInterval(timer);
+                    const ok = st === 'done';
+                    const videoUrl = '/studio/scroll/download/' + encodeURIComponent(jobId);
+                    pushArtifact({ key: 'batch:' + batchId + ':' + (meta.index ?? jobId), type: 'video',
+                        title: ((meta.title ? String(meta.title).slice(0, 12) : '') || ('第' + ((meta.index ?? 0) + 1) + '条')) + '（' + String(jobId).slice(0, 6) + '）',
+                        sub: ok ? '视频 · 渲染完成' : '视频 · 渲染失败',
+                        url: ok ? videoUrl : null, status: st });
+                    _markBatchOne(batchId);
+                }
+            } catch (_) { /* 网络抖动重试 */ }
+        }, 8000);
+    }
+    function _markBatchOne(batchId) {
+        const s = _batchState[batchId];
+        if (!s || s.finished) return;
+        s.done += 1;
+        if (s.done >= s.total) {
+            s.finished = true;
+            appendMsg('ai', '<p class="font-medium text-emerald-700">✅ 批量出片全部完成（共 ' + s.total + ' 条），成片已放入右侧「产物」区，点开即可播放或下载。</p>');
+            sendActionResult(s.cap, true, { batch: true, batch_id: batchId, count: s.total }, s.next);
+        }
+    }
+    function pollBatch(jobs, payload, batchId) {
+        (jobs || []).forEach(function (j) {
+            if (j.job_id) {
+                _pollOneJob(j.job_id, batchId, j);
+            } else {
+                // 提交即失败（如时长超限）：直接记失败，计入完成数
+                pushArtifact({ key: 'batch:' + batchId + ':' + j.index, type: 'video',
+                    title: ('第' + (j.index + 1) + '条·失败'), sub: '提交失败：' + (j.error || ''), status: 'failed' });
+                _markBatchOne(batchId);
+            }
+        });
+    }
+    async function retryBatchPending(pending, payload, batchId) {
+        for (const p of (pending || [])) {
+            const sub = JSON.parse(JSON.stringify(payload));
+            sub.vals = sub.vals || {};
+            sub.vals.batch = true;
+            sub.vals.batch_id = batchId;
+            sub.vals.scripts = [p.dialogue];
+            for (let t = 0; t < 30; t++) {
+                try {
+                    const res = await api('/studio/chat/action', { method: 'POST', body: JSON.stringify({ cap: sub.cap, vals: sub.vals }) });
+                    const d = res && res.data;
+                    if (d && d.jobs && d.jobs[0] && d.jobs[0].job_id) {
+                        _pollOneJob(d.jobs[0].job_id, batchId, d.jobs[0]);
+                        break;
+                    }
+                    if (!d || !d.pending || !d.pending.length) break;
+                } catch (_) { /* 忽略，继续重试 */ }
+                await new Promise(function (r) { setTimeout(r, 15000); });
+            }
+        }
     }
 
     // 把执行结果送回编排器，让 AI 总结 + 纠偏 + 引导下一步
