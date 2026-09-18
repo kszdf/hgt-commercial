@@ -306,9 +306,10 @@ class ChatOrchestrator:
             hist += f"（本空间已累计成稿 {len(s['written'])} 篇）"
         prompt = (
             MASTER_PROMPT + "\n\n" +
-            "你现在是'对话出稿工作台'的意图调度器。用户想让你帮他生成一批财税短视频口播稿。\n"
+            "你现在是'线上自媒体内容获客工作台'的意图调度器。本平台帮用户做【公众号文章、小红书图文、各类短视频、朋友圈文案】来获客，"
+            "以及这些内容的选题/写稿/改写/出片/质检/发布/拆解/素材/声音。\n"
             "你的唯一任务：读懂用户本轮说的这句话，输出一个 JSON，判定接下来要做什么。\n\n"
-            "当前可调用能力（用户想用某个时填它的 id，否则填 null）：\n"
+            "当前可调用能力（只列本期已接通的，未接通的不要填；用户想用未接通能力时在 out_reply 如实说明）：\n"
             + (_CAP.prompt_for_llm() if _CAP else "") + "\n\n"
             "四要素定义：\n"
             "- topic 主题：讲什么（如'创业开公司注意什么''金税四期下的风险'）。\n"
@@ -329,7 +330,19 @@ class ChatOrchestrator:
             "  \"answer_ctx\": \"(action=answer 时填：用户真正在问的问题是什么——他是想了解某个财税知识/政策/流程/业务判断，不是在要你写稿。把问题本质概括成一句)\",\n"
             "  \"answer\": \"(action=answer 时填：你作为财税顾问的正面回答正文，结论先行、讲人话、不堆术语、不反问'拍给谁看'，可直接用；非 answer 动作时填空字符串)\",\n"
             "  \"pick\": (action=write 时，用户想写的角度。填整数下标【从0开始】或 'all' 或 'next'。否则 null)\n"
+            "  \"in_scope\": (true/false：本条是否属于本平台工作范围——线上自媒体内容获客，见上方范围定义；拿不准就填 true),\n"
+            "  \"out_reply\": \"(in_scope=false 时填写：礼貌说明本平台是做什么的、这条不归我们管，一两句、语气友好、不冷硬；否则空串)\"\n"
             "}\n\n"
+            "★工作范围纠偏（最高优先级，先判这条）：本平台只做【线上自媒体内容获客】——公众号文章、小红书图文、各类短视频、朋友圈文案，"
+            "以及这些内容的选题/写稿/改写/出片/质检/发布/拆解/素材/声音；财税知识/政策/业务问答（顾问身份，也是内容素材）也算范围内。\n"
+            "  - 凡属以上，都要积极承接（in_scope=true），不要推。\n"
+            "  - 下列属于【超出工作范围】，in_scope 必须=false，并在 out_reply 里礼貌说明本平台是做什么的、这条不归我们管（语气友好、不冷硬、一两句即可，不要过度道歉）：\n"
+            "    ① 实际代理记账、报税、做账、税务筹划/注销/变更的落地执行（不是'内容'）；\n"
+            "    ② 法律诉讼、合同代写、工商注册落地办理（除非是'讲注册的内容'）；\n"
+            "    ③ 与内容获客完全无关的生活/技术/闲聊：订餐、查天气、写无关代码、陪聊、医疗/健身/装修等其它行业的落地咨询（除非用户是要'为那个领域做内容'）。\n"
+            "  - 区分示例：'公转私有啥风险''怎么注册公司'是财税问答（in_scope=true，answer）；'帮我报个税''帮我注册个公司落地'是落地服务（in_scope=false）。\n"
+            "  - 用户要某个【已规划但本期还没接通】的能力（矩阵分发/多平台群发、CRM客户档案、1v1视频诊断预约、AI客服自动接待、爆款数据看板、7x24 AI财税顾问）"
+            "→ in_scope=true（属内容获客范畴），但如实说'这个能力我还没接上、现在做不到'，并主动给一个现在能做的替代，不要说成超出范围。\n"
             "判定规则（先判断意图，再决定动作）：\n"
             "- ★最重要：先判断用户到底想要什么。用户可能是在【问一个财税/业务问题】（想知道政策、法规、流程、某做法合不合规、业务怎么开展、某件事怎么处理），"
             "而不是在【让你写口播稿】。\n"
@@ -1039,6 +1052,68 @@ class ChatOrchestrator:
             return {"stage": "answer",
                     "message": "我这边一下没接住，你再发一次、或者换个说法试试？我重新接。"}
         return {"stage": "answer", "message": ans}
+
+    # ---- 对话纠偏：三类边界回复（超出范围 / 能力未接通 / 朋友圈文案） ----
+    def _do_scope_decline(self, s, u, message, reason=None):
+        """礼貌说明本平台只做线上自媒体内容获客，这条不归我们管；语气友好、不冷硬。"""
+        reply = ""
+        if isinstance(u, dict):
+            reply = (u.get("out_reply") or "").strip()
+        if not reply:
+            if reason == "service":
+                reply = ("我是专门帮你做线上获客内容的助手——公众号文章、小红书图文、短视频、朋友圈文案，"
+                         "以及这些内容的选题、写稿、出片、发布。\n"
+                         "你这条更像是落地服务（报税 / 做账 / 注册办理这类），不在我工作范围内，我接了怕说不准、反而误事。"
+                         "不过你要是想知道这类事的【要点 / 风险 / 流程】，我可以当成内容给你讲清楚；真要办，建议找对应的专业机构。")
+            else:
+                reply = ("我是专门帮你做线上获客内容的助手——公众号文章、小红书图文、短视频、朋友圈文案，"
+                         "以及这些内容的选题、写稿、改写、出片、质检、发布。\n"
+                         "你这条不太在我工作范围内，我怕接了说不准。它更适合对应的专业渠道去办；"
+                         "如果你是想把这件事【做成一篇能发出的内容】（文章 / 口播 / 图文），告诉我就行，那正好是我擅长的。")
+        self._chat_log(s.get("id"), "OUT | scope-decline (reason=%s)" % (reason or "llm"))
+        return {"stage": "answer", "message": reply, "scope_declined": True}
+
+    def _do_cap_unavailable(self, s, cap_id, message):
+        """已规划但本期未接通的能力：如实说还没接上 + 给一个现在能做的替代，绝不瞎答应。"""
+        alt = self._HIDDEN_CAP_ALT.get(cap_id, "这个能力我这边还没接上，暂时做不到。")
+        cap_name = (_CAP.get(cap_id) or {}).get("name", cap_id) if _CAP else cap_id
+        self._chat_log(s.get("id"), "OUT | cap-unavailable | %s" % cap_id)
+        return {"stage": "answer",
+                "message": "「%s」这个能力我这边还没接上系统，现在还做不到。\n%s" % (cap_name, alt)}
+
+    def _do_moment(self, s, message):
+        """朋友圈文案：轻量生成（文字给你复制去发，自动发布到微信的接口尚未接通）。"""
+        if s.get("id"):
+            self._set_progress(s["id"], "thinking", "正在帮你写朋友圈文案…")
+        topic = self._extract_topic_from_msg(message) or message
+        for w in ("朋友圈文案", "朋友圈", "文案", "帮我写", "帮我", "请给我", "写一条",
+                  "写个", "来一条", "配一段", "配文", "发一条", "发个"):
+            topic = topic.replace(w, "")
+        topic = topic.strip(" ，。！？、:：\"'").strip()
+        ctx_topic = s.get("topic") or topic or "财税干货 / 老板痛点"
+        cfg = self._cfg()
+        prompt = (
+            "你是「慧根堂财税」的朋友圈文案助手。用户想发一条朋友圈获客文案。\n"
+            "主题：" + ctx_topic + "\n\n"
+            "要求：\n"
+            "1. 产出 1-2 条朋友圈文案，每条 3-6 行、口语、像老板自己发的，不端着；\n"
+            "2. 戳中小老板痛点或给一个马上能用的财税提醒，结尾轻带一句互动（评论 / 私信），不硬广；\n"
+            "3. 不教逃税、不编造数据；可附 1-2 个 #话题；\n"
+            "4. 不要标题、不要 markdown 列表、不要代码块。\n"
+            "只输出文案正文。"
+        )
+        try:
+            ans = self._chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=60)
+            if isinstance(ans, dict):
+                ans = ans.get("content") or ""
+        except Exception:  # noqa: BLE001
+            ans = ""
+        if not ans:
+            ans = "（刚没接住，你把想发的方向再讲一句，我马上写。）"
+        note = ("\n\n— 说明：朋友圈文案我现在能帮你写好文字，但自动发到微信的接口还没接通，你复制去发就行；"
+                "要出成片 / 长文我也能做。")
+        self._chat_log(s.get("id"), "OUT | moment copy generated")
+        return {"stage": "answer", "message": ans + note, "moment": True}
 
     def _route_answer(self, s, u, message, question=None):
         """问答路由收口：合并意图识别与回答生成，避免每轮双调用模型。
@@ -1873,6 +1948,29 @@ class ChatOrchestrator:
     # 出稿链路专属词：命中说明用户是在聊"写稿"，不要误触发能力
     _CAP_EXCLUDE = ("角度", "口播稿", "成稿", "写稿", "出稿", "逐字稿", "标题怎么")
 
+    # —— 对话纠偏：工作范围 + 能力诚实边界 ——
+    # 已规划但本期未接通的能力：用户要时用 _do_cap_unavailable 如实说明 + 给替代
+    _HIDDEN_CAP_WORDS = {
+        "matrix_publish": ("矩阵分发", "矩阵群发", "多平台群发", "一键多发", "同时发到", "多平台分发"),
+        "crm_record": ("客户档案", "crm", "客户crm", "客户画像系统", "线索档案", "客户线索"),
+        "consult_1v1": ("1v1", "一对一诊断", "视频诊断", "抢约诊断", "预约诊断", "诊断预约"),
+        "auto_reception": ("自动接待", "ai客服", "ai 客服", "自动回复客户", "私信自动", "客服接待"),
+        "data_dashboard": ("数据看板", "爆款看板", "数据排名", "哪个最爆", "运营数据看板"),
+        "advisor_chat": ("7x24顾问", "ai财税顾问", "智能顾问", "财税顾问机器人", "顾问在吗"),
+    }
+    _HIDDEN_CAP_ALT = {
+        "matrix_publish": "多平台矩阵群发这个接口我这边还没接通，暂时做不到自动发。不过我可以先帮你把内容出好、配齐「发布素材包」（封面+标题+文案），你手动分发到各平台就行。",
+        "crm_record": "客户 CRM 档案这块我还没接上系统，暂时登记不了。不过你可以把线索信息告诉我，我先帮你记在这段对话里；或者我先把获客内容做好，线索来了自然有入口。",
+        "consult_1v1": "1v1 视频诊断预约这套流程我还没接通，暂时约不了。但你有什么财税问题直接问我，我以顾问身份先帮你分析；真要深度诊断的，可以走线下。",
+        "auto_reception": "AI 客服自动接待我还没接上，暂时做不到自动回私信。但你能把常见客户问题告诉我，我帮你拟一套问答话术 / 自动回复草稿。",
+        "data_dashboard": "爆款数据看板我还没接上数据回流，暂时出不了排名。不过你可以把已发内容的数据告诉我，我帮你人工分析哪条值得复盘。",
+        "advisor_chat": "7x24 AI 财税顾问这个独立模块我还没接进对话，但你现在的任何财税问题我都能直接以顾问身份回答，效果一样。",
+    }
+    # 超出工作范围的落地服务类（精确命中，且必须是'要办'而非'在问'）
+    _SERVICE_OUT_WORDS = ("帮我报税", "帮我报个税", "代理记账", "帮我做账", "帮我记账",
+                          "代办注册公司", "代办注册", "帮我写合同", "代写合同", "法律诉讼",
+                          "打官司", "帮我注销公司", "代办注销公司", "代办注销")
+
     def _match_capability(self, message):
         """关键词快匹配能力 id，命中不了返回 None（交给 LLM 判定）。"""
         if not _CAP or not message:
@@ -1904,6 +2002,38 @@ class ChatOrchestrator:
                 if w in low:
                     return cid
         return None
+
+    # —— 对话纠偏·关键词护栏（LLM 之外的硬兜底，保证不瞎答应）——
+    def _match_hidden_capability(self, message):
+        """命中已规划未接通的能力词 → 返回其 id（交给 _do_cap_unavailable 如实说明）。"""
+        m = str(message or "").strip().lower()
+        for cid, words in self._HIDDEN_CAP_WORDS.items():
+            if any(w in m for w in words):
+                return cid
+        return None
+
+    def _is_moment_request(self, message):
+        """用户要朋友圈文案（不是视频）→ 走 _do_moment 轻量生成。"""
+        m = str(message or "").strip()
+        if "朋友圈" not in m:
+            return False
+        if "视频" in m:        # 朋友圈能发的短视频 → 走视频链路，不算纯文案
+            return False
+        return any(w in m for w in ("文案", "写", "发", "配", "帮我", "来一条", "一条", "段", "句", "内容"))
+
+    def _out_of_scope_guard(self, message):
+        """精确命中'落地服务'祈使句（报税/做账/注册落地/代写合同/打官司）→ 超出范围。
+        带疑问/讨论词（吗/怎么/讲讲/风险/坑…）的视为在问，交问答，不拦。"""
+        m = str(message or "").strip()
+        if not m:
+            return False
+        if any(w in m for w in ("吗", "？", "?", "怎么", "为什么", "啥", "讲讲", "说说",
+                                "区别", "风险", "坑", "流程", "步骤", "要点")):
+            return False
+        for w in self._SERVICE_OUT_WORDS:
+            if w in m:
+                return True
+        return False
 
     def _ctx(self, s):
         """把会话上下文整理成能力参数可用的来源字典。"""
@@ -2645,6 +2775,17 @@ class ChatOrchestrator:
                 return self._do_propose(s)
             if self._detect_plan(message):
                 return self._do_plan(s, message)
+        # 0.8) 对话纠偏：朋友圈文案 / 已规划未接通能力 / 超出范围的落地服务
+        #    放在能力关键词匹配之前：用户要朋友圈文案直接生成；要未接通能力如实说还没接上；
+        #    要报税/做账等落地服务礼貌说明超出范围。都不依赖 LLM，硬兜底不瞎答应。
+        if not pc.get("id"):
+            if self._is_moment_request(message):
+                return self._do_moment(s, message)
+            _hid = self._match_hidden_capability(message)
+            if _hid:
+                return self._do_cap_unavailable(s, _hid, message)
+            if self._out_of_scope_guard(message):
+                return self._do_scope_decline(s, None, message, reason="service")
         # 2) 这句话命中某个平台能力（出片/选题/质检/发布包…）→ 进入能力流程
         # ★写稿后"改成N字/缩短到N字"等字数调整：直接重写最新一篇，不打断流程去走二创能力
         if not pc.get("id") and (s.get("written") or []):
@@ -2663,6 +2804,9 @@ class ChatOrchestrator:
                 _u = self._understand(s, message)
             except Exception:  # noqa: BLE001
                 _u = None
+            # 0.8) 对话纠偏：LLM 判定超出工作范围 → 礼貌说明，不瞎答应（先于能力/写稿分发）
+            if isinstance(_u, dict) and _u.get("in_scope") is False:
+                return self._do_scope_decline(s, _u, message)
             _cap_llm = (_u or {}).get("cap")
             _act_llm = str((_u or {}).get("action") or "")
             try:
@@ -2737,6 +2881,9 @@ class ChatOrchestrator:
             except Exception:  # noqa: BLE001
                 u = None
                 self._chat_log(s.get("id"), f"WARN | _understand 异常降级硬规则 | {str(message)[:60]}")
+        # 0.8) 对话纠偏（兜底路径）：LLM 重算后仍判定超出范围 → 礼貌说明
+        if isinstance(u, dict) and u.get("in_scope") is False:
+            return self._do_scope_decline(s, u, message)
         # —— 本地兜底：LLM 解析失败（返回空/无 action）→ 硬规则判定，杜绝"说啥都没反应" ——
         if not isinstance(u, dict) or not u.get("action"):
             fb = self._local_intent_fallback(s, message)
