@@ -1575,7 +1575,11 @@
                     keep = false;
                     bubble.innerHTML = '<span class="text-slate-400">已取消当前等待。后台可能仍在生成，刷新页面或点进左侧本会话即可查看最新结果。</span>';
                 };
-            } else if (st.stage && ['done', 'written', 'propose', 'search', 'review', 'ask', 'answer'].includes(st.stage)) {
+            } else if (st.stage && ['done', 'written', 'propose', 'search', 'review', 'ask', 'answer',
+                                    'action_ready', 'action_done', 'act_result', 'pipeline'].includes(st.stage)) {
+                // 2026-09-18 补 action_ready 等：异步 worker 也可能算出能力卡片（如"选题规划"命中
+                // 长任务词走异步，worker 返回 action_ready），不补就会掉进兜底渲染成光秃秃"（已完成）"，
+                // 用户永远看不到"开始执行"按钮。
                 safeRender(bubble, st);   // 后台跑完，完整结果渲染（resultBlock 出错时降级为原文 JSON）
                 updateMeta(st); loadSessions();
                 stickToBottom(true);      // 结果替换完成后贴到最新
@@ -1591,9 +1595,14 @@
                 try {
                     const ms = await api('/studio/chat/messages?session_id=' + encodeURIComponent(jobId));
                     const arr = ms.messages || [];
-                    if (arr.length) {
-                        const last = arr[arr.length - 1];
-                        bubble.innerHTML = resultBlock(last.data && last.data.stage ? last.data : last);
+                    // ★字段名是 payload 不是 data（2026-09-18 真机踩坑：last.data 永远 undefined，
+                    //   resultBlock 拿到没 stage/message 的壳子渲染成"（已完成）"）；且要取最后一条 AI 消息。
+                    let lastAi = null;
+                    for (let i = arr.length - 1; i >= 0; i--) { if (arr[i] && arr[i].role === 'ai') { lastAi = arr[i]; break; } }
+                    const pick = lastAi || arr[arr.length - 1];
+                    if (pick) {
+                        const pp = pick.payload || pick;
+                        bubble.innerHTML = resultBlock(pp.stage ? pp : pick);
                         loadSessions();
                         keep = false; break;
                     }

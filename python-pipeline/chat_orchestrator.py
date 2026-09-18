@@ -395,6 +395,9 @@ class ChatOrchestrator:
     # ---- 主动规划模式：用户要"排期/策划/一周内容"时，AI 主动甩出 7 天排期 ----
     _PLAN_WORDS = ("帮我规划", "规划一下", "规划本周", "规划下周", "规划这周", "排期", "排个期",
                    "策划一下", "策划本周", "策划下周", "一周内容", "下周内容", "本周内容",
+                   # 2026-09-18 真机踩坑补词："帮我做本周公众号选题规划，每天1篇"原话一个词都
+                   # 不命中，被 LLM 主判误路由成 article 能力卡（conf=0.72 过阈值），规划流程没跑。
+                   "选题规划", "规划选题", "选题排期", "选题计划", "周选题", "做规划", "周规划",
                    "内容排期", "帮我排", "选题方案", "出个方案", "排个计划", "计划一下",
                    "给我排", "内容规划", "帮我安排", "安排一下内容", "排一周", "排期表")
     # 排期批量出稿触发词：一次把本周 7 天都写成稿（区别于"全写"=把当前角度全写）
@@ -2594,8 +2597,11 @@ class ChatOrchestrator:
                         "tip": "如果卡片没显示，刷新一下页面。",
                     }
                 last_msg = lar.get("msg") or ""
-                if last_msg and (_m == last_msg or _m in last_msg or last_msg in _m or
-                                 self._jaccard(_m, last_msg) > 0.6):
+                # ★规划请求优先于"重复"判定（2026-09-18）：用户重发规划诉求是要重跑规划，
+                #   不能被"参数已经准备好了"的防重复提示挡住（真机踩坑：选题规划连发两次被吞）。
+                if last_msg and not self._detect_plan(_m) and (
+                        _m == last_msg or _m in last_msg or last_msg in _m or
+                        self._jaccard(_m, last_msg) > 0.6):
                     cap_info = {"id": lar["cap_id"],
                                 "name": (_CAP.get(lar["cap_id"]) or {}).get("name", lar["cap_id"])}
                     self._chat_log(sid, "OUT | last_action_ready repeated request")
