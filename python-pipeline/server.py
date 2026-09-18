@@ -2457,6 +2457,43 @@ def recover_jobs():
     print(f"[pipeline] recover_jobs: loaded {loaded} jobs, interrupted(marked failed) {interrupted}")
     return interrupted
 
+def schedule_daemon():
+    """定时任务调度：每分钟扫 data/schedules/*.json，到点（容差 90s）触发 _CHAT_ORCH._run_scheduled_task。"""
+    import glob as _glob
+    while True:
+        time.sleep(60)
+        try:
+            base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "schedules")
+            if not os.path.isdir(base):
+                continue
+            for fp in _glob.glob(os.path.join(base, "*.json")):
+                try:
+                    uid = os.path.splitext(os.path.basename(fp))[0]
+                    with open(fp, encoding="utf-8") as f:
+                        tasks = json.load(f)
+                    now = time.time()
+                    for t in tasks:
+                        if not t.get("enabled", True):
+                            continue
+                        nr = t.get("next_run")
+                        if not nr:
+                            continue
+                        try:
+                            nrt = time.mktime(time.strptime(nr, "%Y-%m-%d %H:%M:%S"))
+                        except Exception:
+                            continue
+                        # 容差 90s：到点前 90s 内即触发（_run_scheduled_task 内部已把 next_run 推到下次，不会重复）
+                        if now >= nrt - 90:
+                            try:
+                                _CHAT_ORCH._run_scheduled_task(uid, t)
+                            except Exception as e:  # noqa: BLE001
+                                print("[pipeline] schedule_daemon task error: %s" % e)
+                except Exception:
+                    pass
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def watchdog_loop():
     """卡死看门狗：每 60s 扫描一次，超过 HARD_TIMEOUT+120s 仍 rendering 的 job 强制回收。"""
     while True:
@@ -3225,6 +3262,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if p.path == "/chat/session/messages":
             q = parse_qs(p.query or "")
             return self._handle_chat_messages((q.get("session_id") or [""])[0])
+        # 定时任务：待发内容 + 任务列表（给前端「待发」角标轮询）
+        if p.path == "/chat/schedules":
+            q = parse_qs(p.query or "")
+            return self._handle_chat_schedules((q.get("user_id") or [""])[0])
         # 对话出稿·异步长任务进度（B 版）
         if p.path.startswith("/chat/status/"):
             _sid = p.path[len("/chat/status/"):].strip("/")
@@ -4935,6 +4976,24 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except Exception as e:  # noqa: BLE001
             return self._send(200, {"ok": False, "messages": [], "error": str(e)})
 
+    # ---- 定时任务：待发内容 + 任务列表（前端「待发」角标轮询）----
+    def _handle_chat_schedules(self, user_id):
+        try:
+            uid = user_id or "default"
+            pending = _CHAT_ORCH._do_schedule_pending(uid)
+            tasks = _CHAT_ORCH._load_schedules(uid)
+            plist = pending.get("pending") if isinstance(pending, dict) else []
+            return self._send(200, {
+                "ok": True,
+                "pending_count": len(plist),
+                "pending": plist,
+                "tasks": [{"id": t.get("id"), "freq": t.get("freq"), "weekday": t.get("weekday"),
+                           "time": t.get("time"), "kind": t.get("kind"), "prompt": t.get("prompt"),
+                           "next_run": t.get("next_run"), "enabled": t.get("enabled", True)} for t in tasks],
+            })
+        except Exception as e:  # noqa: BLE001
+            return self._send(200, {"ok": True, "pending_count": 0, "pending": [], "tasks": [], "error": str(e)})
+
     # ---- 智能质检（同步：违禁词 + 时长 + 风险）----
     def _handle_qc(self, data):
         text = (data.get("text") or "").strip()
@@ -5017,6 +5076,9 @@ if __name__ == "__main__":
     print(f"[pipeline] recovered {recovered} interrupted job(s) from disk")
     wd = threading.Thread(target=watchdog_loop, daemon=True)
     wd.start()
+    sd = threading.Thread(target=schedule_daemon, daemon=True)
+    sd.start()
+    print("[pipeline] schedule_daemon started")
     print(f"[pipeline] guard: global_max={GLOBAL_MAX_JOBS} tenant_max={TENANT_MAX_JOBS} "
           f"hard_timeout={HARD_TIMEOUT}s card_seg_sec={CARD_SEG_SAFE_SEC}s max_duration={MAX_DURATION_SEC}s")
     srv = http.server.ThreadingHTTPServer(("0.0.0.0", port), Handler)

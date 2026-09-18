@@ -209,6 +209,10 @@
                             🎤 语音
                         </button>
                         <div class="flex items-center gap-2">
+                            <button id="pendingBtn" type="button" title="定时任务待发内容（点开复制去发）"
+                                class="shrink-0 relative rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-50">
+                                📋 待发<span id="pendingBadge" class="hidden absolute -right-1.5 -top-1.5 min-w-[16px] rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white">0</span>
+                            </button>
                             <button id="sendBtn" type="button"
                                 class="shrink-0 rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50">
                                 发送
@@ -243,6 +247,15 @@
     </aside>
 
 </div>
+
+    <!-- 定时任务待发弹层 -->
+    <div id="pendingPop" class="hidden fixed bottom-24 left-4 z-50 w-80 max-h-[70vh] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+        <div class="flex items-center justify-between border-b border-slate-100 px-3 py-2">
+            <span class="text-sm font-semibold text-slate-700">📋 待发内容</span>
+            <button id="pendingClose" type="button" class="rounded p-1 text-slate-400 transition hover:bg-slate-100">✕</button>
+        </div>
+        <div id="pendingList" class="max-h-[60vh] overflow-y-auto"></div>
+    </div>
 
 <script>
 (function () {
@@ -1748,6 +1761,57 @@
     setArtifactsOpen(false);
 
     // ---------- 启动 ----------
+    // ---- 定时任务：待发内容角标 + 弹层 ----
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+            {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+    }
+    const SCHED_UID = 'default';
+    function renderPending(pending) {
+        window.__pendingItems = pending || [];
+        const badge = document.getElementById('pendingBadge');
+        const n = window.__pendingItems.length;
+        if (badge) {
+            badge.textContent = n;
+            badge.classList.toggle('hidden', n === 0);
+        }
+        const list = document.getElementById('pendingList');
+        if (!list) return;
+        if (!n) { list.innerHTML = '<p class="px-3 py-6 text-center text-xs text-slate-400">暂无待发内容。</p>'; return; }
+        list.innerHTML = window.__pendingItems.map((it, i) =>
+            '<div class="border-b border-slate-100 px-3 py-2.5">' +
+            '<div class="mb-1 text-[11px] font-medium text-amber-700">' + escapeHtml(it.prompt || '定时内容') + '</div>' +
+            '<div class="whitespace-pre-wrap text-xs leading-relaxed text-slate-700">' + escapeHtml(it.content || '') + '</div>' +
+            '<button type="button" data-copy="' + i + '" class="mt-1.5 rounded border border-indigo-300 bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700 transition hover:bg-indigo-100">复制文案</button>' +
+            '</div>').join('');
+    }
+    async function loadPending() {
+        try {
+            const d = await api('/chat/schedules?user_id=' + encodeURIComponent(SCHED_UID));
+            renderPending((d && d.pending) || []);
+        } catch (e) { /* 待发角标不影响主对话 */ }
+    }
+    document.addEventListener('click', (e) => {
+        const copyBtn = e.target.closest('[data-copy]');
+        if (copyBtn) {
+            const it = (window.__pendingItems || [])[parseInt(copyBtn.getAttribute('data-copy'), 10)];
+            if (it && navigator.clipboard) {
+                navigator.clipboard.writeText(it.content || '').then(() => {
+                    copyBtn.textContent = '已复制 ✓';
+                    setTimeout(() => { copyBtn.textContent = '复制文案'; }, 1500);
+                });
+            }
+            return;
+        }
+        if (e.target.closest('#pendingBtn')) {
+            const pop = document.getElementById('pendingPop');
+            if (pop) pop.classList.toggle('hidden');
+        } else if (!e.target.closest('#pendingPop')) {
+            const pop = document.getElementById('pendingPop');
+            if (pop) pop.classList.add('hidden');
+        }
+    });
+
     (async function init() {
         await loadSessions();
         const known = sessions.some(x => x.session_id === sid);
@@ -1760,6 +1824,9 @@
             showIntro();
         }
         input.focus();
+        // 定时任务：加载待发内容角标 + 每分钟轮询
+        loadPending();
+        setInterval(loadPending, 60000);
     })();
 })();
 </script>

@@ -78,6 +78,14 @@ class ChatOrchestrator:
             os.makedirs(self._dir, exist_ok=True)
         except Exception:
             pass
+        # 定时任务落盘目录：data/schedules/<user>.json + data/schedule_outputs/<user>/<产物>.json
+        self._sched_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "schedules")
+        self._sched_out_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "schedule_outputs")
+        try:
+            os.makedirs(self._sched_dir, exist_ok=True)
+            os.makedirs(self._sched_out_root, exist_ok=True)
+        except Exception:
+            pass
 
     # ---- 会话持久化 ----
     def _path(self, sid):
@@ -1115,6 +1123,291 @@ class ChatOrchestrator:
                 "要出成片 / 长文我也能做。")
         self._chat_log(s.get("id"), "OUT | moment copy generated")
         return {"stage": "answer", "message": ans + note, "moment": True}
+
+    # ===================== 定时任务子系统（对话内设定时内容生产 + 落盘提醒） =====================
+    # 定位：本平台只做「线上自媒体内容获客」，不代发（微信无朋友圈发布 API）。
+    # 定时任务 = 用户说一句"每周一9点帮我备好朋友圈文案" → 到点自动产出内容存盘 + 提醒用户去发。
+    # MVP 实做：朋友圈文案（moment，同步轻量）。口播稿/公众号/规划属重生产，设定时给诚实提示待接。
+    _SCHED_KIND_NAME = {"moment": "朋友圈文案", "write": "短视频口播稿",
+                         "article": "公众号文章", "plan": "内容规划"}
+    _SCHED_WEEKDAYS = {"周一": 0, "周二": 1, "周三": 2, "周四": 3, "周五": 4, "周六": 5, "周日": 6,
+                        "一": 0, "二": 1, "三": 2, "四": 3, "五": 4, "六": 5, "日": 6,
+                        "mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
+
+    def _detect_schedule(self, message):
+        """识别定时任务类意图：set/list/cancel/pending。命中返回意图类型，否则 None。"""
+        m = str(message or "").strip()
+        freq_words = ("每天", "每日", "每周", "每星期", "每个", "定时", "到点", "隔天", "每隔",
+                      "每天早上", "每天晚上", "每周一", "每周二", "每周三", "每周四", "每周五",
+                      "每周六", "每周日", "周日", "周一", "周二", "周三", "周四", "周五", "周六")
+        set_words = ("备好", "写好", "写条", "写一", "生成", "产出", "帮我写", "帮我备", "帮我做",
+                     "推送", "发一条", "发个", "准备", "安排", "设定", "设置", "建个", "提醒我", "到点")
+        if any(w in m for w in freq_words) and any(w in m for w in set_words):
+            return "set"
+        # ★cancel 必须先于 list：否则"取消定时任务1"因含 list 词"定时任务"被误判 list
+        if any(w in m for w in ("取消定时", "关掉定时", "删除定时", "停掉定时", "去掉定时", "取消任务")):
+            return "cancel"
+        if any(w in m for w in ("我的定时任务", "查看定时任务", "定时任务列表", "有哪些定时", "看看定时", "定时任务")):
+            return "list"
+        if any(w in m for w in ("待发", "有什么待发", "待发的", "备好的内容", "还没发的", "待发送", "我有什么")):
+            return "pending"
+        return None
+
+    @staticmethod
+    def _parse_hhmm(t):
+        import re as _re
+        mt = _re.search(r"(\d{1,2})[:：](\d{2})", str(t))
+        if mt:
+            return (max(0, min(23, int(mt.group(1)))), max(0, min(59, int(mt.group(2)))))
+        mt2 = _re.search(r"(\d{1,2})\s*点", str(t))
+        if mt2:
+            return (max(0, min(23, int(mt2.group(1)))), 0)
+        return (9, 0)
+
+    def _parse_schedule_regex(self, m):
+        hh, mm = self._parse_hhmm(m)
+        freq = "daily" if any(w in m for w in ("每天", "每日", "每天早上", "每天晚上", "隔天", "每隔一天")) else "weekly"
+        weekday = None
+        for w, d in self._SCHED_WEEKDAYS.items():
+            if w in m:
+                weekday = d
+                freq = "weekly"
+                break
+        kind = "moment"
+        for kw, k in (("朋友圈", "moment"), ("口播", "write"), ("短视频", "write"),
+                      ("公众号", "article"), ("文章", "article"), ("规划", "plan")):
+            if kw in m:
+                kind = k
+                break
+        import re as _re
+        prompt = m
+        for w in ("帮我", "帮我写", "帮我备", "帮我做", "备好", "写好", "生成", "产出", "推送",
+                  "设定", "设置", "建个", "提醒我", "到点", "每天", "每日", "每周", "每个", "定时",
+                  "早上", "晚上", "点", "分", "条", "篇", "个", "一", "内容", "文案",
+                  "朋友圈", "口播", "短视频", "公众号", "文章", "规划"):
+            prompt = prompt.replace(w, " ")
+        prompt = _re.sub(r"\d{1,2}[:：]\d{2}", " ", prompt)
+        prompt = _re.sub(r"[周一二三五六日]", " ", prompt)
+        prompt = prompt.strip(" ，。！？、:：\"'").strip()
+        return {"freq": freq, "weekday": weekday, "time": "%02d:%02d" % (hh, mm),
+                "kind": kind, "prompt": prompt or "财税干货 / 老板痛点"}
+
+    def _parse_schedule(self, message):
+        """LLM 解析定时任务参数（优先），失败回退正则。返回 {freq,weekday,time,kind,prompt}。"""
+        import re as _re
+        m = str(message or "").strip()
+        try:
+            cfg = self._cfg()
+            prompt = (
+                "你是一个定时内容生产任务的参数解析器。用户想设定一个【定时自动产出内容】的任务"
+                "（注：微信朋友圈没有自动发布接口，系统只负责到点把内容写好存好，由用户复制去发）。\n"
+                "请只输出 JSON：\n"
+                "{\n"
+                '  "freq": "daily" 或 "weekly",\n'
+                '  "weekday": (weekly 时为 0-6 的整数，周一=0；daily 时为 null),\n'
+                '  "time": "HH:MM" (24小时制，从用户话里提取，没有就默认 "09:00"),\n'
+                '  "kind": "moment"(朋友圈文案) / "write"(短视频口播稿) / "article"(公众号文章) / "plan"(内容规划),\n'
+                '  "prompt": "内容主题与要求（去掉频率/时间/类型词后的纯净主题，如\'公转私风险提醒\'）"\n'
+                "}\n"
+                "用户原话：" + m + "\n"
+            )
+            raw = self._chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=40)
+            if isinstance(raw, dict):
+                raw = raw.get("content") or "{}"
+            t = (raw or "").strip()
+            if t.startswith("```"):
+                t = t.strip("`")
+                if t[:4].lower() == "json":
+                    t = t[4:]
+                t = t.strip()
+            obj = json.loads(t)
+            freq = obj.get("freq") or "daily"
+            if freq not in ("daily", "weekly"):
+                freq = "daily"
+            weekday = obj.get("weekday")
+            if weekday is not None:
+                try:
+                    weekday = int(weekday)
+                except Exception:
+                    weekday = None
+            hh, mm = self._parse_hhmm(obj.get("time") or "09:00")
+            kind = obj.get("kind") or "moment"
+            if kind not in self._SCHED_KIND_NAME:
+                kind = "moment"
+            prompt_clean = (obj.get("prompt") or "").strip() or "财税干货 / 老板痛点"
+            return {"freq": freq, "weekday": weekday, "time": "%02d:%02d" % (hh, mm),
+                    "kind": kind, "prompt": prompt_clean}
+        except Exception:
+            pass
+        return self._parse_schedule_regex(m)
+
+    @staticmethod
+    def _next_run_str(freq, weekday, t):
+        from datetime import datetime as _dt, timedelta as _td
+        hh, mm = (int(x) for x in str(t).split(":"))
+        now = _dt.now()
+        cand = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
+        if freq == "daily":
+            if cand <= now:
+                cand += _td(days=1)
+        else:
+            wd = 0 if weekday is None else int(weekday)
+            days = (wd - now.weekday()) % 7
+            if days == 0 and cand <= now:
+                days = 7
+            cand += _td(days=days)
+        return cand.strftime("%Y-%m-%d %H:%M:%S")
+
+    def _schedule_file(self, user_id):
+        return os.path.join(self._sched_dir, "%s.json" % (user_id or "default"))
+
+    def _load_schedules(self, user_id):
+        try:
+            with open(self._schedule_file(user_id), encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+
+    def _save_schedules(self, user_id, tasks):
+        try:
+            tmp = self._schedule_file(user_id) + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(tasks, f, ensure_ascii=False, indent=2)
+            os.replace(tmp, self._schedule_file(user_id))
+        except Exception:
+            pass
+
+    def _sched_out_dir(self, user_id):
+        d = os.path.join(self._sched_out_root, str(user_id or "default"))
+        try:
+            os.makedirs(d, exist_ok=True)
+        except Exception:
+            pass
+        return d
+
+    def _do_schedule_set(self, s, message, user_id):
+        p = self._parse_schedule(message)
+        kind_name = self._SCHED_KIND_NAME.get(p["kind"], "内容")
+        if p["kind"] != "moment":
+            when = ("每天 %s" % p["time"]) if p["freq"] == "daily" \
+                else ("每%s %s" % (["周一", "周二", "周三", "周四", "周五", "周六", "周日"][p["weekday"] or 0], p["time"]))
+            return {"stage": "answer", "message":
+                "定时任务我接住了（%s，%s）。\n目前到点自动生产我只做好了【朋友圈文案】——到点直接帮你写好文字存好、提醒你去发；"
+                "口播稿 / 公众号 / 规划这几类重生产我还在接，你先手动让我出，我尽快把自动版补上。" % (kind_name, when)}
+        task = {
+            "id": "sch_%d" % int(time.time() * 1000),
+            "freq": p["freq"], "weekday": p["weekday"], "time": p["time"],
+            "kind": "moment", "prompt": p["prompt"],
+            "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "last_run": None,
+            "next_run": self._next_run_str(p["freq"], p["weekday"], p["time"]),
+            "enabled": True,
+        }
+        tasks = self._load_schedules(user_id)
+        tasks.append(task)
+        self._save_schedules(user_id, tasks)
+        when = ("每天 %s" % p["time"]) if p["freq"] == "daily" \
+            else ("每%s %s" % (["周一", "周二", "周三", "周四", "周五", "周六", "周日"][p["weekday"] or 0], p["time"]))
+        return {"stage": "answer", "message":
+            "✅ 定时任务设好了：%s，自动帮你写好朋友圈文案存好、提醒你去发。\n"
+            "主题方向：「%s」\n下次执行：%s\n\n"
+            "查看任务列表说「我的定时任务」；取消说「取消定时任务」。\n"
+            "（说明：微信朋友圈没有自动发布接口，所以到点产出文案后需你复制去发——这是平台能力边界，不是偷懒。）" %
+            (when, p["prompt"], task["next_run"])}
+
+    def _do_schedule_list(self, user_id):
+        tasks = self._load_schedules(user_id)
+        if not tasks:
+            return {"stage": "answer", "message": "你还没有设定任何定时任务。说一句「每周一9点帮我备好朋友圈文案」就能设好。"}
+        lines = []
+        for i, t in enumerate(tasks):
+            when = ("每天 %s" % t["time"]) if t["freq"] == "daily" \
+                else ("每%s %s" % (["周一", "周二", "周三", "周四", "周五", "周六", "周日"][t.get("weekday") or 0], t["time"]))
+            lines.append("%d. %s → %s（%s）%s" % (
+                i + 1, when, self._SCHED_KIND_NAME.get(t["kind"], t["kind"]),
+                t.get("prompt"), "" if t.get("enabled", True) else " [已停用]"))
+        return {"stage": "answer", "message": "你的定时任务：\n" + "\n".join(lines) +
+                "\n\n取消某个说「取消定时任务N」（N 是序号）。"}
+
+    def _do_schedule_cancel(self, s, message, user_id):
+        import re as _re
+        tasks = self._load_schedules(user_id)
+        if not tasks:
+            return {"stage": "answer", "message": "你还没有定时任务，没得取消。"}
+        mm = _re.search(r"(\d+)", str(message))
+        idx = (int(mm.group(1)) - 1) if mm else None
+        if idx is None or not (0 <= idx < len(tasks)):
+            return {"stage": "answer", "message": "没找到这个序号。说「我的定时任务」看下序号，再「取消定时任务N」。"}
+        removed = tasks.pop(idx)
+        self._save_schedules(user_id, tasks)
+        return {"stage": "answer", "message": "已取消定时任务：%s。" %
+                self._SCHED_KIND_NAME.get(removed["kind"], removed["kind"])}
+
+    def _do_schedule_pending(self, user_id):
+        import glob as _glob
+        d = self._sched_out_dir(user_id)
+        files = sorted(_glob.glob(os.path.join(d, "*.json")))
+        items = []
+        for fp in files:
+            try:
+                with open(fp, encoding="utf-8") as f:
+                    it = json.load(f)
+                if not it.get("read", False):
+                    items.append(it)
+                    it["read"] = True
+                    with open(fp, "w", encoding="utf-8") as f:
+                        json.dump(it, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
+        if not items:
+            return {"stage": "answer", "message": "暂时没有待发内容。设定时任务后，到点产出的文案会存在这里等你来取。"}
+        blocks = ["【%d】%s\n%s" % (i, it.get("prompt", ""), it.get("content", "")) for i, it in enumerate(items, 1)]
+        return {"stage": "answer",
+                "message": "待发内容（%d 条，点开即可复制去发）：\n\n%s" % (len(items), "\n\n".join(blocks)),
+                "pending": items}
+
+    def _notify_feishu(self, text):
+        """可选提醒：env 配了 FEISHU_WEBHOOK 才发（8500 引擎无 lark-cli，直接 POST 自定义机器人）。失败静默。"""
+        try:
+            wh = os.environ.get("FEISHU_WEBHOOK") or self._get_key("FEISHU_WEBHOOK")
+            if not wh:
+                return
+            import urllib.request as _u
+            data = json.dumps({"msg_type": "text", "content": {"text": text}}).encode("utf-8")
+            req = _u.Request(wh, data=data, headers={"Content-Type": "application/json"}, method="POST")
+            _u.urlopen(req, timeout=10)
+        except Exception:
+            pass
+
+    def _run_scheduled_task(self, user_id, task):
+        """调度线程到点调用：复用 _do_moment 产出朋友圈文案 → 落盘 data/schedule_outputs/<user>/ → 更新 next_run。"""
+        try:
+            sys_s = {"id": "sched_%s" % task["id"], "topic": task.get("prompt") or "财税干货"}
+            content = ""
+            if task.get("kind") == "moment":
+                res = self._do_moment(sys_s, task.get("prompt") or "帮我写条朋友圈文案")
+                content = res.get("message", "") if isinstance(res, dict) else str(res)
+            else:
+                content = "（该类型定时生产还在接入中，暂未产出）"
+            out_dir = self._sched_out_dir(user_id)
+            ts = time.strftime("%Y%m%d_%H%M%S")
+            fp = os.path.join(out_dir, "%s_%s.json" % (task["id"], ts))
+            with open(fp, "w", encoding="utf-8") as f:
+                json.dump({"task_id": task["id"], "kind": task.get("kind"), "prompt": task.get("prompt"),
+                           "content": content, "created_at": time.strftime("%Y-%m-%d %H:%M:%S"), "read": False},
+                          f, ensure_ascii=False, indent=2)
+            task["last_run"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            task["next_run"] = self._next_run_str(task.get("freq", "daily"), task.get("weekday"), task.get("time", "09:00"))
+            tasks = self._load_schedules(user_id)
+            for i, t in enumerate(tasks):
+                if t.get("id") == task["id"]:
+                    tasks[i] = task
+                    break
+            self._save_schedules(user_id, tasks)
+            self._notify_feishu("【定时任务产出】%s\n%s" % (task.get("prompt"), content[:300]))
+            self._chat_log(None, "OK | scheduled task run: %s" % task["id"])
+        except Exception as e:  # noqa: BLE001
+            self._chat_log(None, "ERR | scheduled task failed: %s | %s" % (task.get("id"), e))
 
     def _route_answer(self, s, u, message, question=None):
         """问答路由收口：合并意图识别与回答生成，避免每轮双调用模型。
@@ -2759,6 +3052,23 @@ class ChatOrchestrator:
                 # 否则卡片展示后用户说"配音/去发布/随便问个问题"会全被卡死在这里。
                 # 直接放行，让后续管线/检索/问答分支正常接手（卡片本身仍停在屏幕上）。
                 self._chat_log(sid, "OUT | last_action_ready fall-through (no confirm/repeat/param-change)")
+
+        # 0.7)【定时任务意图】设定/查看/取消/待发——最高优先级，先于规划/纠偏/能力/写稿
+        #   用户说"每周一9点帮我备好朋友圈文案"这类，直接进定时任务子系统，不绕去写稿/能力。
+        if not pc.get("id"):
+            _sched_intent = self._detect_schedule(message)
+            if _sched_intent:
+                # MVP 单用户工作台：定时任务统一绑 default，与前端 /chat/schedules?user_id=default 一致
+                # （多租户隔离后续接登录态再做，避免 user_id 为空时前后端查不到）
+                _uid = "default"
+                if _sched_intent == "set":
+                    return self._do_schedule_set(s, message, _uid)
+                if _sched_intent == "list":
+                    return self._do_schedule_list(_uid)
+                if _sched_intent == "cancel":
+                    return self._do_schedule_cancel(s, message, _uid)
+                if _sched_intent == "pending":
+                    return self._do_schedule_pending(_uid)
 
         # 1.5)【主动规划意图】"规划/排期/策划/一周内容" → 生成 7 天内容排期
         #     【排期卡片点击直通】【规划选题】<主题>　受众：<受众> → 直接拆角度
