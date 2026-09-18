@@ -2828,26 +2828,47 @@ def _post_process(job_id, payload, out_path, job_dir, edit_style):
             _set_job(job_id, error=(jobs.get(job_id, {}).get("error") or "")
                      + " | 封面生成失败：" + ((cerr or "")[:200]))
 
-        # —— 品牌调色（B）：可选色调滤镜，统一视觉风格；音频流 copy 不重编码 ——
-        _grade = payload.get("grade")
-        if _grade and _grade != "original":
-            _grade_vf = _GRADE_FILTERS.get(_grade)
-            if _grade_vf:
-                _graded = os.path.join(job_dir, "out.graded.mp4")
-                _gcmd = [FFMPEG, "-y", "-i", out_path, "-vf", _grade_vf, "-c:a", "copy", _graded]
-                grc, _, gerr = run_with_timeout(_gcmd, GPT_SOVITS, HARD_TIMEOUT,
-                                                log_path=os.path.join(job_dir, "grade.log"))
-                if grc == 0 and os.path.exists(_graded):
-                    out_path = _graded
-                else:
-                    _set_job(job_id, warning="调色处理未成功，已退回未调色成片：" + ((gerr or "")[:200]))
+    # —— 品牌调色（B）：可选色调滤镜，统一视觉风格；音频流 copy 不重编码 ——
+    # 注意：必须在封面分支「之外」，否则只有勾选封面时才调色。
+    _grade = payload.get("grade")
+    if _grade and _grade != "original":
+        _grade_vf = _GRADE_FILTERS.get(_grade)
+        if _grade_vf:
+            _graded = os.path.join(job_dir, "out.graded.mp4")
+            _gcmd = [FFMPEG, "-y", "-i", out_path, "-vf", _grade_vf, "-c:a", "copy", _graded]
+            grc, _, gerr = run_with_timeout(_gcmd, GPT_SOVITS, HARD_TIMEOUT,
+                                            log_path=os.path.join(job_dir, "grade.log"))
+            if grc == 0 and os.path.exists(_graded):
+                out_path = _graded
+            else:
+                _set_job(job_id, warning="调色处理未成功，已退回未调色成片：" + ((gerr or "")[:200]))
 
-        # —— 数据可视化模板（A）：选中则生成图表卡 PNG 作为额外产物，进入右栏 ——
-        _chart = payload.get("chart_template")
-        if _chart:
-            _chart_path = _render_chart_card(_chart, payload, job_dir)
-            if _chart_path:
-                _set_job(job_id, chart_card=_chart_path)
+    # —— 轻 BGM（D）：不依赖剪辑风格独立生效 ——
+    # edit_style 分支内 auto_edit 已混过 BGM（音量 0.10 + 淡入淡出），此处跳过避免二次混音。
+    _bgm_opt = (payload.get("bgm") or "default")
+    if _bgm_opt != "none" and not edit_style:
+        _bgm_file = os.path.join(GPT_SOVITS, "static", "bgm_default.wav")
+        if os.path.exists(_bgm_file):
+            _bm = os.path.join(job_dir, "out.bgm.mp4")
+            _bcmd = [FFMPEG, "-y", "-i", out_path, "-i", _bgm_file,
+                     "-filter_complex",
+                     "[1:a]volume=0.10,afade=t=in:d=2,aloop=loop=-1:size=2e9[bg];"
+                     "[0:a][bg]amix=inputs=2:duration=first:normalize=0[a]",
+                     "-map", "0:v", "-map", "[a]", "-c:v", "copy",
+                     "-c:a", "aac", "-b:a", "192k", "-shortest", _bm]
+            brc, _, berr = run_with_timeout(_bcmd, GPT_SOVITS, HARD_TIMEOUT,
+                                            log_path=os.path.join(job_dir, "bgm.log"))
+            if brc == 0 and os.path.exists(_bm):
+                out_path = _bm
+            else:
+                _set_job(job_id, warning="背景音乐混入未成功，已退回无 BGM 成片：" + ((berr or "")[:200]))
+
+    # —— 数据可视化模板（A）：选中则生成图表卡 PNG 作为额外产物，进入右栏 ——
+    _chart = payload.get("chart_template")
+    if _chart:
+        _chart_path = _render_chart_card(_chart, payload, job_dir)
+        if _chart_path:
+            _set_job(job_id, chart_card=_chart_path)
     return out_path
 
 
