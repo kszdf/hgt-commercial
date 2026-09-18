@@ -1076,7 +1076,8 @@ class ChatOrchestrator:
     def _do_cap_unavailable(self, s, cap_id, message):
         """已规划但本期未接通的能力：如实说还没接上 + 给一个现在能做的替代，绝不瞎答应。"""
         alt = self._HIDDEN_CAP_ALT.get(cap_id, "这个能力我这边还没接上，暂时做不到。")
-        cap_name = (_CAP.get(cap_id) or {}).get("name", cap_id) if _CAP else cap_id
+        cap_name = self._HIDDEN_CAP_NAME.get(cap_id) or (
+            (_CAP.get(cap_id) or {}).get("name", cap_id) if _CAP else cap_id)
         self._chat_log(s.get("id"), "OUT | cap-unavailable | %s" % cap_id)
         return {"stage": "answer",
                 "message": "「%s」这个能力我这边还没接上系统，现在还做不到。\n%s" % (cap_name, alt)}
@@ -1930,19 +1931,9 @@ class ChatOrchestrator:
         "dissect": ("拆解", "爆款拆解", "拆一下"),
         "footage_edit": ("素材剪辑", "剪辑素材"),
         "clone_voice": ("声音克隆", "克隆音色", "克隆我的声音"),
-        # —— v2.0 P2 留资 / P3 增值 ——
-        "consult_1v1": ("1v1", "一对一", "视频诊断", "抢名额", "预约诊断",
-                        "约老张", "找老张聊", "诊断名额"),
-        "advisor_chat": ("在线咨询", "财税顾问", "问问顾问", "咨询一下",
-                        "顾问在吗", "在线问答"),
-        "crm_record": ("客户档案", "线索入档", "记个客户", "录入客户",
-                       "客户线索", "记一下这个客户"),
-        "auto_reception": ("自动接待", "ai客服", "ai 客服", "自动回复客户",
-                          "接待配置"),
-        "matrix_publish": ("矩阵发布", "多平台发布", "一键分发", "多平台分发",
-                          "矩阵分发"),
-        "data_dashboard": ("数据看板", "看数据", "本周数据", "产线数据",
-                          "运营数据"),
+        # —— v2.0 P2 留资 / P3 增值（CRM/1v1/AI客服/矩阵/看板）2026-09-18 已随
+        #    capabilities.py 从能力表彻底移除、暂不开发；用户问到走 _match_hidden_capability
+        #    的"能力诚实层"如实说明，不再作为可触发能力。
     }
 
     # 出稿链路专属词：命中说明用户是在聊"写稿"，不要误触发能力
@@ -1950,6 +1941,15 @@ class ChatOrchestrator:
 
     # —— 对话纠偏：工作范围 + 能力诚实边界 ——
     # 已规划但本期未接通的能力：用户要时用 _do_cap_unavailable 如实说明 + 给替代
+    # 未开发能力的中文名（已从能力表移除，get() 拿不到了，这里兜底）
+    _HIDDEN_CAP_NAME = {
+        "matrix_publish": "矩阵分发·多平台",
+        "crm_record": "客户画像·CRM",
+        "consult_1v1": "专家 1v1 视频诊断",
+        "auto_reception": "AI 客服自动接待",
+        "data_dashboard": "爆款数据看板",
+        "advisor_chat": "AI 财税顾问·7×24",
+    }
     _HIDDEN_CAP_WORDS = {
         "matrix_publish": ("矩阵分发", "矩阵群发", "多平台群发", "一键多发", "同时发到", "多平台分发"),
         "crm_record": ("客户档案", "crm", "客户crm", "客户画像系统", "线索档案", "客户线索"),

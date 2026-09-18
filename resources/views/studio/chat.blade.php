@@ -209,10 +209,6 @@
                             🎤 语音
                         </button>
                         <div class="flex items-center gap-2">
-                            <button id="planWeekBtn" type="button"
-                                class="shrink-0 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50">
-                                📅 规划
-                            </button>
                             <button id="sendBtn" type="button"
                                 class="shrink-0 rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50">
                                 发送
@@ -742,9 +738,9 @@
     const _AUTO_CAPS = ['topic', 'rewrite', 'xhs', 'hotspot'];
 
     // 2026-09-18：开聊引导示例卡（_INTRO_VARIANTS）已移除——能力全部由对话自然语言触发，
-    // 不再用固定话题卡引导。showIntro() 改为空操作，保留签名供各调用点（新会话/切会话/刷新）不报错。
+    // 不再用固定话题卡引导。showIntro() 负责把聊天区清成"空白新对话"状态，保留签名供各调用点不报错。
     function showIntro() {
-        // no-op：开聊即空白对话，能力由用户用自然语言驱动。
+        if (chatBox) chatBox.innerHTML = '';
     }
 
     async function sendUserText(text) {
@@ -1231,6 +1227,7 @@
         try {
             const d = await api('/studio/chat/messages?session_id=' + encodeURIComponent(id));
             setActive(d.session_id, d.title || d.topic || '');
+            chatBox.innerHTML = '';   // 2026-09-18：无条件清屏——新会话/空会话也必须干干净净，不能残留上一个对话
             const msgs = d.messages || [];
             if (!msgs.length) { showIntro(); }
             else {
@@ -1726,8 +1723,7 @@
     }
 
     sendBtn.onclick = doSend;
-    const planWeekBtn = document.getElementById('planWeekBtn');
-    if (planWeekBtn) planWeekBtn.onclick = () => doSend('帮我规划本周财税内容');
+    // 2026-09-18：「📅 规划」快捷按钮已移除——规划直接在对话里说（如"帮我做本周选题规划"）即可触发。
     input.addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
         autoGrow(e.target);  // 自动撑高
