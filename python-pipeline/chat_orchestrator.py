@@ -2390,6 +2390,7 @@ class ChatOrchestrator:
         s["history"].append(f"用户: {message}")
         if len(s["history"]) > 12:
             s["history"] = s["history"][-12:]
+        _u = None  # 2026-09-18 反转路由：LLM 主判结果，提前算、下游复用，避免重复调模型（_understand 在"2"块赋值）
 
         # —— 0) 用户反馈"没反应/卡了/不动"时的紧急引导 ——
         # 排最前：避免 LLM 或关键词匹配把它误当成"开始某个能力"。
@@ -2650,45 +2651,47 @@ class ChatOrchestrator:
                     if _adj:
                         return _adj
         if not pc.get("id"):
-            # ★铁律：能力路由必须优先于"空白写稿"——"出片/做视频/小红书/公众号文章/选题"
-            #   等明确是平台能力，若先走空白写稿会被误劫持成"普通口播稿"（用户点了没反应/答非所问）。
-            cid = self._match_capability(message)
-            if cid:
-                r = self._do_capability(s, message, cid)
-                if r:
-                    return r
-            # 0.6) 自然对话：要写内容但没给主题 → 像人一样只问"想写点什么"，
-            #      受众按话题自动推断（不堆两个问题）；并标记"在等主题"以续接下一句。
-            if self._is_blank_produce_request(message):
-                s["awaiting_topic_for_write"] = True
-                self._chat_log(sid, "OUT | blank-produce | ask-direction")
-                return {"stage": "ask",
-                        "message": "好嘞，想写点什么？给我个方向我马上开写——比如讲公转私的风险、个体户怎么报税，或者股东借款那点事。你说主题，我来搭骨架、出成稿。"}
-
-        # 2.5)【LLM 能力判定】关键词没命中时，用 LLM 判断是不是想调用某个能力。
-        #      刻意不新增调用次数：下面原本就要调 _understand，这里提前调并复用同一份结果。
-        #      （关键词能命中时不走这里，保证"出片""质检"这类明确指令仍是零延迟响应）
-        _u = None
-        if not pc.get("id") and _CAP:
+            # ★反转路由（2026-09-18）：LLM 主判优先于关键词。先把 _understand 算出来让模型"听懂人话"，
+            #   关键词 _match_capability 仅作 LLM 不确定时的安全兜底，且绝不对"在问问题"的消息误开能力。
             try:
                 _u = self._understand(s, message)
             except Exception:  # noqa: BLE001
                 _u = None
-            if isinstance(_u, dict):
-                _cap_id = _u.get("cap")
-                _act_u = str(_u.get("action") or "")
-                try:
-                    _conf = float(_u.get("cap_confidence") or 0)
-                except Exception:  # noqa: BLE001
-                    _conf = 0.0
-                # action=answer → 用户只是在问问题，强制不进能力（宁可多答，不可误触发）
-                if _cap_id and _act_u != "answer" and _CAP.get(_cap_id) \
-                        and not _CAP.is_hidden(_cap_id):
-                    if _conf >= 0.7:
-                        _r = self._do_capability(s, message, _cap_id)
-                        if _r:
-                            return _r
-                    # 0.4~0.7 不追问，直接放过走普通对话——追问比答错更烦人
+            _cap_llm = (_u or {}).get("cap")
+            _act_llm = str((_u or {}).get("action") or "")
+            try:
+                _conf_llm = float((_u or {}).get("cap_confidence") or 0)
+            except Exception:  # noqa: BLE001
+                _conf_llm = 0.0
+            # LLM 明确想调用某能力（且不是在回答问题）→ 直接走能力，模型说了算
+            if _cap_llm and _act_llm != "answer" and _CAP.get(_cap_llm) \
+                    and not _CAP.is_hidden(_cap_llm) and _conf_llm >= 0.7:
+                self._chat_log(sid, "OUT | llm-cap primary | %s (conf=%.2f)" % (_cap_llm, _conf_llm))
+                r = self._do_capability(s, message, _cap_llm)
+                if r:
+                    return r
+            # 关键词兜底：仅在 LLM 没给 cap、且这句话不像"在问问题"时才用
+            # （避免"公转私有啥风险"这类带业务词的问句被误路由成写稿/能力，答非所问）
+            if not _cap_llm:
+                cid = self._match_capability(message)
+                if cid and not self._looks_like_question(message):
+                    self._chat_log(sid, "OUT | kw-cap fallback | %s" % cid)
+                    r = self._do_capability(s, message, cid)
+                    if r:
+                        return r
+            # 0.6) 空白写稿诉求 → 用模型自然反问方向，不再 canned "好嘞想写点什么" 自说自话
+            if self._is_blank_produce_request(message):
+                s["awaiting_topic_for_write"] = True
+                self._chat_log(sid, "OUT | blank-produce | natural-ask")
+                nat = self._gen_reply(
+                    "用户说想写点财税内容但还没给主题。自然地问他想讲什么方向，给 1-2 个接地气的例子"
+                    "（如公转私风险、个体户怎么报税、股东借款那点事），一句带过，别啰嗦，别用'好嘞'开头。",
+                    timeout=30)
+                if not nat:
+                    nat = "想讲点什么方向？比如公转私有啥风险、个体户怎么报税、股东借款那点事——你说主题，我直接搭骨架出成稿。"
+                return {"stage": "ask", "message": nat}
+
+        # 2.5)（2026-09-18 反转后废弃：LLM 主判已上移到"2"块，_u 在此处直接复用，不再二次调用模型）
 
         # 生产链动作意图（不依赖 LLM，关键词命中即响应）：对话出稿 → 引导走 配音/出片/质检/发布
         action_res = self._detect_pipeline(s, message)
