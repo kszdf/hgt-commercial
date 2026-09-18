@@ -2671,6 +2671,92 @@ def _parse_cover_qc(log_text):
     return False, None
 
 
+# —— 品牌调色滤镜（B）：仅套色调，不重编码画面（音频流 copy），低成本统一视觉风格 ——
+_GRADE_FILTERS = {
+    "clean": "eq=brightness=1.03:saturation=1.12:contrast=1.02",
+    "solid": "eq=brightness=0.96:contrast=1.06:saturation=0.92,colorbalance=rs=-0.03:gs=-0.01:bs=0.02",
+    "warm":  "eq=brightness=1.02:saturation=1.05:contrast=1.0,colorbalance=rs=0.05:gs=0.01:bs=-0.05",
+}
+
+# 数据可视化模板（A）：内置示例数据；副标题统一标注「示例数据」，避免误当真实统计。
+_CHART_TEMPLATES = {
+    "tax_compare": {
+        "title": "增值税税率对比",
+        "subtitle": "示例数据 · 可在口播稿标注后替换",
+        "unit": "%",
+        "bars": [("13% 一般计税", 13), ("9% 一般计税", 9), ("6% 现代服务", 6), ("3% 小规模", 3)],
+    },
+    "policy_before_after": {
+        "title": "政策前后对比",
+        "subtitle": "示例数据 · 可在口播稿标注后替换",
+        "unit": "",
+        "bars": [("政策前", 70), ("政策后", 30)],
+    },
+    "weekly_report": {
+        "title": "本周数据周报",
+        "subtitle": "示例数据 · 可在口播稿标注后替换",
+        "unit": "",
+        "bars": [("周一", 5), ("周二", 8), ("周三", 6), ("周四", 9), ("周五", 7)],
+    },
+}
+
+
+def _render_chart_card(template, payload, job_dir):
+    """数据可视化模板（A）：用 PIL 生成一张黑金风格图表卡 PNG，作为出片额外产物。
+    不依赖 matplotlib；无外部数据时用模板内置示例。返回 PNG 路径或 None。"""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except Exception:  # noqa: BLE001
+        return None
+    spec = _CHART_TEMPLATES.get(template)
+    if not spec:
+        return None
+    W, H = 1080, 1920
+    img = Image.new("RGB", (W, H), (12, 14, 20))
+    d = ImageDraw.Draw(img)
+    top, bot = (18, 21, 30), (8, 10, 16)
+    for y in range(H):
+        t = y / H
+        c = tuple(int(a + (b - a) * t) for a, b in zip(top, bot))
+        d.line([(0, y), (W, y)], fill=c)
+    gold = (212, 175, 92)
+    white = (238, 233, 222)
+    grey = (150, 156, 170)
+    try:
+        f_title = ImageFont.truetype(r"C:/Windows/Fonts/NotoSerifSC-VF.ttf", 60)
+        f_sub = ImageFont.truetype(r"C:/Windows/Fonts/simhei.ttf", 34)
+        f_label = ImageFont.truetype(r"C:/Windows/Fonts/simhei.ttf", 40)
+        f_val = ImageFont.truetype(r"C:/Windows/Fonts/simhei.ttf", 40)
+    except Exception:  # noqa: BLE001
+        f_title = f_sub = f_label = f_val = ImageFont.load_default()
+    d.text((W // 2, 220), spec["title"], font=f_title, fill=gold, anchor="mm")
+    d.line([(W // 2 - 200, 280), (W // 2 + 200, 280)], fill=gold, width=3)
+    d.text((W // 2, 340), spec["subtitle"], font=f_sub, fill=grey, anchor="mm")
+    bars = spec["bars"]
+    maxv = max([b[1] for b in bars] + [1])
+    x0, x1 = 140, 1000
+    area_w = x1 - x0
+    y_start = 520
+    row_h = 150
+    bar_h = 64
+    for i, (label, val) in enumerate(bars):
+        y = y_start + i * row_h
+        d.text((x0, y - 6), label, font=f_label, fill=white, anchor="lm")
+        d.rectangle([x0, y + 70, x1, y + 70 + bar_h], fill=(40, 44, 54))
+        bw = int(area_w * (val / maxv))
+        if bw > 0:
+            d.rectangle([x0, y + 70, x0 + bw, y + 70 + bar_h], fill=gold)
+        d.text((x0 + min(bw + 24, area_w - 110), x1), str(val) + spec.get("unit", ""),
+               font=f_val, fill=gold, anchor="lm")
+    d.text((W // 2, H - 160), "慧根堂财税 · 数据可视化模板", font=f_sub, fill=grey, anchor="mm")
+    out = os.path.join(job_dir, "chart_card.png")
+    try:
+        img.save(out, "PNG")
+    except Exception:  # noqa: BLE001
+        return None
+    return out
+
+
 def _post_process(job_id, payload, out_path, job_dir, edit_style):
     """成片后处理：嵌套自动剪辑（片头卡真实标题 + Ken Burns + 转场）+ 智能封面（含 QC 门禁）。
     返回最终 out_path。封面 QC 不达标时不挂次品封面，仅记警告，交由质量门禁裁决。"""
@@ -2685,10 +2771,12 @@ def _post_process(job_id, payload, out_path, job_dir, edit_style):
         edit_args += ["--no-intro"]
         # 所有形式均已烧录字幕：跳过 Ken Burns 缩放（缩放会裁切字幕，QC 误判贴边）
         edit_args += ["--no-kenburns"]
-        # 轻 BGM（自研合成，版权安全）：低音量混入成片
-        _bgm = os.path.join(GPT_SOVITS, "static", "bgm_default.wav")
-        if os.path.exists(_bgm):
-            edit_args += ["--bgm", _bgm]
+        # 轻 BGM（自研合成，版权安全）：低音量混入成片；bgm=none 时不加（用户要静音成片）
+        _bgm_opt = (payload.get("bgm") or "default")
+        if _bgm_opt != "none":
+            _bgm = os.path.join(GPT_SOVITS, "static", "bgm_default.wav")
+            if os.path.exists(_bgm):
+                edit_args += ["--bgm", _bgm]
         nt = payload.get("name_tag")
         if nt:
             edit_args += ["--name-tag", str(nt)]
@@ -2739,6 +2827,27 @@ def _post_process(job_id, payload, out_path, job_dir, edit_style):
         else:
             _set_job(job_id, error=(jobs.get(job_id, {}).get("error") or "")
                      + " | 封面生成失败：" + ((cerr or "")[:200]))
+
+        # —— 品牌调色（B）：可选色调滤镜，统一视觉风格；音频流 copy 不重编码 ——
+        _grade = payload.get("grade")
+        if _grade and _grade != "original":
+            _grade_vf = _GRADE_FILTERS.get(_grade)
+            if _grade_vf:
+                _graded = os.path.join(job_dir, "out.graded.mp4")
+                _gcmd = [FFMPEG, "-y", "-i", out_path, "-vf", _grade_vf, "-c:a", "copy", _graded]
+                grc, _, gerr = run_with_timeout(_gcmd, GPT_SOVITS, HARD_TIMEOUT,
+                                                log_path=os.path.join(job_dir, "grade.log"))
+                if grc == 0 and os.path.exists(_graded):
+                    out_path = _graded
+                else:
+                    _set_job(job_id, warning="调色处理未成功，已退回未调色成片：" + ((gerr or "")[:200]))
+
+        # —— 数据可视化模板（A）：选中则生成图表卡 PNG 作为额外产物，进入右栏 ——
+        _chart = payload.get("chart_template")
+        if _chart:
+            _chart_path = _render_chart_card(_chart, payload, job_dir)
+            if _chart_path:
+                _set_job(job_id, chart_card=_chart_path)
     return out_path
 
 
@@ -3331,6 +3440,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "queue_pos": queue_pos,
                 "progress": render_progress,
                 "result": f"/download/{jid}" if j["status"] == "done" else None,
+                "chart_card": j.get("chart_card"),
                 "cover": j.get("cover"),
                 "qc_video": j.get("qc_video"),
                 "qc_cover": j.get("qc_cover"),
@@ -3350,6 +3460,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
             with open(j["out"], "rb") as f:
                 data = f.read()
             return self._send(200, body=data, ctype="video/mp4")
+
+        # ---- 数据可视化图表卡下载（A）----
+        if p.path.startswith("/download_chart/"):
+            jid = p.path.rsplit("/", 1)[-1]
+            with lock:
+                j = jobs.get(jid)
+            _cp = (j or {}).get("chart_card")
+            if not j or not _cp or not os.path.exists(_cp):
+                return self._send(404, {"error": "not ready"})
+            with open(_cp, "rb") as f:
+                data = f.read()
+            return self._send(200, body=data, ctype="image/png")
 
         # ---- P3 版本列表 ----
         if p.path.startswith("/versions/"):

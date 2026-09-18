@@ -114,6 +114,9 @@ class VideoController extends Controller
             'scripts' => ['sometimes', 'nullable', 'array'],
             'scripts.*' => ['string'],
             'industry' => ['sometimes', 'nullable', 'string', 'max:40'],   // 财税老板行业分群（选题贯穿）
+            'grade' => ['sometimes', 'nullable', 'string', 'in:original,clean,solid,warm'],   // 品牌调色（B）：original/clean/solid/warm
+            'bgm' => ['sometimes', 'nullable', 'string', 'in:default,none'],   // BGM 可选（D）：default=加默认BGM, none=静音成片
+            'chart_template' => ['sometimes', 'nullable', 'string', 'in:tax_compare,policy_before_after,weekly_report'],   // 数据可视化模板（A）
         ]);
 
         // —— 批量出片（图解版并发）：scripts 数组逐条提交，靠并发闸 429 自然限流，不阻塞 HTTP ——
@@ -258,6 +261,12 @@ class VideoController extends Controller
                 $payload[$k] = $request->input($k);
             }
         }
+        // 品牌调色（B）/ BGM 可选（D）/ 数据可视化模板（A）：透传 8500 后处理
+        foreach (['grade', 'bgm', 'chart_template'] as $k) {
+            if ($request->has($k)) {
+                $payload[$k] = $request->input($k);
+            }
+        }
 
         // 参数快照（爆款复刻用）：存本次出片的完整入参
         $job->update(['render_config' => $payload]);
@@ -356,6 +365,12 @@ class VideoController extends Controller
                 }
             }
             foreach (['subtitle_size', 'subtitle_lines', 'subtitle_outline', 'subtitle_position', 'subtitle_style', 'subtitle_font'] as $k) {
+                if ($request->has($k)) {
+                    $payload[$k] = $request->input($k);
+                }
+            }
+            // 品牌调色（B）/ BGM 可选（D）/ 数据可视化模板（A）：透传 8500 后处理
+            foreach (['grade', 'bgm', 'chart_template'] as $k) {
                 if ($request->has($k)) {
                     $payload[$k] = $request->input($k);
                 }
@@ -722,6 +737,23 @@ class VideoController extends Controller
         return response($resp->body(), 200, [
             'Content-Type' => 'video/mp4',
             'Content-Disposition' => 'inline; filename="' . $jobId . '.mp4"',
+        ]);
+    }
+
+    /** 数据可视化图表卡下载（A）：代理 8500 /download_chart/<jobId>，返回 PNG。 */
+    public function downloadChart(string $jobId)
+    {
+        try {
+            $resp = app(PipelineClient::class)->get('/download_chart/' . $jobId, 30);
+        } catch (PipelineUnavailableException $e) {
+            abort(404);
+        }
+        if (! $resp->successful()) {
+            abort(404);
+        }
+        return response($resp->body(), 200, [
+            'Content-Type' => 'image/png',
+            'Content-Disposition' => 'inline; filename="' . $jobId . '_chart.png"',
         ]);
     }
 

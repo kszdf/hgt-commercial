@@ -1106,6 +1106,32 @@
                     + '<p class="mt-1 text-[10px] text-slate-400">在「数字人模特」页上传新场景后，此处可选；未上传则用默认。</p>'
                     + '<a href="/studio/models" target="_blank" class="mt-1 inline-block text-[10px] text-indigo-600 hover:underline">＋ 去上传新场景</a>'
                     + '</div>';
+                // 品牌调色（B）/ BGM 可选（D）/ 数据可视化模板（A）
+                const _gradeOpts = [
+                    { v: 'original', n: '原片（不调色）' },
+                    { v: 'clean', n: '清新（提亮增艳）' },
+                    { v: 'solid', n: '沉稳（商务冷调）' },
+                    { v: 'warm', n: '暖调（亲和）' }
+                ].map(x => '<option value="' + x.v + '">' + x.n + '</option>').join('');
+                const _gradePicker = '<div class="mt-2"><p class="text-[11px] font-medium text-slate-500">品牌调色</p>'
+                    + '<select data-grade class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700">' + _gradeOpts + '</select>'
+                    + '<p class="mt-1 text-[10px] text-slate-400">统一视觉风格，不影响配音与字幕。</p></div>';
+                const _bgmOpts = [
+                    { v: 'default', n: '加轻背景音乐' },
+                    { v: 'none', n: '静音（无 BGM）' }
+                ].map(x => '<option value="' + x.v + '">' + x.n + '</option>').join('');
+                const _bgmPicker = '<div class="mt-2"><p class="text-[11px] font-medium text-slate-500">背景音乐</p>'
+                    + '<select data-bgm class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700">' + _bgmOpts + '</select>'
+                    + '<p class="mt-1 text-[10px] text-slate-400">默认 BGM 为自研合成、版权安全。</p></div>';
+                const _chartOpts = [
+                    { v: '', n: '不使用（纯口播）' },
+                    { v: 'tax_compare', n: '税率对比图' },
+                    { v: 'policy_before_after', n: '政策前后对比' },
+                    { v: 'weekly_report', n: '数据周报' }
+                ].map(x => '<option value="' + x.v + '">' + x.n + '</option>').join('');
+                const _chartPicker = '<div class="mt-2"><p class="text-[11px] font-medium text-slate-500">数据可视化模板</p>'
+                    + '<select data-chart-template class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700">' + _chartOpts + '</select>'
+                    + '<p class="mt-1 text-[10px] text-slate-400">生成图表卡作为额外产物（示例数据，可在口播稿标注后替换）。</p></div>';
             }
             const h = [
                 '<p class="font-medium text-slate-800">' + esc(c.icon || '▶️') + ' ' + esc(r.message || ('准备好了，可以开始' + (c.name || ''))) + '</p>',
@@ -1122,7 +1148,8 @@
                     + '</td><td class="py-0.5 text-slate-700">' + esc(v) + '</td></tr>');
             });
             h.push('</table></div>');
-            h.push(_modePicker + _vfPicker + _modelPicker);
+            h.push(_modePicker + _vfPicker + _modelPicker + _gradePicker + _bgmPicker + _chartPicker);
+            h.push('<p class="mt-2 text-[10px] text-slate-400">整条流水线：🧠 想（选题·写稿）→ 🔊 说（配音）→ 🎬 动（画面·出片）→ 🔤 字（字幕·包装）。你只管丢选题和素材，剩下的自动跑完。</p>');
             let _runBtn;
             let _batchBtn = '';
             if (c.id === 'video_render' && !isAuto) {
@@ -1592,6 +1619,12 @@
             raw.vals.mode = modeVal;
             raw.vals.voice_form = vfVal;
             raw.vals.model = modelVal;
+            const gp = card.querySelector('[data-grade]');
+            const bp = card.querySelector('[data-bgm]');
+            const cp = card.querySelector('[data-chart-template]');
+            if (gp && gp.value && gp.value !== 'original') raw.vals.grade = gp.value;
+            if (bp && bp.value && bp.value !== 'default') raw.vals.bgm = bp.value;
+            if (cp && cp.value) raw.vals.chart_template = cp.value;
             runCapAction(btn, raw);
         } catch (e) {
             console.error('runVideoRender failed', e);
@@ -1617,6 +1650,12 @@
             raw.vals.mode = modeVal;
             raw.vals.voice_form = vfVal;
             raw.vals.scripts = scripts;
+            const gp = card.querySelector('[data-grade]');
+            const bp = card.querySelector('[data-bgm]');
+            const cp = card.querySelector('[data-chart-template]');
+            if (gp && gp.value && gp.value !== 'original') raw.vals.grade = gp.value;
+            if (bp && bp.value && bp.value !== 'default') raw.vals.bgm = bp.value;
+            if (cp && cp.value) raw.vals.chart_template = cp.value;
             runCapAction(btn, raw);
         } catch (e) {
             console.error('runBatchRender failed', e);
@@ -1752,6 +1791,12 @@
                         pushArtifact({ key: 'job:' + jobId, type: 'video',
                             title: '成片（' + String(jobId).slice(0, 6) + '）',
                             sub: '视频 · 渲染完成', url: videoUrl, status: 'done' });
+                        // 数据可视化图表卡（A）：选中模板时生成，进右侧产物面板
+                        if (j.chart_card) {
+                            pushArtifact({ key: 'job:' + jobId + ':chart', type: 'image',
+                                title: '数据图表卡', sub: '数据可视化模板',
+                                url: '/studio/chart/download/' + encodeURIComponent(jobId), status: 'done' });
+                        }
                         // 成片只在右侧「产物」面板呈现（自动弹出、可播放/下载），会话区只发文字通知
                         appendMsg('ai',
                             '<p class="font-medium text-slate-800">🎉 视频渲染完成</p>'

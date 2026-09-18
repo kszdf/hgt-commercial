@@ -71,6 +71,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/studio/video/status/{jobId}', [VideoController::class, 'status'])->name('studio.video.status');
     Route::get('/studio/scroll/job-log/{jobId}', [VideoController::class, 'jobLog']);
     Route::get('/studio/scroll/download/{jobId}', [VideoController::class, 'download']);
+    Route::get('/studio/chart/download/{jobId}', [VideoController::class, 'downloadChart']);
     // 出片中止：前端点击「中止」后由 onAbort 调此端点，转发 8500 标记 job 取消
     Route::post('/studio/scroll/cancel', [VideoController::class, 'cancel'])->name('studio.scroll.cancel');
     // 出片队列预估（提交前 / 轮询时展示当前队列数与预计等待，只读）

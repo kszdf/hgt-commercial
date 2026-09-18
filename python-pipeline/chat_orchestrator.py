@@ -2222,7 +2222,7 @@ class ChatOrchestrator:
         "publish_pack": ("发布包", "素材包", "打包发布", "发布素材"),
         "xhs": ("小红书", "图文笔记", "小红书图文"),
         "dissect": ("拆解", "爆款拆解", "拆一下"),
-        "footage_edit": ("素材剪辑", "剪辑素材"),
+        "footage_edit": ("素材剪辑", "剪辑素材", "实拍素材", "剪停顿", "删停顿", "加字幕", "实拍出片", "剪这段素材"),
         "clone_voice": ("声音克隆", "克隆音色", "克隆我的声音"),
         # —— v2.0 P2 留资 / P3 增值（CRM/1v1/AI客服/矩阵/看板）2026-09-18 已随
         #    capabilities.py 从能力表彻底移除、暂不开发；用户问到走 _match_hidden_capability
