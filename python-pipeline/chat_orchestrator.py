@@ -962,6 +962,11 @@ class ChatOrchestrator:
         msg = (message or "").strip()
         if not msg or not self._search:
             return None
+        # ★写稿指令保护（2026-09-19）：明确"围绕…生成…稿"这类出稿要求，
+        # 哪怕句中带"是不是/有没有/会不会"（用户在陈述写稿要求，不是在问协作审查），
+        # 也绝不能被检索/元审查抢走——曾致"请围绕以上内容生成文稿"被误路由成协作审查。
+        if self._looks_like_write_req(msg):
+            return None
         if not any(w in msg for w in self._SEARCH_TRIGGERS):
             return None
         # 元问题：本空间已有证据/角度/成稿，用户问"有没有结合XX" → 协作审查而非新检索
@@ -1598,6 +1603,26 @@ class ChatOrchestrator:
         if not m:
             return False
         return any(w in m for w in self._PRODUCE_WORDS)
+
+    # 写稿要求句式：与检索触发词（是不是/有没有/会不会）共现时，优先判"写稿指令"而非协作审查
+    _WRITE_REQ_FRAMES = ("围绕", "按以上", "按上述", "根据以上", "根据上述", "以下内容")
+
+    def _looks_like_write_req(self, msg):
+        """这句是不是明确的写稿要求（如"请围绕以上内容生成不超过一分半钟的文稿"）。
+
+        与 _is_produce_cmd 的区别：那边认"写第1条/全写"这类短指令，这边认
+        "围绕（以上/给定）内容 + 生成/写 + 稿类词"的长要求句——用户一口气把
+        内容要点讲完再让出稿，句中常带"是不是/有没有"（在讲业务判断），
+        不能据此误判成问句/协作审查。
+        """
+        m = (msg or "").strip()
+        if not m:
+            return False
+        has_frame = any(w in m for w in self._WRITE_REQ_FRAMES)
+        has_genre = ("稿" in m or "脚本" in m or "文案" in m or "文章" in m)
+        if has_frame and has_genre:
+            return True
+        return ("生成" in m or "写成" in m) and has_genre
 
     # 明确"要写内容"但没给主题的拦截词：命中且提取不出主题 → 自然反问方向，
     # 不甩带占位符的通用模板、也不一次性甩"主题+受众"两个问题（受众按话题自动推断）。
@@ -3163,8 +3188,9 @@ class ChatOrchestrator:
             if isinstance(sq, tuple) and sq[0] == "__META__":
                 return self._do_meta_review(s, sq[1])   # 协作审查：基于已有证据推理
             return self._do_search(s, sq)
-        # 用户在回答我上一轮的反问 → 接续讨论（除非这条是在下出稿/拆解指令）
-        if s.get("pending_question") and not self._is_produce_cmd(message):
+        # 用户在回答我上一轮的反问 → 接续讨论（除非这条是在下出稿/拆解指令或明确写稿要求）
+        if s.get("pending_question") and not self._is_produce_cmd(message) \
+                and not self._looks_like_write_req(message):
             return self._do_followup(s, message)
         # ★受众追问兜底捕获：上一轮系统问了"主要给谁看"（missing=['受众']），这句若不是新指令，
         #   就直接当作受众答案接纳——避免 LLM 把"给中小老板看"这种短回答误判成 action=answer、
@@ -3181,6 +3207,17 @@ class ChatOrchestrator:
                     s["_await_audience"] = False
                     _aud_captured = True
                     self._chat_log(s.get("id"), "OUT | 受众答案已捕获 -> %s" % _ans[:20])
+                elif _ans and self._looks_like_write_req(_ans):
+                    # ★长回答但句式是明确写稿要求（如"请围绕以上内容生成…文稿"）：
+                    # 不再死等受众——受众取通用默认（用户可后改），整段要求进 requirement 直接开写，
+                    # pick 沿用存下的 _await_audience_pick（写哪条角度）。
+                    s["_await_audience"] = False
+                    if not s.get("audience"):
+                        s["audience"] = "已注册、正在经营的中小老板"
+                    _old_req = s.get("requirement") or ""
+                    s["requirement"] = (_old_req + "；" + _ans).strip("；")
+                    _aud_captured = True
+                    self._chat_log(s.get("id"), "OUT | 长写稿要求直写（受众默认），req=%s" % _ans[:30])
         # 复用 2.5 已算好的结果，避免重复调 LLM（关键词命中时 _u 为 None，这里现算）
         # ★防御：LLM 调用异常绝不能冒泡导致整条请求失败（前端表现为"没反应"），必须兜回 None 走硬规则
         if _aud_captured:
