@@ -685,6 +685,9 @@ class ChatOrchestrator:
     def _do_propose(self, s):
         industry = s.get("audience") or s.get("topic") or "中小企业"
         keywords = "；".join(x for x in [s.get("topic"), s.get("requirement")] if x)
+        # 用户给过判断与论据 → 拆角度也要顺着这些观点，而不是退回模板角度
+        if s.get("stance_raw"):
+            keywords = (keywords + "\n【张老师的判断与论据】\n" + str(s["stance_raw"])[:1600]).strip()
         count = int(s.get("count") or 8)   # 默认一次拆 8 条，前 3 条标🔥推荐，减少多次往返
         # 讨论中拍板的结论注入：出角度必须遵循，避免"聊完又回模板"
         if s.get("decisions"):
@@ -768,11 +771,20 @@ class ChatOrchestrator:
                 source += "\n【切入角度】" + angle
             if hook:
                 source += "\n【结尾留资钩子方向】" + hook
+            # ★把用户自己的判断与论据原样带进写稿原料（他给了方向和内容点时，稿子必须体现这些观点）
+            _stance = str(s.get("stance_raw") or "").strip()
+            if not _stance:
+                _req = str(s.get("requirement") or "").strip()
+                if len(_req) >= 60:
+                    _stance = _req
+            if _stance:
+                source += "\n【张老师的判断与论据】（必须体现，可补充依据但不得删改立场）：\n" + _stance[:1600]
             res = self._ai_rewrite(
                 source, "script",
                 focus=s.get("requirement") or None,
                 industry=(s.get("audience") or s.get("topic") or None),
                 funnel=self._pick_funnel(s, a.get("funnel")) or None,  # 获客锚点：对话点名优先，否则用选题锚点
+                stance=_stance or None,  # 有观点论据 → 走立论模式，不许写成中立科普
             )
             rewritten = ""
             if isinstance(res, dict):
@@ -873,10 +885,16 @@ class ChatOrchestrator:
         if target.get("angle"):
             source += "\n【切入角度】" + target.get("angle")
         source += "\n【用户本次修改要求】" + (req_extra or "请按用户本轮表述重写")
+        # 改写也要带上用户此前给过的判断与论据，别改一次就把观点改没了
+        _rv_stance = str(s.get("stance_raw") or "").strip()
+        if _rv_stance:
+            source += "\n【张老师的判断与论据】（必须体现，可补充依据但不得删改立场）：\n" + _rv_stance[:1600]
         res = self._ai_rewrite(
             source, "script",
             focus=s.get("requirement") or None,
             industry=(s.get("audience") or s.get("topic") or None),
+            funnel=self._pick_funnel(s, None) or None,
+            stance=_rv_stance or None,
         )
         rewritten = ""
         if isinstance(res, dict):
@@ -1684,6 +1702,22 @@ class ChatOrchestrator:
         if has_frame and has_genre:
             return True
         return ("生成" in m or "写成" in m) and has_genre
+
+    # 观点/论据标记：命中说明用户在给判断和理由，而不是只给主题
+    _STANCE_MARKS = (
+        "我觉得", "我认为", "我的判断", "我的观点", "我看", "我的看法", "重点是", "关键是",
+        "目的", "初衷", "原因", "因为", "逻辑", "有利", "不利于", "合理", "合适", "合不合理",
+        "法院", "判例", "实质重于形式", "会不会", "是不是", "该不该", "取决于", "这条的规定",
+        "第一行", "第一，", "第一。", "第一点", "第二个", "其次",
+    )
+
+    def _looks_like_stance(self, msg):
+        """这句是在给观点和论据（不是单纯报主题）？用于判断是否原样存档供写稿使用。"""
+        m = str(msg or "").strip()
+        if len(m) < 40:
+            return False
+        hit = sum(1 for w in self._STANCE_MARKS if w in m)
+        return hit >= 1 and len(m) >= 60 or hit >= 2
 
     # 明确"要写内容"但没给主题的拦截词：命中且提取不出主题 → 自然反问方向，
     # 不甩带占位符的通用模板、也不一次性甩"主题+受众"两个问题（受众按话题自动推断）。
@@ -2902,6 +2936,13 @@ class ChatOrchestrator:
         if _term_fixes:
             s["_term_fix_note"] = "、".join(dict.fromkeys(_term_fixes))
             self._chat_log(sid, "TERM | " + s["_term_fix_note"])
+        # ★用户观点/论据存档（2026-09-19）：既然给了方向和判断，就要原样留底，
+        # 写稿时作为【张老师的判断与论据】带进提示词——避免成稿变成没立场的平衡式科普。
+        # 单独存 key（不复用 requirement），防止后续 _understand 摘要把论据冲掉。
+        if self._looks_like_stance(message):
+            old = str(s.get("stance_raw") or "").strip()
+            s["stance_raw"] = (old + "\n" + message).strip() if old else message
+            self._chat_log(sid, "STANCE | 已存 %d 字观点/论据" % len(message))
         if sid:
             self._set_progress(sid, "thinking", "正在理解你的意图…")
         s["history"].append(f"用户: {message}")

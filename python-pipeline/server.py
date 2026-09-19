@@ -1010,7 +1010,7 @@ def _compress_to_target(text, max_chars, cfg=None):
 
 def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
                role_mode=None, role_note=None, keep_manual_roles=None, industry=None,
-               funnel=None):
+               funnel=None, stance=None):
     """智能二创：多模式改写 + 角色/声音分配 + 违禁词标红/清洗。返回含元数据的完整结果。"""
     cfg = get_text_config()
 
@@ -1144,6 +1144,19 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
                 funnel_hint = tip + "\n"
                 break
 
+    # 立论模式（2026-09-19）：用户给了判断和依据时，稿子要替他把结论立住，不能写成两边都不得罪的中立科普
+    stance_hint = ""
+    if stance and str(stance).strip():
+        stance_hint = (
+            "【立论铁律——这条要带着张老师的判断写，不许写成中立科普】\n"
+            "原稿里的【张老师的判断与论据】是他本人的实务判断，必须落到稿子里：\n"
+            "- 先一句话亮明立场（敢下判断，不骑墙、不写'各有道理'）；\n"
+            "- 再给支撑依据：优先用他给的理由和逻辑，可补法条/数字/案例加固，但不得删改或稀释他的观点；\n"
+            "- 必须正面还原争议的另一面（'征求意见稿的本意是…''从征管效率看…'），然后给出边界判断"
+            "（什么时候站得住、什么时候站不住），这一步是稿子有思想的来源，不许省；\n"
+            "- 结尾落到他的结论与建议动作，而不是'这个问题要辩证看'式收尾。\n"
+        )
+
     # 目标时长约束：130–160 字/分 ≈ 2.17–2.67 字/秒；预估按 2.4 字/秒
     dur_hint = ""
     chars_low = None
@@ -1188,6 +1201,7 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
             f"{ind_hint}"  # 行业背景（选题行业贯穿到二创）
             f"{PERSONA_RULE}"  # 人设口径（服务对象/地域/站位）
             f"{SCRIPT_STRUCTURE}"  # 爆款三段结构（开头钩子/正文骨架/结尾软钩子）
+            f"{stance_hint}"  # 立论模式：用户给了判断就必须带着写（否则为空，不影响普通稿）
             f"{funnel_hint or SCRIPT_FUNNEL_DEFAULT}"  # 获客锚点
             f"{NARRATIVE_RULE}"  # 叙事化铁律(起承转合/第一人称/语气词/禁书面腔)
             f"{NO_VULGAR}\n"
