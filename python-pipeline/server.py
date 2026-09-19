@@ -939,7 +939,8 @@ def _compress_to_target(text, max_chars, cfg=None):
         f"你是短视频脚本编辑。下面稿子共 {len(text)} 字，请严格精简到 {max_chars} 字以内（含标点），"
         f"只输出稿子本身，不要解释、不要标题。\n"
         f"保留要求：开头吸引点、1-2 个核心观点/真实案例/关键数据、结尾行动钩子。\n"
-        f"删除要求：重复解释、客套话、过渡铺垫、抽象大道理。\n\n{text}"
+        f"精简要求：删重复解释、客套话、抽象大道理；但必须保留段与段之间的口语过渡"
+        f"（'这里有个容易被忽略的点''往下说'），结尾尤其不许压成口号短句，要留过渡和余味。\n\n{text}"
     )
     try:
         compressed = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=60)
@@ -1006,6 +1007,33 @@ def _compress_to_target(text, max_chars, cfg=None):
         if last_dot > max_chars * 0.7:
             result = result[:last_dot + 1]
     return result
+
+
+def _fix_script_ending(text):
+    """口播稿收尾兜底（2026-09-19）：模型在结尾上最容易露机器味，三类尾巴统一处理。
+    ① 四字/短对仗座右铭句（'账清，路清。''早查，早安。'）→ 直接去掉，让前一句动作兜底；
+    ② 免责/口径声明压在最后一句 → 挪到倒数第二句并接一句口语化表述，不再用它收尾；
+    正常结尾（具体动作、有余味的判断）一律不动。
+    """
+    if not text:
+        return text
+    parts = re.split(r"(?<=[。！？!?])", text.strip())
+    parts = [p for p in parts if p.strip()]
+    if len(parts) < 2:
+        return text
+    tail = parts[-1].strip()
+    prev = parts[-2].strip()
+    head = "".join(parts[:-2])
+    # ① 并列短句/座右铭式：X，Y。两侧等长且都不超过 4 字
+    if len(prev) >= 12:
+        m = re.fullmatch(r"([\u4e00-\u9fa5]{1,4})[，,]([\u4e00-\u9fa5]{1,4})[。!！]", tail)
+        if m and len(m.group(1)) == len(m.group(2)):
+            return head + prev
+    # ② 免责/口径声明收尾
+    if len(prev) >= 12 and len(tail) <= 40 and re.search(
+            r"口径为准|仅供参考|不构成|具体以|实际情况为准|自行核实", tail):
+        return head + "具体到自家怎么处理，还是要以主管税务机关的口径为准。" + prev
+    return text
 
 
 def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
@@ -1213,9 +1241,17 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
             f"{focus_hint}{preserve_hint}"
             "要求：彻底去除AI机械感与书面腔，但保持专业准确性、不编造数据、不改原意；"
             "保留原意与关键结论；长短句结合、自然停顿；语气词适度点缀（每句至多一两个'啊/呢/吧'），不堆砌；"
-            "对话感来自内容互动而非语气词；说话干脆直给。\n"
-            "特别注意：结尾的警示/呼吁必须用专业提醒语气（如'到那时候后悔就晚了''早做打算才是上策'），"
-            "严禁'哭''求'等人身化、夸张化表述。\n"
+            "务必保留段与段之间的口语化过渡（'这里有个容易被忽略的点''往下说''放到你身上就是这样'），"
+            "不要裸列要点；讲完规则先有一句过渡落到老板身上，再给动作清单。"
+            "只输出改写后的稿子本身，不要解释、不要标题、不要代码块。\n\n"
+            "特别注意：结尾要自然收，不要用口号式结束语；更不要抄提示词里的任何示例句（示例只是说明语气，不是可以照搬的话）。\n"
+            "禁止这些套话收尾：'早做打算才是上策''到时候后悔就晚了''未雨绸缪''关注我''记得收藏'"
+            "'早规范早受益'等——听完就像机器念稿。\n"
+            "正确收法：先用一句'落到老板自己身上'的过渡（如'放到你厂里，差的其实就是这一步'），"
+            "再给一个今晚就能做的小动作，最后留一句有余味的判断，不喊口号、不催关注。\n"
+            "另外两条硬红线：一是结尾禁止用四字或短句对仗、座右铭式的收束（如'账清，路清''查清，安稳'），"
+            "听着像机器念标语；二是结尾最后一句必须是具体动作或有余味的判断，"
+            "'以税务机关口径为准''仅供参考'这类免责话可以讲，但要放在倒数第二句以前，不许拿来收尾。\n"
             "只输出改写后的稿子本身，不要解释、不要标题、不要代码块。\n\n"
             "原稿：\n" + text
         )
@@ -1233,10 +1269,16 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
     hits = forbidden_words.scan(rewritten)
     cleaned = forbidden_words.clean_script(rewritten)
     # 二创专用硬替换: 网红化/人身化表述(LLM 对'哭'收尾执念强, prompt 约束不住 → 正则硬洗)
-    for pat, rep in (("来找我哭|找我哭|再来哭|再哭", "到那时候后悔就晚了"),
+    for pat, rep in (("来找我哭|找我哭|再来哭|再哭", "问题就大了"),
                      ("说句大实话", "说句实在话"),
                      ("掏心窝子话", "推心置腹地讲")):
         cleaned = re.sub(pat, rep, cleaned)
+    # 口号式收尾硬洗（2026-09-19）：这些套话最早是从提示词示例里被照抄出来的，
+    # prompt 之外再兜一层，结尾必须落到具体动作和余味上。
+    for _cliche in ("早做打算才是上策", "早做打算", "到时候后悔就晚了", "到那时候后悔就晚了",
+                    "未雨绸缪才是正道", "早规范早受益"):
+        cleaned = re.sub(r"%s[，,]?\s*[。！!]?\s*$" % re.escape(_cliche), "", cleaned)
+    cleaned = _fix_script_ending(cleaned)
 
     # 元数据：字数 + 预估时长（中文约 2.4 字/秒 ≈ 145 字/分钟，含自然停顿；与目标时长 130–160 字/分对齐）
     orig_chars = len(text.replace(" ", "").replace("\n", ""))
