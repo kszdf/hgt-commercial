@@ -754,6 +754,13 @@ class ChatOrchestrator:
         out = []
         total = len(targets)
         sid = s.get("id") or ""
+        # ★目标时长必须透传给 server.ai_rewrite 的 target_duration（它在里面按此算字数上下界硬卡）。
+        #  此前这里从不传，时长只作为一句中文写在 focus 里，模型压根控不住字数——
+        #  「控制在4分钟内」能被写成 1145 字（念出来近 8 分钟）。
+        _dur = self._parse_duration_sec(" ".join(
+            [str(s.get("requirement") or ""), str(s.get("topic") or "")]))
+        if _dur:
+            self._chat_log(sid, "OUT | write target_duration=%ds" % _dur)
         for seq, i in enumerate(targets, 1):
             if i < 0 or i >= len(angles):
                 continue
@@ -783,6 +790,7 @@ class ChatOrchestrator:
                 source, "script",
                 focus=s.get("requirement") or None,
                 industry=(s.get("audience") or s.get("topic") or None),
+                target_duration=_dur,
                 funnel=self._pick_funnel(s, a.get("funnel")) or None,  # 获客锚点：对话点名优先，否则用选题锚点
                 stance=_stance or None,  # 有观点论据 → 走立论模式，不许写成中立科普
             )
@@ -817,8 +825,12 @@ class ChatOrchestrator:
             ],
         }
 
-    def _adjust_last_script_words(self, s, n):
-        """写稿后用户说"改成N字/缩短到N字"→ 重写最新一篇到目标字数（不新增篇、不打断流程）。"""
+    def _adjust_last_script_words(self, s, n, duration=None):
+        """写稿后用户说"改成N字/缩短到N字"→ 重写最新一篇到目标字数（不新增篇、不打断流程）。
+
+        duration: 若同时给了目标秒数，一并传给 ai_rewrite 的 target_duration，
+        让它在模型侧就用字数区间硬卡（server 端会按此算 chars_low/chars_high）。
+        """
         written = s.get("written") or []
         if not written:
             return None
@@ -835,6 +847,7 @@ class ChatOrchestrator:
                 src, "script",
                 focus=focus or None,
                 industry=(s.get("audience") or s.get("topic") or None),
+                target_duration=duration,
             )
         except Exception as e:  # noqa: BLE001
             self._chat_log(s.get("id"), "WARN | _adjust_last_script_words 改写异常：%s" % e)
@@ -893,6 +906,7 @@ class ChatOrchestrator:
             source, "script",
             focus=s.get("requirement") or None,
             industry=(s.get("audience") or s.get("topic") or None),
+            target_duration=self._parse_duration_sec(str(s.get("requirement") or "")),
             funnel=self._pick_funnel(s, None) or None,
             stance=_rv_stance or None,
         )
@@ -913,6 +927,120 @@ class ChatOrchestrator:
                     {"id": "rewrite", "name": "二创改写", "icon": "✍️", "cmd": "二创改写"},
                     {"id": "qc", "name": "文案质检", "icon": "🛡️", "cmd": "质检"},
                 ]}
+
+    # ---- 时长/字数「等待参数」承接（2026-09-19）----
+    # 坑：上一轮我问"想控制在多少秒？"，用户答一个裸数字「240」，
+    #     因为我没记下"我在等什么"，这条数字被丢给 LLM 自由发挥 →
+    #     模型对着空间里的 8 个角度 9 篇稿，把「240」脑补成"第240条"，触发协作审查。
+    # 教训：参数是确定性的东西，正则取到就直接用，绝不能让模型去猜一个数字是什么。
+    _AWAIT_PARAM = {
+        # kind: (下限, 上限, 中文单位, 追问话术里的对象)
+        "seconds": (10, 600, "秒", "时长"),
+        "words": (100, 3000, "字", "字数"),
+    }
+
+    _CN_DIGITS = {"一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5,
+                  "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
+
+    def _parse_duration_sec(self, text):
+        """从用户话里解析目标时长（秒）。返回 int 或 None。
+
+        支持：90秒 / 4分钟 / 4分 / 控制在4分钟内 / 1分半 / 1分半钟 / 一分半 / 1分30秒 / 四分钟。
+        多个时长同时出现时取**最后一个**（用户后说的覆盖先说的）。
+        """
+        t = str(text or "").strip()
+        if not t:
+            return None
+
+        def _cn(ch):
+            return self._CN_DIGITS.get(ch)
+
+        def _n(s):
+            try:
+                return int(s)
+            except Exception:  # noqa: BLE001
+                return None
+
+        # 从特殊到一般逐个扫；★每扫完一个模式，就把命中的片段挖成等长占位符，
+        # 否则更泛的模式会重复命中它——"1分30秒"会被"X分Y秒"取成90，又被"(\d+)秒"取成30，最后错成30秒。
+        _PATTERNS = (
+            (r"(\d{1,3})\s*分\s*(\d{1,2})\s*秒", lambda m: _n(m.group(1)) * 60 + _n(m.group(2))),
+            (r"(\d{1,2})\s*分\s*半\s*钟?", lambda m: _n(m.group(1)) * 60 + 30),
+            (r"(\d{1,2})\s*分\s*钟", lambda m: _n(m.group(1)) * 60),
+            (r"([一二两三四五六七八九十])\s*分\s*半\s*钟?", lambda m: _cn(m.group(1)) * 60 + 30),
+            (r"([一二两三四五六七八九十])\s*分\s*钟", lambda m: _cn(m.group(1)) * 60),
+            (r"(\d{1,3})\s*秒", lambda m: _n(m.group(1))),
+        )
+        hits = []
+        work = t
+        for pat, fn in _PATTERNS:
+            for m in re.finditer(pat, work):
+                v = fn(m)
+                if v:
+                    hits.append((m.start(), v))
+            work = re.sub(pat, lambda m: "〇" * len(m.group(0)), work)
+        # 兜底：口语常省掉"钟"字说"控制在4分"。裸"\d+分"歧义太大（给95分/三分公司/第三部分），
+        # 只在句里有时长语境词时才认，且排除"分公司"。
+        if not hits and re.search(r"时长|长度|控制在|限制在|之内|以内|左右|讲完|念完|播出|视频|这条|一条|片子", t):
+            for m in re.finditer(r"(\d{1,2})\s*分(?!司|公司|之一|之[一二三四五六七八九十])", work):
+                v = _n(m.group(1))
+                if v:
+                    hits.append((m.start(), v * 60))
+        if not hits:
+            return None
+        hits.sort(key=lambda x: x[0])
+        sec = hits[-1][1]
+        return sec if 10 <= sec <= 600 else None
+
+    def _consume_awaiting_param(self, s, message):
+        """我在等一个数值参数（时长/字数），用户这条很可能就是答案。
+
+        返回 dict → 已消费，可直接返回给前端；返回 None → 不是参数回答，交给后续流程。
+        ★取值走正则，不走 LLM。落在合理区间外的一律当作"用户换了话题"，清掉等待状态放行。
+        """
+        kind = s.get("_await_param")
+        if not kind or kind not in self._AWAIT_PARAM:
+            return None
+        lo, hi, unit, obj = self._AWAIT_PARAM[kind]
+        m = str(message or "").strip()
+
+        num = None
+        if kind == "seconds":
+            # 优先认「X分钟/X分半」（用户口头更常说分钟）
+            d = self._parse_duration_sec(m)
+            if d:
+                num = d
+        if num is None:
+            # 裸数字（"240"）或 数字+单位（"240秒"/"600字左右"）
+            mt = re.search(r"(\d{2,5})\s*(秒|字|个字|字左右|秒左右)?", m)
+            if mt:
+                u = mt.group(2) or ""
+                if kind == "seconds" and "字" in u:      # 等秒数却答了字数 → 不是答案
+                    mt = None
+                elif kind == "words" and "秒" in u:      # 等字数却答了秒数 → 不是答案
+                    mt = None
+            if mt:
+                num = int(mt.group(1))
+
+        if num is None or not (lo <= num <= hi):
+            # 不像参数回答：多半是用户换话题了。清掉等待标记，别让他被卡住。
+            s.pop("_await_param", None)
+            self._chat_log(s.get("id"), "OUT | await_param(%s) 放弃：'%s' 不像%s答案" % (kind, m[:20], obj))
+            return None
+
+        s.pop("_await_param", None)
+        s["pending_question"] = []
+        if kind == "seconds":
+            self._chat_log(s.get("id"), "OUT | 时长答案已捕获 -> %d秒" % num)
+            target_words = int(num * 2.6)   # 实测口播 2.6 字/秒，别再按 3.5 高估导致稿子写太长
+            old_req = s.get("requirement") or ""
+            dur_req = "全文时长控制在%d秒左右（约%d字）" % (num, target_words)
+            if dur_req not in old_req:
+                s["requirement"] = (old_req + "；" + dur_req).strip("；")
+            return self._adjust_last_script_words(s, target_words, duration=num)
+        # words
+        self._chat_log(s.get("id"), "OUT | 字数答案已捕获 -> %d字" % num)
+        return self._adjust_last_script_words(s, num)
 
     # ---- 口播稿修改（字数/时长/表述）----
     # 写稿后、出片前，用户可能要求调整。这里统一识别并处理，避免误走能力卡片或答非所问。
@@ -945,23 +1073,29 @@ class ChatOrchestrator:
             _n = int(_wc.group(1))
             if 300 <= _n <= 5000:
                 return self._adjust_last_script_words(s, _n)
-        # 2) 时长调整：按中文口播约 3.5 字/秒换算成字数，再调用字数调整
+        # 2) 时长调整：★实测口播约 2.6 字/秒（原按 3.5 换算，系统性把稿子写长三分之一，
+        #    4分钟的稿能写到 840 字、念出 5 分多钟）
         _sec = re.search(r"(\d{1,3})\s*秒", m)
         if _sec and any(w in m for w in ("改", "时长", "缩短", "加长", "控制", "调")):
             sec = int(_sec.group(1))
-            if 10 <= sec <= 300:
-                target_words = int(sec * 3.5)
+            if 10 <= sec <= 600:
+                target_words = int(sec * 2.6)
                 # 把时长要求也写进会话 requirement，让 _adjust_last_script_words  focus 生效
                 old_req = s.get("requirement") or ""
                 dur_req = "全文时长控制在%d秒左右（约%d字）" % (sec, target_words)
                 if dur_req not in old_req:
                     s["requirement"] = (old_req + "；" + dur_req).strip("；")
-                return self._adjust_last_script_words(s, target_words)
-        # 3) 纯 "改字数" 但没给数字 → 追问
+                return self._adjust_last_script_words(s, target_words, duration=sec)
+        # 3) 纯 "改字数" 但没给数字 → 追问（★必须落 _await_param，否则用户答个裸数字接不住，
+        #    会被丢给 LLM 自由联想——曾把「240」脑补成"第240条"并触发协作审查）
         if any(w in m for w in ("字数", "字")) and not _wc:
+            s["_await_param"] = "words"
+            s["pending_question"] = ["想改成多少字"]
             return {"stage": "ask", "message": "想改成多少字？直接说'改成800字'或'缩短到600字'。"}
         # 4) 纯 "改时长" 但没给秒数 → 追问
         if any(w in m for w in ("时长", "秒")) and not _sec:
+            s["_await_param"] = "seconds"
+            s["pending_question"] = ["想控制在多少秒"]
             return {"stage": "ask", "message": "想控制在多少秒？直接说'缩短到30秒'或'控制在60秒'。"}
         # 5) 改表述/换一种说法/重写 → 用 _do_revise 重写最后一篇
         if any(w in m for w in ("表述", "说法", " wording", "这段", "重写", "改写")):
@@ -2949,6 +3083,13 @@ class ChatOrchestrator:
         if len(s["history"]) > 12:
             s["history"] = s["history"][-12:]
         _u = None  # 2026-09-18 反转路由：LLM 主判结果，提前算、下游复用，避免重复调模型（_understand 在"2"块赋值）
+
+        # —— 0-A) 我在等一个数值参数（秒数/字数），用户这条多半就是答案 ——
+        # ★必须排在所有意图识别之前：裸数字没有任何语义，一旦漏给 LLM，
+        #   模型会对着空间里的角度/稿件把「240」联想成"第240条"，触发莫名其妙的协作审查。
+        _par = self._consume_awaiting_param(s, message)
+        if _par:
+            return _par
 
         # —— 0) 用户反馈"没反应/卡了/不动"时的紧急引导 ——
         # 排最前：避免 LLM 或关键词匹配把它误当成"开始某个能力"。
