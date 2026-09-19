@@ -199,7 +199,9 @@ class ChatOrchestrator:
     def _auto_title(self, s):
         """主题确定后自动给未命名会话起名（临时会话 → 可辨识的主题条目）。"""
         if not s.get("title") and s.get("topic"):
-            t = str(s["topic"]).strip()
+            t, _fx = self._normalize_terms(str(s["topic"]).strip())
+            if _fx:
+                s["topic"] = t  # 主题本身一并纠正，后续拆角度/成稿不再带错字
             s["title"] = t[:24] + ("…" if len(t) > 24 else "")
         # 起了名字就升级为主题空间（列表里归入【主题空间】组）
         if s.get("title") and s.get("kind") != "space":
@@ -246,7 +248,8 @@ class ChatOrchestrator:
     def create_session(self, tenant="", title=""):
         s = self._get(uuid.uuid4().hex)
         s["tenant"] = tenant or ""
-        s["title"] = (title or "").strip()
+        _t, _ = self._normalize_terms((title or "").strip())  # 空间名也不带错字术语
+        s["title"] = _t
         s["kind"] = "space" if s["title"] else "temp"
         s["created"] = time.time()
         s["last"] = time.time()
@@ -256,7 +259,8 @@ class ChatOrchestrator:
     def update_session(self, sid, title=None, kind=None, pinned=None):
         s = self._get(sid)
         if title is not None:
-            s["title"] = str(title).strip()
+            _t, _ = self._normalize_terms(str(title).strip())
+            s["title"] = _t
         if kind in ("temp", "space"):
             s["kind"] = kind
         # 命名后自动升级为主题空间；清空名字则退回临时会话
@@ -323,6 +327,9 @@ class ChatOrchestrator:
             "- topic 主题：讲什么（如'创业开公司注意什么''金税四期下的风险'）。\n"
             "- audience 受众：给谁看（如'刚开公司的小老板'）。\n"
             "- requirement 关键要求：调性/禁忌/要不要带案例等（如'讲人话别堆术语''带个真实案例'）。\n"
+            "- ★术语纠错（提取 topic/requirement 时必须做）：把输入里明显的同音/形近错字术语纠正为规范叫法再写入"
+            "（如'迟滞金'→'迟纳金'、'增植税'→'增值税'、'两套帐'→'两套账'），不要照抄错字；"
+            "但规范术语本身不得互替（'滞纳金'与'迟纳金'是现行法与征求意见稿两个不同概念，用户说哪个就是哪个）。\n"
             "- count 数量：要几条/几期（整数，不填则为 0 表示由 AI 视主题定，用默认 5）。\n\n"
             "当前会话：\n" + missing_hint + "\n"
             "对话历史：" + (hist or "（无）") + "\n"
@@ -567,7 +574,7 @@ class ChatOrchestrator:
             "（≤16字，必须有悬念/冲突/金额感，站老板视角，不要平铺直叙），并给一句【结尾留资钩子方向】。\n"
             + listing + "\n"
             "严格输出 JSON 数组（不要任何解释/代码块标记），顺序与上面完全一致，共 %d 条：\n" % len(days)
-            + '[{"topic":"原主题(照抄)","title":"切入角度标题","hook":"结尾钩子方向"}]'
+            + '[{"topic":"原主题(若含明显错字术语,用纠正后的规范叫法)","title":"切入角度标题","hook":"结尾钩子方向"}]'
         )
         try:
             raw = self._chat_plan(prompt, timeout=90)
@@ -714,7 +721,8 @@ class ChatOrchestrator:
             "stage": "propose",
             "angles": topics,
             "tip": "以上参照你的四要素、本空间已有的检索证据和写稿规范一次拆出 %d 个角度，前 3 条（标🔥）为高热度推荐。"
-                   "你说'就按这个全写'我直接干，或指定写某条（如'写第2条'）。想看证据对应或调整方向，直接说。" % len(topics),
+                   "你说'就按这个全写'我直接干，或指定写某条（如'写第2条'）。想看证据对应或调整方向，直接说。%s"
+                   % (len(topics), self._term_note(s)),
             "next": [
                 {"id": "write", "name": "全部写成稿", "icon": "✍️", "cmd": "全写"},
                 {"id": "tweak", "name": "重新拆角度", "icon": "🎯", "cmd": "重新拆角度"},
@@ -787,7 +795,7 @@ class ChatOrchestrator:
         return {
             "stage": "written",
             "results": out,
-            "message": "口播稿已经写好了。你先看看内容，想改字数、时长、表述直接说；满意了就点「做成片」出视频，也可以先「二创改写」。",
+            "message": "口播稿已经写好了。你先看看内容，想改字数、时长、表述直接说；满意了就点「做成片」出视频，也可以先「二创改写」。" + self._term_note(s),
             "next": [
                 {"id": "video_render", "name": "做成片", "icon": "🎬", "cmd": "做成片"},
                 {"id": "rewrite", "name": "二创改写", "icon": "✍️", "cmd": "二创改写"},
@@ -1606,6 +1614,40 @@ class ChatOrchestrator:
 
     # 写稿要求句式：与检索触发词（是不是/有没有/会不会）共现时，优先判"写稿指令"而非协作审查
     _WRITE_REQ_FRAMES = ("围绕", "按以上", "按上述", "根据以上", "根据上述", "以下内容")
+
+    # —— 财税术语自动纠偏（2026-09-19）——
+    # 背景：语音/手滑把"迟纳金"打成"迟滞金"，从空间名到成稿一路照抄错字没人纠。
+    # 只收高置信同音/形近错法，宁缺勿滥；拿不准的（如"滞纳金"vs"迟纳金"是两个真实概念）
+    # 绝不互改，交给 _understand 提取提示词里的模型纠错。
+    _TERM_FIXES = (
+        ("个人所得锐", "个人所得税"),
+        ("增植税", "增值税"), ("增值锐", "增值税"), ("增智税", "增值税"), ("增值睡", "增值税"),
+        ("所得锐", "所得税"), ("所的税", "所得税"),
+        ("印花锐", "印花税"), ("消费锐", "消费税"), ("关锐", "关税"),
+        ("会算清缴", "汇算清缴"), ("汇算清叫", "汇算清缴"),
+        ("纳锐人", "纳税人"), ("钠税人", "纳税人"),
+        ("锐务局", "税务局"), ("税物局", "税务局"),
+        ("迟滞金", "迟纳金"), ("滞迟金", "迟纳金"), ("迟带金", "迟纳金"),
+        ("两套帐", "两套账"), ("内帐", "内账"), ("外帐", "外账"),
+        ("帐务", "账务"), ("记帐", "记账"),
+        ("金税4期", "金税四期"),
+        ("稅", "税"),
+    )
+
+    def _normalize_terms(self, text):
+        """财税术语纠偏：返回 (纠正后文本, ["错→对", ...])。长词先替换，防子串误伤。"""
+        t = str(text or "")
+        fixes = []
+        for wrong, right in sorted(self._TERM_FIXES, key=lambda x: -len(x[0])):
+            if wrong in t:
+                fixes.append(f"{wrong}→{right}")
+                t = t.replace(wrong, right)
+        return t, fixes
+
+    def _term_note(self, s):
+        """取走本轮术语纠偏备注（有则给一句事实性说明，无则空串）。"""
+        note = s.pop("_term_fix_note", None)
+        return ("（术语自动纠偏：%s；成稿统一用规范叫法）" % note) if note else ""
 
     def _looks_like_write_req(self, msg):
         """这句是不是明确的写稿要求（如"请围绕以上内容生成不超过一分半钟的文稿"）。
@@ -2836,6 +2878,11 @@ class ChatOrchestrator:
     def _step_core(self, s, message):
         sid = s.get("id")
         self._chat_log(sid, f"IN  | {str(message)[:80]}")
+        # ★术语自动纠偏（2026-09-19）：先纠正再理解——主题/空间名/要求/成稿全链路用规范叫法
+        message, _term_fixes = self._normalize_terms(message)
+        if _term_fixes:
+            s["_term_fix_note"] = "、".join(dict.fromkeys(_term_fixes))
+            self._chat_log(sid, "TERM | " + s["_term_fix_note"])
         if sid:
             self._set_progress(sid, "thinking", "正在理解你的意图…")
         s["history"].append(f"用户: {message}")
