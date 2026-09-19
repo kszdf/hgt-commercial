@@ -812,8 +812,12 @@ def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, 
         "- 标题与角度一律用规范财税术语：关键词里的明显错字术语先纠正再用（如'迟滞金'按'迟纳金'出题、'增植税'按'增值税'），不要把错字带进选题；"
         "规范术语不得互替（'滞纳金'与'迟纳金'是两个不同概念）；\n"
         + (f"- 维度约束（必须满足）：\n{dim_block}\n" if dim_block else "")
-        + "每个选题严格按 JSON 数组输出，元素结构：\n"
-        '{"title":"标题(吸睛、戳老板痛点,≤18字)","angle":"切入角度/财税痛点","potential":"爆款潜力理由","hook":"结尾留资钩子建议","form":"建议形式，取值：avatar(数字人)/motion(幕后音·动态画面)/scroll(幕后音·滚动字幕)/manga(AI漫剧)/whiteboard(AI白板图解)/card(图解版·信息卡片解说)"}\n'
+        + "- 每个选题必须在中小企业老板眼里是**刚需**（不查就有麻烦 / 不办就多缴钱 / 不知道就踩坑），\n"
+        "- 并给每个选题标明【获客锚点 funnel】：L1(风险检测钩子款)/L2(轻咨询)/L3(专案·稽查历史遗留)/"
+        "L4(年度顾问)/REG(注册引流)，让成稿的钩子能自然接住一项可承接的服务；\n"
+        "每个选题严格按 JSON 数组输出，元素结构：\n"
+        '{"title":"标题(吸睛、戳老板痛点,≤18字)","angle":"切入角度/财税痛点","potential":"爆款潜力理由",'
+        '"hook":"结尾留资钩子建议","funnel":"L1|L2|L3|L4|REG",'
         "只输出 JSON 数组，不要任何解释或代码块标记。"
     )
     raw = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
@@ -840,10 +844,12 @@ def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, 
                 "angle": str(item.get("angle", "") or "")[:200],
                 "potential": str(item.get("potential", "") or "")[:200],
                 "hook": str(item.get("hook", "") or "")[:200],
+                "funnel": str(item.get("funnel", "") or "L1")[:8],  # 获客锚点，写稿时用于定向钩子
                 "form": str(item.get("form", form or "短视频") or "")[:20] or (form or "短视频"),
             })
         elif isinstance(item, str) and item.strip():
-            topics.append({"title": item.strip()[:60], "angle": "", "potential": "", "hook": "", "form": form or "短视频"})
+            topics.append({"title": item.strip()[:60], "angle": "", "potential": "", "hook": "",
+                           "funnel": "L1", "form": form or "短视频"})
     if not topics:
         return None
     return topics[:cnt]
@@ -1003,7 +1009,8 @@ def _compress_to_target(text, max_chars, cfg=None):
 
 
 def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
-               role_mode=None, role_note=None, keep_manual_roles=None, industry=None):
+               role_mode=None, role_note=None, keep_manual_roles=None, industry=None,
+               funnel=None):
     """智能二创：多模式改写 + 角色/声音分配 + 违禁词标红/清洗。返回含元数据的完整结果。"""
     cfg = get_text_config()
 
@@ -1023,6 +1030,48 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
     NO_VULGAR = ("严禁出现以下网红化/过度口语/不正规表述：'说句大实话''掏心窝子话''不要找我哭''找我哭''老铁''家人们'"
                  "'姐妹们''宝子们''绝绝子''YYDS''划重点'等；若原文含有此类表述，一律替换为专业稳妥的说法"
                  "（如'到那时候后悔就晚了'）；保持专业可信，可以接地气但不能掉价。")
+    # 人设口径（2026-09-19 立）：专业身份由内容自证，不靠自夸年限
+    PERSONA_RULE = (
+        "【人设口径】张德富（老张/张老师）——苏州本地财税实战顾问，服务对象就是中小民企老板，"
+        "专讲税务风险、稽查应对、股权设计、历史遗留问题。\n"
+        "- 站位：像给一个开厂/做工程的老板当面把事讲透，敢给结论、敢说清风险边界，但不吓唬人、不煽情；\n"
+        "- 地域口径：默认昆山/苏州/江苏的中小民企，只有全国性政策才放大范围说；\n"
+        "- 专业身份由内容自证，严禁年限自夸与身份标签（详见下方资历条款）；\n"
+        "- 不教避税、不给灰色操作，讲的是合规路径与可选择的处理方式。\n"
+    )
+    # 爆款结构（2026-09-19 定稿；源自张老师拍板的《老张版三段稿·标准样本》+ 财税口播稿主提示词 v1.0）
+    SCRIPT_STRUCTURE = (
+        "【爆款结构铁律——开头/正文/结尾三段，必须照这个骨架写】\n"
+        "①【开头·钩子】：正文开口第一句就是钩子（标题只作提示语，不放钩子）。\n"
+        "   四种开口手法每期轮换、不许重复用同一种：认知冲突反问（'不少老板以为…，其实刚好反过来'）、"
+        "冲击式反问（'这笔钱以为是省下了，其实埋的是雷'）、代入场景设问（'上个月有个做工程的老板问我…'）、"
+        "危机悬停（'账上这串数，系统已经看到了，就等一个通知'）。\n"
+        "   开口要带真实出处或真实感的场景（谁、干了啥、后果），禁止'今天跟大家聊一聊'式废话开场。\n"
+        "②【正文】：先一句定性（点破趋势或误区，带稽查视角的加分判断）→ 再讲清规则（系统怎么看见的、"
+        "法条依据与可能的后果；引用必须可溯源：政策全称/文号/条款，数字必须准，拿不准就模糊表述，绝不编造）"
+        "→ 最后给解决思路（3 条可落地动作：先补什么、再改什么、日常怎么规范，可带税负口径但不许教规避）。\n"
+        "③【结尾·软钩子】：有回味、给下一步，交给老板自己判断，不推销。\n"
+        "   禁绝对化承诺、禁'加微信/私信我/免费领'等强引流话术；钩子落在老板的自主动作上"
+        "（'今晚先把那笔账过一遍''年前把这几个节点排一排'），且必须是正文没说过的'下一步'——"
+        "不许把正文原话复读一遍当结尾。\n"
+    )
+    # 获客逻辑：每条内容都要能接住一项业务（Structured 锚点，不是科普）
+    FUNNEL_HINTS = {
+        "L1": "本条获客锚点：**L1 税风险检测（钩子款）**——钩子和解决思路要指向『先做个风险检测，把账上的疑点列出来』。",
+        "L2": "本条获客锚点：**L2 轻咨询**——钩子和解决思路要指向『这个具体问题可以单独拎出来算一笔账、给个处理方案』。",
+        "L3": "本条获客锚点：**L3 专案讲解（历史遗留/稽查应对，高客单）**——钩子和解决思路要指向『已经形成的历史问题需要按专案处理』。",
+        "L4": "本条获客锚点：**L4 年度财税顾问**——钩子和解决思路要指向『常态化合规与年度健康度，需要有人长期盯』。",
+        "REG": "本条获客锚点：**注册公司引流款**——钩子和解决思路要指向『开业起步阶段的登记、银行、税务、社保节点』。",
+    }
+    SCRIPT_FUNNEL_DEFAULT = (
+        "【获客锚点】这条内容不是科普，是给老板做决策用的——钩子里必须能自然接住一项可承接的服务：\n"
+        "- 讲风险自查/数据预警 → L1 税风险检测（钩子款）；\n"
+        "- 讲单个具体问题的处理 → L2 轻咨询；\n"
+        "- 讲历史遗留/稽查应对 → L3 专案讲解；\n"
+        "- 讲常态合规与年度健康度 → L4 年度财税顾问；\n"
+        "- 讲注册开办起步 → 注册公司引流款。\n"
+        "点到为止、交给老板判断，不推销不自夸。\n"
+    )
     # 叙事化铁律 v2(2026-08-27 用户定调): 稿子必须是"讲故事"不是"念文件"——
     # 书面腔在源头就锁死自然度; 但财税涉及法律引用, 口语化必须守专业边界:
     # 亲切是语气, 严谨是内容——"讲得动听"不能变成"讲得不准"
@@ -1086,6 +1135,15 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
     if focus and isinstance(focus, str) and focus.strip():
         focus_hint = f"\n【用户指定的重点方向】：{focus.strip()} — 请在改写中特别强化这个方向的内容比重与表达力度。\n"
 
+    # 获客锚点（2026-09-19）：有 funnel 就用定向提示，没有就用五档默认表，让每条稿子都能接住一项业务
+    funnel_hint = ""
+    if funnel and str(funnel).strip():
+        fk = str(funnel).strip().upper()[:4]
+        for key, tip in FUNNEL_HINTS.items():
+            if key in fk:
+                funnel_hint = tip + "\n"
+                break
+
     # 目标时长约束：130–160 字/分 ≈ 2.17–2.67 字/秒；预估按 2.4 字/秒
     dur_hint = ""
     chars_low = None
@@ -1128,6 +1186,9 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
             f"你是资深短视频脚本编辑。请把下面的稿子改写为「{style}」的自然口播稿。\n"
             f"{dur_hint}"  # 目标时长约束放在最前面、最显眼
             f"{ind_hint}"  # 行业背景（选题行业贯穿到二创）
+            f"{PERSONA_RULE}"  # 人设口径（服务对象/地域/站位）
+            f"{SCRIPT_STRUCTURE}"  # 爆款三段结构（开头钩子/正文骨架/结尾软钩子）
+            f"{funnel_hint or SCRIPT_FUNNEL_DEFAULT}"  # 获客锚点
             f"{NARRATIVE_RULE}"  # 叙事化铁律(起承转合/第一人称/语气词/禁书面腔)
             f"{NO_VULGAR}\n"
             f"【角色与声音分配】\n{role_instruction}\n"

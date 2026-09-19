@@ -772,6 +772,7 @@ class ChatOrchestrator:
                 source, "script",
                 focus=s.get("requirement") or None,
                 industry=(s.get("audience") or s.get("topic") or None),
+                funnel=self._pick_funnel(s, a.get("funnel")) or None,  # 获客锚点：对话点名优先，否则用选题锚点
             )
             rewritten = ""
             if isinstance(res, dict):
@@ -1643,6 +1644,24 @@ class ChatOrchestrator:
                 fixes.append(f"{wrong}→{right}")
                 t = t.replace(wrong, right)
         return t, fixes
+
+    # 获客锚点关键词（2026-09-19）：对话里点名的业务意图优先于选题默认锚点
+    _FUNNEL_KEYWORDS = (
+        ("REG", ("注册引流", "注册公司", "引流款", "开办", "新办", "营业执照", "银行开户", "起步")),
+        ("L4", ("年度顾问", "年度财税顾问", "常年顾问", "全年盯", "长期盯", "健康度")),
+        ("L3", ("专案", "历史遗留", "稽查应对", "被查了", "补税账", "陈年账")),
+        ("L2", ("轻咨询", "咨询一次", "单独拎出来", "处理方案")),
+        ("L1", ("风险检测", "钩子款", "自查表", "预警", "检测钩子")),
+    )
+
+    def _pick_funnel(self, s, fallback=None):
+        """从会话的要求/主题/最近对话里挑获客锚点；没点名就用选题默认。"""
+        ctx = " ".join(str(s.get(k) or "") for k in ("requirement", "topic", "audience"))
+        ctx += " " + " ".join(str(x) for x in (s.get("history") or [])[-3:])
+        for key, words in self._FUNNEL_KEYWORDS:
+            if any(w in ctx for w in words):
+                return key
+        return fallback
 
     def _term_note(self, s):
         """取走本轮术语纠偏备注（有则给一句事实性说明，无则空串）。"""
