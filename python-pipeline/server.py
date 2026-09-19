@@ -2495,6 +2495,69 @@ def schedule_daemon():
             pass
 
 
+# —— 渲染中间帧残留清理 ——
+# 数字人/图解版渲染会在 gpt_sovits/_tmp_pil 下生成 frames_<hash> 临时帧目录（单条可达数百 MB）。
+# 正常渲染结束脚本会自清，但异常中断（超时/强杀/渲染失败）会残留，历史上曾堆到 5.4G。
+# 此处做兜底：定期清掉 mtime 超过 TTL 的 frames_* 目录；只认 frames_ 前缀，绝不碰其它文件。
+TMP_PIL_DIR = os.path.join(GPT_SOVITS, "_tmp_pil")
+TMP_FRAME_TTL_SEC = int(os.environ.get("TMP_FRAME_TTL_HOURS", "24") or 24) * 3600
+TMP_FRAME_CLEAN = str(os.environ.get("TMP_FRAME_CLEAN", "1") or "1").lower() not in ("0", "false", "no")
+
+
+def _cleanup_tmp_frames(ttl=TMP_FRAME_TTL_SEC, dry=False):
+    """清理 _tmp_pil 下过期的 frames_* 目录。返回 (清理目录数, 释放字节数)。
+    dry=True 时只统计不删除。异常一律吞掉：清理是辅助功能，不能影响渲染主流程。"""
+    removed = 0
+    freed = 0
+    if not os.path.isdir(TMP_PIL_DIR):
+        return removed, freed
+    now = time.time()
+    for name in os.listdir(TMP_PIL_DIR):
+        if not name.startswith("frames_"):
+            continue
+        p = os.path.join(TMP_PIL_DIR, name)
+        if not os.path.isdir(p):
+            continue
+        try:
+            if now - os.path.getmtime(p) < ttl:
+                continue
+        except OSError:
+            continue
+        size = 0
+        for root, _dirs, files in os.walk(p):
+            for f in files:
+                try:
+                    size += os.path.getsize(os.path.join(root, f))
+                except OSError:
+                    pass
+        if dry:
+            removed += 1
+            freed += size
+            continue
+        try:
+            shutil.rmtree(p)
+            removed += 1
+            freed += size
+            print("[tmp-clean] 清理过期帧目录 %s（%.0f MB）" % (name, size / 1048576.0), flush=True)
+        except Exception as e:  # noqa: BLE001
+            print("[tmp-clean] 清理失败 %s: %s" % (name, str(e)[:150]), flush=True)
+    return removed, freed
+
+
+def tmp_cleaner_daemon(interval=21600):
+    """每 6 小时扫一次中间帧残留；启动时也会先跑一次。"""
+    while True:
+        time.sleep(interval)
+        if not TMP_FRAME_CLEAN:
+            continue
+        try:
+            removed, freed = _cleanup_tmp_frames()
+            if removed:
+                print("[tmp-clean] 本轮清理 %d 个目录，释放 %.0f MB" % (removed, freed / 1048576.0), flush=True)
+        except Exception:  # noqa: BLE001
+            traceback.print_exc()
+
+
 def watchdog_loop():
     """卡死看门狗：每 60s 扫描一次，超过 HARD_TIMEOUT+120s 仍 rendering 的 job 强制回收。"""
     while True:
@@ -5230,6 +5293,16 @@ if __name__ == "__main__":
     sd = threading.Thread(target=schedule_daemon, daemon=True)
     sd.start()
     print("[pipeline] schedule_daemon started")
+    if TMP_FRAME_CLEAN:
+        try:
+            _r, _f = _cleanup_tmp_frames()
+            if _r:
+                print("[pipeline] 启动清理中间帧残留 %d 个目录，释放 %.0f MB" % (_r, _f / 1048576.0))
+        except Exception:  # noqa: BLE001
+            pass
+        tc = threading.Thread(target=tmp_cleaner_daemon, daemon=True)
+        tc.start()
+        print("[pipeline] tmp_cleaner started (ttl=%dh)" % (TMP_FRAME_TTL_SEC // 3600))
     print(f"[pipeline] guard: global_max={GLOBAL_MAX_JOBS} tenant_max={TENANT_MAX_JOBS} "
           f"hard_timeout={HARD_TIMEOUT}s card_seg_sec={CARD_SEG_SAFE_SEC}s max_duration={MAX_DURATION_SEC}s")
     srv = http.server.ThreadingHTTPServer(("0.0.0.0", port), Handler)
