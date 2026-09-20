@@ -65,7 +65,7 @@ DEFAULT_MODEL = "/code/data/BGZSP20260721_t18_silent.mp4"  # 容器内男模路�
 DEFAULT_MALE_VOICE = ""   # 新租户初始无自带声音；须由租户克隆/选择后显式传入
 DEFAULT_FEMALE_VOICE = ""
 
-from qwen_tts import synth as qwen_synth, DEFAULT_VOICE_ID
+from qwen_tts import synth_natural as qwen_synth, DEFAULT_VOICE_ID
 
 
 def _clean(text):
@@ -151,7 +151,7 @@ def synth_concat(segs, male_voice, female_voice, tmpdir, gap=0.25):
             shutil.copy(_cached, wav)
         else:
             qwen_synth(_clean_txt, voice or DEFAULT_VOICE_ID, wav,
-                       model="cosyvoice-v3-plus", speech_rate=1.0, pitch_rate=1.0, volume=50)
+                       model="cosyvoice-v3-plus", base_rate=1.0)
             try:
                 os.makedirs(CACHE, exist_ok=True)
                 shutil.copy(wav, _cached)
