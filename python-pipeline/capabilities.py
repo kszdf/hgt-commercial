@@ -401,3 +401,67 @@ def next_suggestions(cap_id):
                 "desc": n["desc"],
             })
     return out
+
+
+# ---------------------------------------------------------------------------
+# 产物字段登记（2026-09-20）：卡片"下一步建议"必须与正文汇报一致
+# ---------------------------------------------------------------------------
+# 背景（张老师真机截图吐槽）：rewrite 执行 ok=True 但 rewritten/cleaned 全空，
+# 正文模型都说"啥也没拿到，先重跑"，卡片却照推「生成视频/文案质检」——
+# 因为 next 清单是写死的，回灌时不管成败一律硬凑在后面。
+# 空稿出片=白烧配音剪辑，顺序骗人。
+#
+# 规则：每个能力登记"哪些字段非空才算真拿到产物"；回灌时以产物为准：
+#   有产物 → 按各能力 next 清单推下游；
+#   没产物 → 只推"重跑当前能力"，绝不推下游。
+# 特殊标记 "__ok__"：该能力的 ok 标记可信（如 qc——能跑完就等于查过了）。
+PRODUCT_KEYS = {
+    "rewrite":      ("rewritten", "cleaned"),
+    "article":      ("content", "title", "markdown", "html"),
+    "topic":        ("angles", "topics", "items", "results"),
+    "hotspot":      ("angles", "topics", "items", "results"),
+    "dissect":      ("structure", "analysis", "result", "summary"),
+    "strategist":   ("potential_score", "level", "hook_suggest", "result"),
+    "qc":           ("__ok__",),
+    "xhs":          ("note", "__ok__"),
+    "video_render": ("job_id",),
+    "qc_video":     ("job_id", "report_id", "qc"),
+    "publish_pack": ("job_id", "files", "pack"),
+    "footage_edit": ("job_id",),
+    "clone_voice":  ("voice_id", "audio_path"),
+}
+
+# 未登记能力/字段值里不算产物的键（报错说明、元信息）
+_NON_PRODUCT_KEYS = frozenset({"meta", "message", "error", "tip", "summary", "hint", "warn"})
+
+
+def has_product(cap_id, data):
+    """这次执行是否真的拿到了可用产物。
+
+    ★成败标记不可信（rewrite 曾 ok=True 但 rewritten/cleaned 全空），
+    下一步建议必须以产物为准：没产物就不许推下游链。
+    """
+    if not isinstance(data, dict):
+        return False
+    # Laravel/编排层可能包一层 data
+    d = data.get("data") if isinstance(data.get("data"), dict) else data
+    keys = PRODUCT_KEYS.get(cap_id)
+    if keys is None:
+        # 未登记的能力：有 job_id，或任一 ≥30 字的正文即算有产物
+        if d.get("job_id"):
+            return True
+        return any(isinstance(v, str) and len(v.strip()) >= 30
+                   for k, v in d.items() if k not in _NON_PRODUCT_KEYS)
+    for k in keys:
+        if k == "__ok__":
+            if d.get("ok"):
+                return True
+            continue
+        v = d.get(k)
+        if isinstance(v, str) and v.strip():
+            return True
+        if isinstance(v, (list, dict, tuple)) and len(v) > 0:
+            return True
+        if isinstance(v, (int, float)) and v:
+            return True
+    return False

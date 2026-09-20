@@ -2992,6 +2992,14 @@ class ChatOrchestrator:
         # 重复出片，改推 成片质检 → 发布素材包（与 next_suggestions("video_render") 同链）。
         if cap_id == "qc" and s.get("last_job_id"):
             nxt = _CAP.next_suggestions("video_render")
+        # ★卡片提示必须与正文一致（2026-09-20）：ok 标记不可信（rewrite 曾 ok=True 但
+        # rewritten/cleaned 全空），以"是否真拿到产物"为准。没产物（失败/空跑）时绝不推
+        # 下游链——空稿出片=白烧配音剪辑；改推重跑当前能力，卡片不再硬凑在后面。
+        usable = _CAP.has_product(cap_id, data if isinstance(data, dict) else {})
+        if not usable:
+            nxt = [{"id": cap_id, "name": cap.get("name") or cap_id,
+                    "icon": cap.get("icon") or "▶️",
+                    "desc": "这次没拿到可用产出，先重跑一次"}]
         brief = json.dumps(data or {}, ensure_ascii=False)[:1200]
         prompt = (
             MASTER_PROMPT + "\n\n"
@@ -3002,6 +3010,7 @@ class ChatOrchestrator:
             "2. 如果有需要他注意/可能要返工的点，直说（纠偏），别粉饰。\n"
             "3. 下一步建议：从下面这些里面挑最该做的，说明为什么现在做：\n%s\n\n"
             "要求：口语化、简短（200字内）、不客套、不重复结果里的原始数据。"
+            "★如果执行结果为空或没拿到产物，下一步建议只能围绕重跑当前动作，绝不提后续环节。"
             % (cap.get("name") or cap_id, cap.get("desc") or "", brief,
                "成功" if ok else "失败",
                "\n".join("- %s %s：%s" % (n["icon"], n["name"], n["desc"]) for n in nxt) or "（无）")
@@ -3015,9 +3024,11 @@ class ChatOrchestrator:
         return {
             "stage": "action_done",
             "cap": {"id": cap_id, "name": cap.get("name") or cap_id, "icon": cap.get("icon") or "▶️"},
-            "ok": bool(ok),
+            # 顶部"已完成/没跑通"标题也要如实：没拿到产物就不能标"已完成"
+            "ok": bool(ok and usable),
             "data": data if isinstance(data, dict) else {},
-            "message": ans or ("%s已完成。" % (cap.get("name") or cap_id)),
+            "message": ans or (("%s已完成。" % (cap.get("name") or cap_id)) if usable
+                               else "%s没跑出可用结果，点下面卡片重跑一次。" % (cap.get("name") or cap_id)),
             "next": nxt,
             "tip": "点下面的卡片继续，或说你要做什么。",
         }
