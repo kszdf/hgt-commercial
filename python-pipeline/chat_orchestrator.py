@@ -2031,6 +2031,43 @@ class ChatOrchestrator:
     # 明确"要内容"的信号词：命中则不判为纯提问（避免"写条讲XX政策的口播"被拦成问答）
     _PRODUCE_HINT = ("口播", "脚本", "文案", "视频", "图文", "选题", "拆角度", "出稿", "写一条", "写个", "写成")
 
+    # —— "我要做条短视频"必须是出片意图，不是问答题（2026-09-20）——
+    # 真机事故：用户说"我想做一条短视频，主题是：股东借款年底不还…"，系统把它判成 answer，
+    # 长篇大论科普政策，流程第一步就断在"讲知识"上，永远走不到拆角度→写稿→出片。
+    # 只要不是提问句式、又带"做/拍/出 + 视频/口播/抖音/视频号"，一律按出片意图走拆角度。
+    _VIDEO_MEDIA = ("视频", "短视频", "口播", "抖音", "视频号", "快手", "小红书视频")
+    _VIDEO_MAKE = ("做", "拍", "出", "搞", "弄", "来", "生产", "整", "录", "剪", "发")
+    _ASK_SHAPE = ("怎么", "如何", "为什么", "是不是", "要不要", "能不能", "有哪些", "哪有",
+                  "可以吗", "行吗", "吗？", "吗?", "呢？", "对吗")
+
+    _ORD_RE = re.compile(r"第\s*[0-9一二三四五六七八九十]+\s*[个条篇]")
+    _QTY_RE = re.compile(r"(?<![第])[0-9一二三四五六七八九十]+\s*[个条篇]")
+
+    def _is_ordinal_pick(self, msg):
+        """消息里只有序数（第2个/第3条）、没有明确数量词（来5个）→ True。"""
+        m = msg or ""
+        return bool(self._ORD_RE.search(m)) and not self._QTY_RE.search(m)
+
+    # 强结构：「做/出/拍 + (一条|个|期) + 视频/口播/抖音」——命中即出片意图，
+    # 哪怕句里嵌着疑问词（"帮我出一条口播，关于个体户**要不要**注册"里的"要不要"是主题内容）。
+    _MAKE_RE = re.compile(
+        r"(做|拍|出|搞|录|剪|整)[一二三1-3]?\s*(条|个|期|段)?\s*(视频|短视频|口播|抖音|视频号)")
+
+    def _looks_like_video_make(self, msg):
+        """用户说"我要做/拍/出一条短视频（主题是X）"→ 出片意图，不是问答题。"""
+        m = (msg or "").strip()
+        if not m or len(m) < 8:
+            return False
+        if self._MAKE_RE.search(m):
+            return True
+        # 句末疑问（"短视频现在还能做吗""口播还来得及吗"）→ 是提问，不是下指令
+        if re.search(r"(吗|呢|么)[？?]?\s*$", m):
+            return False
+        if any(w in m for w in self._ASK_SHAPE):
+            return False
+        return (any(w in m for w in self._VIDEO_MEDIA)
+                and any(w in m for w in self._VIDEO_MAKE))
+
     def _looks_like_question(self, msg):
         """兜底：这条消息是否更像"在问事情"而不是"让干活"。问句/求知词命中且无"要内容"信号 → True。"""
         m = (msg or "").strip()
@@ -2771,10 +2808,13 @@ class ChatOrchestrator:
                     else:
                         # ★改写能力 guard：用户说"我有逐字稿，帮我改编"时，去掉关键词后的余句
                         # 只是请求话术，不是真正的原文。除非余句足够长（>=80 字）且像正文，否则不自动填 text。
-                        if cid == "rewrite" and target["key"] == "text":
+                        if target["key"] in ("text", "dialogue"):
+                            # ★阈值 80 → 40（2026-09-20）：张老师贴的短文案常只有 50-60 字，
+                            # 卡在 80 字门槛上就被当成"只是请求话术"，回头追问"把原文粘进来"，
+                            # 用户明明已经贴了。只要余句像正文（≥40字、带标点）就当原文收下。
                             _request_tail = ("你可以帮我吗", "我可以", "你能", "请帮我", "帮我一下",
                                                "你可以帮我", "你可以帮我改编", "你可以帮我改写")
-                            if len(rest) >= 80 and not any(t in rest for t in _request_tail):
+                            if len(rest) >= 40 and not any(t in rest for t in _request_tail):
                                 vals[target["key"]] = rest
                         else:
                             vals[target["key"]] = rest
@@ -2813,7 +2853,10 @@ class ChatOrchestrator:
             "cap": cap_info,
             "vals": vals,
             "message": "参数齐了，点「开始执行」我就去跑**%s**。" % cap["name"],
-            "next": _CAP.next_suggestions(cid),
+            # ★还没执行就别推下游（2026-09-20）：action_ready 阶段任务刚提交/待点，
+            # 卡片上挂"成片质检/发布素材包"属于硬凑（与张老师 09-20 吐槽同一类问题）。
+            # 下一步建议一律等 action_done 拿到产物后再给。
+            "next": [],
             "tip": "跑完我会告诉你结果，并提示下一步能做什么。",
         }
         self._chat_log(s.get("id"), "OUT | action_ready cap=%s vals_keys=%s" % (cid, ",".join(vals.keys())))
@@ -3510,7 +3553,11 @@ class ChatOrchestrator:
             c = ex.get("count")
             if c is not None:
                 try:
-                    s["count"] = max(MIN_COUNT, min(MAX_COUNT, int(c)))
+                    # ★序数不是数量（2026-09-20）："用第2个角度""写第3条"里的"第2"被模型
+                    # 提取成 count=2/1，导致重新拆角度时只拆 1 条。消息里只有序数、
+                    # 没有"来 N 个/要 N 条"这类明确数量词时，count 一律不采信。
+                    if not self._is_ordinal_pick(message):
+                        s["count"] = max(MIN_COUNT, min(MAX_COUNT, int(c)))
                 except Exception:
                     pass
         action = u.get("action") or "ask"
@@ -3527,6 +3574,13 @@ class ChatOrchestrator:
                 u["pick"] = "all"
 
         # 阶段推进（优先尊重 LLM 判定的 action；只对"缺要素追问/待开始"做规则兜底）
+        # ★出片意图硬保底（2026-09-20）："我想做一条短视频，主题是X" 被判成 answer 科普，
+        # 流程第一步就走岔。这里用确定性规则兜住——不是提问句式 + 要做视频 → 直接拆角度。
+        # 仅在模型判成 answer/ask 且还没成稿时改写（已成稿时的"做成片"由出片链路处理）。
+        if action in ("answer", "ask") and not s.get("written") and self._looks_like_video_make(message):
+            if s.get("topic") or self._extract_topic_from_msg(message):
+                action = "propose"
+
         if action == "write":
             # 要素是否齐？主题缺 → 先补主题；受众缺 → 先尝试从话题推断，推不出才问
             if not s.get("topic"):
