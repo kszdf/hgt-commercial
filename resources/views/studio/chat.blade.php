@@ -761,16 +761,18 @@
         await doSend();
     }
 
-    // 兜底渲染：resultBlock 抛错时退化到 JSON 原文，AI 永不沉默
+    // 兜底渲染：resultBlock 抛错时退化到纯文本，AI 永不沉默，也绝不把 JSON 源码甩给用户
     function safeRender(bubble, data) {
         try {
             bubble.innerHTML = resultBlock(data);
         } catch (err) {
             console.error('resultBlock error:', err, data);
-            const json = JSON.stringify(data, null, 0);
-            bubble.innerHTML = '<div class="space-y-2"><div class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-700">'
-                + '回复内容渲染异常（已退化到原文）：</div>'
-                + '<pre class="whitespace-pre-wrap break-words text-[12.5px] text-slate-700">' + esc(json) + '</pre></div>';
+            const d = (data && typeof data === 'object') ? data : {};
+            let txt = String(d.message || d.summary || d.tip || '');
+            if (!txt && d.cap && d.cap.name) txt = '已准备好「' + d.cap.name + '」，可以直接执行。';
+            if (!txt) txt = '这条回复已生成，但界面渲染出了点问题。直接说你想做什么，我继续。';
+            bubble.innerHTML = '<p class="text-slate-800">' + esc(txt) + '</p>'
+                + '<p class="mt-1 text-[11px] text-amber-600">（卡片渲染异常，已用纯文本显示；按 F12 控制台可看具体报错）</p>';
         }
     }
 
@@ -1058,6 +1060,12 @@
             let _modePicker = '';
             let _vfPicker = '';
             let _modelPicker = '';
+            // ★这三个必须声明在 if 块外：块内 const 是块级作用域，
+            // 非 video_render 的能力（rewrite/topic/xhs/hotspot）走到 L1151 拼接时会 ReferenceError，
+            // 整个卡片被 safeRender 兜成 JSON 原文吐出来。
+            let _gradePicker = '';
+            let _bgmPicker = '';
+            let _chartPicker = '';
             if (c.id === 'video_render') {
                 const _modes = [
                     { m: 'scroll', icon: '📜', name: '滚动字幕' },
@@ -1113,14 +1121,14 @@
                     { v: 'solid', n: '沉稳（商务冷调）' },
                     { v: 'warm', n: '暖调（亲和）' }
                 ].map(x => '<option value="' + x.v + '">' + x.n + '</option>').join('');
-                const _gradePicker = '<div class="mt-2"><p class="text-[11px] font-medium text-slate-500">品牌调色</p>'
+                _gradePicker = '<div class="mt-2"><p class="text-[11px] font-medium text-slate-500">品牌调色</p>'
                     + '<select data-grade class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700">' + _gradeOpts + '</select>'
                     + '<p class="mt-1 text-[10px] text-slate-400">统一视觉风格，不影响配音与字幕。</p></div>';
                 const _bgmOpts = [
                     { v: 'default', n: '加轻背景音乐' },
                     { v: 'none', n: '静音（无 BGM）' }
                 ].map(x => '<option value="' + x.v + '">' + x.n + '</option>').join('');
-                const _bgmPicker = '<div class="mt-2"><p class="text-[11px] font-medium text-slate-500">背景音乐</p>'
+                _bgmPicker = '<div class="mt-2"><p class="text-[11px] font-medium text-slate-500">背景音乐</p>'
                     + '<select data-bgm class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700">' + _bgmOpts + '</select>'
                     + '<p class="mt-1 text-[10px] text-slate-400">默认 BGM 为自研合成、版权安全。</p></div>';
                 const _chartOpts = [
@@ -1129,7 +1137,7 @@
                     { v: 'policy_before_after', n: '政策前后对比' },
                     { v: 'weekly_report', n: '数据周报' }
                 ].map(x => '<option value="' + x.v + '">' + x.n + '</option>').join('');
-                const _chartPicker = '<div class="mt-2"><p class="text-[11px] font-medium text-slate-500">数据可视化模板</p>'
+                _chartPicker = '<div class="mt-2"><p class="text-[11px] font-medium text-slate-500">数据可视化模板</p>'
                     + '<select data-chart-template class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700">' + _chartOpts + '</select>'
                     + '<p class="mt-1 text-[10px] text-slate-400">生成图表卡作为额外产物（示例数据，可在口播稿标注后替换）。</p></div>';
             }
