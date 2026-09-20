@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-平台能力注册表（对话驱动一切的核心）。
+"""平台能力注册表（对话驱动一切的核心）。
 
 设计目标
 --------
@@ -415,6 +414,38 @@ def next_suggestions(cap_id):
 #   有产物 → 按各能力 next 清单推下游；
 #   没产物 → 只推"重跑当前能力"，绝不推下游。
 # 特殊标记 "__ok__"：该能力的 ok 标记可信（如 qc——能跑完就等于查过了）。
+import os
+import json
+
+# 视频类产物的 job.json 所在目录（与 server.py 的 JOBS_DIR 保持一致）
+_JOBS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jobs")
+
+
+def _video_product_exists(d):
+    """视频类产物：job_id 存在还不够，必须磁盘上真有 out 成品文件才算有产物。
+
+    根因：Laravel /studio/chat/action（VideoController::generate）和 8500 /status
+    回灌时都不带 out 字段，只给 job_id。若 has_product 只认 job_id，就会在成片
+    实际缺失/未回写时误判“有产物”，从而推出『成片质检/发布素材包』等下游卡，
+    与正文“没拿到成片”自相矛盾（正是 09-20 张老师吐槽的同一类 bug 在视频场景复现）。
+    """
+    out = d.get("out")
+    if isinstance(out, str) and out.strip() and os.path.isfile(out):
+        return True
+    jid = d.get("job_id")
+    if not jid or not isinstance(jid, str):
+        return False
+    jp = os.path.join(_JOBS_DIR, jid, "job.json")
+    if not os.path.isfile(jp):
+        return False
+    try:
+        j = json.load(open(jp, encoding="utf-8"))
+    except Exception:
+        return False
+    out2 = j.get("out")
+    return bool(isinstance(out2, str) and out2.strip() and os.path.isfile(out2))
+
+
 PRODUCT_KEYS = {
     "rewrite":      ("rewritten", "cleaned"),
     "article":      ("content", "title", "markdown", "html"),
@@ -455,6 +486,11 @@ def has_product(cap_id, data):
     for k in keys:
         if k == "__ok__":
             if d.get("ok"):
+                return True
+            continue
+        if k == "job_id":
+            # 视频/成片类：必须真有成品文件，不能只认 job_id（见 _video_product_exists）
+            if _video_product_exists(d):
                 return True
             continue
         v = d.get(k)

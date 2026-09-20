@@ -3749,6 +3749,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "step": j.get("step"),
                 "queue_pos": queue_pos,
                 "progress": render_progress,
+                "out": j.get("out"),
                 "result": f"/download/{jid}" if j["status"] == "done" else None,
                 "chart_card": j.get("chart_card"),
                 "cover": j.get("cover"),
@@ -5334,7 +5335,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                    "参考", "检索", "有没有结合", "是不是结合", "是否结合", "分析一下", "帮我看",
                    "搜索", "查一下", "能不能结合",
                    "规划", "排期", "策划", "一周内容", "选题方案", "排一周", "排期表",
-                   "本周都写", "这周都写", "一周都写", "本周全写", "一周全写", "全部写出来", "批量出稿")
+                   "本周都写", "这周都写", "一周都写", "本周全写", "一周全写", "全部写出来", "批量出稿",
+                   "写成口播稿", "写成稿", "写口播稿", "用第", "写一条", "写篇", "改时长",
+                   "改成", "修订", "改字数")
 
     @staticmethod
     def _looks_long(message, action):
