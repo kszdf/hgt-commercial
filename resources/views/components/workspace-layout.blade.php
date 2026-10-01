@@ -94,158 +94,77 @@
                 <span class="ws-label font-semibold {{ $v2Mode ? 'sr-only' : '' }}">账号</span>
             </a>
 
-            @if(!$v2Mode)
-            <ul class="space-y-0.5">
-                <!-- ② 智能选题（挂二级：话术模板） -->
-                <li class="space-y-0.5">
-                    <div class="flex items-center ws-nav-item-wrap">
-                        <a href="/studio/topic" class="ws-nav-item w-full font-medium ws-nav-sky {{ (request()->is('studio/topic*') || request()->is('studio/templates*')) ? 'ws-nav-active' : '' }}">
-                            <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                            <span class="ws-label">智能选题</span>
-                        </a>
-                        <button type="button" onclick="toggleSub(this)" class="ws-nav-sub-toggle" title="展开/收起子菜单" aria-label="展开或收起子菜单">
-                            <svg class="chev h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-                        </button>
-                    </div>
-                    <ul class="rewrite-sub ml-3.5 mt-0.5 space-y-0.5 border-l border-slate-200/60 pl-2.5">
-                        <li>
-                            <a href="/studio/templates" class="{{ request()->is('studio/templates*') ? 'ws-nav-active' : 'ws-nav-item' }}">
-                                <span class="ws-label">话术模板</span>
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-
-                <!-- ③ 爆款拆解（挂二级：选题二创 / 原始稿二创） -->
-                <li class="space-y-0.5">
-                    <div class="flex items-center ws-nav-item-wrap">
-                        <a href="/studio/dissect" class="ws-nav-item w-full font-medium ws-nav-rose {{ (request()->is('studio/dissect*') || request()->is('studio/rewrite') || request()->is('studio/rewrite-original*')) ? 'ws-nav-active' : '' }}">
-                            <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.344 5.657z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/></svg>
-                            <span class="ws-label">爆款拆解</span>
-                        </a>
-                        <button type="button" onclick="toggleSub(this)" class="ws-nav-sub-toggle" title="展开/收起子菜单" aria-label="展开或收起子菜单">
-                            <svg class="chev h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-                        </button>
-                    </div>
-                    <ul class="rewrite-sub ml-3.5 mt-0.5 space-y-0.5 border-l border-slate-200/60 pl-2.5">
-                        <li>
-                            <a href="/studio/rewrite" class="{{ request()->is('studio/rewrite') && !request()->is('studio/rewrite-original*') ? 'ws-nav-active' : 'ws-nav-item' }}">
-                                <span class="ws-label">选题二创</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/studio/rewrite-original" class="{{ request()->is('studio/rewrite-original*') ? 'ws-nav-active' : 'ws-nav-item' }}">
-                                <span class="ws-label">原始稿二创</span>
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-
-                <!-- ④ 小红书图文 -->
-                <li>
-                    <a href="/studio/xhs" class="{{ request()->is('studio/xhs*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-red">
-                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17m0 0c-5.523 0-10-4.477-10-10S6.477 0 12 0s10 4.477 10 10-4.477 10-10 10z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l3 3 4-4"/></svg>
-                        <span class="ws-label">小红书图文</span>
-                    </a>
-                </li>
-
-                <!-- ⑤ 生成视频（挂二级：视频库 / 真人素材精剪） -->
-                <li class="space-y-0.5">
-                    <div class="flex items-center ws-nav-item-wrap">
-                        <a href="/studio/scroll{{ Request::has('from') ? '?from=' . Request::get('from') : '' }}" class="ws-nav-item w-full font-medium ws-nav-fresh {{ ((request()->is('studio/scroll*') && !request()->is('studio/scroll/qc*')) || request()->is('studio/videos*') || request()->is('studio/footage*')) ? 'ws-nav-active' : '' }}">
-                            <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                            <span class="ws-label">生成视频</span>
-                        </a>
-                        <button type="button" onclick="toggleSub(this)" class="ws-nav-sub-toggle" title="展开/收起子菜单" aria-label="展开或收起子菜单">
-                            <svg class="chev h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-                        </button>
-                    </div>
-                    <ul class="rewrite-sub ml-3.5 mt-0.5 space-y-0.5 border-l border-slate-200/60 pl-2.5">
-                        <li>
-                            <a href="/studio/videos" class="{{ request()->is('studio/videos*') ? 'ws-nav-active' : 'ws-nav-item' }}">
-                                <span class="ws-label">视频库</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/studio/footage" class="{{ request()->is('studio/footage*') ? 'ws-nav-active' : 'ws-nav-item' }}">
-                                <span class="ws-label">真人素材精剪</span>
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-            </ul>
 
             <!-- ⑥ 素材与账户（聚合组：收纳其余工具页，默认展开；超管额外见 租户管理） -->
-            <button type="button" onclick="toggleGroup(this)" class="ws-group-toggle"><span class="ws-label">素材与账户</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+            <button type="button" onclick="toggleGroup(this)" title="素材与账户（声音/封面/模特/质检/审核/发布等）" class="ws-group-toggle"><svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg><span class="ws-label">素材与账户</span><svg class="ws-group-chev h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
             <ul class="space-y-0.5 ws-group-body" data-group="hub">
                 <li>
-                    <a href="/studio/voices" class="{{ request()->is('studio/voices*') || request()->is('voice-clone*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-violet">
+                    <a href="/studio/voices" title="声音库" class="{{ request()->is('studio/voices*') || request()->is('voice-clone*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-violet">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
                         <span class="ws-label">声音库</span>
                     </a>
                 </li>
                 <li>
-                    <a href="/studio/covers" class="{{ request()->is('studio/covers*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-rose">
+                    <a href="/studio/covers" title="封面库" class="{{ request()->is('studio/covers*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-rose">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                         <span class="ws-label">封面库</span>
                     </a>
                 </li>
                 <li>
-                    <a href="/studio/models" class="{{ request()->is('studio/models*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-amber">
+                    <a href="/studio/models" title="数字人模特" class="{{ request()->is('studio/models*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-amber">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                         <span class="ws-label">数字人模特</span>
                     </a>
                 </li>
                 <li>
-                    <a href="/studio/qc" class="{{ request()->is('studio/qc*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-amber">
+                    <a href="/studio/qc" title="质检" class="{{ request()->is('studio/qc*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-amber">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         <span class="ws-label">质检</span>
                     </a>
                 </li>
                 <li>
-                    <a href="/studio/review" class="{{ request()->is('studio/review*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-indigo">
+                    <a href="/studio/review" title="人工审核" class="{{ request()->is('studio/review*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-indigo">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                         <span class="ws-label">人工审核</span>
                     </a>
                 </li>
                 <li>
-                    <a href="/studio/publish" class="{{ request()->is('studio/publish*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-rose">
+                    <a href="/studio/publish" title="发布助手" class="{{ request()->is('studio/publish*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-rose">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
                         <span class="ws-label">发布助手</span>
                     </a>
                 </li>
                 <li>
-                    <a href="/studio/accounts" class="{{ request()->is('studio/accounts*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
+                    <a href="/studio/accounts" title="发布渠道" class="{{ request()->is('studio/accounts*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                         <span class="ws-label">发布渠道</span>
                     </a>
                 </li>
                 <li>
-                    <a href="/studio/schedule" class="{{ request()->is('studio/schedule*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
+                    <a href="/studio/schedule" title="发布排期" class="{{ request()->is('studio/schedule*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                         <span class="ws-label">发布排期</span>
                     </a>
                 </li>
                 <li>
-                    <a href="/studio/metrics" class="{{ request()->is('studio/metrics*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-teal">
+                    <a href="/studio/metrics" title="数据效果" class="{{ request()->is('studio/metrics*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-teal">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                         <span class="ws-label">数据效果</span>
                     </a>
                 </li>
                 <li>
-                    <a href="/settings/password" class="{{ request()->is('settings/password*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-violet">
+                    <a href="/settings/password" title="账号安全" class="{{ request()->is('settings/password*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-violet">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                         <span class="ws-label">账号安全</span>
                     </a>
                 </li>
                 @if(auth()->user()->isGlobalAdmin())
                 <li>
-                    <a href="/admin/tenants" class="{{ request()->is('admin/tenants*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
+                    <a href="/admin/tenants" title="租户管理" class="{{ request()->is('admin/tenants*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a3 3 0 10-2.5-4.5"/></svg>
                         <span class="ws-label">租户管理</span>
                     </a>
                 </li>
-                @endif
             </ul>
             @endif
         </nav>
@@ -665,6 +584,22 @@ body.workspace-chat #workspaceSidebar .ws-nav-active {
 .hint:active::before { opacity: 1; }
 
 /* 表单旁的内联说明已移除时，用 hint 替代的过渡类（无额外样式） */
+
+/* ===== v2 窄栏图标条（2026-09-22 修复"素材与账户"文字漏出）=====
+   侧栏恒为 w-14 窄条：所有 ws-label 视觉隐藏（sr-only 等效，屏幕阅读器/JS 仍可读），
+   名称提示统一靠各导航项 title 悬浮；图标居中，与对话页图标条观感一致。 */
+#workspaceSidebar .ws-label {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+#workspaceSidebar .ws-nav-item,
+#workspaceSidebar .ws-nav-active,
+#workspaceSidebar .ws-group-toggle { justify-content: center; gap: 0.25rem; }
 </style>
 
 <script>

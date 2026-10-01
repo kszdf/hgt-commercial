@@ -102,3 +102,10 @@ python-pipeline/chat_debug.txt
 python-pipeline/frontend_render_test.html
 python-pipeline/produce_all_*/
 php/php.ini.bak_*
+
+# ===== 临时调试日志与渲染产物（本机验证用，非源码，2026-10-01 补）=====
+python-pipeline/render6_output/
+python-pipeline/_render6*.log
+python-pipeline/_e2e_all_formats.log
+python-pipeline/live_A_*.log
+*.bak.clean

@@ -89,7 +89,7 @@
                     <span id="packPhotoText">上传形象照</span>
                     <input type="file" id="packPhotoFile" accept="image/jpeg,image/png,image/webp" class="hidden">
                 </label>
-                <a href="{{ route('studio.rewrite-original') }}"
+                <a href="{{ route('studio.rewrite') }}"
                    class="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800">去二创改写文案</a>
                 <a href="{{ route('studio.publish') }}"
                    class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700">去发布</a>

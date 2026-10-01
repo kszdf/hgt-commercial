@@ -397,7 +397,7 @@ function setBtnLoading(isLoading, text) {
     const src = params.get('src') || 'original';
     const srcMap = {
         topic:    { label: '选题二创', back: '/studio/rewrite' },
-        original: { label: '原始稿二创', back: '/studio/rewrite-original' },
+        original: { label: '原始稿二创', back: '/studio/rewrite' },
         dissect:  { label: '爆款拆解', back: '/studio/dissect' },
         clone:    { label: '爆款复刻', back: '/studio/videos' },
     };

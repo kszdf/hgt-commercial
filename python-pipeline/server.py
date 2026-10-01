@@ -100,6 +100,15 @@ from footage_edit import edit_footage  # noqa: E402  （真人素材自动精剪
 import requests  # noqa: E402
 import secrets  # noqa: E402
 
+# —— 强制 requests 直连，不读系统/环境代理（与 model_providers 直连策略一致，避免 10061）——
+_orig_session_init = requests.Session.__init__
+def _no_env_session_init(self, *a, **k):
+    _orig_session_init(self, *a, **k)
+    self.trust_env = False
+requests.Session.__init__ = _no_env_session_init
+for _p in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy"):
+    os.environ.pop(_p, None)
+
 # OAuth2 授权码模式（抖音/小红书）回调基地址。
 # 抖音开放平台要求回调地址为「已备案域名（https）」，不接受 IP+端口形式；
 # zmgen.cn 已由云 nginx 把 /oauth/* 转发到本服务（实测 200），故默认用它。
@@ -807,6 +816,24 @@ def ai_topic(industry, keywords, count, platform=None, hotness=None, hook=None, 
         f"结合关键词「{keywords or '该行业老板的真实经营场景、财税痛点'}」，"
         f"生成 {cnt} 个面向该行业老板的财税垂直选题。\n"
         "硬性要求：\n"
+        # ★2026-09-27 真机踩坑：主题「年度顾问」被拆成"股东借款/增值税法"等通用财税热点，完全跑题。
+        #   根因：prompt 只强调"选题必须与财税直接相关"，服务营销型主题（年度顾问/风险检测等）被税种热点淹没。
+        "- ★主题锚定（防跑题，优先级最高）：每一条都必须紧扣关键词里的**核心主题**——"
+        "要么标题直接含主题词，要么 angle 首句必须落到该主题上；禁止输出与主题无关的通用财税热点（哪怕再热门）。"
+        "若主题是某项**服务/产品/业务**（如年度顾问、税务风险检测、注册公司），角度必须围绕该服务本身展开："
+        "它的价值、适用场景、服务内容、目标客户、与替代品（如代账会计）的认知差、不请的代价；"
+        "可结合具体税种场景讲，但落点必须是「这项服务怎么帮老板」，不能变成纯税种知识科普；\n"
+        # ★2026-09-28 真机踩坑：选题雷达热点「崔培军：公司20多年来不打卡不考勤」被拆成
+        #   "工资扣除被查？""不考勤20年个税社保旧账"等角度——新闻本身讲管理文化与员工福利，
+        #   不是税务违规，硬安稽查风险=歪曲事实，用户直接判跑题。
+        "- ★热点新闻忠实度（防歪曲，优先级最高）：若主题来自一条具体新闻/热点事件，先弄清新闻本身在讲什么，"
+        "每条角度必须贴着新闻事实走：\n"
+        "  a) 财税切入用「借这个热点，讲透一条老板用得上的真实财税规则」的方式，从新闻事实自然延伸"
+        "（如不打卡不考勤→工资列支与凭证留存的合规做法、给员工发现金福利→个税与社保的正确处理），"
+        "不扯远、不硬凑税种；\n"
+        "  b) 严禁编造新闻里没有的执法/处罚事实：不许写「该公司被查/被罚/有旧账/要补税」等断言，"
+        "标题带问号的存疑句也只能质疑规则风险，不得暗示新闻主角已有违法问题；\n"
+        "  c) 新闻与财税连接弱时，落点是「老板能把什么合规动作迁移到自己公司」，而不是给新闻主角安罪名；\n"
         "- 选题必须与财税直接相关（税务/发票/成本/利润/合规/稽查/社保/个税/现金流等），围绕该行业老板的真实经营场景；\n"
         "- 选题语气像给老板提醒风险或讲清楚一件事，不空泛、不脱离财税；\n"
         "- 标题与角度一律用规范财税术语：关键词里的明显错字术语先纠正再用（如'迟滞金'按'迟纳金'出题、'增植税'按'增值税'），不要把错字带进选题；"
@@ -1175,6 +1202,84 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
         "★财税行业附加红线：不许出现节税金额/比例承诺（'能省多少''省三分之一'），"
         "不许与同行报价对比，不许暗示包结果。\n"
     )
+    # ============ 结构配方路由（2026-09-27 立）：按内容类型自动设计不同开头/正文/结尾 ============
+    # 上方 SCRIPT_STRUCTURE 是「通用三段铁律」（开头钩子/正文三段/结尾收口），作为不可破坏的结构纪律始终保留；
+    # 下方 STRUCTURE_PROFILES 只做「按类型微调长相」：不同内容自动套不同的开头手法 + 正文逻辑 + 结尾动作。
+    STRUCTURE_PROFILES = {
+        "稽查风险型": (
+            "【结构配方·稽查风险型】\n"
+            "- 开头手法：优先用『冲击式反问』（这笔钱以为是省下了，其实埋的是雷）或『场景写实』"
+            "（通知书寄到厂里那天…），直接把老板拽进风险现场，不准平铺直叙。\n"
+            "- 正文逻辑：后果递增——从补税+滞纳金，到罚款倍数，再到刑事红线（虚开/逃税），"
+            "用『轻→重』梯度制造紧迫感；法条与金额必须可溯源、可量化。\n"
+            "- 结尾动作：限期自查——让他按『挂了多少年 / 有没有被约谈调账补申报过』自查，"
+            "踩中的人请他说说是哪一年、什么情形（高客单靠说清自己的坑识别，不靠福利）。\n"
+        ),
+        "政策解读型": (
+            "【结构配方·政策解读型】\n"
+            "- 开头手法：优先用『政策直给掀后果』（征求意见稿改了一个字，欠税成本可能没天花板）。\n"
+            "- 正文逻辑：条款拆解——哪天起、谁受影响、差多少；用『政策原文 → 老板口径翻译 → 实际影响测算』三步，"
+            "金额/年限/比例给可核对数字，不夸大。\n"
+            "- 结尾动作：影响自测——让他对号入座算自己受不受影响（行业/规模/情形三个门槛叠上去）。\n"
+        ),
+        "实操教学型": (
+            "【结构配方·实操教学型】\n"
+            "- 开头手法：优先用『场景写实』（直接给一个老板熟悉的现场）。\n"
+            "- 正文逻辑：步骤化动作——先…再…最后…，每步可落地、可当天做；避免只讲道理不给步骤。\n"
+            "- 结尾动作：照做自核——让他照着做一遍，核一个具体的数/表/日期，做完心里有数。\n"
+        ),
+        "案例故事型": (
+            "【结构配方·案例故事型】\n"
+            "- 开头手法：优先用『认知冲突反问』或『场景写实』，先抛一个反常识或熟悉的场景。\n"
+            "- 正文逻辑：故事→反转→解法——先讲清事儿来龙去脉，再点破误区/反转，最后给可落地正解；"
+            "可用第一人称叙事（『我见过』『有老板问过我』）增真实感，但严禁编造案例。\n"
+            "- 结尾动作：对号入座——让他想想自己有没有类似坑，请踩中的人说出自己的情形。\n"
+        ),
+        "避坑预警型": (
+            "【结构配方·避坑预警型】\n"
+            "- 开头手法：优先用『冲击式反问』或『认知冲突反问』，先点破一个老板常信的误区。\n"
+            "- 正文逻辑：误区→真相→正确做法——先列常见错法，再给合规正解与依据，不准只吓人不给路。\n"
+            "- 结尾动作：自检清单——让他逐条对一遍自己有没有踩，踩了的请说出是哪一条。\n"
+        ),
+        "服务营销型": (
+            "【结构配方·服务营销型】（年度顾问/代账/顾问类主题）\n"
+            "- 开头手法：优先用『场景写实』或『认知冲突反问』（老板以为…其实…），落到老板真实经营现场。\n"
+            "- 正文逻辑：价值对比+不请的代价——讲清这项服务帮老板解决什么、与代账/自己盯的本质差、"
+            "不请会多缴多少/多担什么险；可结合税种场景，但落点必须是『这项服务怎么帮老板』，不准跑成通用财税科普。\n"
+            "- 结尾动作：健康度自问——让他想想今年这些节点（汇算/政策到期/股权变动/用工变化）有没有人替他盯；"
+            "只说代价，不报价、不承诺省多少。\n"
+        ),
+    }
+
+    def _classify_structure(src):
+        """规则分类：按关键词判断内容类型（优先级从高到低）。返回 profile key。"""
+        s = (src or "").lower()
+        # 服务营销型优先（年度顾问/代账等，避免被其它关键词误带偏）
+        if any(k in s for k in ["年度顾问", "代账", "顾问", "我们的服务", "请我们", "找我们", "合作", "产品"]):
+            return "服务营销型"
+        if any(k in s for k in ["稽查", "处罚", "风险", "查账", "补税", "罚款", "约谈", "调账", "稽查局", "偷税", "虚开发票"]):
+            return "稽查风险型"
+        if any(k in s for k in ["政策", "新规", "通知", "公告", "条文", "税改", "征求意见稿", "施行", "出台", "文件"]):
+            return "政策解读型"
+        if any(k in s for k in ["怎么", "如何", "步骤", "实操", "做账", "申报", "流程", "手把手", "教程", "怎样"]):
+            return "实操教学型"
+        if any(k in s for k in ["案例", "故事", "有个老板", "客户", "真实", "我见过", "去年"]):
+            return "案例故事型"
+        if any(k in s for k in ["避坑", "误区", "千万", "警惕", "小心", "注意", "别再", "别信", "别以为"]):
+            return "避坑预警型"
+        return "通用型"
+
+    def _build_structure_block(src):
+        """通用三段铁律 + 按类型选中的配方微调。"""
+        profile_key = _classify_structure(src)
+        base = SCRIPT_STRUCTURE
+        if profile_key == "通用型":
+            return base
+        recipe = STRUCTURE_PROFILES.get(profile_key, "")
+        return (base + "\n" + recipe +
+                "\n（注：上方『通用三段铁律』为结构纪律必须保留；本配方只指定本型推荐的开头手法与正文/结尾侧重，"
+                "仍须遵守『不准重复上一条的开头手法』以防套路化。）\n")
+
     # 获客逻辑：每条内容都要能接住一项业务（Structured 锚点，不是科普）
     FUNNEL_HINTS = {
         "L1": ("本条获客锚点：**L1 税风险检测（钩子款）**——钩子和解决思路要指向『先做个风险检测，把账上的疑点列出来』。"
@@ -1227,6 +1332,10 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
         "- 严禁书面腔连接词：'综上所述''此外''值得注意的是''换言之''首先其次最后'等；改用口语连接"
         "('说白了''关键在哪''这里要提醒你')；\n"
         "- 句子长短交替：铺垫可稍长，关键警示句短促有力。\n"
+        "- 不要像背稿子：少用'第一/第二/第三'硬编号和工整排比，多用小场景、口语连接词把逻辑串起来；"
+        "避免每段都'定性+法条+动作'的复制粘贴式工整，真人聊天不会那么齐整；\n"
+        "- 去 AI 套话：严禁'值得注意的是''综上所述''总的来说''不可否认'等书面总结腔，"
+        "也别每句都用'其实''关键在'起头，用得自然、不堆砌。\n"
         + expert_years_clause() +
         "- **忠实原稿精神**：原稿的核心观点与**合法**的业务建议一律保留并照实表达，保持原稿的逻辑顺序；\n"
         "- **合规底线（硬约束，优先级高于忠实原稿）**：\n"
@@ -1331,7 +1440,7 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
             f"{dur_hint}"  # 目标时长约束放在最前面、最显眼
             f"{ind_hint}"  # 行业背景（选题行业贯穿到二创）
             f"{PERSONA_RULE}"  # 人设口径（服务对象/地域/站位）
-            f"{SCRIPT_STRUCTURE}"  # 爆款三段结构（开头钩子/正文骨架/结尾收口动作）
+            f"{_build_structure_block(text)}"  # 结构配方路由：通用三段铁律 + 按内容类型自动选配方
             f"{CLOSER_RULES}"  # 结尾收口动作铁律 + 平台合规红线（禁扣关键词/私信领资料）
             f"{stance_hint}"  # 立论模式：用户给了判断就必须带着写（否则为空，不影响普通稿）
             f"{funnel_hint or SCRIPT_FUNNEL_DEFAULT}"  # 获客锚点
@@ -2630,6 +2739,32 @@ def _publish_job(job_id, platforms, data):
 # 终态集合：已明确结束的 job，无需回收；其余一律视为重启前未完成（渲染线程已死）
 _TERMINAL_STATUS = ("done", "failed", "cancelled")
 
+# 最终成片的候选文件名（HEYGEM/图解版落盘名）。watchdog 与 recover 在判定失败前
+# 先扫描这些文件是否已生成且有效，避免把"异步迟到完成"的成片误判为失败。
+# 阈值 100KB：HEYGEM 写文件是原子性的（先写临时再 mux/rename），若存在且 >100KB 视为已成片。
+_OUTPUT_CANDIDATES = ("out.mp4", "out.bgm.mp4", "final.mp4", "final_out.mp4")
+
+
+def _find_existing_output(job_id):
+    """只读探测 job_dir 是否已有有效最终成片。
+
+    返回成片绝对路径；未找到返回 None。仅做文件探测，不修改任何状态
+    （由调用方在持锁时决定如何标记），因此可在 watchdog/recover 的锁块内安全调用。
+    用于根治：watchdog 超时 / 服务重启 ≠ 渲染失败——HEYGEM 是异步后台渲染，
+    可能超时后才迟到完成（见 job 98c9da13：迟到成片与重提版 MD5 一致）。
+    """
+    job_dir = os.path.join(JOBS_DIR, job_id)
+    if not os.path.isdir(job_dir):
+        return None
+    for c in _OUTPUT_CANDIDATES:
+        p = os.path.join(job_dir, c)
+        try:
+            if os.path.exists(p) and os.path.getsize(p) > 102400:
+                return p
+        except OSError:
+            continue
+    return None
+
 
 def recover_jobs():
     """启动自愈：扫描 JOBS_DIR 把磁盘上的 job 状态恢复到内存，使 /status、/download
@@ -2667,7 +2802,28 @@ def recover_jobs():
                     interrupted += 1
                 jobs[name] = meta
             else:
-                # 非终态：重启后必然中断，标 failed + 释放并发槽
+                # 非终态：渲染线程随进程死亡本应中断，但 HEYGEM 是异步后台渲染，
+                # 重启前已提交的成片可能"迟到完成"（进程已死但容器任务还在跑）。
+                # 先探测产物：已落盘有效 → 救回 done；否则才标 failed + 释放并发槽。
+                _rescued = _find_existing_output(name)
+                if _rescued:
+                    meta["status"] = "done"
+                    meta["step"] = "done"
+                    meta["out"] = _rescued
+                    meta["error"] = ""
+                    meta["rescued"] = True
+                    meta["rescue_note"] = "restart_recovered: 成片已在重启前异步完成，已自动救回"
+                    _save_job(name, meta)
+                    jobs[name] = meta
+                    # done 也释放并发槽：原任务已结束，避免僵尸占坑拒绝新任务
+                    tid = meta.get("tenant_id") or "default"
+                    if active_by_tenant.get(tid, 0) > 0:
+                        active_by_tenant[tid] -= 1
+                        if active_by_tenant[tid] <= 0:
+                            del active_by_tenant[tid]
+                    loaded += 1
+                    continue
+                # 真正中断：标 failed + 释放并发槽
                 meta["status"] = "failed"
                 meta["step"] = "failed"
                 meta["error"] = "restart_recovered: 服务重启导致任务中断，请重新提交"
@@ -2796,21 +2952,73 @@ def watchdog_loop():
             for jid, j in snapshot:
                 if j.get("status") == "rendering" and j.get("step") != "queued":
                     st = j.get("start_ts") or 0
-                    if now - st > HARD_TIMEOUT + 120:
-                        with lock:
+                if now - st > HARD_TIMEOUT + 120:
+                    with lock:
+                        # ★根治 watchdog 误判：先探测 HEYGEM 是否已异步迟到完成成片。
+                        # 若产物已落盘有效 → 救回为 done（前端看到成功而非假失败）；
+                        # 否则才标 failed 释放资源。
+                        _rescued = _find_existing_output(jid)
+                        if _rescued:
+                            j["status"] = "done"
+                            j["step"] = "done"
+                            j["out"] = _rescued
+                            j["error"] = ""
+                            j["rescued"] = True
+                            j["rescue_note"] = "watchdog 超时但成片已异步完成，已自动救回"
+                            _save_job(jid, j)
+                            print(f"[pipeline] watchdog: rescued late output for {jid} -> {_rescued}")
+                        else:
                             j["status"] = "failed"
                             j["error"] = "watchdog: 渲染卡死超过硬超时，已强制回收并释放资源"
                             _save_job(jid, j)
-                            # 释放并发槽（锁内联，避免嵌套锁）
-                            global active_total
-                            active_total = max(0, active_total - 1)
-                            tid = j.get("tenant_id") or "default"
-                            if active_by_tenant.get(tid, 0) > 0:
-                                active_by_tenant[tid] -= 1
-                                if active_by_tenant[tid] <= 0:
-                                    del active_by_tenant[tid]
+                        # 释放并发槽（锁内联，避免嵌套锁）：无论 done/failed 任务都已结束
+                        global active_total
+                        active_total = max(0, active_total - 1)
+                        tid = j.get("tenant_id") or "default"
+                        if active_by_tenant.get(tid, 0) > 0:
+                            active_by_tenant[tid] -= 1
+                            if active_by_tenant[tid] <= 0:
+                                del active_by_tenant[tid]
         except Exception:  # noqa: BLE001
             pass
+
+
+def _smart_title(dialogue, topic=""):
+    """屏上标题智能提炼：根据口播稿内容用 LLM 提炼 ≤12 字标题。
+
+    要求紧扣整篇主题与痛点、有钩子感、口语化，禁止机械摘抄第一句。
+    失败返回空串，由调用方兜底（各渲染脚本原本的兜底逻辑）。"""
+    dlg = (dialogue or "").strip()
+    if not dlg:
+        return ""
+    # 取全文前 600 字作上下文（基于整篇核心，而非首句）
+    excerpt = dlg[:600]
+    prompt = (
+        "你是短视频屏上标题提炼专家。给定一段财税口播稿，提炼一个「视频屏上常驻标题」。\n"
+        "要求：\n"
+        "1) 不超过12个汉字；\n"
+        "2) 必须围绕整篇最核心、贯穿全文的主题，不要被偶然提到的政策名词或案例带偏；\n"
+        "3) 如果是服务/产品介绍类，标题要落到这项服务/产品的价值或老板不用的代价；\n"
+        "4) 有钩子感，让中小民企老板想看下去（可用反差/数字/后果/悬念）；\n"
+        "5) 口语化、像真人说的，不用书面词和成语堆砌；\n"
+        "6) 只返回标题文本本身，不要标点、不要解释、不要引号、不要书名号。\n\n"
+        "主题提示：%s\n\n口播稿：\n%s" % (topic or "（无，请从稿子提炼核心主题）", excerpt)
+    )
+    try:
+        cfg = get_text_config()
+        if not cfg:
+            return ""
+        r = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=30)
+        t = (r or "").strip().strip("\"'「」《》").strip()
+        # 去掉空白与标点，截断到 12 字
+        t = re.sub(r"[\s，。！？、；：!?;:,.]", "", t)
+        if not t:
+            return ""
+        if len(t) > 12:
+            t = t[:12]
+        return t
+    except Exception:
+        return ""
 
 
 def estimate_duration_sec(dialogue):
@@ -3270,6 +3478,17 @@ def run_job(job_id, payload):
         out_path = os.path.join(job_dir, "out.mp4")
         log_path = os.path.join(job_dir, "render.log")
 
+        # ---- 屏上标题智能提炼（2026-09-27 新增）----
+        # 未显式传入 title 时，用 LLM 按口播稿内容提炼 ≤12 字标题，
+        # 避免渲染脚本兜底机械取首句（_auto_title_avatar）。写回 payload 后各 mode 分支自动生效。
+        if not (payload.get("title") or "").strip():
+            try:
+                _st = _smart_title(dialogue, payload.get("topic") or "")
+                if _st:
+                    payload["title"] = _st
+            except Exception:
+                pass
+
         # ---- 默认声线（方言由所选克隆音色自然决定，无需独立 dialect 参数）----
         d_mv, d_fv = DEFAULT_MALE, DEFAULT_FEMALE
 
@@ -3309,6 +3528,9 @@ def run_job(job_id, payload):
             # 字幕字体（hei/yahei/kaiti/song/fangsong；可选，不传则脚本默认黑体）
             if payload.get("subtitle_font"):
                 args += ["--font", resolve_font(payload["subtitle_font"])]
+            # 屏上常驻标题：透传口播稿「标题」字段（缺省时脚本自动从稿子生成 ≤10 字）
+            if payload.get("title"):
+                args += ["--title", str(payload["title"])]
         elif mode == "manga":
             # AI 漫剧(2026-08-28): 内容→类型判断(场景剧/讲解式/法条口播)→LLM分镜→固定角色生图→动效配音成片
             # 2026-08-29: 预判内容类型——法条/政策类不漫剧化(保精确), 直接给友好提示, 不进入渲染
@@ -3660,7 +3882,7 @@ from chat_orchestrator import ChatOrchestrator  # noqa: E402
 
 _CHAT_ORCH = ChatOrchestrator(ai_topic, ai_rewrite, deepseek_chat, get_text_config,
                               search_fn=tavily_search, get_key_fn=get_key,
-                              planning_cfg_fn=get_planning_config)
+                              planning_cfg_fn=get_planning_config, crm_upsert_fn=crm_upsert)
 _CHAT_ORCH._plan_model = (os.environ.get("PLANNING_MODEL") or "").strip()  # 空=默认 flash（推荐留空）；勿设 deepseek-v4-pro（已停用）
 
 
@@ -3868,6 +4090,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._send(200, {"ok": True, "mode": "seed",
                                     "count": len(seed), "hotspots": seed})
 
+        # ---- 爆款选题雷达：多平台热榜 + 权威源 聚合（前端聊天页顶部 ticker）----
+        if p.path == "/newsfeed" or p.path.startswith("/newsfeed?"):
+            try:
+                import newsfeed
+                days = 15
+                m = re.search(r"days=(\d+)", p.query or "")
+                if m:
+                    days = max(1, min(30, int(m.group(1))))
+                force = "force=1" in (p.query or "")
+                data = newsfeed.get_feed(days=days, force=force)
+                return self._send(200, data)
+            except Exception as e:  # noqa: BLE001
+                return self._send(200, {"ok": False, "error": str(e)[:160], "items": []})
+
         # ---- 每日热点·双题材：读最近一次 daily_hot.json 结果（前端轮询）----
         if p.path == "/hot-daily-result":
             return self._handle_hot_daily_result()
@@ -3931,6 +4167,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_chat_session_update(data)
         if p.path == "/chat/session/delete":
             return self._handle_chat_session_delete(data)
+        # ---- 对话框「上传本地文件」解析：Laravel 收浏览器 multipart 后 base64 转发到这里 ----
+        if p.path == "/file_extract":
+            return self._handle_file_extract(data)
         if p.path == "/chat":
             return self._handle_chat(data)
         # ---- v2.0 P2/P3 新能力端点（capabilities.py 17 能力的执行层）----
@@ -3951,6 +4190,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._send(200, matrix_config_save(data))
         if p.path == "/qc":
             return self._handle_qc(data)
+        if p.path == "/analyze_script":
+            # 内容分析引擎：给原始逐字稿/选题，输出结构诊断+事实核查+重排双声稿+智能标题
+            return self._handle_analyze_script(data)
         if p.path == "/qc-video":
             return self._handle_qc_video(data)
         if p.path == "/qc-asset":
@@ -4072,15 +4314,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
             industry = (data.get("industry") or "").strip() or "财税"
             brand = (data.get("brand") or "").strip() or "昆山老张讲财税"
 
-            # 1) LLM 标题/副标题（对标头部财税IP · 高级感）
+            # 短视频 SEO 词库接入：优先显式 subdomain，否则从 topic/标题/文稿推断
+            from seo_keywords_videos import resolve_keywords, clean_tags
+            _sub = (data.get("subdomain") or "").strip()
+            _topic = (data.get("topic") or data.get("title") or "").strip()
+            _core, _secondary = resolve_keywords(_sub or None, _topic or None, text[:50])
+            _core_block = "、".join(_core[:3])
+            _tag_pool = "、".join((_core + _secondary)[:8])
+
+            # 1) LLM 标题/副标题/发布文案/话题（对标头部财税IP · 高级感 · SEO 化）
             prompt = (
-                f"为{industry}短视频生成1组「封面标题 + 副标题」，对标头部财税IP的高级封面文案（如'私户收款，正在被重点比对''年底了，老板别再借钱给公司'）。\n"
+                f"为{industry}短视频生成1组「封面标题 + 副标题 + 发布文案 + 话题标签」，对标头部财税IP的高级封面文案（如'私户收款，正在被重点比对''年底了，老板别再借钱给公司'）。\n"
                 "铁律：\n"
                 "1. 主标题≤10字：用数字/痛点/反常识/警示抓人，前5字让人懂讲什么，绝不堆砌形容词；\n"
                 "2. 副标题≤20字：补充一个具体价值/钩子，不重复主标题；\n"
                 "3. 高级感：克制、留白、像大号财经号，拒绝'震惊/重磅/速看/马上'式标题党，拒绝多个感叹号；\n"
                 "4. 禁违禁词：最/第一/唯一/100%/根治/必看/暴富/躺赚/包过；\n"
-                f'5. 严格只输出JSON:{{"title":"主标题","subtitle":"副标题"}}，不要其他内容。\n\n【文稿】\n{text[:400]}'
+                f"5. 发布文案(description)必须自然融入下列核心搜索短语之一（选最贴切的1个，写成通顺一句话，不要堆砌）：{_core_block}；\n"
+                f"6. 话题标签(tags)只能从下列真实搜索词中选（最多3个，禁止任何品牌词如慧根堂/老张/财税咨询）：{_tag_pool}；\n"
+                '7. 严格只输出JSON:{"title":"主标题","subtitle":"副标题","description":"发布文案","tags":["#话题1","#话题2"]}，不要其他内容。\n\n【文稿】\n' + text[:400]
             )
             cfg = get_text_config()
             raw = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=25)
@@ -4096,10 +4348,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
             obj = json.loads(m.group(0)) if m else {}
             title = str(obj.get("title") or "").strip()
             subtitle = str(obj.get("subtitle") or "").strip()
+            description = str(obj.get("description") or "").strip()
+            tags = obj.get("tags") or []
+            if isinstance(tags, str):
+                tags = [t.strip() for t in re.split(r"[\s,，]+", tags) if t.strip()]
+            # 清洗：去 # / 去品牌词 / 去重；不足 2 个真实搜索词用词库保底补足
+            tags = clean_tags(tags, _core, _secondary)
             if not title:
                 title = text[:10]
             if not subtitle:
                 subtitle = industry + " · 老板必看"
+            if not description:
+                description = (subtitle or title) + "｜老板们务必上心，早做规划少踩坑。"
 
             # 2) 封面：优先个人形象照（海马体等专业肖像，人脸居中零变形）；
             #    无形象照时用成片智能选帧；两者都没有则黑金纯文字兜底。
@@ -4146,7 +4406,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     traceback.print_exc()
 
             return self._send(200, {"ok": True, "title": title, "subtitle": subtitle,
-                                    "cover_path": cover})
+                                    "description": description, "tags": tags,
+                                    "cover_path": cover,
+                                    "tip": "发布包已备好（封面+标题+文案+话题）。去发布台 /studio/publish 选账号点确认即可真发。"})
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
             return self._send(200, {"ok": False, "error": str(e)})
@@ -5296,11 +5558,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 finally:
                     with _chat_running_lock:
                         _chat_running.pop(sid, None)
-            # 看门狗：批量出稿（本周 7 篇）耗时较长，给 10 分钟；其余 4 分钟。
+            # 看门狗：批量出稿（本周 7 篇）耗时较长，给 10 分钟；单条口播稿 deepseek 实测可跑 400s+，给 8 分钟（480s）。
+            #   （旧值 240s 会在单条长写稿未归时误报超时，客户端拿到假超时后去"做成片"会空输入，故放宽。）
             _is_batch = any(w in (message or "") for w in
                             ("本周都写", "这周都写", "一周都写", "本周全写", "一周全写", "批量出稿"))
-            _wd_secs = 600.0 if _is_batch else 240.0
-            _wd_mins = 10 if _is_batch else 4
+            _wd_secs = 600.0 if _is_batch else 480.0
+            _wd_mins = 10 if _is_batch else 8
 
             def _timeout_guard():
                 with _chat_running_lock:
@@ -5322,7 +5585,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             threading.Thread(target=_cleanup_watchdog, daemon=True).start()
             return self._send(200, {"stage": "async", "session_id": sid,
                                     "job_id": sid,
-                                    "message": "已开始处理。这一步可能要 1~4 分钟（长出稿），我会持续更新进度，请稍候。"})
+                                    "message": "已开始处理。这一步可能要 1~8 分钟（长写稿/出片），我会持续更新进度，请稍候。"})
         # 短闲聊：同步即时返回（保持快速响应）
         try:
             return self._send(200, _CHAT_ORCH.step(sid, message, tenant, action=action))
@@ -5447,6 +5710,43 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._send(200, ai_qc(text, data.get("platform")))
         except Exception as e:  # noqa: BLE001
             return self._send(200, {"ok": False, "error": str(e)})
+
+    # ---- 内容分析引擎：结构连贯性+对话自然度+事实溯源+重排+智能标题 ----
+    def _handle_analyze_script(self, data):
+        text = (data.get("text") or "").strip()
+        if not text:
+            return self._send(400, {"error": "text required"})
+        try:
+            # 懒加载：即便 content_analyzer 异常也不拖垮 8500 其它接口
+            from content_analyzer import full_pipeline
+            res = full_pipeline(
+                text,
+                do_verify=bool(data.get("verify", True)),
+                topic_hint=(data.get("topic") or "").strip(),
+            )
+            return self._send(200, {
+                "ok": True,
+                "dialogue": res["dialogue"],
+                "titles": res["titles"],
+                "diagnosis": res["diagnosis"],
+                "facts": res["facts"],
+                "report": res["report"],
+            })
+        except Exception as e:  # noqa: BLE001
+            return self._send(200, {"ok": False, "error": str(e)})
+
+    # ---- 对话框「上传本地文件」解析（docx/txt/md + 图片 OCR，懒加载不拖垮主服务）----
+    def _handle_file_extract(self, data):
+        name = (data.get("name") or "").strip()
+        data_b64 = data.get("data_b64") or ""
+        if not name or not data_b64:
+            return self._send(400, {"ok": False, "error": "name/data_b64 required"})
+        try:
+            from file_extract import extract
+            res = extract(name, data_b64)
+        except Exception as e:  # noqa: BLE001 —— 解析层任何异常都不拖垮 8500 其它接口
+            return self._send(200, {"ok": False, "name": name, "error": str(e)[:200]})
+        return self._send(200, res)
 
     # ---- 出片产物技术质检（按 job_id 从磁盘解析产物路径，重启后仍可用）----
     def _handle_qc_video(self, data):

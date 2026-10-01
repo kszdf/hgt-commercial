@@ -58,7 +58,7 @@ MIN_COUNT, MAX_COUNT = 1, 10
 
 class ChatOrchestrator:
     def __init__(self, ai_topic_fn, ai_rewrite_fn, deepseek_chat_fn, text_cfg_fn,
-                 search_fn=None, get_key_fn=None, planning_cfg_fn=None):
+                 search_fn=None, get_key_fn=None, planning_cfg_fn=None, crm_upsert_fn=None):
         self._ai_topic = ai_topic_fn
         self._ai_rewrite = ai_rewrite_fn
         self._chat = deepseek_chat_fn
@@ -67,6 +67,7 @@ class ChatOrchestrator:
         self._plan_model = ""            # 由 server 注入 env PLANNING_MODEL；空=默认 flash
         self._search = search_fn            # 联网检索（tavily_search），未注入则检索能力关闭
         self._get_key = get_key_fn or (lambda n: None)
+        self._crm_upsert = crm_upsert_fn   # 获客最小回流：发布后被动登记线索（非主动能力）
         self._sessions = {}
         self._lock = threading.Lock()
         # 异步长任务进度：sid -> {"phase","msg","start"}；由 server 后台线程 + 前台 /chat/status 读写
@@ -682,6 +683,197 @@ class ChatOrchestrator:
         }
 
     # ---- 执行 ----
+
+    # ---- 口播稿自动把关（content_analyzer 深度自检，非破坏性）----
+    _ANALYZER_DIR = "D:/heygem_data/gpt_sovits"
+
+    def _ensure_analyzer(self):
+        """懒加载：把 gpt_sovits 注入 sys.path（8500 进程已注入则直接成功）。"""
+        import sys
+        if "content_analyzer" not in sys.modules:
+            sys.path.insert(0, self._ANALYZER_DIR)
+
+    def _run_analyzer_rule(self, script):
+        """规则层（同步、离线、免费）：结构/对话硬伤。失败返回 []。"""
+        try:
+            self._ensure_analyzer()
+            from content_analyzer import parse_turns, rule_coherence
+            turns = parse_turns(script or "")
+            if not turns:
+                turns = [{"spk": "M", "text": script or ""}]
+            return rule_coherence(turns)
+        except Exception as e:
+            self._chat_log("", "WARN | analyzer rule failed: %s" % e)
+            return []
+
+    def _run_analyzer_full(self, s, script):
+        """深度层（LLM+事实溯源）。返回 full_pipeline dict 或 None。"""
+        sid = s.get("id") or "" if isinstance(s, dict) else ""
+        try:
+            self._ensure_analyzer()
+            from content_analyzer import full_pipeline
+            topic = (s.get("topic") or s.get("audience") or "") if isinstance(s, dict) else ""
+            return full_pipeline(script or "", do_verify=True, topic_hint=topic)
+        except Exception as e:
+            self._chat_log(sid, "WARN | analyzer full failed: %s" % e)
+            return None
+
+    def _analyze_async(self, s, entry):
+        """后台线程跑深度层，结果回写 entry['analysis']。非阻塞、失败不影响主流程。"""
+        sid = s.get("id") if isinstance(s, dict) else ""
+        def _job():
+            try:
+                res = self._run_analyzer_full(s, entry.get("script") or "")
+                entry["analysis"] = res
+                entry["analysis_done"] = True
+            except Exception as e:
+                entry["analysis"] = None
+                entry["analysis_done"] = True
+                self._chat_log(sid, "WARN | analyzer thread: %s" % e)
+        try:
+            threading.Thread(target=_job, daemon=True).start()
+        except Exception as e:
+            self._chat_log(sid, "WARN | analyzer thread start failed: %s" % e)
+
+    def _pre_render_guard(self, s):
+        """做成片前把关：命中硬伤则拦截返回提示 dict，否则 None 放行。"""
+        written = s.get("written") or []
+        if not written:
+            return None
+        entry = written[-1]
+        script = entry.get("script") or ""
+        if not script:
+            return None
+        # ★只读取后台线程(_analyze_async)已算好的深度分析，绝不在此同步调 LLM——
+        # 8500 进程内 deepseek 实时调用 60s 必超时，同步等会让"做成片"卡 60s+ 才动。
+        # 深度报告(analysis_report)是软展示，没算好就给空，不挡硬拦截与出片。
+        analysis = entry.get("analysis")
+        rule_issues = entry.get("analysis_rule") or self._run_analyzer_rule(script)
+        hard_kw = ("编号不连续", "拼凑断层", "结构声明落空", "角色错位", "套路化接话")
+        hard = [x for x in rule_issues if any(k in x for k in hard_kw)]
+
+        # ★独白稿豁免：纯独白口播稿（无 男|/女|/张|/江| 等显式说话人标记）被 parse_turns
+        # 按行切成多个 M turn，相邻同声必触发"角色错位"假阳性，会误拦正常出片。
+        # 双声对话稿含显式标记→不豁免，仍查角色错位（女问男答设定）。
+        _has_speaker = bool(re.search(r"^\s*[男女张江甲乙AB]\s*[\|\｜:：]", script, re.M))
+        if not _has_speaker:
+            # 独白口播稿：规则层(编号/拼凑/角色/接话)是为双声对话稿设计的，套到独白稿必误判
+            # （独白稿所有句同声→批量"角色错位"；口播稿不强求编号→"结构声明落空"），
+            # 故独白稿规则层硬伤全部豁免，仅保留事实层(_fact_rule_check)把关，否则正常独白稿出不了片。
+            hard = []
+
+        # ★ P0 事实核查闸门：LLM 语义判断稿子是否含错误财税事实
+        #   （含"公转私不交税""个体户不用记账"类【观点性错误】；verify_facts 只核日期/数字/条文，
+        #    抓不到观点错误，故用独立 LLM 语义核查。失败/超时=放行，不阻断出片。）
+        fact_errs = self._fact_check_script(script, s.get("topic") or "")
+        if fact_errs:
+            hard = list(hard) + ["事实错误：" + e for e in fact_errs]
+
+        if not hard:
+            return None
+        return {
+            "stage": "written",
+            "analysis_block": True,
+            # ★前端「AI 把关折叠区」数据源：完整规则核查（含软提示，不止硬伤）+ 深度诊断报告
+            # 独白稿时规则层结构体/对话体检查全不适用，detail 只留中性提示，避免展示"角色错位"等假阳性误导
+            "analysis_detail": ([x for x in rule_issues
+                                 if _has_speaker or not any(k in x for k in hard_kw)]
+                                if isinstance(rule_issues, list) else [str(rule_issues)]),
+            "analysis_report": (analysis.get("report") if isinstance(analysis, dict) else "") or "",
+            "message": "⚠️ AI 把关发现 %d 处问题（含事实性硬伤），建议先修再出片：\n" % len(hard)
+                       + "\n".join("• " + x for x in hard)
+                       + "\n（已为你生成重排稿，点「采纳重排稿」一键覆盖；或直接「继续出片」）",
+            "next": [
+                {"id": "adopt_analysis", "name": "采纳重排稿", "icon": "✅", "cmd": "采纳重排稿"},
+                {"id": "video_render", "name": "继续出片", "icon": "🎬", "cmd": "做成片"},
+            ],
+        }
+
+    # ★确定性规则兜底：高频明显错误观点（不依赖 LLM，零延迟；LLM 超时时仍生效）
+    _DANGER_TOPICS = ("公转私", "公户转私", "对公转私", "个体户", "私户", "个人卡",
+                      "私账", "私卡", "现金交易", "老板自己卡", "对公账户转", "对公账户直接转")
+    _DANGER_PHRASES = ("不交税", "不用交税", "不用交个税", "不用申报", "不用记账",
+                       "不用报税", "想转多少转多少", "完全不用交", "根本不用交",
+                       "一分钱税都不用交")
+    # 极高危险短语：即使无话题词也单独立案（几乎必然是误导）
+    _DANGER_ALONE = ("税务局查不到", "查不到的", "想转多少转多少", "一分钱税都不用交")
+
+    # ★整篇立场判定（鲁棒辟谣识别）：若全文出现明确的"正确财税表述"信号，说明
+    # 危险短语只是被驳斥的靶子（科普/辟谣稿整体正确）→ 放行，绝不误拦正常稿。
+    # 仅在【全篇无任何纠正信号】且出现绝对化危险断言时才拦截（纯错误观点）。
+    _CORRECT_SIGNALS = ("要交", "要缴", "得交", "必须交", "应当交", "一样要交", "照样交",
+                        "视同分红", "20%个税", "20%的个税", "股息红利", "利息股息",
+                        "补税", "滞纳金", "罚款", "处罚", "税务上看", "按税法", "依法",
+                        "误区", "大错特错", "是错的", "不对", "其实", "实际上", "事实上",
+                        "并非", "不等于", "不存在", "纯属", "谣言", "违法")
+
+    def _fact_rule_check(self, script):
+        """确定性规则：识别高频明显错误财税观点（零延迟，不依赖 LLM）。
+        鲁棒策略——看【整篇立场】而非局部词：
+          - 若全文含明确"正确财税表述"信号（要交税/视同分红/补税/按税法/税务上看…），
+            说明稿子在讲正确知识，危险短语只是被驳斥的靶子 → 放行（避免误拦科普/辟谣稿）。
+          - 仅当全篇无任何纠正信号、却出现绝对化危险断言（'不交税''不用申报'…）才拦截。
+        不再依赖"危险词附近有无否定标记"的脆弱局部判断，可覆盖 AI 任意辟谣句式。"""
+        s = script or ""
+        if not s:
+            return []
+        has_correct = any(k in s for k in self._CORRECT_SIGNALS)
+        has_topic = any(t in s for t in self._DANGER_TOPICS)
+        hits = []
+        # 极高危险短语：无纠正信号才立案（有纠正信号多半是"以为查不到，其实查得到"的辟谣）
+        for p in self._DANGER_ALONE:
+            if p in s and not has_correct:
+                hits.append("危险断言「%s」疑似错误财税观点，税务合规上不成立" % p)
+        # 话题+危险短语：仅全篇无任何纠正信号时拦（纯错误断言），否则视为辟谣科普放行
+        if not has_correct:
+            for p in self._DANGER_PHRASES:
+                if has_topic and p in s:
+                    hits.append("危险断言「%s」疑似错误财税观点（公转私/个体户等免税误区）" % p)
+        seen, out = set(), []
+        for h in hits:
+            if h not in seen:
+                seen.add(h); out.append(h)
+        return out[:6]
+
+    def _fact_check_script(self, script, topic=""):
+        """事实核查闸门：确定性规则层(零延迟，必拦明显错误观点)，不依赖 LLM。
+        LLM 实时判断不稳定（超时则放行、或把'表述不严谨'误判为'事实错误'），
+        故只用于补充展示而非硬拦截。硬拦截只交给规则层，保证零误拦、零延迟。"""
+        return self._fact_rule_check(script)
+
+    def _adopt_analysis(self, s):
+        """采纳重排稿：用 analysis.dialogue 覆盖 entry.script（非破坏性手动动作）。"""
+        written = s.get("written") or []
+        if not written:
+            return None
+        entry = written[-1]
+        analysis = entry.get("analysis")
+        dialogue = analysis.get("dialogue") if isinstance(analysis, dict) else None
+        if not dialogue:
+            return {
+                "stage": "written",
+                "message": "这篇还没生成重排稿（把关深度层未完成或失败），稍候再点或先点「做成片」直接出。",
+                "next": [{"id": "video_render", "name": "做成片", "icon": "🎬", "cmd": "做成片"}],
+            }
+        entry["script"] = dialogue
+        entry["revised"] = True
+        entry["adopted_analysis"] = True
+        s["history"].append("采纳AI把关重排")
+        entry["analysis_rule"] = self._run_analyzer_rule(dialogue)
+        try:
+            self._save(s)
+        except Exception:
+            pass
+        return {
+            "stage": "written",
+            "results": [entry],
+            "message": "已采纳 AI 把关重排稿，覆盖原稿。你看看顺不顺，满意了点「做成片」。",
+            "next": [
+                {"id": "video_render", "name": "做成片", "icon": "🎬", "cmd": "做成片"},
+                {"id": "rewrite", "name": "二创改写", "icon": "✍️", "cmd": "二创改写"},
+            ],
+        }
+
     def _do_propose(self, s):
         industry = s.get("audience") or s.get("topic") or "中小企业"
         keywords = "；".join(x for x in [s.get("topic"), s.get("requirement")] if x)
@@ -809,6 +1001,14 @@ class ChatOrchestrator:
             _wl = s.setdefault("written", [])
             entry["widx"] = len(_wl)
             _wl.append(entry)
+            # —— AI 把关：规则层即时 + 深度层异步预跑（仅缓存诊断，不改稿）——
+            try:
+                _ri = self._run_analyzer_rule(entry["script"])
+                if _ri:
+                    entry["analysis_rule"] = _ri
+                self._analyze_async(s, entry)
+            except Exception as _e:
+                self._chat_log(sid, "WARN | analyzer hook failed: %s" % _e)
             if sid:
                 self._set_progress(sid, "writing", "已完成第 %d/%d 篇，继续…" % (seq, total))
         s["history"].append("成稿")
@@ -859,6 +1059,14 @@ class ChatOrchestrator:
             return {"stage": "ask", "message": "字数调整没成功（模型没有返回内容，可能是超时），你再说一次或手动改下。"}
         entry["script"] = rewritten
         entry["widx"] = len(written) - 1
+        # —— AI 把关：规则层即时 + 深度层异步预跑 ——
+        try:
+            _ri = self._run_analyzer_rule(entry["script"])
+            if _ri:
+                entry["analysis_rule"] = _ri
+            self._analyze_async(s, entry)
+        except Exception as _e:
+            self._chat_log(s.get("id"), "WARN | analyzer hook(adjust) failed: %s" % _e)
         self._chat_log(s.get("id"), "OUT | adjust_last_script_words -> %d 字" % n)
         s["_await_video_confirm"] = True
         return {
@@ -918,6 +1126,14 @@ class ChatOrchestrator:
         target["script"] = rewritten            # 原地覆盖
         target["revised"] = True
         target["widx"] = idx                    # 原地覆盖，下标不变；显式带给前端「改这篇」
+        # —— AI 把关：规则层即时 + 深度层异步预跑 ——
+        try:
+            _ri = self._run_analyzer_rule(target["script"])
+            if _ri:
+                target["analysis_rule"] = _ri
+            self._analyze_async(s, target)
+        except Exception as _e:
+            self._chat_log(s.get("id"), "WARN | analyzer hook(revise) failed: %s" % _e)
         s["history"].append("改写第" + str(idx + 1) + "篇")
         s["_await_video_confirm"] = True
         return {"stage": "written", "results": [target], "revised": True,
@@ -1908,6 +2124,18 @@ class ChatOrchestrator:
             return False
         return any(w in m for w in self._COMPLAINT_WORDS)
 
+    # 用户要求"重做/推倒重来"：明确重做指令（不含"不对/换个选题"，后者是改话题走 0.51/0.52）
+    # 用户要求"重做/推倒重来"：仅保留无歧义的重做词，避免"写错了发票怎么开"被误判成重来。
+    # （"写错了/弄错了/搞错了/不是这个"表达模糊，去掉；保留 重来/重写/讲错了/这版不行 等强信号。）
+    _REDO_WORDS = ("重来", "推倒重来", "重新写", "重写", "讲错了", "说反了",
+                   "理解反了", "这版不行", "不对，重")
+
+    def _looks_like_redo(self, msg):
+        m = str(msg or "").strip()
+        if not m:
+            return False
+        return any(w in m for w in self._REDO_WORDS)
+
     # —— 状态问句识别：用户是在"问某事做完没"（X写了吗 / X出了没 / X做好了没），不是在下达指令 ——
     #   这是"像人一样对话"最关键的一环：人听到"今天的文章写了吗"会先回答"写了/没写"，
     #   而不是把它理解成"现在去写一篇"。之前引擎因为有"公众号文章"关键词就误触发成写稿指令，答非所问。
@@ -2464,6 +2692,10 @@ class ChatOrchestrator:
                 "hint": "用平台质检规则检查本批成稿",
             })
         if hits.get("publish"):
+            if s.get("last_job_id"):
+                # ★已有成片 → 进发布包能力闭环（打包封面/标题/文案/话题 + 预览），不跳页
+                self._chat_log(s.get("id"), "OUT | publish-with-video -> publish_pack capability")
+                return self._do_capability(s, message, "publish_pack")
             actions.append({
                 "type": "goto", "label": "去发布台（打包分发素材）", "url": "/studio/publish",
                 "hint": "在发布页生成发布包/分发到各平台",
@@ -3031,6 +3263,10 @@ class ChatOrchestrator:
         if cap_id == "video_render" and ok and isinstance(data, dict) and data.get("job_id"):
             s["last_job_id"] = str(data.get("job_id"))
         nxt = _CAP.next_suggestions(cap_id)
+        # 获客最小回流：发布素材包后，给用户一个「登记线索」被动入口（不开放为主动能力）
+        if cap_id == "publish_pack" and callable(self._crm_upsert):
+            nxt = list(nxt) + [{"id": "register_lead", "name": "登记线索", "icon": "📇",
+                                "desc": "把这条短视频获客线索登记进 CRM 线索池"}]
         # ★状态感知引导（2026-09-16）：本会话已出过片时，文案质检完成不再推荐"生成视频"
         # 重复出片，改推 成片质检 → 发布素材包（与 next_suggestions("video_render") 同链）。
         if cap_id == "qc" and s.get("last_job_id"):
@@ -3075,6 +3311,41 @@ class ChatOrchestrator:
             "next": nxt,
             "tip": "点下面的卡片继续，或说你要做什么。",
         }
+
+    # —— 获客最小回流：发布后被动登记线索（非主动能力）——
+    def _looks_like_lead_register(self, message):
+        """仅接住「登记线索」这类明确指令/卡片点击，避免误伤正常对话。"""
+        m = self._norm_msg(message)
+        return ("登记线索" in m) or ("记线索" in m) or ("线索登记" in m)
+
+    def _do_register_lead(self, s):
+        """把发布后的获客线索以最小字段写回 CRM（crm_upsert）。
+        不属于主动能力（HIDDEN_CAPS.crm_record 仍暂不开发），只作发布后的被动回流入口。"""
+        topic = (s.get("topic") or "").strip()
+        if not callable(self._crm_upsert):
+            return {"stage": "answer",
+                    "message": "CRM 回写未配置（crm_upsert 未注入）。这条获客线索先记在对话里：%s。"
+                               % (topic or "短视频获客线索")}
+        name = topic or "短视频获客线索"
+        vals = {
+            "name": name,
+            "contact": "",
+            "stage": "线索",
+            "industry": (s.get("audience") or "").strip(),
+            "source": "短视频获客",
+            "note": "对话出片/发布后回流的获客线索；主题：%s" % (topic or "—"),
+        }
+        try:
+            r = self._crm_upsert(vals)
+        except Exception as e:  # noqa: BLE001
+            return {"stage": "answer", "message": "登记线索时出错了：%s" % e}
+        if r and r.get("ok"):
+            return {"stage": "answer",
+                    "message": "已把这条获客线索登记进 CRM 线索池：「%s」，来源标记为短视频获客。后续可在人工审核/线索页跟进。"
+                               % name}
+        return {"stage": "answer",
+                "message": "线索没存上：%s。你可以稍后再试，或手动在 CRM 里补一条。"
+                           % ((r or {}).get("error", "未知原因"))}
 
     # —— 重复提问识别（记忆提示）——
     # 同一句话再说一遍：①照样答(复用/重算，绝不 busy/空白)；②若之前答过，让模型自然提示"刚答过"并引导新问题。
@@ -3145,6 +3416,23 @@ class ChatOrchestrator:
         if _par:
             return _par
 
+        # —— 0.0) 用户明确"重来/讲错了/重写"：确定性重做，绝不敷衍成状态回复 ——
+        #   排在最前（投诉分支之前），避免"重来"被误判进"没反应"客服分支。
+        #   有稿：清掉上一版并重出角度（=真正重写一版）；无稿有主题：重拆；都没：追问。
+        if self._looks_like_redo(message):
+            written = s.get("written") or []
+            s["stance_raw"] = ""  # 重做：清掉旧立场，避免矛盾进稿
+            if written:
+                written.pop()
+                s["written"] = written
+                self._chat_log(sid, "OUT | redo -> cleared last script, re-propose")
+                return self._do_propose(s)
+            if s.get("topic"):
+                self._chat_log(sid, "OUT | redo(no script) -> re-propose")
+                return self._do_propose(s)
+            self._chat_log(sid, "OUT | redo -> no context, ask")
+            return {"stage": "ask", "message": "你想重来哪部分？告诉我主题，我重新来。"}
+
         # —— 0) 用户反馈"没反应/卡了/不动"时的紧急引导 ——
         # 排最前：避免 LLM 或关键词匹配把它误当成"开始某个能力"。
         if self._looks_like_complaint(message):
@@ -3162,6 +3450,13 @@ class ChatOrchestrator:
             self._chat_log(sid, "OUT | complaint-no-ready")
             return {"stage": "ask",
                     "message": "我在。刚才没接上，你直接说想做什么，比如'给我写一篇个人卡收款严重性的公众号文章'。"}
+
+        # —— 0.1) 获客线索登记（发布后被动触发，不作为主动能力暴露）——
+        #   仅接住「登记线索」这类明确指令/卡片点击，绝不主动推销，也不把普通对话误判成登记。
+        #   与 HIDDEN_CAPS.crm_record（主动 CRM 能力暂不开发）不冲突：这里只是发布后的最小回流入口。
+        if self._looks_like_lead_register(message):
+            self._chat_log(sid, "OUT | register-lead (passive)")
+            return self._do_register_lead(s)
 
         # —— 0.4) 重复提问识别（记忆提示）——
         # 与 server 层 check_repeat 互补：保证无论入口(直连 step / 经 server)都能接住重复，绝不 blank/答非所问。
@@ -3191,10 +3486,20 @@ class ChatOrchestrator:
         written = s.get("written") or []
         if written and not (s.get("pending_cap") or {}).get("id"):
             _m = str(message or "").strip()
+            # ★采纳 AI 把关重排稿（非破坏性手动动作，优先于确认出片）
+            if any(w in _m for w in ("采纳重排稿", "采纳把关稿", "用重排稿", "用AI重排稿")):
+                _adopt = self._adopt_analysis(s)
+                if _adopt:
+                    self._chat_log(sid, "OUT | adopt AI analysis")
+                    return _adopt
             explicit_confirm = any(w in _m for w in ("做成片", "开始出片", "确认出片"))
             intent_confirm = s.get("_await_video_confirm") and any(w in _m for w in ("出片", "生成视频", "做成片", "开始出片", "确认出片"))
             if (explicit_confirm or intent_confirm) and not self._looks_like_complaint(_m):
-                self._chat_log(sid, "OUT | video-render confirm -> render card")
+                self._chat_log(sid, "OUT | video-render confirm -> 把关自检")
+                # ★确认口播稿前自动把关：命中硬伤则拦截，无硬伤直通
+                _guard = self._pre_render_guard(s)
+                if _guard:
+                    return _guard
                 s["_await_video_confirm"] = False
                 return self._do_capability(s, "", "video_render")
             if self._is_script_modify_request(_m):
@@ -3240,7 +3545,9 @@ class ChatOrchestrator:
         if not (s.get("pending_cap") or {}).get("id") and s.get("topic"):
             _m = str(message or "").strip()
             if any(w in _m for w in ("重新拆", "重新出角度", "换个角度", "再拆一次", "再拆一遍",
-                                      "角度不够", "再来一次", "不要这些")):
+                                      "角度不够", "再来一次", "不要这些", "不要这些了", "不要这个了",
+                                      "换一个", "换一批", "重新出一批", "重选角度", "角度重选")):
+                s["stance_raw"] = ""  # 改口/重拆：清掉旧立场，避免新旧矛盾一起进稿
                 self._chat_log(sid, "OUT | explicit re-propose (written=%s) -> _do_propose" % bool(written))
                 return self._do_propose(s)
 

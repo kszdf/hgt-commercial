@@ -110,6 +110,8 @@ class PublishPackController extends Controller
             'title' => $r['title'] ?? '',
             'subtitle' => $r['subtitle'] ?? '',
             'cover_name' => $coverName,
+            'description' => $r['description'] ?? '',
+            'tags' => $r['tags'] ?? [],
         ]);
     }
 

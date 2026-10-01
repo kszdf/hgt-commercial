@@ -11,7 +11,7 @@
                 <p class="mt-1 text-xs text-amber-700">选题二创需从「智能选题」选择选题后进入。如需改写自有稿件，请使用「原始稿二创」。</p>
                 <div class="mt-3 flex justify-center gap-2">
                     <a href="/studio/topic" class="inline-flex items-center rounded-md bg-brand-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-brand-600">去智能选题 →</a>
-                    <a href="/studio/rewrite-original" class="inline-flex items-center rounded-md bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50">原始稿二创</a>
+                    <a href="/studio/rewrite" class="inline-flex items-center rounded-md bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50">去二创改写 →</a>
                 </div>
             </div>
 

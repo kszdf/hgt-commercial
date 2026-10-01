@@ -188,7 +188,7 @@ CAPABILITIES = {
              "default": "mono:单人独白", "required": False},
         ],
         "output": "成品视频（需要等几分钟渲染）",
-        "next": ["qc_video", "publish_pack"],
+        "next": ["qc_video", "publish_pack", "review"],
         "long": True,          # 长任务：提交后返回 job_id，需要轮询进度
     },
 
@@ -250,6 +250,18 @@ CAPABILITIES = {
         "output": "小红书图文（封面+内页图+文案）",
         "next": [],
     },
+    # ============ 审核（纯导航，不跑流水线） ============
+    "review": {
+        "name": "人工审核",
+        "desc": "成片送你去过一遍再发（审核页列出待审视频）",
+        "cat": "审核",
+        "icon": "✅",
+        "link": "/studio/review",   # 纯跳转：点开即进人工审核页，不触发任何流水线
+        "when": "视频渲染完成后，要人工过一遍再发布时选它",
+        "params": [],
+        "output": "跳转到人工审核页",
+        "next": [],
+    },
     # ============ 素材 ============
     "footage_edit": {
         "name": "素材剪辑",
@@ -305,7 +317,8 @@ def is_hidden(cap_id):
 
 def list_visible():
     """列出本期可见的能力定义。"""
-    return [c for cid, c in CAPABILITIES.items() if cid not in HIDDEN_CAPS]
+    return [c for cid, c in CAPABILITIES.items()
+            if cid not in HIDDEN_CAPS and "link" not in c]
 
 
 # ---------------------------------------------------------------------------
@@ -323,6 +336,8 @@ def list_all(include_hidden=False):
     for cid, c in CAPABILITIES.items():
         if not include_hidden and cid in HIDDEN_CAPS:
             continue
+        if "link" in c:   # 纯导航能力不进 LLM 可执行清单
+            continue
         out.append({
             "id": cid,
             "name": c["name"],
@@ -338,6 +353,8 @@ def prompt_for_llm():
     lines = []
     for cid, c in CAPABILITIES.items():
         if cid in HIDDEN_CAPS:
+            continue
+        if "link" in c:   # 纯导航能力不进 LLM 可执行清单
             continue
         when = c.get("when") or c["desc"]
         lines.append("- %s（id=%s，%s）：%s" % (c["name"], cid, c.get("cat") or "通用", when))
@@ -398,6 +415,7 @@ def next_suggestions(cap_id):
                 "name": n["name"],
                 "icon": n.get("icon") or "▶️",
                 "desc": n["desc"],
+                "link": n.get("link") or "",
             })
     return out
 
@@ -458,6 +476,7 @@ PRODUCT_KEYS = {
     "video_render": ("job_id",),
     "qc_video":     ("job_id", "report_id", "qc"),
     "publish_pack": ("job_id", "files", "pack"),
+    "review":      ("__ok__",),
     "footage_edit": ("job_id",),
     "clone_voice":  ("voice_id", "audio_path"),
 }

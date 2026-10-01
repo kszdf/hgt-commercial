@@ -405,12 +405,6 @@ class StudioController extends Controller
         return response()->json($resp->json());
     }
 
-    /** 原始稿二创：与选题上下文隔离的独立入口。 */
-    public function rewriteOriginal()
-    {
-        return view('studio.rewrite-original');
-    }
-
     public function qc()
     {
         $tenant = $this->studioTenant(request());
@@ -493,6 +487,64 @@ class StudioController extends Controller
         }
         if (! $resp->successful()) {
             return response()->json(['error' => '热点服务暂不可用，请确认微服务已启动'], 502);
+        }
+        return response()->json($resp->json());
+    }
+
+    /**
+     * 爆款选题雷达：代理到宿主 8500 微服务的 /newsfeed 端点。
+     * 聚合微博/百度/头条热榜 + 国家税务总局/税屋最新政策（财税过滤 + 跨平台热度分），
+     * 供聊天页顶部 ticker 展示，每条可「用作选题」进入对话拆角度流程。
+     */
+    public function newsfeed(Request $request)
+    {
+        $days = (int) ($request->query('days', 15));
+        $days = max(1, min(30, $days));
+        $force = $request->query('force') === '1' ? 'force=1&' : '';
+        $qs = $force . 'days=' . $days;
+
+        try {
+            $resp = app(PipelineClient::class)->get('/newsfeed?' . $qs, 30);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '选题雷达服务暂时不可用，请稍后重试'], 503);
+        }
+        if (! $resp->successful()) {
+            return response()->json(['error' => '选题雷达服务暂不可用，请确认微服务已启动'], 502);
+        }
+        return response()->json($resp->json());
+    }
+
+    /**
+     * 对话框「上传本地文件」：收浏览器 multipart → base64 → 8500 /file_extract 解析
+     * （docx/txt/md 提取文本；png/jpg/webp/bmp 走 qwen-vl OCR 提取图中文字）。
+     */
+    public function chatUpload(Request $request)
+    {
+        $file = $request->file('file');
+        if (! $file || ! $file->isValid()) {
+            return response()->json(['error' => '未收到有效文件，请重选一次'], 400);
+        }
+        if ($file->getSize() > 10 * 1024 * 1024) {
+            return response()->json(['error' => '文件超过 10MB 上限，请压缩后再传'], 400);
+        }
+        $ext = strtolower($file->getClientOriginalExtension() ?: '');
+        $allowed = ['txt', 'md', 'docx', 'png', 'jpg', 'jpeg', 'webp', 'bmp'];
+        if (! in_array($ext, $allowed)) {
+            return response()->json(['error' => '暂不支持 .'.$ext.' 类型（支持 txt/md/docx 与图片）'], 400);
+        }
+        $payload = [
+            'name' => $file->getClientOriginalName(),
+            'data_b64' => base64_encode(file_get_contents($file->getRealPath())),
+        ];
+        try {
+            $resp = app(PipelineClient::class)->post('/file_extract', $payload, 150);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['error' => '文件解析服务暂不可用，请稍后重试'], 503);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => '文件解析超时或失败，请换个文件或稍后再试'], 502);
+        }
+        if (! $resp->successful()) {
+            return response()->json(['error' => '文件解析失败（'.$resp->status().'），请稍后再试'], 502);
         }
         return response()->json($resp->json());
     }

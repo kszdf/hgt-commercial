@@ -87,7 +87,7 @@
                         @if($t->type === 'angle')
                             <a href="{{ route('studio.topic', ['kw' => $t->title]) }}" class="rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1 text-[11px] font-medium text-brand-600 hover:bg-brand-100">去选题 →</a>
                         @else
-                            <a href="{{ route('studio.rewrite-original', ['tpl' => $t->content]) }}" class="rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1 text-[11px] font-medium text-brand-600 hover:bg-brand-100">去二创 →</a>
+                            <a href="{{ route('studio.rewrite') }}" class="rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1 text-[11px] font-medium text-brand-600 hover:bg-brand-100">去二创 →</a>
                         @endif
                         @if(! $t->isPlatform() || $isAdmin)
                             <details class="relative">

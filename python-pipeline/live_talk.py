@@ -210,10 +210,16 @@ def send(sid, msg):
         if r.get("stage") == "busy":
             return r
     # action_ready：点「开始执行」→ 调 Laravel → 回灌
+    # 但 video_render 是重活且会污染会话：只在用户明确说「做成片/生成视频」时才自动执行，
+    # 改稿（「改成120秒」等）、二创等非出片意图只记录 action_ready，不自动出片。
+    _WANTS_VIDEO = ("做成片", "生成视频", "出片", "渲染", "提交出片", "做视频", "出条视频")
     if r.get("stage") == "action_ready" and r.get("cap"):
         cap_id = r["cap"].get("id")
         vals = r.get("vals") or {}
-        r = _execute_cap(sid, cap_id, vals)
+        if cap_id == "video_render" and not any(w in msg for w in _WANTS_VIDEO):
+            print("   （非出片指令，跳过 video_render 自动执行，等用户点「做成片」卡片）", flush=True)
+        else:
+            r = _execute_cap(sid, cap_id, vals)
     dt = time.time() - t0
     print("\n───────── 我说：%s" % msg[:80], flush=True)
     _dump(r, dt)

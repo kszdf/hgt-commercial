@@ -21,7 +21,7 @@ USERS = {
 }
 
 GET_ROUTES = [
-    "/dashboard", "/studio/topic", "/studio/rewrite", "/studio/rewrite-original",
+    "/dashboard", "/studio/topic", "/studio/rewrite",
     "/studio/dissect", "/studio/scroll", "/studio/qc", "/studio/videos",
     "/studio/review", "/studio/publish", "/studio/voices", "/studio/covers",
     "/studio/models", "/studio/recycle", "/studio/settings/appearance",

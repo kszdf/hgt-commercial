@@ -47,6 +47,60 @@
         -webkit-backdrop-filter: blur(6px);
         box-shadow: 0 1px 3px rgba(15,23,42,0.05);
     }
+    /* ===== 爆款选题雷达 ticker ===== */
+    .newsfeed-radar {
+        flex: 0 0 auto;
+        position: sticky; top: 0; z-index: 30;
+        display: flex; align-items: center;
+        height: 40px;
+        background: linear-gradient(90deg, #1A3A5C 0%, #214a72 100%);
+        color: #fff;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        overflow: hidden;
+    }
+    .newsfeed-radar .radar-label {
+        flex: 0 0 auto; display: flex; align-items: center; gap: 4px;
+        padding: 0 10px; height: 100%;
+        font-size: 12px; font-weight: 600;
+        background: rgba(200,164,92,0.20); color: #F4D08A;
+        white-space: nowrap;
+    }
+    .newsfeed-radar .radar-viewport { flex: 1 1 auto; overflow: hidden; height: 100%; position: relative; }
+    .newsfeed-radar .radar-track {
+        display: inline-flex; align-items: center; height: 100%;
+        white-space: nowrap;
+        animation: radar-scroll 45s linear infinite;
+        will-change: transform;
+    }
+    .newsfeed-radar .radar-viewport:hover .radar-track { animation-play-state: paused; }
+    @keyframes radar-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    .radar-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        margin: 0 6px; padding: 3px 10px;
+        font-size: 12px; line-height: 1;
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 999px;
+        cursor: pointer; transition: background .15s, transform .1s;
+    }
+    .radar-chip:hover { background: rgba(255,255,255,0.18); transform: translateY(-1px); }
+    .radar-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: #C8A45C; flex: 0 0 auto; }
+    .radar-chip .ht { color: #F4D08A; font-size: 11px; opacity: .85; }
+    .radar-modal-mask {
+        position: fixed; inset: 0; background: rgba(15,23,42,.5);
+        z-index: 60; display: none; align-items: center; justify-content: center;
+    }
+    .radar-modal-mask.show { display: flex; }
+    .radar-modal { width: min(460px, 92vw); background: #fff; border-radius: 14px; padding: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+    .radar-modal h3 { font-size: 15px; color: #1A3A5C; margin: 0 0 8px; line-height: 1.4; }
+    .radar-modal .badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .radar-modal .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #eef2f7; color: #334155; text-decoration: none; }
+    .radar-modal .badge.heat { background: #fdf2e2; color: #b8761a; }
+    .radar-modal .row { display: flex; gap: 10px; margin-top: 14px; }
+    .radar-modal button { flex: 1; padding: 9px; border-radius: 9px; font-size: 13px; cursor: pointer; border: 0; }
+    .radar-modal .use { background: #1A3A5C; color: #fff; }
+    .radar-modal .close { background: #eef2f7; color: #475569; }
+
     .chat-scroll {
         flex: 1 1 auto;
         min-height: 0;
@@ -161,6 +215,12 @@
 
     {{-- 右：对话主区（元信息条 + 消息 + 输入） --}}
     <div class="chat-main">
+        {{-- 爆款选题雷达：顶部横向滚动，点击查看详情并可「用作选题」 --}}
+        <div class="newsfeed-radar" id="newsfeedRadar">
+            <div class="radar-label">🔥 选题雷达</div>
+            <div class="radar-viewport"><div class="radar-track" id="radarTrack"><span class="radar-chip" style="cursor:default">加载中…</span></div></div>
+        </div>
+
         {{-- ① 顶部标题条：WorkBuddy 风格，只保留空间名 + 删除，信息 chips 收入对话内 --}}
         <div class="chat-meta flex h-12 shrink-0 items-center justify-between border-b border-slate-200 bg-white/90 px-4 backdrop-blur-sm">
             <div class="flex min-w-0 items-center gap-2">
@@ -204,15 +264,18 @@
                         class="block w-full resize-none rounded-lg border-0 bg-transparent px-1.5 py-1 text-sm leading-relaxed text-slate-700 outline-none placeholder:text-slate-400"
                         style="min-height:84px;max-height:220px"></textarea>
                     <div class="mt-1 flex items-center justify-between gap-2">
-                        <button id="micBtn" type="button" title="语音输入：点一下开始，说完再点一次结束"
-                            class="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
-                            🎤 语音
-                        </button>
                         <div class="flex items-center gap-2">
-                            <button id="pendingBtn" type="button" title="定时任务待发内容（点开复制去发）"
-                                class="shrink-0 relative rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-50">
-                                📋 待发<span id="pendingBadge" class="hidden absolute -right-1.5 -top-1.5 min-w-[16px] rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white">0</span>
+                            <button id="fileBtn" type="button" title="上传本地文件：txt/md/docx 自动提取文字，图片自动识别图中文字（≤10MB）"
+                                class="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50">
+                                📎 上传
                             </button>
+                            <input id="fileInput" type="file" accept=".txt,.md,.docx,.png,.jpg,.jpeg,.webp,.bmp" class="hidden">
+                            <button id="micBtn" type="button" title="语音输入：点一下开始，说完再点一次结束"
+                                class="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+                                🎤 语音
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-2">
                             <button id="sendBtn" type="button"
                                 class="shrink-0 rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50">
                                 发送
@@ -220,6 +283,7 @@
                         </div>
                     </div>
                     <span id="micStatus" class="mt-1 hidden text-[11px] text-rose-500"></span>
+                    <span id="upStatus" class="mt-1 hidden text-[11px] text-indigo-600"></span>
                 </div>
                 <p class="mt-1.5 text-center text-[11px] text-slate-400">
                     内容由 AI 生成，请核实重要信息
@@ -247,15 +311,6 @@
     </aside>
 
 </div>
-
-    <!-- 定时任务待发弹层 -->
-    <div id="pendingPop" class="hidden fixed bottom-24 left-4 z-50 w-80 max-h-[70vh] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
-        <div class="flex items-center justify-between border-b border-slate-100 px-3 py-2">
-            <span class="text-sm font-semibold text-slate-700">📋 待发内容</span>
-            <button id="pendingClose" type="button" class="rounded p-1 text-slate-400 transition hover:bg-slate-100">✕</button>
-        </div>
-        <div id="pendingList" class="max-h-[60vh] overflow-y-auto"></div>
-    </div>
 
 <script>
 (function () {
@@ -306,8 +361,17 @@
         const resp = await fetch(url, Object.assign({
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
         }, options || {}));
+        if (resp.status === 419) { handle419(); throw new Error('页面安全令牌已过期，正在自动刷新…'); }
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         return await resp.json();
+    }
+
+    // 页面停留过久导致 CSRF 令牌过期（HTTP 419）：提示并自动刷新（会话历史在服务端，刷新不丢内容）
+    function handle419() {
+        if (window.__reloading419) return;
+        window.__reloading419 = true;
+        alert('页面停留过久，安全令牌已过期，即将自动刷新页面（对话记录不会丢失）…');
+        location.reload();
     }
 
     function esc(s) {
@@ -419,6 +483,13 @@
         let h = (prefix || '<p class="mt-2 text-xs text-slate-500">下一步：</p>')
               + '<div class="mt-1 flex flex-wrap gap-2">';
         list.forEach(n => {
+            if (n.link) {
+                // 纯导航能力（如「人工审核」）：直接跳转页面，不进对话流水线
+                h += '<a href="' + esc(n.link)
+                    + '" class="act-msg rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-100 no-underline">'
+                    + esc(n.icon || '▶️') + ' ' + esc(n.name || '') + '</a>';
+                return;
+            }
             const msg = n.cmd || ('用' + (n.name || ''));
             h += '<button type="button" data-msg="' + esc(msg)
                 + '" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">'
@@ -802,13 +873,15 @@
 
     async function doExport(fmt, title, pieces, btn) {
         const payload = { format: fmt, title: title || '', pieces: pieces.map(p => ({ title: p.title, script: p.script })) };
+        let old = null;  // 修复：old 曾声明在 try 块内，finally 引用会抛 ReferenceError: old is not defined
         try {
-            const old = btn.innerHTML; btn.disabled = true; btn.innerHTML = '生成中…';
+            old = btn.innerHTML; btn.disabled = true; btn.innerHTML = '生成中…';
             const resp = await fetch('/studio/chat/export', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
                 body: JSON.stringify(payload)
             });
+            if (resp.status === 419) { handle419(); return; }
             if (!resp.ok) {
                 let msg = '导出失败';
                 try { const j = await resp.json(); msg = j.error || msg; } catch (e) {}
@@ -840,7 +913,7 @@
         } catch (e) {
             alert('导出失败：' + e.message);
         } finally {
-            btn.disabled = false; btn.innerHTML = old;
+            btn.disabled = false; if (old !== null) btn.innerHTML = old;
         }
     }
     function csrfToken() {
@@ -890,6 +963,35 @@
                  { id: 'xhs', name: '做成小红书图文', icon: '📕', cmd: '把上面这条做成小红书图文' }],
                 '<p class="mt-3 text-xs text-slate-400">—— 想把它变成内容，点一下或直接说。</p>'
             ));
+            return h.join('');
+        }
+        // ★AI 把关折叠区：拦截出片前的结构核查，折叠展示完整诊断，让拦截有据可依
+        if (r.analysis_block) {
+            const _detail = Array.isArray(r.analysis_detail) ? r.analysis_detail : [];
+            const _report = r.analysis_report || '';
+            const h = [
+                '<div class="rounded-lg border border-amber-300 bg-amber-50/60 p-3">',
+                '  <p class="flex items-center gap-1.5 text-sm font-medium text-amber-800">⚠️ AI 把关拦截</p>',
+                '  <p class="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-slate-800">' + esc(r.message || 'AI 把关发现结构问题，建议先修再出片。') + '</p>'
+            ];
+            if (_detail.length || _report) {
+                h.push('<details class="mt-2 overflow-hidden rounded-lg border border-amber-200 bg-white/80">'
+                    + '<summary class="cursor-pointer select-none px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-50">🔍 查看完整诊断'
+                    + (_detail.length ? '（共 ' + _detail.length + ' 项规则核查）' : '') + ' ▾</summary>'
+                    + '<div class="border-t border-amber-200 px-3 py-2 text-[12px] leading-relaxed text-slate-700">');
+                if (_detail.length) {
+                    h.push('<p class="font-medium text-slate-800">结构规则核查：</p>'
+                        + '<ul class="mt-1 list-disc space-y-0.5 pl-4">'
+                        + _detail.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>');
+                }
+                if (_report) {
+                    h.push('<p class="mt-2 font-medium text-slate-800">深度诊断报告：</p>'
+                        + '<div class="mt-1 whitespace-pre-wrap rounded bg-slate-50 p-2 text-[11.5px] leading-relaxed text-slate-700">' + esc(_report) + '</div>');
+                }
+                h.push('</div></details>');
+            }
+            h.push('</div>');
+            h.push(nextCardHtml(r.next, '<p class="mt-2 text-xs text-slate-500">先修还是直接出，你定：</p>'));
             return h.join('');
         }
         if (r.stage === 'search') {
@@ -1076,9 +1178,12 @@
                     { m: 'card', icon: '🧩', name: '图解版' }
                 ];
                 const _curM = (r.vals && r.vals.mode) || 'scroll';
-                _modePicker = '<div class="mt-2"><p class="text-[11px] font-medium text-slate-500">选择视频形式</p>'
+                const _selCls = 'border-indigo-500 bg-indigo-50 text-indigo-700 font-medium';
+                const _idleCls = 'border-slate-200 text-slate-600 hover:border-indigo-300';
+                _modePicker = '<div class="mt-2"><p class="text-[11px] font-medium text-slate-500">选择视频形式（可多选 / 全选）</p>'
                     + '<div class="mt-1 flex flex-wrap gap-2" data-mode-group>'
-                    + _modes.map(x => '<button type="button" data-mode="' + x.m + '" class="mode-opt rounded-lg border px-2.5 py-1 text-xs ' + (x.m === _curM ? 'border-indigo-500 bg-indigo-50 text-indigo-700 font-medium' : 'border-slate-200 text-slate-600 hover:border-indigo-300') + '">' + x.icon + ' ' + x.name + '</button>').join('')
+                    + _modes.map(x => '<button type="button" data-mode="' + x.m + '" class="mode-opt rounded-lg border px-2.5 py-1 text-xs ' + (x.m === _curM ? _selCls : _idleCls) + '">' + x.icon + ' ' + x.name + '</button>').join('')
+                    + '<button type="button" data-mode-all class="rounded-lg border border-dashed border-slate-300 px-2.5 py-1 text-xs text-slate-500 hover:border-indigo-300 hover:text-indigo-600">全选 / 全部形式</button>'
                     + '</div></div>';
                 const _vfs = [
                     { v: 'dialogue', name: '双声对话（女问男答）' },
@@ -1179,11 +1284,25 @@
             if (r.data && r.data.job_id) {
                 h.push('<p class="mt-1 text-[11px] text-slate-400">任务号：' + esc(r.data.job_id) + '</p>');
             }
+            if (r.data && r.data.title) {
+                h.push('<p class="mt-1 text-sm font-medium text-slate-800">「' + esc(r.data.title) + '」' + (r.data.subtitle ? ' <span class="text-slate-500">' + esc(r.data.subtitle) + '</span>' : '') + '</p>');
+            }
+            if (r.data && r.data.description) {
+                h.push('<p class="mt-1 text-sm text-slate-700 leading-relaxed">' + esc(r.data.description) + '</p>');
+            }
+            if (r.data && (r.data.tags || []).length) {
+                h.push('<p class="mt-1 text-xs text-indigo-600">' + esc((r.data.tags || []).join(' ')) + '</p>');
+            }
             if ((r.next || []).length) {
                 h.push('<p class="mt-2 text-xs font-medium text-slate-500">下一步，你可以：</p><div class="mt-1 flex flex-wrap gap-2">');
                 r.next.forEach(n => {
-                    h.push('<button type="button" data-msg="' + esc('用' + n.name) + '" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">'
-                        + esc(n.icon || '▶️') + ' ' + esc(n.name) + '</button>');
+                    if (n.link) {
+                        h.push('<a href="' + esc(n.link) + '" class="act-msg rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-100 no-underline">'
+                            + esc(n.icon || '▶️') + ' ' + esc(n.name) + '</a>');
+                    } else {
+                        h.push('<button type="button" data-msg="' + esc('用' + n.name) + '" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">'
+                            + esc(n.icon || '▶️') + ' ' + esc(n.name) + '</button>');
+                    }
                 });
                 h.push('</div>');
             }
@@ -1194,8 +1313,13 @@
             if ((r.next || []).length) {
                 h.push('<p class="mt-2 text-xs font-medium text-slate-500">下一步，你可以：</p><div class="mt-1 flex flex-wrap gap-2">');
                 r.next.forEach(n => {
-                    h.push('<button type="button" data-msg="' + esc('用' + n.name) + '" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">'
-                        + esc(n.icon || '▶️') + ' ' + esc(n.name) + '</button>');
+                    if (n.link) {
+                        h.push('<a href="' + esc(n.link) + '" class="act-msg rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-100 no-underline">'
+                            + esc(n.icon || '▶️') + ' ' + esc(n.name) + '</a>');
+                    } else {
+                        h.push('<button type="button" data-msg="' + esc('用' + n.name) + '" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">'
+                            + esc(n.icon || '▶️') + ' ' + esc(n.name) + '</button>');
+                    }
                 });
                 h.push('</div>');
             }
@@ -1615,28 +1739,71 @@
         try {
             const card = btn.closest('.chat-bubble') || btn.parentElement;
             const mg = card.querySelector('[data-mode-group]');
-            const msel = mg ? mg.querySelector('.mode-opt.border-indigo-500') : null;
-            const modeVal = msel ? msel.dataset.mode : 'scroll';
+            const modes = mg ? [...mg.querySelectorAll('.mode-opt.border-indigo-500')].map(b => b.dataset.mode) : [];
+            if (modes.length === 0) modes.push('scroll');  // 未选 → 默认 scroll，等价于旧行为
             const vg = card.querySelector('[data-vf-group]');
             const vsel = vg ? vg.querySelector('.vf-opt.border-indigo-500') : null;
             const vfVal = vsel ? vsel.dataset.vf : 'male_mono';
             const modelSel = card.querySelector('[data-avatar-model]');
-            const modelVal = (modeVal === 'avatar' && modelSel) ? modelSel.value : '';
             const raw = JSON.parse(decodeURIComponent(btn.dataset.cap));
-            raw.vals = raw.vals || {};
-            raw.vals.mode = modeVal;
-            raw.vals.voice_form = vfVal;
-            raw.vals.model = modelVal;
             const gp = card.querySelector('[data-grade]');
             const bp = card.querySelector('[data-bgm]');
             const cp = card.querySelector('[data-chart-template]');
-            if (gp && gp.value && gp.value !== 'original') raw.vals.grade = gp.value;
-            if (bp && bp.value && bp.value !== 'default') raw.vals.bgm = bp.value;
-            if (cp && cp.value) raw.vals.chart_template = cp.value;
-            runCapAction(btn, raw);
+            const extra = {};
+            if (gp && gp.value && gp.value !== 'original') extra.grade = gp.value;
+            if (bp && bp.value && bp.value !== 'default') extra.bgm = bp.value;
+            if (cp && cp.value) extra.chart_template = cp.value;
+
+            // 单形式：与旧行为逐字兼容（一次提交、一个任务号、一张卡）
+            if (modes.length === 1) {
+                const perRaw = JSON.parse(JSON.stringify(raw));
+                perRaw.vals = perRaw.vals || {};
+                perRaw.vals.mode = modes[0];
+                perRaw.vals.voice_form = ((modes[0] === 'avatar' || modes[0] === 'card') && vfVal === 'dialogue') ? 'male_mono' : vfVal;
+                perRaw.vals.model = (modes[0] === 'avatar' && modelSel) ? modelSel.value : '';
+                Object.assign(perRaw.vals, extra);
+                runCapAction(btn, perRaw);
+                return;
+            }
+
+            // 多形式：每个选中的形式各发一次请求，独立任务号、各自一张视频卡
+            btn.disabled = true; btn.textContent = '⏳ 正在提交…';
+            appendMsg('ai', '<p class="font-medium text-slate-800">🚀 已提交 ' + modes.length + ' 个形式的渲染：' + modes.join(' / ') + '</p>'
+                + '<p class="mt-1 text-slate-600">各自独立出片，完成后右侧「产物」区会多出对应形式的视频卡。</p>', { noTools: true });
+            (async () => {
+                for (const mode of modes) {
+                    const perRaw = JSON.parse(JSON.stringify(raw));
+                    perRaw.vals = perRaw.vals || {};
+                    perRaw.vals.mode = mode;
+                    perRaw.vals.voice_form = ((mode === 'avatar' || mode === 'card') && vfVal === 'dialogue') ? 'male_mono' : vfVal;
+                    perRaw.vals.model = (mode === 'avatar' && modelSel) ? modelSel.value : '';
+                    Object.assign(perRaw.vals, extra);
+                    try {
+                        const jobId = await submitOneMode(perRaw);
+                        if (jobId) appendMsg('ai', '<p class="text-slate-600">🎬 <b>' + mode + '</b> 已提交，任务号 <code class="text-[11px]">' + esc(jobId) + '</code></p>', { noTools: true });
+                    } catch (e) {
+                        appendMsg('ai', '<p class="text-rose-600">⚠️ ' + mode + ' 提交失败：' + esc(e.message || '未知错误') + '</p>', { noTools: true });
+                    }
+                    await sleep(250);
+                }
+                btn.disabled = false; btn.textContent = '↻ 再执行一次';
+            })();
         } catch (e) {
             console.error('runVideoRender failed', e);
+            try { btn.disabled = false; btn.textContent = '↻ 再执行一次'; } catch (_) {}
         }
+    }
+    // 单个形式提交：复用语义层 POST + pollJob（多形式扇出时复用，不重复追加「正在跑」消息）
+    async function submitOneMode(perRaw) {
+        const res = await api('/studio/chat/action', {
+            method: 'POST',
+            body: JSON.stringify({ cap: perRaw.cap, vals: perRaw.vals || {} })
+        });
+        if (res && res.ok === false) throw new Error(res.error || '后端返回失败');
+        const data = (res && res.data) || {};
+        if (data.job_id) { pollJob(data.job_id, perRaw); return data.job_id; }
+        if (data.batch && data.jobs) { pollBatch(data.jobs, perRaw, data.batch_id); return null; }
+        return null;
     }
     // 批量出片：取已写口播稿(lastWritten) 逐条提交，由后端并发渲染
     function runBatchRender(btn) {
@@ -1669,37 +1836,56 @@
             console.error('runBatchRender failed', e);
         }
     }
-    // 形式/配音选择高亮切换（事件委托）
+    // 形式选择：单选→多选切换；数字人/图解版存在时禁用双声对话并控制「选场景」显隐
+    function _syncMonoAndModel(grp) {
+        if (!grp) return;
+        const sel = [...grp.querySelectorAll('.mode-opt.border-indigo-500')];
+        const anyMono = sel.some(b => b.dataset.mode === 'avatar' || b.dataset.mode === 'card');
+        const anyAvatar = sel.some(b => b.dataset.mode === 'avatar');
+        document.querySelectorAll('[data-vf-group] .vf-opt').forEach(btn => {
+            const isDialogue = (btn.dataset.vf === 'dialogue');
+            if (anyMono && isDialogue) {
+                btn.classList.add('border-slate-200', 'text-slate-300', 'cursor-not-allowed', 'line-through');
+                btn.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium');
+                btn.disabled = true;
+                if (btn.classList.contains('border-indigo-500')) {
+                    btn.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium');
+                    const male = document.querySelector('[data-vf-group] .vf-opt[data-vf="male_mono"]');
+                    if (male) male.classList.add('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium');
+                }
+            } else if (!anyMono && isDialogue) {
+                btn.classList.remove('border-slate-200', 'text-slate-300', 'cursor-not-allowed', 'line-through');
+                btn.disabled = false;
+            }
+        });
+        const _mw = grp.closest('.chat-bubble');
+        if (_mw) {
+            const _aw = _mw.querySelector('[data-avatar-model-wrap]');
+            if (_aw) _aw.style.display = anyAvatar ? '' : 'none';
+        }
+    }
+    // 形式/配音选择高亮切换（事件委托）—— 多选 + 全选
     if (typeof chatBox !== 'undefined' && chatBox) {
         chatBox.addEventListener('click', function (e) {
+            const allBtn = e.target.closest('[data-mode-all]');
+            if (allBtn) {
+                const grp = allBtn.parentElement;
+                const opts = [...grp.querySelectorAll('.mode-opt')];
+                const allOn = opts.length > 0 && opts.every(b => b.classList.contains('border-indigo-500'));
+                opts.forEach(b => {
+                    if (allOn) b.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium');
+                    else b.classList.add('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium');
+                });
+                _syncMonoAndModel(grp);
+                return;
+            }
             const mo = e.target.closest('.mode-opt');
             if (mo) {
-                mo.parentElement.querySelectorAll('.mode-opt').forEach(b => b.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium'));
-                mo.classList.add('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium');
-                const isAvatar = (mo.dataset.mode === 'avatar' || mo.dataset.mode === 'card');
-                // 切到数字人/图解版：禁用「双声对话」并强制改选单声；切走其它形式：恢复双声可点
-                document.querySelectorAll('[data-vf-group] .vf-opt').forEach(btn => {
-                    const isDialogue = (btn.dataset.vf === 'dialogue');
-                    if (isAvatar && isDialogue) {
-                        btn.classList.add('border-slate-200', 'text-slate-300', 'cursor-not-allowed', 'line-through');
-                        btn.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium');
-                        btn.disabled = true;
-                        if (btn.classList.contains('border-indigo-500')) {
-                            btn.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium');
-                            const male = document.querySelector('[data-vf-group] .vf-opt[data-vf="male_mono"]');
-                            if (male) male.classList.add('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'font-medium');
-                        }
-                    } else if (!isAvatar && isDialogue) {
-                        btn.classList.remove('border-slate-200', 'text-slate-300', 'cursor-not-allowed', 'line-through');
-                        btn.disabled = false;
-                    }
-                });
-                // 切到数字人出镜时显示「选场景」下拉，切走其它形式则隐藏
-                const _mw = mo.closest('.chat-bubble');
-                if (_mw) {
-                    const _aw = _mw.querySelector('[data-avatar-model-wrap]');
-                    if (_aw) _aw.style.display = (mo.dataset.mode === 'avatar') ? '' : 'none';
-                }
+                mo.classList.toggle('border-indigo-500');
+                mo.classList.toggle('bg-indigo-50');
+                mo.classList.toggle('text-indigo-700');
+                mo.classList.toggle('font-medium');
+                _syncMonoAndModel(mo.parentElement);
                 return;
             }
             const vo = e.target.closest('.vf-opt');
@@ -1813,6 +1999,7 @@
                             +   '<button type="button" data-msg="对刚成片做质检" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">🛡️ 成片质检</button>'
                             +   '<button type="button" data-msg="打成发布包" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">📦 打发布包</button>'
                             +   '<button type="button" data-msg="改成小红书图文" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">📕 一鱼多吃·小红书</button>'
+                            +   '<a href="/studio/review" class="act-msg rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-100 no-underline">✅ 人工审核</a>'
                             + '</div>');
                     } else {
                         pushArtifact({ key: 'job:' + jobId, type: 'video',
@@ -1911,14 +2098,72 @@
         if (!list || !list.length) return;
         let h = '<p class="mt-2 text-xs font-medium text-slate-500">下一步，你可以：</p><div class="mt-1 flex flex-wrap gap-2">';
         list.forEach(n => {
-            h += '<button type="button" data-msg="' + esc('用' + n.name) + '" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">'
-                + esc(n.icon || '▶️') + ' ' + esc(n.name) + '</button>';
+            if (n.link) {
+                // 纯导航能力（如「人工审核」）：直接跳转页面，不进对话流水线
+                h += '<a href="' + esc(n.link) + '" class="act-msg rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-100 no-underline">'
+                    + esc(n.icon || '▶️') + ' ' + esc(n.name) + '</a>';
+            } else {
+                h += '<button type="button" data-msg="' + esc('用' + n.name) + '" class="act-msg rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100">'
+                    + esc(n.icon || '▶️') + ' ' + esc(n.name) + '</button>';
+            }
         });
         h += '</div>';
         appendMsg('ai', h);
     }
 
     sendBtn.onclick = doSend;
+
+    // ---------- 📎 上传本地文件：txt/md/docx 提取文字，图片 OCR 识别图中文字 ----------
+    const fileBtn = document.getElementById('fileBtn');
+    const fileInput = document.getElementById('fileInput');
+    const upStatus = document.getElementById('upStatus');
+    function setUpStatus(msg, show) {
+        if (!upStatus) return;
+        upStatus.textContent = msg || '';
+        upStatus.classList.toggle('hidden', !show);
+    }
+    if (fileBtn && fileInput) {
+        fileBtn.onclick = () => fileInput.click();
+        fileInput.onchange = async () => {
+            const f = fileInput.files && fileInput.files[0];
+            fileInput.value = '';  // 允许重复选同一文件
+            if (!f) return;
+            if (f.size > 10 * 1024 * 1024) { setUpStatus('文件超过 10MB 上限，请压缩后再传', true); return; }
+            setUpStatus('正在解析「' + f.name + '」…（图片识别约需几秒）', true);
+            fileBtn.disabled = true;
+            try {  // radar timeout 同款：90 秒超时兜底，绝不永远转圈
+                const fd = new FormData();
+                fd.append('file', f);
+                const resp = await Promise.race([
+                    fetch('/studio/chat/upload', {
+                        method: 'POST',
+                        headers: { 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
+                        body: fd,
+                    }),
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 90000)),
+                ]);
+                if (resp.status === 419) { handle419(); return; }
+                const d = await resp.json();
+                if (!resp.ok || !d.ok) {
+                    setUpStatus((d && d.error) || ('解析失败（HTTP ' + resp.status + '）'), true);
+                    return;
+                }
+                const kindTxt = d.kind === 'image' ? '图片识别' : (d.kind || '文档');
+                const head = '【素材 · ' + d.name + '（' + kindTxt + (d.chars ? '，' + d.chars + '字' : '') + (d.truncated ? '，超长已截断' : '') + '）】';
+                const prev = input.value.trim();
+                input.value = head + '\n' + d.text + (prev ? '\n\n' + prev : '');
+                autoGrow(input);
+                input.focus();
+                setUpStatus('已提取 ' + d.chars + ' 字到输入框——补一句你想怎么用它，再点发送', true);
+                setTimeout(() => setUpStatus('', false), 8000);
+            } catch (e) {
+                setUpStatus(e && e.message === 'timeout' ? '解析超时，请换个文件或稍后再试' : '上传失败，请检查网络后重试', true);
+            } finally {
+                fileBtn.disabled = false;
+            }
+        };
+    }
+
     // 2026-09-18：「📅 规划」快捷按钮已移除——规划直接在对话里说（如"帮我做本周选题规划"）即可触发。
     input.addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
@@ -1944,12 +2189,6 @@
     setArtifactsOpen(false);
 
     // ---------- 启动 ----------
-    // ---- 定时任务：待发内容角标 + 弹层 ----
-    function escapeHtml(s) {
-        return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
-            {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-    }
-    const SCHED_UID = 'default';
     let AVATAR_MODELS = [];
     async function fetchAvatarModels() {
         try {
@@ -1957,50 +2196,6 @@
             AVATAR_MODELS = (d && d.models) || [];
         } catch (e) { AVATAR_MODELS = []; }
     }
-    function renderPending(pending) {
-        window.__pendingItems = pending || [];
-        const badge = document.getElementById('pendingBadge');
-        const n = window.__pendingItems.length;
-        if (badge) {
-            badge.textContent = n;
-            badge.classList.toggle('hidden', n === 0);
-        }
-        const list = document.getElementById('pendingList');
-        if (!list) return;
-        if (!n) { list.innerHTML = '<p class="px-3 py-6 text-center text-xs text-slate-400">暂无待发内容。</p>'; return; }
-        list.innerHTML = window.__pendingItems.map((it, i) =>
-            '<div class="border-b border-slate-100 px-3 py-2.5">' +
-            '<div class="mb-1 text-[11px] font-medium text-amber-700">' + escapeHtml(it.prompt || '定时内容') + '</div>' +
-            '<div class="whitespace-pre-wrap text-xs leading-relaxed text-slate-700">' + escapeHtml(it.content || '') + '</div>' +
-            '<button type="button" data-copy="' + i + '" class="mt-1.5 rounded border border-indigo-300 bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700 transition hover:bg-indigo-100">复制文案</button>' +
-            '</div>').join('');
-    }
-    async function loadPending() {
-        try {
-            const d = await api('/chat/schedules?user_id=' + encodeURIComponent(SCHED_UID));
-            renderPending((d && d.pending) || []);
-        } catch (e) { /* 待发角标不影响主对话 */ }
-    }
-    document.addEventListener('click', (e) => {
-        const copyBtn = e.target.closest('[data-copy]');
-        if (copyBtn) {
-            const it = (window.__pendingItems || [])[parseInt(copyBtn.getAttribute('data-copy'), 10)];
-            if (it && navigator.clipboard) {
-                navigator.clipboard.writeText(it.content || '').then(() => {
-                    copyBtn.textContent = '已复制 ✓';
-                    setTimeout(() => { copyBtn.textContent = '复制文案'; }, 1500);
-                });
-            }
-            return;
-        }
-        if (e.target.closest('#pendingBtn')) {
-            const pop = document.getElementById('pendingPop');
-            if (pop) pop.classList.toggle('hidden');
-        } else if (!e.target.closest('#pendingPop')) {
-            const pop = document.getElementById('pendingPop');
-            if (pop) pop.classList.add('hidden');
-        }
-    });
 
     (async function init() {
         await loadSessions();
@@ -2014,11 +2209,73 @@
             showIntro();
         }
         input.focus();
-        // 定时任务：加载待发内容角标 + 每分钟轮询
-        loadPending();
-        setInterval(loadPending, 60000);
         // 出片卡：预拉取用户自传数字人模特列表（供「选场景」下拉）
         fetchAvatarModels();
+
+        /* ===== 爆款选题雷达：拉 /studio/newsfeed，横向滚动，点击「用作选题」进入对话 ===== */
+        (function () {
+            const track = document.getElementById('radarTrack');
+            if (!track) return;
+            const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+            function chipHTML(it) {
+                const plats = (it.platforms || []).map(esc).join(' · ');
+                const ht = it.heat_text ? ' <span class="ht">' + esc(it.heat_text) + '</span>' : '';
+                return '<span class="radar-chip" data-title="' + esc(it.title) + '" data-url="' + esc(it.url || '') + '" data-plats="' + plats + '" data-ht="' + esc(it.heat_text || '') + '" data-cat="' + esc(it.category || '') + '">'
+                    + '<span class="dot"></span>' + esc(it.title) + ht + '</span>';
+            }
+            async function loadRadar() {
+                try {
+                    const d = await Promise.race([
+                        api('/studio/newsfeed?days=15'),
+                        new Promise((_, rej) => setTimeout(() => rej(new Error('radar timeout')), 15000))
+                    ]);
+                    const items = (d && d.items) || [];
+                    if (!items.length) { track.innerHTML = '<span class="radar-chip" style="cursor:default">暂无热点，稍后自动刷新</span>'; return; }
+                    const one = items.map(chipHTML).join('');
+                    track.innerHTML = one + one; // 复制一份做无缝滚动
+                    bindChips();
+                } catch (e) {
+                    track.innerHTML = '<span class="radar-chip" style="cursor:default">热点加载中，稍后自动重试…</span>';
+                    setTimeout(loadRadar, 120000);
+                }
+            }
+            function bindChips() {
+                document.querySelectorAll('#radarTrack .radar-chip[data-title]').forEach(el => {
+                    el.addEventListener('click', () => openRadarModal(el));
+                });
+            }
+            let mask;
+            function openRadarModal(el) {
+                if (!mask) {
+                    mask = document.createElement('div');
+                    mask.className = 'radar-modal-mask';
+                    mask.innerHTML = '<div class="radar-modal"><h3 id="rmTitle"></h3><div class="badges" id="rmBadges"></div>'
+                        + '<div class="row"><button class="use" id="rmUse">用作选题</button><button class="close" id="rmClose">关闭</button></div></div>';
+                    document.body.appendChild(mask);
+                    mask.addEventListener('click', (e) => { if (e.target === mask) mask.classList.remove('show'); });
+                    mask.querySelector('#rmClose').addEventListener('click', () => mask.classList.remove('show'));
+                    mask.querySelector('#rmUse').addEventListener('click', () => {
+                        const t = mask.dataset.title || '';
+                        if (t && typeof sendUserText === 'function') {
+                            sendUserText('帮我以「' + t + '」这个选题雷达里的热点新闻为题材做一期短视频：先弄清新闻本身在讲什么，贴着新闻事实拆 5 个财税角度（借热点讲规则，别给新闻主角安稽查风险），挑一个按爆款结构写口播稿');
+                        }
+                        mask.classList.remove('show');
+                    });
+                }
+                const t = el.dataset.title || '';
+                mask.dataset.title = t;
+                mask.querySelector('#rmTitle').textContent = t;
+                const badges = [];
+                (el.dataset.plats ? el.dataset.plats.split(' · ') : []).forEach(p => badges.push('<span class="badge">' + esc(p) + '</span>'));
+                if (el.dataset.ht) badges.push('<span class="badge heat">' + esc(el.dataset.ht) + '</span>');
+                if (el.dataset.cat) badges.push('<span class="badge">' + (el.dataset.cat === 'policy' ? '权威政策' : '社会热流') + '</span>');
+                if (el.dataset.url) badges.push('<a class="badge" href="' + esc(el.dataset.url) + '" target="_blank" rel="noopener" style="color:#1d4ed8">查看原文 ↗</a>');
+                mask.querySelector('#rmBadges').innerHTML = badges.join('');
+                mask.classList.add('show');
+            }
+            loadRadar();
+            setInterval(loadRadar, 30 * 60 * 1000); // 30 分钟自动刷新
+        })();
     })();
 })();
 </script>

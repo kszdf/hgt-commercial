@@ -190,7 +190,6 @@
                 <p>选题改写 / 自有稿二创<br/>违禁词自动标红 / 口语润色</p>
                 <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                     <a href="/studio/rewrite" class="hero-btn">选题二创 →</a>
-                    <a href="/studio/rewrite-original" class="font-medium text-white/85 underline-offset-2 transition hover:underline">自由稿二创 →</a>
                 </div>
             </div>
         </div>

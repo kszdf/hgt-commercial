@@ -607,7 +607,7 @@ def _run_post_stage(cmd_post, out):
     sys.exit(f"make_avatar_video post 失败（重试 {max_tries} 次后仍失败）: {last_err[-200:]}")
 
 
-def render_segments_pipeline(chunks, segs_full, args, tag, out):
+def render_segments_pipeline(chunks, segs_full, args, tag, out, video_title=""):
     """机制B1+流水线并行：多段渲染+拼接。
     渲染占 HEYGEM 容器（单任务，必须串行），后期占本地 CPU（可并行）→
     段 i 渲染时并行跑段 i-1 的后期，总时长从「Σ(渲染+后期)」压到「Σ渲染+最后一段后期」。
@@ -652,7 +652,96 @@ def render_segments_pipeline(chunks, segs_full, args, tag, out):
     # 分段时各段已 --no-intro 不拼片头（否则段2 片头会在拼接处造成 3s 静音），
     # 拼接完成后对整片拼一次品牌片头
     _concat_intro_once(out)
+    out = _add_title_bar(out, video_title, args)
     print(f"\n成品: {out}  ({os.path.getsize(out)//1024} KB)（{len(seg_outs)} 段拼接，流水线并行 + 整片片头）")
+    return out
+
+
+def _auto_title_avatar(raw):
+    """avatar 自动标题（≤10字）：跳过称呼客套，取首条实质短句，保证永远有标题。
+    仅在 --title 未传入时兜底；精确标题应由 server 传入 口播稿「标题」字段。"""
+    leadins = ["张老师，", "张老师:", "老师，", "老师:", "我想请教一下", "我想问一下",
+               "我想咨询", "请问", "老板，", "老板:", "各位老板，", "大家好，", "朋友们，",
+               "啊，", "哎，", "那个", "是这样的"]
+    best = ""
+    for line in raw.splitlines():
+        line = line.strip().lstrip("女男旁白:：").strip()
+        if not line:
+            continue
+        for p in leadins:
+            if line.startswith(p):
+                line = line[len(p):].strip()
+        line = line.strip("“”\"'「」《》")
+        for c in re.split(r"[，。！？；：!?;:\n]", line):
+            c = c.strip()
+            if 4 <= len(c) <= 10:
+                return c
+            if not best and len(c) >= 4:
+                best = c[:10]
+    return best or "财税干货分享"
+
+
+def _draw_stroked_text(bd, xy, text, font, fill, stroke_fill, sw):
+    """手绘描边（兼容旧 PIL）：先以深蓝描边色在四周偏移铺底，再叠金字。"""
+    x, y = xy
+    for dx in range(-sw, sw + 1):
+        for dy in range(-sw, sw + 1):
+            if dx == 0 and dy == 0:
+                continue
+            bd.text((x + dx, y + dy), text, font=font, fill=stroke_fill)
+    bd.text((x, y), text, font=font, fill=fill)
+
+
+def _add_title_bar(out, title, args):
+    """成品整片顶部叠加常驻标题条（金字 #FFC940 + 深蓝描边 #101E3C + 半透明深蓝底纹）。
+    ffmpeg overlay 重编码视频（音频流拷贝）；失败则保留无标题成品，不阻断出片。"""
+    if not title or not HAS_PIL:
+        return out
+    try:
+        probe = subprocess.run(
+            [FFPROBE, "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=width,height", "-of", "csv=p=0", out],
+            capture_output=True, text=True, encoding="utf-8", errors="ignore", check=True)
+        w, h = (int(x) for x in probe.stdout.strip().split(","))
+    except Exception as e:  # noqa: BLE001
+        print(f"[avatar] ⚠ 标题条尺寸探测失败(跳过): {e}")
+        return out
+    try:
+        base = Path(GPT_SOVITS)
+        font_path = args.font if getattr(args, "font", None) else str(base / "fonts/simhei.ttf")
+        font = ImageFont.truetype(font_path, max(28, int(h * 0.045)))
+    except Exception as e:  # noqa: BLE001
+        print(f"[avatar] ⚠ 标题条字体加载失败(跳过): {e}")
+        return out
+    bar_h = max(50, int(h * 0.08))
+    bar = Image.new("RGBA", (w, bar_h), (0, 0, 0, 0))
+    bd = ImageDraw.Draw(bar)
+    bd.rectangle([0, 0, w, bar_h], fill=(16, 30, 60, 175))   # 半透明深蓝底纹条
+    tw = bd.textlength(title, font=font)
+    tx = max(12, (w - tw) / 2)
+    ty = (bar_h - int(font.size * 1.1)) / 2
+    sw = max(2, int(font.size * 0.06))
+    _draw_stroked_text(bd, (tx, ty), title, font, (255, 201, 64), (16, 30, 60), sw)
+    tmpd = tempfile.mkdtemp(prefix="avatar_title_")
+    bar_png = os.path.join(tmpd, "title_bar.png")
+    bar.save(bar_png)
+    out2 = os.path.join(tmpd, "with_title.mp4")
+    cmd = [
+        FFMPEG, "-y", "-i", out, "-i", bar_png,
+        "-filter_complex", "[0:v][1:v]overlay=0:0[v]",
+        "-map", "[v]", "-map", "0:a?", "-c:v", "libx264", "-preset", "medium",
+        "-crf", "18", "-pix_fmt", "yuv420p", "-c:a", "copy", out2,
+    ]
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="ignore")
+    if r.returncode == 0 and os.path.exists(out2) and os.path.getsize(out2) > 1024:
+        # 临时目录可能在另一磁盘（如 C 盘 TEMP），os.replace 跨盘移动会抛 WinError 17；
+        # 改用 shutil.move（跨盘安全：自动 copy+unlink）。
+        if os.path.exists(out):
+            os.remove(out)
+        shutil.move(out2, out)
+        print(f"[avatar] 标题条叠加完成: {title}")
+    else:
+        print(f"[avatar] ⚠ 标题条叠加失败(保留无标题成品): {(r.stderr or '')[-200:]}")
     return out
 
 
@@ -669,6 +758,7 @@ def main():
                     choices=["dynamic", "minimal", "bubble"],
                     help="字幕风格：dynamic=逐字高亮（卡拉OK式）/ minimal=纯净白字 / bubble=气泡底衬")
     ap.add_argument("--font", default=None, help="字幕主字体路径（透传 make_avatar_video）")
+    ap.add_argument("--title", default="", help="屏上常驻标题（口播稿标题字段）；缺省自动从稿子生成 ≤10 字")
     ap.add_argument("--mono", action="store_true", default=True,
                     help="单人单声线（默认）：去除 女：/男： 前缀，整稿用 male_voice 配音（数字人语义）")
     ap.add_argument("--dual", action="store_true",
@@ -700,6 +790,8 @@ def main():
     segs = parse_dialogue(raw)
     if not segs:
         sys.exit("对话稿为空或解析失败")
+    # 屏上常驻标题：优先用 --title（server 传入的口播稿标题字段），否则自动从稿子生成
+    video_title = (args.title or "").strip() or _auto_title_avatar(raw)
 
     tmp = tempfile.mkdtemp(prefix="avatar_")
     # 先整体合成拿每句时长（A2 TTS 缓存：段内句子重跑命中，不会重复 API 合成）
@@ -720,9 +812,10 @@ def main():
     if total_dur > SEG_MAX:
         chunks = split_segments(segs, timed, seg_max=SEG_MAX)
         print(f"[avatar] ⚠ 口播 {total_dur:.0f}s 超过单段上限 {SEG_MAX:.0f}s → 自动分段 {len(chunks)} 段渲染+拼接")
-        render_segments_pipeline(chunks, segs, args, tag, out)
+        render_segments_pipeline(chunks, segs, args, tag, out, video_title)
     else:
         render_one(timed, audio_wav, tag, out, args, tmp)
+        out = _add_title_bar(out, video_title, args)
         print(f"\n成品: {out}  ({os.path.getsize(out)//1024} KB)")
 
     # 机制A3：出片即质检（QC 前置）——硬指标问题在出片后立即暴露，不等人工观看才发现。

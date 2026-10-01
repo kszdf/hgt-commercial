@@ -73,7 +73,7 @@
     if (text) {
         const ta = document.getElementById('text');
         if (ta) { ta.value = text; }
-        const src = params.get('src') === 'topic' ? '/studio/rewrite' : '/studio/rewrite-original';
+        const src = params.get('src') === 'topic' ? '/studio/rewrite' : '/studio/rewrite';
         const hint = document.createElement('div');
         hint.className = 'mb-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-700';
         hint.innerHTML = '已从「二创」带入清洗稿，可直接点击「开始质检」。 <a href="' + src + '" class="font-medium underline hover:text-brand-900">← 返回二创</a>';
