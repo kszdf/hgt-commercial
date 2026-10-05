@@ -15,14 +15,13 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\MetricsController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\TemplateController;
-use App\Http\Controllers\XhsController;
 use App\Http\Controllers\FootageController;
 use App\Http\Controllers\PublishPackController;
-use App\Http\Controllers\ArticleController;
-use App\Http\Controllers\ZhikuController;
+use App\Http\Controllers\XhsController;
 use App\Http\Controllers\CrmController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ReceptionController;
+use App\Http\Controllers\QueueController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -115,6 +114,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/studio/chat/messages', [StudioController::class, 'chatMessages'])->name('studio.chat.messages');
     // 对话出稿·异步长任务进度（B 版）：轮询 /studio/chat/status/{job_id}
     Route::get('/studio/chat/status/{jobId}', [StudioController::class, 'chatStatus'])->name('studio.chat.status');
+    // 通用长任务异步进度：轮询 /studio/cap/status/{job_id}
+    //（配合 capabilityMap 里 async=true 的能力：提交拿 job_id → 轮询取结果，绕开 CF 524）
+    Route::get('/studio/cap/status/{jobId}', [StudioController::class, 'capStatus'])->name('studio.cap.status');
     // 对话驱动一切：能力调度（对话里点卡片 → 后端执行平台功能）
     Route::post('/studio/chat/action', [StudioController::class, 'chatAction'])->name('studio.chat.action');
     Route::post('/studio/chat/session/create', [StudioController::class, 'chatSessionCreate'])->name('studio.chat.session.create');
@@ -150,6 +152,16 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/qc/generate', [StudioController::class, 'qcGenerate']);
     Route::post('/studio/qc/video/{jobId}', [StudioController::class, 'qcVideo']);
 
+    // 任务队列看板：批量提交 → 排队 → 并发受控执行 → 实时状态 / 失败重试 / 优先级
+    // 2026-10-04 加：商用演示关键屏（"一次扔一批进去，看着它跑完"）
+    Route::get('/studio/queue', [QueueController::class, 'index'])->name('studio.queue');
+    Route::get('/studio/queue/json', [QueueController::class, 'json'])->name('studio.queue.json');
+    Route::post('/studio/queue/submit', [QueueController::class, 'submit'])->name('studio.queue.submit');
+    Route::post('/studio/queue/retry-batch', [QueueController::class, 'retryBatch'])->name('studio.queue.retry-batch');
+    Route::post('/studio/queue/clear', [QueueController::class, 'clear'])->name('studio.queue.clear');
+    Route::post('/studio/queue/{id}/retry', [QueueController::class, 'retry'])->name('studio.queue.retry');
+    Route::post('/studio/queue/{id}/cancel', [QueueController::class, 'cancel'])->name('studio.queue.cancel');
+
     // AI 智能生成标题/副标题（根据文稿内容，代理到 8500 的 /suggest-title）
     Route::post('/studio/scroll/suggest-title', [StudioController::class, 'suggestTitle']);
 
@@ -157,11 +169,16 @@ Route::middleware('auth')->group(function () {
     Route::get('/studio/models', [ModelAssetController::class, 'index'])->name('studio.models');
     Route::post('/studio/models', [ModelAssetController::class, 'store']);
     Route::get('/studio/models/json', [ModelAssetController::class, 'modelsJson']);
+    // 单图口播：上传一张照片 -> 自动生成照片数字人（须在 {modelAsset} 通配路由之前）
+    Route::post('/studio/models/photo', [ModelAssetController::class, 'photoStore'])->name('studio.models.photo');
     Route::get('/studio/models/{modelAsset}/preview', [ModelAssetController::class, 'preview'])->name('studio.models.preview');
     Route::delete('/studio/models/{modelAsset}', [ModelAssetController::class, 'destroy'])->name('studio.models.destroy');
     Route::post('/studio/models/{modelAsset}/reupload', [ModelAssetController::class, 'reupload'])->name('studio.models.reupload');
+    // 设为默认出镜（自建专属数字人后，出片自动用它）
+    Route::post('/studio/models/{modelAsset}/default', [ModelAssetController::class, 'setDefault'])->name('studio.models.default');
 
     // 封面素材管理（上传 / 列表 / 预览 / 删除 / 重新上传）
+
     // ---- 小红书图文笔记 ----
     Route::get('/studio/xhs', [XhsController::class, 'index'])->name('studio.xhs');
     Route::post('/studio/xhs/build-note', [XhsController::class, 'buildNote']);
@@ -169,19 +186,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/xhs/regen-cover', [XhsController::class, 'regenCover']);
     Route::post('/studio/xhs/download', [XhsController::class, 'download']);
 
-    // ---- 公众号文章（AI 出稿 → SEO 优化 → 草稿箱 → 群发；群发仅 reviewed 可发，订阅号每日 1 篇）----
-    Route::get('/studio/articles', [ArticleController::class, 'index'])->name('studio.articles');
-    Route::post('/studio/articles/write', [ArticleController::class, 'write'])->name('studio.articles.write');
-    Route::post('/studio/articles/seo-check', [ArticleController::class, 'seoCheck'])->name('studio.articles.seo-check');
-    Route::get('/studio/articles/{article}', [ArticleController::class, 'show'])->name('studio.articles.show');
-    Route::post('/studio/articles/{article}/push-draft', [ArticleController::class, 'pushDraft'])->name('studio.articles.push-draft');
-    Route::post('/studio/articles/{article}/approve', [ArticleController::class, 'approve'])->name('studio.articles.approve');
-    Route::post('/studio/articles/{article}/publish', [ArticleController::class, 'publish'])->name('studio.articles.publish');
-    Route::delete('/studio/articles/{article}', [ArticleController::class, 'destroy'])->name('studio.articles.destroy');
+    // 2026-10-03：公众号文章（Article）已下线，不再提供该能力。
 
-    // ---- 智库（AI 财税顾问独立页，原 advisor_chat 对话能力升级而来；问答不落库）----
-    Route::get('/studio/zhiku', [ZhikuController::class, 'index'])->name('studio.zhiku');
-    Route::post('/studio/zhiku/ask', [ZhikuController::class, 'ask'])->name('studio.zhiku.ask');
+    // 2026-10-03：智库（zhiku）已下线，平台聚焦短视频生成，不再提供 AI 顾问页。
 
     // ---- 客户档案 CRM（线索入档 / 列表；后端 8500 /crm）----
     Route::get('/studio/crm', [CrmController::class, 'index'])->name('studio.crm');

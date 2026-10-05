@@ -178,6 +178,38 @@
     }
     @media (max-width: 1440px) { .chat-artifacts { width: 300px; min-width: 300px; } }
     @media (max-width: 1180px) { .chat-artifacts { display: none; } }
+    /* ===== 手机端（<768px）：三栏压成一栏，会话列改抽屉式，杜绝横向溢出 ===== */
+    @media (max-width: 767px) {
+        .chat-shell { flex-direction: column; overflow-x: hidden; position: relative; }
+        /* 兜底覆盖页面自带的 .collapsed（同等权重靠后置生效），确保抽屉有真实宽度 */
+        .chat-rail, .chat-rail.collapsed {
+            position: absolute; top: 0; left: 0; bottom: 0; z-index: 25;
+            width: 264px; min-width: 264px;
+            box-shadow: 4px 0 20px rgba(15,23,42,0.12);
+            transform: translateX(-100%);
+            transition: transform .2s ease;
+        }
+        .chat-rail.mobile-open, .chat-rail.mobile-open.collapsed { transform: translateX(0); }
+        .chat-main { width: 100% !important; min-width: 0 !important; }
+        .msg, .bubble, .bubble-col { max-width: 100% !important; min-width: 0 !important; }
+        /* 会话列内按钮恢复常规横向尺寸 + 可点面积，避免被 flex 压成竖排 */
+        .chat-rail button { min-height: 34px; white-space: nowrap; }
+        .chat-rail .rail-item { min-height: 40px; }
+        /* 手机端加一个「会话」浮动按钮，免去找 rail 内按钮 */
+        .rail-mobile-fab {
+            display: flex !important; position: absolute; top: 46px; left: 8px; z-index: 26;
+            width: 40px; height: 40px; align-items: center; justify-content: center;
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(15,23,42,0.12); cursor: pointer; font-size: 17px;
+        }
+    }
+    .rail-mobile-fab { display: none; }
+    /* 手机端抽屉遮罩：点空白处收起会话列 */
+    .mobile-rail-overlay {
+        display: none; position: absolute; inset: 0; z-index: 24;
+        background: rgba(15,23,42,0.35);
+    }
+    .mobile-rail-overlay.show { display: block; }
     /* ===== 对话页专用：保留完整 6 菜单侧栏（图标+文字），不再收成图标条，避免"素材与账户"组入口丢失 ===== */
 </style>
 <script>
@@ -212,6 +244,11 @@
             空间＝长期任务存档 · 开聊＝随手聊
         </div>
     </aside>
+
+    {{-- 手机端专用：「会话」浮动按钮（桌面端 CSS 隐藏） --}}
+    <button id="mobileRailFab" class="rail-mobile-fab" type="button" title="会话列表" aria-label="会话列表">☰</button>
+    {{-- 手机端专用：抽屉遮罩 --}}
+    <div id="mobileRailOverlay" class="mobile-rail-overlay"></div>
 
     {{-- 右：对话主区（元信息条 + 消息 + 输入） --}}
     <div class="chat-main">
@@ -1487,14 +1524,42 @@
         if (railUncollapseBtn) railUncollapseBtn.style.display = collapsed ? 'inline-flex' : 'none';
         try { localStorage.setItem('chat_rail_collapsed', collapsed ? '1' : '0'); } catch (_) {}
     }
-    if (railToggleBtn) railToggleBtn.addEventListener('click', () => setRailCollapsed(!sessRail.classList.contains('collapsed')));
-    if (railUncollapseBtn) railUncollapseBtn.addEventListener('click', () => setRailCollapsed(false));
-    // 初始状态：用户没手动设过时，按屏宽自适应（≥1536px 默认展开；否则收起，靠对话上方的展开按钮唤出）
+    // 手机端：会话列改抽屉，与桌面「收起/展开」是两套逻辑，互不干扰
+    function isMobileRail() { return window.innerWidth < 768; }
+    function setMobileRailOpen(open) {
+        sessRail.classList.toggle('mobile-open', open);
+        const ov = document.getElementById('mobileRailOverlay');
+        if (ov) ov.classList.toggle('show', open);
+    }
+    if (railToggleBtn) railToggleBtn.addEventListener('click', () => {
+        if (isMobileRail()) { setMobileRailOpen(false); return; }
+        setRailCollapsed(!sessRail.classList.contains('collapsed'));
+    });
+    if (railUncollapseBtn) railUncollapseBtn.addEventListener('click', () => {
+        if (isMobileRail()) { setMobileRailOpen(true); return; }
+        setRailCollapsed(false);
+    });
+    // 初始状态：手机端一律作为隐藏抽屉；桌面按用户偏好/屏宽自适应
     let railCollapsedByUser = null;
     try { railCollapsedByUser = localStorage.getItem('chat_rail_collapsed'); } catch (_) {}
-    if (railCollapsedByUser === '1') setRailCollapsed(true);
-    else if (railCollapsedByUser === '0') setRailCollapsed(false);
-    else setRailCollapsed(window.innerWidth < 1536);
+    if (isMobileRail()) {
+        setMobileRailOpen(false);
+    } else if (railCollapsedByUser === '1') {
+        setRailCollapsed(true);
+    } else if (railCollapsedByUser === '0') {
+        setRailCollapsed(false);
+    } else {
+        setRailCollapsed(window.innerWidth < 1536);
+    }
+    // 手机端「会话」浮动按钮：唤出/收起抽屉
+    const mobileRailFab = document.getElementById('mobileRailFab');
+    const mobileRailOverlay = document.getElementById('mobileRailOverlay');
+    if (mobileRailFab) mobileRailFab.addEventListener('click', () => setMobileRailOpen(!sessRail.classList.contains('mobile-open')));
+    if (mobileRailOverlay) mobileRailOverlay.addEventListener('click', () => setMobileRailOpen(false));
+    // 横竖屏切换时纠正状态
+    window.addEventListener('resize', () => {
+        if (!isMobileRail()) { setMobileRailOpen(false); }
+    });
     // 会话列里的事件（行点击 / 改名 / 删除 / 查看全部开聊）
     listBox.addEventListener('click', (e) => {
         if (e.target.closest?.('#moreTempsBtn')) { showAllTemps = !showAllTemps; renderSessions(); return; }
@@ -1921,6 +1986,14 @@
                 return;
             }
 
+            // 长任务（异步 job 化，避长连接超时）：提交拿 job_id → 轮询取结果
+            if (data.async && data.job_id) {
+                appendMsg('ai', '<p class="font-medium text-slate-800">⏳ 已交给后台处理，任务号 <code class="text-[11px]">' + esc(data.job_id) + '</code></p>'
+                    + '<p class="mt-1 text-slate-600">长任务改成了后台异步跑，不会中途断线。我盯着进度，好了就告诉你。</p>', { noTools: true });
+                pollCapJob(data.job_id, payload);
+                return;
+            }
+
             // 长任务（出片）：给出任务号并轮询进度
             if (data.job_id) {
                 appendMsg('ai', '<p class="font-medium text-slate-800">🎬 已提交渲染，任务号 <code class="text-[11px]">' + esc(data.job_id) + '</code></p>', { noTools: true }
@@ -1967,6 +2040,53 @@
     }
 
     // 长任务轮询：每 8 秒查一次，完成后回灌 AI 并给下一步卡片
+    // ---------- 通用长任务异步轮询（避长连接超时）----------
+    // 后端 capabilityMap 里 async=true 的能力（rewrite/dissect/topic/hotspot/article/strategist/advisor）
+    // 现在返回 {async:true, job_id}，真正结果由这里轮询 /studio/cap/status/{job_id} 取回。
+    // 8500 侧「取走即清」，所以拿到 done 必须 clearInterval，绝不能再轮询第二次。
+    const _CAP_POLL_MS = 3000;      // 3 秒一轮：AI 端点 20~300s，3 秒足够灵敏又不打爆后端
+    const _CAP_POLL_MAX = 200;      // 200 × 3s = 10 分钟上限，兜住极端慢请求
+    async function pollCapJob(jobId, payload) {
+        let tries = 0;
+        const timer = setInterval(async () => {
+            tries++;
+            try {
+                const r = await fetch('/studio/cap/status/' + encodeURIComponent(jobId), { headers: { 'Accept': 'application/json' } });
+                if (!r.ok) { if (tries > _CAP_POLL_MAX) clearInterval(timer); return; }
+                const j = await r.json();
+                const st = j.status || '';
+                if (st === 'pending') return;   // 还在跑，下一轮再看
+                clearInterval(timer);
+                if (st === 'not_found') {
+                    // 服务重启过 / 作业已过期：不静默卡死，明确告知让用户重来
+                    appendMsg('ai', '<p class="text-rose-600">⚠️ 这个任务的进度记录已失效（服务可能重启过）</p>'
+                        + '<p class="mt-1 text-xs text-slate-500">麻烦再执行一次，这次我会一直盯着。</p>', { noTools: true });
+                    await sendActionResult(payload.cap, false, { error: 'job 已失效' });
+                    return;
+                }
+                const data = j.result || {};
+                const ok = (st === 'done') && (j.code >= 200 && j.code < 300) && (data.ok !== false);
+                if (ok) {
+                    renderCapResult(payload.cap, data, payload.next || []);
+                } else {
+                    appendMsg('ai', '<p class="text-rose-600">❌ 没跑通：' + esc(data.error || ('后台返回 HTTP ' + (j.code || '?'))) + '</p>', { noTools: true }
+                        + '<p class="mt-1 text-xs text-slate-500">可以改一下参数再来，或跟我说你要做什么，我换个方式帮你。</p>');
+                }
+                await sendActionResult(payload.cap, ok, data);
+            } catch (_) {
+                if (tries > _CAP_POLL_MAX) clearInterval(timer);   // 网络抖动继续忍，超上限才放弃
+            }
+        }, _CAP_POLL_MS);
+    }
+
+    // 异步结果落地渲染：与同步分支保持一致的呈现口径（结果 JSON + 交给 AI 总结下一步）
+    function renderCapResult(cap, data, next) {
+        appendMsg('ai', '<p class="font-medium text-slate-800">✅ ' + esc(cap || '') + ' 跑完了</p>', { noTools: true }
+            + '<pre class="mt-1 max-h-60 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-2 text-[11px] text-slate-600">'
+            + esc(JSON.stringify(data, null, 1).slice(0, 1500)) + '</pre>');
+        sendActionResult(cap, true, data, next);
+    }
+
     async function pollJob(jobId, payload) {
         let tries = 0;
         const timer = setInterval(async () => {

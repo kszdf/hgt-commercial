@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 # ============================================================
+# ⛔ 已废弃（DEPRECATED）— 2026-10-01 起不再使用，保留仅为历史留档。
+#
+# 为什么废弃：部署形态已从「腾讯云 + frp 混合云」改为「本机 Docker + Cloudflare Tunnel」（仅内部使用）。
+#   - 腾讯云轻量服务器已到期下线，本脚本的目标机器不存在了；
+#   - 新形态不需要云服务器、不需要 frp、不需要公网出口。
+#
+# 现行方案见仓库根目录《慧根堂平台-CF隧道本机部署方案.md》，
+# 本机拉起栈用：docker compose up -d（根目录 docker-compose.yml）。
+#
+# ---------- 以下为原脚本，留档备查 ----------
 # 慧根堂商用平台 — 云端一键部署脚本（混合云路线 A）
 # 用法（在腾讯云遨驰终端 ORCaTerm 粘贴）：
 #   curl -fsSL https://ghproxy.com/https://raw.githubusercontent.com/USER/REPO/main/cloud-deploy.sh \

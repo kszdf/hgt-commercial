@@ -57,7 +57,7 @@ CAPABILITIES = {
              "default": "不限", "required": False},
         ],
         "output": "一批带切入点的选题",
-        "next": ["rewrite", "video_render", "article", "strategist"],
+        "next": ["rewrite", "video_render", "strategist"],
     },
     # 获客军师：8500 的 /strategist 端点早已实现（输出 potential_score/level/hook_suggest），
     # 但一直没注册进这里，用户在对话里根本点不到。本期接线，并作为选题的强制后处理。
@@ -78,7 +78,7 @@ CAPABILITIES = {
              "required": False, "hint": "如：建筑工程、电商、制造业", "from": "audience"},
         ],
         "output": "获客潜力评分（1-10）+ 等级 + 钩子建议 + 改进建议",
-        "next": ["rewrite", "article", "topic"],
+        "next": ["rewrite", "topic"],
     },
     "hotspot": {
         "name": "热点选题",
@@ -123,43 +123,9 @@ CAPABILITIES = {
         "output": "改写后的口播稿（已过违禁词）",
         "next": ["video_render", "qc"],
     },
-    "article": {
-        "name": "公众号文章",
-        "desc": "选题或口播稿 → 1500-2500 字公众号长文，内置搜一搜 SEO 优化",
-        "cat": "写稿",
-        "icon": "📰",
-        "when": "用户要公众号文章、长文、推文、图文内容时选它（不是口播稿、不是短视频脚本）",
-        "params": [
-            {"key": "topic", "label": "文章主题", "type": "text",
-             "required": True, "hint": "想写什么，比如：公转私的合规边界", "from": "topic"},
-            {"key": "kw_main", "label": "主关键词（SEO）", "type": "text",
-             "required": False, "hint": "标题前 12 字内必须出现，如：公转私", "from": "topic"},
-            {"key": "kw_long", "label": "长尾词（SEO）", "type": "text",
-             "required": False, "hint": "逗号分隔，如：公转私被查,公转私合法方式,老板从公司拿钱"},
-            {"key": "region", "label": "地域词", "type": "text",
-             "required": False, "default": "全国",
-             "hint": "如：苏州、昆山；涉及基数/比例处会附「以主管税务机关口径为准」"},
-            {"key": "year", "label": "时效年份", "type": "text",
-             "required": False, "hint": "政策类建议填，如 2026；标题会带年份"},
-            {"key": "source", "label": "参考源稿（选填）", "type": "textarea",
-             "required": False, "hint": "把已有口播稿粘进来作参考；没有就留空",
-             "from": "last_text", "no_autofill": True},
-            {"key": "words", "label": "字数", "type": "select",
-             "options": ["1500:1500字", "2000:2000字", "2500:2500字", "3000:3000字(深度)"],
-             "default": "2000:2000字", "required": False},
-            {"key": "style", "label": "文章结构", "type": "select",
-             "options": ["干货科普", "案例复盘", "政策解读", "观点评论", "清单盘点"],
-             "default": "干货科普", "required": False},
-            {"key": "cta", "label": "结尾引导", "type": "select",
-             "options": ["评论区留言", "回复关键字领资料", "两者都要"],
-             "default": "评论区留言", "required": False},
-            {"key": "push_draft", "label": "生成后直接送公众号草稿箱", "type": "bool",
-             "default": False, "required": False},
-        ],
-        "output": "公众号长文（标题+摘要+正文+话题标签）+ SEO 自检报告",
-        "next": ["qc", "video_render", "xhs"],
-        "long": True,          # 长文生成耗时长，走异步进度
-    },
+    # 2026-10-03：article（公众号文章）已下线，平台聚焦短视频生成，不再作为对话能力。
+    # 其下游 next（含 xhs 小红书图文）一并移除。
+
     # 注：deai（去AI味）/ moment（朋友圈）在 8500 已标记 DEPRECATED（Laravel 侧功能下线），
     #     故不纳入对话能力，避免用户点了拿到失败结果。
 
@@ -466,17 +432,16 @@ def _video_product_exists(d):
 
 PRODUCT_KEYS = {
     "rewrite":      ("rewritten", "cleaned"),
-    "article":      ("content", "title", "markdown", "html"),
     "topic":        ("angles", "topics", "items", "results"),
     "hotspot":      ("angles", "topics", "items", "results"),
     "dissect":      ("structure", "analysis", "result", "summary"),
     "strategist":   ("potential_score", "level", "hook_suggest", "result"),
     "qc":           ("__ok__",),
-    "xhs":          ("note", "__ok__"),
     "video_render": ("job_id",),
     "qc_video":     ("job_id", "report_id", "qc"),
     "publish_pack": ("job_id", "files", "pack"),
     "review":      ("__ok__",),
+    "xhs":         ("note", "__ok__"),
     "footage_edit": ("job_id",),
     "clone_voice":  ("voice_id", "audio_path"),
 }

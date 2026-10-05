@@ -1,14 +1,21 @@
-# 慧根堂商用平台 · frp 客户端配置（本机 Windows → 云服务器）
-# 作用：把本机 8500 出片微服务经 frp 穿透到云服务器 127.0.0.1:8500，
-#       供云端 Web 层（Laravel 容器）调用。8500 永不暴露公网，仅内网穿透。
-# 用法：frpc.exe -c deploy/frpc.toml   （本机以管理员或登录启动运行）
+# 📁 历史留档（本文件记录的是最早一版腾讯云 + frp 方案，配置已不适用，仅作沿革参考）。
 #
-# 注意：serverPort 需与本机 frps 的 bindPort 一致；token 与云服务器 frps 完全一致。
-#       云服务器 frps 已在 124.222.33.233 起好（token: hgt2026studio#K8mPq）。
+# 部署形态沿革：
+#   ① 2026-10-01 前：腾讯云 124.222.33.233 + frp（本文件即该时期样例）；
+#   ② 2026-10-01 ~ 10-05：本机 Docker + Cloudflare Tunnel（走境外节点，带英文邮件门卫页）；
+#   ③ 2026-10-05 起（现行）：国内服务器 124.223.14.171 + frp 隧道 —— **frp 已重新启用**，
+#      由服务器 nginx 终结 HTTPS 后经 frp(7000) 回传本机 8080 / 8500 / 8385。
+#      ⚠️ 与旧方案的关键差别：服务器侧 /etc/frp/frps.toml 设 proxyBindAddr=127.0.0.1，
+#         代理端口只绑本机（不再公网裸奔，只有 22/80/443/7000 对外开放）。
+#      本机实际生效的配置（非本文件）：
+#         D:/frp/frp_0.61.0_windows_amd64/frp_0.61.0_windows_amd64/frpc.toml
+#
+# ⚠️ 安全提示：本文件中的 auth.token 曾提交进 git 历史，应视为已泄漏；现行 token 已更换，
+#    旧 token 任何新服务都不得复用。
 
-serverAddr = "124.222.33.233"
+serverAddr = "124.222.33.233"        # 已下线
 serverPort = 7000
-auth.token = "hgt2026studio#K8mPq"
+auth.token = "<REDACTED-已泄漏-勿复用>"
 
 [[proxies]]
 name = "hgt-commercial-8500"

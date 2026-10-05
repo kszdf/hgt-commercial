@@ -14,7 +14,7 @@ class VideoJob extends Model
 
     protected $fillable = [
         'tenant_id', 'user_id', 'job_id', 'mode', 'title', 'industry', 'status',
-        'qc_status', 'publish_status', 'review_note', 'cover_asset_id', 'batch_id',
+        'qc_status', 'text_qc_status', 'text_qc_summary', 'publish_status', 'review_note', 'cover_asset_id', 'batch_id',
         'heartbeat_at', 'dedupe_key', 'dialogue', 'render_config', 'is_hit',
         'last_pipeline_step', 'step_changed_at', 'last_progress', 'progress_changed_at',
         'failed_reason', 'failed_at', 'pipeline_error',
@@ -29,6 +29,7 @@ class VideoJob extends Model
             'failed_at' => 'datetime',
             'render_config' => 'array',
             'is_hit' => 'boolean',
+            'text_qc_summary' => 'array',
         ];
     }
 
@@ -58,10 +59,67 @@ class VideoJob extends Model
         return $this->status === 'done';
     }
 
-    /** 质检通过/告警，可进入人工审核。 */
+    /** 质检通过/告警，且文本合规无高危命中，可进入人工审核。 */
     public function canReview(): bool
     {
-        return in_array($this->qc_status, ['passed', 'warned'], true);
+        // 机器技术质检须通过或仅告警
+        if (! in_array($this->qc_status, ['passed', 'warned'], true)) {
+            return false;
+        }
+        // 文本合规预检命中高危违禁词（blocked）则须先修改，不允许进入审核
+        if ($this->text_qc_status === 'blocked') {
+            return false;
+        }
+        return true;
+    }
+
+    /** 文本合规预检中文标签。 */
+    public function textQcLabel(): string
+    {
+        return match ($this->text_qc_status) {
+            'passed'  => '文本合规（无高危）',
+            'warned'  => '文本有中风险点',
+            'blocked' => '文本命中高危违禁词',
+            default   => '文本合规未检',
+        };
+    }
+
+    /**
+     * 发布门禁综合结论：合规（文本）+ 质量（技术）双把关。
+     * 返回 { verdict: {level,label,can}, checks: {tech, text} }。
+     *   level: ok / warn / block
+     *   can:   是否允许进入发布（人工拍板前把关，绝不替用户发）
+     */
+    public function qcVerdict(): array
+    {
+        $tech = match ($this->qc_status) {
+            'passed' => ['ok' => true,  'level' => 'ok',    'label' => '技术质检通过'],
+            'warned' => ['ok' => true,  'level' => 'warn',  'label' => '技术质检有告警（可发）'],
+            'failed' => ['ok' => false, 'level' => 'block', 'label' => '技术质检未通过'],
+            default  => ['ok' => null,  'level' => 'none',  'label' => '技术质检未做'],
+        };
+
+        $text = match ($this->text_qc_status) {
+            'passed'  => ['ok' => true,  'level' => 'ok',    'label' => '文本合规（无高危）'],
+            'warned'  => ['ok' => true,  'level' => 'warn',  'label' => '文本有中风险点（建议修改）'],
+            'blocked' => ['ok' => false, 'level' => 'block', 'label' => '文本命中高危违禁词'],
+            default   => ['ok' => null,  'level' => 'none',  'label' => '文本合规未检'],
+        };
+
+        $blocked = ($tech['level'] === 'block') || ($text['level'] === 'block');
+        $warned  = ($tech['level'] === 'warn') || ($text['level'] === 'warn');
+
+        if ($blocked) {
+            $verdict = ['level' => 'block', 'label' => '不建议发布', 'can' => false];
+        } elseif ($warned) {
+            $verdict = ['level' => 'warn', 'label' => '谨慎发布（建议先修改）', 'can' => true];
+        } elseif ($tech['level'] === 'none' && $text['level'] === 'none') {
+            $verdict = ['level' => 'none', 'label' => '尚未检测', 'can' => false];
+        } else {
+            $verdict = ['level' => 'ok', 'label' => '可以发布', 'can' => true];
+        }
+
+        return ['verdict' => $verdict, 'checks' => ['tech' => $tech, 'text' => $text]];
     }
 
     /** 审核通过，可外发。 */

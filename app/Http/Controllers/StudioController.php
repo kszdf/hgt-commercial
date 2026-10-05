@@ -199,6 +199,28 @@ class StudioController extends Controller
         return response()->json($resp->json());
     }
 
+    /**
+     * 通用长任务异步进度：GET /studio/cap/status/{job_id} → 8500 /async/status/{job_id}。
+     *
+     * 配合 dispatchPipelineAsync()：能力执行返回 {async:true, job_id} 后，前端轮询这里取最终结果。
+     * 目的是绕开 Cloudflare 免费版源站响应 125 秒硬限制（同步必 524）。
+     * 8500 侧「取走即清」，所以前端拿到 done 后必须停止轮询。
+     */
+    public function capStatus(string $jobId)
+    {
+        try {
+            $resp = app(PipelineClient::class)->statusAsync($jobId, 15);
+        } catch (PipelineUnavailableException $e) {
+            return response()->json(['ok' => false, 'status' => 'error',
+                'error' => '后台服务暂时不可用，请稍后重试'], 503);
+        }
+        if (! $resp->successful()) {
+            return response()->json(['ok' => false, 'status' => 'error',
+                'error' => '后台服务返回异常（HTTP ' . $resp->status() . '）'], 502);
+        }
+        return response()->json($resp->json());
+    }
+
     /** 对话出稿·二期：新建会话（带 title 即为主题空间）。 */
     public function chatSessionCreate(Request $request)
     {
@@ -257,6 +279,9 @@ class StudioController extends Controller
         try {
             if ($spec['type'] === 'internal') {
                 $payload = $this->dispatchInternal($spec, $vals, $request);
+            } elseif (! empty($spec['async'])) {
+                // 长任务走异步（解 Cloudflare 125s 524）：只等 job_id，结果由前端轮询
+                $payload = $this->dispatchPipelineAsync($spec, $vals);
             } else {
                 $payload = $this->dispatchPipeline($spec, $vals, $cap);
             }
@@ -289,23 +314,25 @@ class StudioController extends Controller
     {
         return [
             // —— 纯 8500 端点 ——
-            'topic'        => ['type' => 'pipeline', 'path' => '/topic',          'timeout' => 150],
-            'hotspot'      => ['type' => 'pipeline', 'path' => '/hotspot',        'timeout' => 150],
-            'rewrite'      => ['type' => 'pipeline', 'path' => '/rewrite',        'timeout' => 180],
-            'qc'           => ['type' => 'pipeline', 'path' => '/qc',             'timeout' => 120],
-            'dissect'      => ['type' => 'pipeline', 'path' => '/dissect',        'timeout' => 180],
+            // async=true：实测/预期耗时 >100s，走「提交→job_id→轮询」绕开 Cloudflare 125s 524。
+            //   未标 async 的是快端点（<30s），保持同步直返，免得白白多一次轮询往返。
+            'topic'        => ['type' => 'pipeline', 'path' => '/topic',          'timeout' => 150, 'async' => true],
+            'hotspot'      => ['type' => 'pipeline', 'path' => '/hotspot',        'timeout' => 150, 'async' => true],
+            'rewrite'      => ['type' => 'pipeline', 'path' => '/rewrite',        'timeout' => 180, 'async' => true],
+            'qc'           => ['type' => 'pipeline', 'path' => '/qc',             'timeout' => 120, 'async' => true],
+            'dissect'      => ['type' => 'pipeline', 'path' => '/dissect',        'timeout' => 180, 'async' => true],
             'xhs'          => ['type' => 'pipeline', 'path' => '/xhs_build_note', 'timeout' => 180],
             'footage_edit' => ['type' => 'pipeline', 'path' => '/footage-edit',   'timeout' => 120],
             'clone_voice'  => ['type' => 'pipeline', 'path' => '/clone_voice',    'timeout' => 120],
-            'article'      => ['type' => 'pipeline', 'path' => '/article/write',  'timeout' => 240],
-            'strategist'   => ['type' => 'pipeline', 'path' => '/strategist',     'timeout' => 120],
+            // 2026-10-03：article（公众号文章）已下线，能力不再暴露
+            'strategist'   => ['type' => 'pipeline', 'path' => '/strategist',     'timeout' => 120, 'async' => true],
             // —— Laravel 内部 Controller（含配额/并发/幂等/落库）——
             'video_render' => ['type' => 'internal', 'class' => \App\Http\Controllers\VideoController::class,      'method' => 'generate'],
             'publish_pack' => ['type' => 'internal', 'class' => \App\Http\Controllers\PublishPackController::class, 'method' => 'generate'],
             'qc_video'     => ['type' => 'internal', 'class' => self::class, 'method' => 'qcVideo', 'arg' => 'job_id'],
             // —— v2.0 P2 留资 / P3 增值（capabilities.py 注册的 6 个新能力执行层）——
             'data_dashboard' => ['type' => 'pipeline', 'path' => '/stats',            'timeout' => 30],
-            'advisor_chat'   => ['type' => 'pipeline', 'path' => '/advisor',          'timeout' => 150],
+            'advisor_chat'   => ['type' => 'pipeline', 'path' => '/advisor',          'timeout' => 150, 'async' => true],
             'crm_record'     => ['type' => 'pipeline', 'path' => '/crm',              'timeout' => 30],
             'consult_1v1'    => ['type' => 'pipeline', 'path' => '/booking',          'timeout' => 30],
             'auto_reception' => ['type' => 'pipeline', 'path' => '/reception-config', 'timeout' => 30],
@@ -326,6 +353,31 @@ class StudioController extends Controller
             throw new \RuntimeException('后台服务返回异常（HTTP ' . $resp->status() . '）');
         }
         return $resp->json() ?: [];
+    }
+
+    /**
+     * 异步提交到 8500：只拿 job_id 就返回，真正计算在 8500 后台线程跑。
+     *
+     * 解决 Cloudflare 免费版「源站响应超时 125 秒 → 524」：同步等一个 200~280 秒的
+     * AI 端点必然被 CF 掐断，改成 job 化后入口请求 < 5 秒返回，前端轮询取结果。
+     * 返回 ['async' => true, 'job_id' => '...']，由前端交给 pollCapJob() 轮询。
+     */
+    private function dispatchPipelineAsync(array $spec, array $vals): array
+    {
+        $vals = array_filter($vals, fn ($v) => $v !== null && $v !== '');
+        try {
+            $resp = app(PipelineClient::class)->submitAsync($spec['path'], $vals, 20);
+        } catch (PipelineUnavailableException $e) {
+            throw new \RuntimeException('后台服务暂时不可用，请稍后重试');
+        }
+        if (! $resp->successful()) {
+            throw new \RuntimeException('后台服务返回异常（HTTP ' . $resp->status() . '）');
+        }
+        $json = $resp->json() ?: [];
+        if (empty($json['job_id'])) {
+            throw new \RuntimeException('后台服务未返回任务号，无法轮询');
+        }
+        return ['async' => true, 'job_id' => (string) $json['job_id']];
     }
 
     /**
@@ -413,7 +465,20 @@ class StudioController extends Controller
             ->where('status', 'done')
             ->orderByDesc('updated_at')
             ->limit(20)
-            ->get(['id', 'job_id', 'mode', 'title', 'qc_status', 'updated_at']);
+            ->get(['id', 'job_id', 'mode', 'title', 'qc_status', 'text_qc_status', 'updated_at']);
+        // 预计算发布门禁结论，供「关联成片」下拉展示
+        $jobs = $jobs->map(function ($j) {
+            $v = $j->qcVerdict();
+            return [
+                'job_id'          => $j->job_id,
+                'title'           => $j->title,
+                'mode'            => $j->mode,
+                'qc_status'       => $j->qc_status,
+                'text_qc_status'  => $j->text_qc_status,
+                'verdict'         => $v['verdict'],
+                'checks'          => $v['checks'],
+            ];
+        });
         return view('studio.qc', compact('jobs'));
     }
 
@@ -447,15 +512,24 @@ class StudioController extends Controller
         // count 缺省回退为 5，保证 8500 始终拿到有效数量
         $sendData['count'] = (int) ($sendData['count'] ?? 5);
 
+        // 长任务异步化（解 Cloudflare 125s 524）：提交拿 job_id，结果由前端轮询
         try {
-            $resp = app(PipelineClient::class)->post('/topic', $sendData, 120);
+            $resp = app(PipelineClient::class)->submitAsync('/topic', $sendData, 20);
         } catch (PipelineUnavailableException $e) {
             return response()->json(['error' => '选题服务暂时不可用，请稍后重试'], 503);
         }
         if (! $resp->successful()) {
             return response()->json(['error' => '选题服务暂不可用，请确认微服务已启动'], 502);
         }
-        return response()->json($resp->json());
+        $json = $resp->json() ?: [];
+        if (empty($json['job_id'])) {
+            return response()->json(['error' => '选题服务未返回任务号，无法轮询'], 502);
+        }
+        return response()->json([
+            'ok'   => true,
+            'cap'  => 'topic',
+            'data' => ['async' => true, 'job_id' => (string) $json['job_id']],
+        ]);
     }
 
     /**
@@ -480,15 +554,24 @@ class StudioController extends Controller
             ));
         }
 
+        // 热点检索要跑 tavily 多查询 + deepseek 过滤，实测常 >100s → 走异步，绕开 CF 524
         try {
-            $resp = app(PipelineClient::class)->post('/hotspot', $payload, 90);
+            $resp = app(PipelineClient::class)->submitAsync('/hotspot', $payload, 20);
         } catch (PipelineUnavailableException $e) {
             return response()->json(['error' => '热点服务暂时不可用，请稍后重试'], 503);
         }
         if (! $resp->successful()) {
             return response()->json(['error' => '热点服务暂不可用，请确认微服务已启动'], 502);
         }
-        return response()->json($resp->json());
+        $json = $resp->json() ?: [];
+        if (empty($json['job_id'])) {
+            return response()->json(['error' => '热点服务未返回任务号，无法轮询'], 502);
+        }
+        return response()->json([
+            'ok'   => true,
+            'cap'  => 'hotspot',
+            'data' => ['async' => true, 'job_id' => (string) $json['job_id']],
+        ]);
     }
 
     /**
@@ -622,15 +705,24 @@ class StudioController extends Controller
         // 空值过滤，避免把无效字段透传到 8500；布尔真值保留
         $data = array_filter($data, fn ($v) => $v !== null && $v !== '');
 
+        // 长任务异步化（解 Cloudflare 125s 524）
         try {
-            $resp = app(PipelineClient::class)->post('/rewrite', $data, 120);
+            $resp = app(PipelineClient::class)->submitAsync('/rewrite', $data, 20);
         } catch (PipelineUnavailableException $e) {
             return response()->json(['error' => '二创服务暂时不可用，请稍后重试'], 503);
         }
         if (! $resp->successful()) {
             return response()->json(['error' => '二创服务暂不可用，请确认微服务已启动'], 502);
         }
-        return response()->json($resp->json());
+        $json = $resp->json() ?: [];
+        if (empty($json['job_id'])) {
+            return response()->json(['error' => '二创服务未返回任务号，无法轮询'], 502);
+        }
+        return response()->json([
+            'ok'   => true,
+            'cap'  => 'rewrite',
+            'data' => ['async' => true, 'job_id' => (string) $json['job_id']],
+        ]);
     }
 
     /** 对标爆款 → 财税仿写（极简创作台一键生成用）。代理 8500 /follow_hot。 */
@@ -659,6 +751,7 @@ class StudioController extends Controller
         $data = $request->validate([
             'text' => ['required', 'string'],
             'platform' => ['sometimes', 'string', 'max:20'],
+            'job_id' => ['sometimes', 'nullable', 'string', 'max:40'],
         ]);
 
         try {
@@ -669,7 +762,36 @@ class StudioController extends Controller
         if (! $resp->successful()) {
             return response()->json(['error' => '质检服务暂不可用，请确认微服务已启动'], 502);
         }
-        return response()->json($resp->json());
+        $result = $resp->json();
+
+        // 关联成片时，把文本合规预检结论落库，作为发布门禁的「合规」一关
+        if (! empty($data['job_id'])) {
+            $tenant = $this->studioTenant($request);
+            $job = VideoJob::where('job_id', $data['job_id'])
+                ->where('tenant_id', $tenant->id)
+                ->first();
+            if ($job) {
+                $risk = $result['risk_level'] ?? 'low';
+                $status = match ($risk) {
+                    'high'   => 'blocked',
+                    'medium' => 'warned',
+                    default  => 'passed',
+                };
+                $hits = $result['hits'] ?? [];
+                $job->update([
+                    'text_qc_status'   => $status,
+                    'text_qc_summary'  => [
+                        'risk_level' => $risk,
+                        'hits'       => count($hits),
+                        'chars'      => $result['chars'] ?? 0,
+                        'key_hits'   => collect($hits)->take(5)->pluck('word')->all(),
+                    ],
+                ]);
+                $result['job_text_qc_status'] = $status;
+            }
+        }
+
+        return response()->json($result);
     }
 
     /** 出片产物技术质检：调 8500 /qc-video，写 qc_reports，更新 video_job.qc_status。 */
@@ -811,59 +933,70 @@ class StudioController extends Controller
             'title'      => ['sometimes', 'nullable', 'string', 'max:60'],
         ]);
 
-        try {
-            $client = app(PipelineClient::class);
-
-            // ① 视频输入先转文字（上传 / 链接）
-            $text = trim((string) ($data['text'] ?? ''));
-            if (($data['input_mode'] ?? '') === 'upload' && !empty($data['video_b64'])) {
-                $tr = $client->post('/transcribe',
-                    ['video_b64' => $data['video_b64'], 'language' => $data['language'] ?? 'zh'], 120);
-                if (! $tr->successful() || empty($tr->json()['ok'])) {
-                    return response()->json(['error' => '视频转写失败：' . ($tr->json()['error'] ?? '服务异常')], 502);
-                }
-                $text = $tr->json()['text'] ?? '';
-            } elseif (($data['input_mode'] ?? '') === 'link' && !empty($data['video_url'])) {
-                // 二期为主；MVP 先尝试直链下载，失败给友好提示
-                $tr = $client->post('/transcribe', ['video_url' => $data['video_url'], 'language' => $data['language'] ?? 'zh'], 120);
-                if (! $tr->successful() || empty($tr->json()['ok'])) {
-                    return response()->json(['error' => '链接解析失败（抖音/视频号反爬，二期支持）'], 422);
-                }
-                $text = $tr->json()['text'] ?? '';
+        // 拆解是「转写 → 结构拆解 → 潜力评估」三段串行，实测合计可达 330s，
+        // 在 Cloudflare Tunnel 下同步返回必 524（源站响应 125s 上限）。
+        // 整条链作为一个异步作业提交给 8500 /dissect（其内部完成转写+拆解+评估），
+        // 入口 <5s 返回 job_id，前端轮询 /studio/cap/status/{job_id} 取最终结果。
+        //
+        // 链接模式例外：抖音/视频号反爬要立刻给明确提示，不值得异步绕，故同步短试一次。
+        if (($data['input_mode'] ?? '') === 'link' && empty($data['text'])) {
+            try {
+                $tr = app(PipelineClient::class)->post('/transcribe', [
+                    'video_url' => $data['video_url'] ?? '',
+                    'language'  => $data['language'] ?? 'zh',
+                ], 120);
+            } catch (PipelineUnavailableException $e) {
+                return response()->json(['error' => '拆解服务暂时不可用，请稍后重试'], 503);
             }
-            if (! $text) {
+            if (! $tr->successful() || empty($tr->json()['ok'])) {
+                return response()->json(['error' => '链接解析失败（抖音/视频号反爬，二期支持）'], 422);
+            }
+            $data['text'] = (string) ($tr->json()['text'] ?? '');
+            if ($data['text'] === '') {
                 return response()->json(['error' => '未获取到可拆解文案'], 422);
             }
+        }
 
-            // ② 结构拆解
-            $dissect = $client->post('/dissect',
-                array_filter([
-                    'text'     => $text,
-                    'platform' => $data['platform'] ?? null,
-                    'industry' => $data['industry'] ?? null,
-                ]), 120);
-            if (! $dissect->successful()) {
-                return response()->json(['error' => '拆解服务暂不可用'], 502);
-            }
-
-            // ③ 潜力评估（唤醒沉睡的 /strategist）
-            $strategist = $client->post('/strategist',
-                array_filter([
-                    'title'    => $data['title'] ?? '',
-                    'script'   => $text,
-                    'industry' => $data['industry'] ?? null,
-                    'platform' => $data['platform'] ?? null,
-                ]), 90);
-
-            return response()->json([
-                'ok'         => true,
-                'text'       => $text,
-                'dissect'    => $dissect->json(),
-                'strategist' => $strategist->successful() ? $strategist->json() : null,
-            ]);
-        } catch (PipelineUnavailableException $e) {
+        try {
+            $jobId = $this->submitAsyncJob('/dissect', array_filter([
+                'text'       => $data['text'] ?? null,
+                'video_b64'  => $data['video_b64'] ?? null,
+                'title'      => $data['title'] ?? null,
+                'language'   => $data['language'] ?? null,
+                'platform'   => $data['platform'] ?? null,
+                'industry'   => $data['industry'] ?? null,
+            ]));
+        } catch (\RuntimeException $e) {
             return response()->json(['error' => '拆解服务暂时不可用，请稍后重试'], 503);
         }
+
+        return response()->json([
+            'ok'   => true,
+            'cap'  => 'dissect',
+            'data' => ['async' => true, 'job_id' => $jobId],
+        ]);
+    }
+
+    /**
+     * 提交一个 8500 异步作业，返回 job_id。
+     *
+     * @throws \RuntimeException 8500 不可达 / 返回异常 / 未给 job_id
+     */
+    private function submitAsyncJob(string $path, array $payload): string
+    {
+        try {
+            $resp = app(PipelineClient::class)->submitAsync($path, $payload, 20);
+        } catch (PipelineUnavailableException $e) {
+            throw new \RuntimeException('后台服务暂时不可用：' . $e->getMessage(), 0, $e);
+        }
+        if (! $resp->successful()) {
+            throw new \RuntimeException('后台服务返回异常（HTTP ' . $resp->status() . '）');
+        }
+        $json = $resp->json() ?: [];
+        if (empty($json['job_id'])) {
+            throw new \RuntimeException('后台服务未返回任务号，无法轮询');
+        }
+        return (string) $json['job_id'];
     }
 
     /** 获客军师 / 潜力评估（唤醒沉睡的 /strategist 端点，供页面单独调用）。 */

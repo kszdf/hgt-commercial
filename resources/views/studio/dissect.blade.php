@@ -6,6 +6,14 @@
         <p class="mt-1 text-sm text-slate-500">把爆款短视频逐字稿拆解为「结构骨架 + 选题角度 + 运镜建议」，用于创作原创版本。</p>
     </div>
 
+    <!-- 批量追爆款入口：这里一次拆一条，队列里可以一次扔一批并自动仿写 -->
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-100 bg-brand-50/50 px-4 py-3">
+        <div class="text-sm text-slate-600">一次追一批？
+            <span class="text-slate-400">任务队列里可以一次粘多个链接，自动拆完结构再仿写成你自己的稿。</span>
+        </div>
+        <a href="/studio/queue" class="rounded-lg bg-brand-500 px-3.5 py-1.5 text-xs font-medium text-white transition hover:bg-brand-600">去批量追爆款 →</a>
+    </div>
+
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <!-- ===== 左侧：输入区 ===== -->
         <div class="space-y-4">
@@ -167,7 +175,9 @@ async function startDissect() {
     } else if (mode === 'upload') {
         const f = document.getElementById('videoFile').files[0];
         if (!f) { return fail('请先选择视频文件'); }
-        if (f.size > 60 * 1024 * 1024) { return fail('视频过大（建议 ≤ 60MB）'); }
+        // 60MB 原始文件经 base64 膨胀约 33% → 线上约 80MB，仍在后端 post_max_size 96M 之内。
+        // 上限不能再放宽，否则 base64 后会顶破 96M 接收上限。
+        if (f.size > 60 * 1024 * 1024) { return fail('视频过大：上限 60MB（base64 编码后需在 96MB 接收上限内），请先压缩或裁剪'); }
         try {
             payload.video_b64 = await fileToBase64(f);
             payload.language = document.getElementById('language').value;
@@ -180,14 +190,9 @@ async function startDissect() {
 
     const signal = HGTAbort.begin('中止：爆款拆解中…');
     try {
-        const resp = await fetch('/studio/dissect/analyze', {
-            method: 'POST',
-            signal,
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
-            body: JSON.stringify(payload),
-        });
-        const data = await resp.json();
-        if (!resp.ok || data.error) { return fail(data.error || '拆解失败'); }
+        // 长任务走 HGTCap（提交→job_id→轮询），避开长连接超时
+        const data = await HGTCap.run('/studio/dissect/analyze', payload, { signal: signal });
+        if (data.error) { return fail(data.error || '拆解失败'); }
         currentDissect = data.dissect || {};
         currentText = data.text || '';
         renderResult(data);

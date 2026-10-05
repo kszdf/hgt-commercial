@@ -344,6 +344,39 @@ button:disabled:active,
     background: var(--color-brand-600); flex: none;
 }
 
+/* 统计卡（队列/仪表盘总览，统一配色与留白） */
+.stat-card {
+    background: var(--surface-card);
+    border: 1px solid var(--surface-card-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.stat-card:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }
+.stat-label { font-size: 12px; color: #64748b; margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
+.stat-num {
+    font-size: 26px; font-weight: 700; line-height: 1; letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 页面内分区头部（统一留白与分区，营造「大气」观感） */
+.studio-pagehead { margin-bottom: 18px; }
+.studio-pagehead h2 { font-size: 17px; font-weight: 700; color: var(--text-strong); letter-spacing: -0.01em; }
+.studio-pagehead p { margin-top: 4px; font-size: 13px; color: #94a3b8; line-height: 1.6; }
+
+/* 进度反馈（细进度条，统一进度观感） */
+.studio-progress {
+    height: 6px; border-radius: 999px; background: #e2e8f0; overflow: hidden;
+}
+.studio-progress > i {
+    display: block; height: 100%; width: 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--color-brand-500), var(--color-brand-400));
+    transition: width 0.3s ease;
+}
+.dark .studio-progress { background: rgba(255, 255, 255, 0.12); }
+
 /* 表单字段标签 */
 .studio-field-label {
     display: block; margin-bottom: 6px;
@@ -423,3 +456,36 @@ textarea.studio-input {
 .dark .studio-input { background: rgba(15,17,33,0.6); border-color: rgba(255,255,255,0.12); color: #e2e8f0; }
 .dark .studio-btn-secondary { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.12); color: #cbd5e1; }
 .dark .studio-section-title { color: #f1f5f9; }
+
+/* ============================================================
+   移动端全局适配（2026-10-05 手机端体检后补）
+   背景：罗根主打"手机、电脑、平板都能用"，逐页实测后补齐基础适配。
+   体检结论：8 个主要页面均无横向滚动、无元素溢出；此处为通用加固。
+   ============================================================ */
+@media (max-width: 767px) {
+    /* 触控友好：小按钮在手机上一律不低于 36px，避免点不准 */
+    .studio-btn-primary,
+    .studio-btn-secondary {
+        min-height: 38px;
+    }
+    /* 输入框字号 ≥16px，避免 iOS Safari 聚焦时自动放大页面 */
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea {
+        font-size: 16px !important;
+    }
+    /* 内容区左右留白收窄（桌面 1.5rem → 手机 0.75rem） */
+    .studio-pagehead {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+    /* 窄屏下多列卡片一律单列铺满，避免挤压变形 */
+    .studio-grid-auto {
+        grid-template-columns: 1fr !important;
+    }
+    /* 横向滚动容器（宽表格）：限定在容器内滚，不撑破整页 */
+    .studio-scroll-x {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}

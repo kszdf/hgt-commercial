@@ -79,11 +79,7 @@
                 <span class="ws-label font-semibold {{ $v2Mode ? 'sr-only' : '' }}">对话工作台</span>
             </a>
 
-            <!-- ② 文章库：公众号长文（出稿 / SEO 自检 / 审核 / 送草稿箱 / 群发） -->
-            <a href="/studio/articles" title="文章库" class="{{ request()->is('studio/articles*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
-                <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 3h5v3H7V3z"/></svg>
-                <span class="ws-label font-semibold {{ $v2Mode ? 'sr-only' : '' }}">文章库</span>
-            </a>
+            {{-- 2026-10-03：文章库（公众号文章）已下线，短视频平台不再提供 --}}
 
             <!-- 2026-09-18：智库/客户档案/1v1预约/AI客服 4个未开发能力图标已摘除（张老师拍板暂不开发），
                  路由与页面文件保留，将来恢复只需把导航项加回来。 -->
@@ -114,6 +110,12 @@
                     <a href="/studio/models" title="数字人模特" class="{{ request()->is('studio/models*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-amber">
                         <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                         <span class="ws-label">数字人模特</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/studio/queue" title="任务队列" class="{{ request()->is('studio/queue*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-teal">
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+                        <span class="ws-label">任务队列</span>
                     </a>
                 </li>
                 <li>
@@ -259,9 +261,9 @@
         <div class="flex-1 min-h-0 {{ request()->is('studio/chat*') ? 'overflow-hidden' : 'overflow-y-auto' }}">
             @if(request()->is('studio/chat*'))
                 {{-- chat 全宽三栏：锁死高度为 视口-顶栏，只允许对话区内部滚动 --}}
-                <div style="height: calc(100vh - 4rem); min-height: 420px;">{{ $slot }}</div>
+                <div class="ws-chat-full" style="height: calc(100vh - 4rem); min-height: 420px;">{{ $slot }}</div>
             @else
-                <div style="max-width:1400px;margin:0 auto;padding:0 1.5rem;">
+                <div class="ws-content-wrap" style="max-width:1400px;margin:0 auto;padding:0 1.5rem;">
                     {{ $slot }}
                 </div>
             @endif
@@ -412,22 +414,84 @@ body.workspace-chat #workspaceSidebar .ws-nav-active {
     padding-right: 0.45rem;
 }
 
-/* 侧栏折叠（移动端） */
+/* 侧栏折叠（移动端）
+   2026-10-05 手机端体检修复：原规则无 !important，被 Tailwind 工具类的 transform 覆盖，
+   导致部分加载时序下侧栏"该隐藏却显示"（手机上侧栏糊在左边挡住内容）。
+   注意：基础态与 .open 态都用 !important，靠"后者优先"决定；两条规则紧密相邻以保证顺序。 */
 @media (max-width: 767px) {
     .ws-sidebar {
-        position: fixed;
+        position: fixed !important;
         top: 0;
         left: 0;
         bottom: 0;
         z-index: 40;
-        transform: translateX(-100%);
+        transform: translateX(-100%) !important;
         box-shadow: none;
     }
     .ws-sidebar.open {
-        transform: translateX(0);
+        transform: translateX(0) !important;
         box-shadow: 4px 0 24px rgba(0,0,0,0.1);
     }
 }
+
+/* ===== 移动端内容区适配（2026-10-05 手机端体检后补） ===== */
+@media (max-width: 767px) {
+    /* 抽屉打开时：侧栏由 56px 图标条临时展开为「图标+文字」240px，避免手机上靠猜图标含义 */
+    .ws-sidebar.open {
+        width: 240px !important;
+        min-width: 240px !important;
+        box-shadow: 4px 0 24px rgba(15,23,42,0.16) !important;
+    }
+    /* 恢复被 sr-only 藏起来的文字（v2 图标条模式在手机抽屉里不适用） */
+    .ws-sidebar.open .ws-label {
+        position: static !important;
+        width: auto !important;
+        height: auto !important;
+        margin: 0 !important;
+        overflow: visible !important;
+        clip: auto !important;
+        white-space: nowrap !important;
+    }
+    /* 展开后菜单项左对齐，图标与文字并排 */
+    .ws-sidebar.open .ws-nav-item,
+    .ws-sidebar.open .ws-nav-active,
+    .ws-sidebar.open .ws-group-toggle,
+    .ws-sidebar.open .ws-nav-brand {
+        justify-content: flex-start !important;
+        gap: 0.625rem !important;
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+        min-height: 42px !important;
+    }
+    /* 内容区左右留白：桌面 24px 在 390px 窄屏上占掉 12%，收窄到 12px 让内容更舒展 */
+    .ws-content-wrap {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+    }
+    /* 顶栏：桌面 px-6 在窄屏上太占，收窄；用户名/邮箱过长时已在元素上 truncate */
+    header.sticky {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+    }
+    /* 触控友好：手机上按钮最小 40px 高，避免"点不准" */
+    .ws-content-wrap button,
+    .ws-content-wrap a[role="button"] {
+        min-height: 38px;
+    }
+    /* 表格类内容（成片库/队列）在窄屏允许横向滚动容器内滚动，而不是撑破整页 */
+    .ws-content-wrap table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+    }
+    /* 对话工作台：手机浏览器地址栏会吃掉视口高度，用 dvh 兜底（不支持则回退 vh） */
+    .ws-chat-full {
+        height: calc(100vh - 4rem);
+        height: calc(100dvh - 4rem);
+    }
+}
+
 
 /* ===== 长任务按钮加载态：凹陷 + 等待光标，明确提示「处理中，请勿重复点击」 ===== */
 .zw-btn-loading {
@@ -608,6 +672,20 @@ function toggleSidebar() {
     var ov = document.getElementById('sidebarOverlay');
     var isOpen = sb.classList.toggle('open');
     ov.classList.toggle('hidden', !isOpen);
+    applyMobileSidebarState();
+}
+// 2026-10-05 移动端修复：显式设置内联 transform，绕开任何 CSS 优先级竞争。
+// 仅当处于移动端宽度时接管；桌面端保持原样（侧栏常驻可见）。
+function applyMobileSidebarState() {
+    var sb = document.getElementById('workspaceSidebar');
+    if (!sb) return;
+    if (window.innerWidth >= 768) {
+        sb.style.transform = '';        // 桌面：交回 CSS
+        return;
+    }
+    sb.style.transform = sb.classList.contains('open')
+        ? 'translateX(0)'
+        : 'translateX(-100%)';
 }
 
 // 智能二创折叠分组：切换子菜单展开/收起，并联动箭头方向
@@ -657,6 +735,24 @@ document.querySelectorAll('.ws-sidebar a').forEach(function(a) {
         if (window.innerWidth < 768) toggleSidebar();
     });
 });
+
+// 移动端初始化兜底（2026-10-05）：进入页面时强制收起侧栏 + 隐藏遮罩。
+// 背景：桌面端侧栏是常驻的；手机上必须是"默认收起、点按钮唤出"。
+// 仅靠 CSS !important 仍可能被其他样式干扰，这里用 JS 显式保证初始状态。
+(function initMobileSidebar() {
+    var sb = document.getElementById('workspaceSidebar');
+    var ov = document.getElementById('sidebarOverlay');
+    function sync() {
+        if (window.innerWidth < 768) {
+            if (sb) sb.classList.remove('open');
+            if (ov) ov.classList.add('hidden');
+        }
+        if (typeof applyMobileSidebarState === 'function') applyMobileSidebarState();
+    }
+    sync();
+    // 窗口从桌面尺寸缩到手机尺寸时也收起（平板转屏场景）
+    window.addEventListener('resize', sync);
+})();
 
 /* ============================================================
    全局 UX 基础设施：Toast / 二次确认 / 返回 / flash 自动转 Toast
@@ -880,6 +976,87 @@ window.HGTAbort = (function () {
         abort: abort,
         isActive: function () { return !!controller; }
     };
+})();
+
+// ===== 长任务异步调用器：把 2 分钟以上的 AI 端点改为「提交→轮询」，避免长连接中途被掐 =====
+// 背景：本机 + Cloudflare Tunnel 时代，单次请求源站响应 >125s 必被 CF 掐断返回 524；
+//       2026-10-05 改用国内服务器 + frp 后 CF 已整体撤除，异步化仍保留（不占长连接、可轮询进度）。
+//       而 /rewrite /dissect /topic /article/write /hotspot 等 AI 端点实测 120~280s。
+// 做法：POST 提交（<5s 拿 job_id）→ 轮询 /studio/cap/status/{job_id} 取最终结果。
+//       8500 侧「取走即清」，拿到 done 必须停轮询。
+// 用法（页面内）：
+//   const data = await HGTCap.run('/studio/rewrite/generate', bodyObj, { signal, label: '中止：AI 改写中…' });
+//   data 即原来同步接口的响应体；失败会 throw，与同步版 try/catch 写法完全一致。
+window.HGTCap = (function () {
+    var POLL_MS = 3000;       // 3 秒一轮：AI 端点 20~300s，够灵敏又不打爆后端
+    var POLL_MAX = 220;       // 220 × 3s ≈ 11 分钟上限，兜住极端慢请求
+
+    function csrf() {
+        var m = document.querySelector('meta[name="csrf-token"]');
+        return m ? (m.getAttribute('content') || '') : '';
+    }
+
+    function jsonHeaders() {
+        return { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf() };
+    }
+
+    function sleep(ms, signal) {
+        return new Promise(function (resolve, reject) {
+            var t = setTimeout(resolve, ms);
+            if (signal) {
+                signal.addEventListener('abort', function () {
+                    clearTimeout(t);
+                    var e = new Error('aborted'); e.name = 'AbortError'; reject(e);
+                }, { once: true });
+            }
+        });
+    }
+
+    // 轮询直到 done / 失效 / 中止 / 超上限
+    async function poll(jobId, opts) {
+        opts = opts || {};
+        for (var i = 0; i < POLL_MAX; i++) {
+            if (opts.signal && opts.signal.aborted) { var ae = new Error('aborted'); ae.name = 'AbortError'; throw ae; }
+            await sleep(POLL_MS, opts.signal);
+            var r = await fetch('/studio/cap/status/' + encodeURIComponent(jobId),
+                { headers: { 'Accept': 'application/json' }, signal: opts.signal });
+            if (!r.ok) continue;                      // 网络/网关抖动：继续忍，不打断长任务
+            var j = await r.json();
+            var st = j.status || '';
+            if (st === 'pending') continue;
+            if (st === 'not_found') throw new Error('任务进度已失效（服务可能重启过），请重新执行一次');
+            // done：8500 侧已「取走即清」，此处必须立即返回，不能再轮询
+            var data = j.result || {};
+            if (!(j.code >= 200 && j.code < 300) || data.ok === false) {
+                throw new Error(data.error || ('后台返回 HTTP ' + (j.code || '?')));
+            }
+            return data;
+        }
+        throw new Error('任务耗时过长（超过约 11 分钟），请拆分内容后重试');
+    }
+
+    // url：Laravel 侧的同步入口地址（后端内部会转成 8500 异步作业）
+    // body：与原来直接调该接口时完全相同的 JSON body
+    async function run(url, body, opts) {
+        opts = opts || {};
+        // 第一步：提交。后端识别为长任务后返回 {ok, cap, data:{async:true, job_id}}
+        var resp = await fetch(url, {
+            method: 'POST',
+            signal: opts.signal,
+            headers: jsonHeaders(),
+            body: JSON.stringify(body || {})
+        });
+        var data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || ('提交失败（HTTP ' + resp.status + '）'));
+        if (data.ok === false) throw new Error(data.error || '提交失败');
+
+        // 第二步：已是异步作业 → 轮询；否则说明该端点走的同步路径，结果直接可用
+        var inner = data.data || {};
+        if (inner.async && inner.job_id) return await poll(inner.job_id, opts);
+        return data;
+    }
+
+    return { run: run, poll: poll };
 })();
 
 // 服务端 flash（success/error）自动转为 Toast

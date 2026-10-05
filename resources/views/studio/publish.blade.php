@@ -152,7 +152,7 @@
                                     <ol class="list-decimal space-y-1 pl-4">
                                         <li>打开小红书 App → 底部「+」→ 选择成片或图片。</li>
                                         <li>写标题 + 正文，加话题标签；封面选清晰一帧。</li>
-                                        <li>点击「发布」。若做图文笔记，可先在 <a href="/studio/xhs" class="text-brand-600 hover:underline">小红书图文</a> 生成素材包再发。</li>
+                                        <li>点击「发布」即可。若做图文笔记，可先在 <a href="/studio/xhs" class="text-brand-600 hover:underline">小红书图文</a> 生成素材包再发。</li>
                                     </ol>
                                 </div>
                                 <div class="rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600">

@@ -36,9 +36,15 @@ class FootageController extends Controller
 
     public function edit(Request $request)
     {
+        // 上限 96MB：受中转链路带宽约束（2026-10-05 实测服务器出网约 3Mbps，96MB 约需 5 分钟；
+        // 原 Cloudflare「100MB 单请求」硬限已随 CF 撤出链路而消失，但带宽仍是天花板），
+        // 与 php.ini upload_max_filesize / nginx client_max_body_size 三处保持一致。
+        // 超限时 Laravel 校验会失败，前端已做实时大小提示，不会白屏。
         $data = $request->validate([
-            'file' => ['required', 'file', 'mimes:mp4,mov,m4v,avi,mkv,webm', 'max:512000'], // ≤500MB
+            'file' => ['required', 'file', 'mimes:mp4,mov,m4v,avi,mkv,webm', 'max:98304'], // ≤96MB
             'language' => ['sometimes', 'string', 'in:zh,auto'],
+        ], [
+            'file.max' => '素材文件超过 96MB 上限（大文件经中转上传较慢），请先压缩或裁剪后再上传。',
         ]);
 
         $dir = $this->footageDir();

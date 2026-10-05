@@ -29,13 +29,16 @@ class ReviewController extends Controller
         return view('studio.review', compact('jobs'));
     }
 
-    /** 通过审核 → approved（qc 阻断的视频不允许通过）。 */
+    /** 通过审核 → approved（机器质检或文本合规阻断的视频不允许通过）。 */
     public function approve(VideoJob $videoJob)
     {
         $this->authorizeTenant($videoJob);
 
-        if ($videoJob->qc_status === 'blocked') {
-            return redirect()->back()->with('error', '该视频机器质检判定为「阻断」，不能审核通过，请先处理质检问题。');
+        if (! $videoJob->canReview()) {
+            $reason = $videoJob->text_qc_status === 'blocked'
+                ? '该视频文本合规预检命中高危违禁词，不能审核通过，请先修改文稿并重新质检。'
+                : '该视频机器质检未通过（或判定为阻断），不能审核通过，请先处理质检问题。';
+            return redirect()->back()->with('error', $reason);
         }
 
         $videoJob->update([

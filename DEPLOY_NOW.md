@@ -1,6 +1,10 @@
 # 部署执行包 · 混合云（Web 上云 + 渲染留本地）
 
-> 配套文件：`docker-compose.prod.yml`（云服务器栈）、`frpc-local.toml`（本机穿透）、`.env`（云环境）。
+> ⛔ **已废弃（DEPRECATED）— 2026-10-01 起改用「本机 Docker + Cloudflare Tunnel」，本文仅供历史留档。**
+> 废弃原因：腾讯云轻量服务器 hgtcs 已到期下线，`frpc-local.toml` 已删除，混合云链路不存在了。
+> 现行方案见仓库根目录《慧根堂平台-CF隧道本机部署方案.md》；本机拉起栈：`docker compose up -d`。
+
+> 配套文件：`docker-compose.prod.yml`（云服务器栈）、`frpc-local.toml`（本机穿透，已删）、`.env`（云环境）。
 > 目标：把 Laravel Web 层部署到 hgtcs 云服务器，本地 Windows 继续出片，经 frp 打通。
 
 ---

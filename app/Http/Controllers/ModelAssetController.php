@@ -64,22 +64,47 @@ class ModelAssetController extends Controller
         return view('studio.models', compact('assets'));
     }
 
-    /** 供出片页下拉拉取可用模特（仅 ready）。 */
+    /** 供出片页下拉拉取可用模特（仅 ready）；默认出镜的排最前，出片时自动选中。 */
     public function modelsJson()
     {
         $tenant = $this->studioTenant(request());
         $assets = ModelAsset::where('tenant_id', $tenant->id)
             ->where('status', 'ready')
-            ->get(['id', 'name', 'scene', 'resolution', 'duration']);
+            ->orderByDesc('is_default')
+            ->orderByDesc('id')
+            ->get(['id', 'name', 'scene', 'resolution', 'duration', 'is_default', 'source_type']);
         return response()->json(['ok' => true, 'models' => $assets]);
+    }
+
+    /**
+     * 设为默认出镜数字人：客户用自己的视频建好专属形象后，出片不再每次手选。
+     * 同一租户内唯一——设置新默认时先把旧的清掉。
+     */
+    public function setDefault(Request $request, ModelAsset $modelAsset)
+    {
+        $this->authorizeTenant($modelAsset);
+        if ($modelAsset->status !== 'ready') {
+            return redirect()->route('studio.models')
+                ->with('error', '该素材质检未通过，不能设为默认出镜。');
+        }
+        ModelAsset::where('tenant_id', $modelAsset->tenant_id)->update(['is_default' => false]);
+        $modelAsset->update(['is_default' => true]);
+
+        return redirect()->route('studio.models')
+            ->with('success', '已设为默认出镜数字人：' . $modelAsset->name . '，之后出片会自动用它。');
     }
 
     public function store(Request $request)
     {
+        // 上限 96MB：受中转链路带宽约束（服务器出网约 3Mbps，96MB 约需 5 分钟；
+        // 2026-10-05 起 Cloudflare 已撤出链路，不再是 CF 的 100MB 硬限在卡）。
+        // 与 php.ini / nginx / 前端提示四处保持一致。
         $data = $request->validate([
-            'file'  => ['required', 'file', 'mimes:mp4,mov,webm', 'max:204800'], // ≤200MB
+            'file'  => ['required', 'file', 'mimes:mp4,mov,webm', 'max:98304'], // ≤96MB
             'name'  => ['nullable', 'string', 'max:60'],
             'scene' => ['nullable', 'string', 'max:40'],
+        ], [
+            'file.max' => '模特视频超过 96MB 上限（大文件经中转上传较慢），请先压缩后再上传。',
         ]);
 
         $user = $request->user();
@@ -140,15 +165,112 @@ class ModelAssetController extends Controller
             $status === 'ready' ? '上传成功，素材已通过质检可用。' : '上传完成，但质检未通过（' . ($qc['level'] ?? '') . '），暂不可用于出片。');
     }
 
+    /**
+     * 单图口播：上传一张照片 -> 自动生成"照片数字人"。
+     *
+     * 原理：HEYGEM 只吃 video_url，故先调 8500 /photo-model 把照片转成一段稳定竖屏微动视频，
+     * 落 model_assets（source_type=photo），出片时与视频数字人一样用（HEYGEM 会重绘嘴部+面部）。
+     */
+    public function photoStore(Request $request)
+    {
+        $data = $request->validate([
+            'photo' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:20480'], // ≤20MB
+            'name'  => ['nullable', 'string', 'max:60'],
+            'still' => ['nullable', 'boolean'],
+        ], [
+            'photo.max' => '照片超过 20MB 上限，请压缩后再上传。',
+        ]);
+
+        $user = $request->user();
+        $tenant = $this->studioTenant($request);
+        $file = $request->file('photo');
+        $ext = $file->getClientOriginalExtension() ?: 'jpg';
+
+        // 原始照片落 storage（便于回看/重建），并保留一份在项目 storage 供预览
+        $photoRel = $file->storeAs('models/photos', '_src_' . uniqid() . '.' . $ext);
+        $photoPath = \Illuminate\Support\Facades\Storage::disk('local')->path($photoRel); // 容器真实路径
+
+        try {
+            $resp = app(PipelineClient::class)->post('/photo-model', [
+                'photo_path' => $this->containerToHost($photoPath),
+                'name'       => 'photo_' . $tenant->id . '_' . uniqid(),
+                'duration'   => 6,
+                'still'      => (bool) ($data['still'] ?? false),
+            ], 300);
+        } catch (PipelineUnavailableException $e) {
+            return redirect()->back()->with('error', '出片服务暂时不可用，请稍后重试（' . $e->getMessage() . '）');
+        }
+
+        if (! $resp->successful() || ! ($resp->json('ok') ?? false)) {
+            return redirect()->back()->with('error', '照片生成数字人失败：' . ($resp->json('error') ?? '服务不可用'));
+        }
+        $r = $resp->json();
+        $videoHost   = $r['video_path'] ?? null;    // 宿主 face2face 路径（HEYGEM 出片用；containerPath() 映射为 /code/data）
+        $previewHost = $r['preview_path'] ?? '';    // 宿主项目 storage 路径（容器可读，内联预览用；由 8500 拷贝生成）
+        if (! $previewHost) {
+            $previewHost = $videoHost;              // 兜底
+        }
+        $sizeContainer = $this->hostStorageToContainer($previewHost);
+
+        // 生成的微动视频再做一次技术质检（音轨/画幅/时长），与上传视频同一把关口径
+        $qc = [];
+        try {
+            $qcResp = app(PipelineClient::class)->post('/qc-asset', [
+                'file_path' => $videoHost,
+            ], 120);
+            if ($qcResp->successful()) {
+                $qc = $qcResp->json() ?: [];
+            }
+        } catch (\Throwable $e) {
+            $qc = [];
+        }
+        $status = ($qc['status'] ?? 'passed') === 'blocked' ? 'rejected' : 'ready';
+
+        ModelAsset::create([
+            'tenant_id'    => $tenant->id,
+            'user_id'      => $user->id,
+            'name'         => $data['name'] ?: ('照片数字人 ' . now()->format('m-d H:i')),
+            'scene'        => 'photo',
+            'source_type'  => 'photo',
+            'source_photo' => $this->containerToHost($photoPath),
+            'file_path'    => $videoHost,
+            'preview_path' => $previewHost,
+            'size'         => (int) (@filesize($sizeContainer) ?: 0),
+            'duration'     => $r['duration'] ?? null,
+            'resolution'   => ($r['width'] ?? 1080) . 'x' . ($r['height'] ?? 1920),
+            'status'       => $status,
+            'qc_result'    => $qc,
+        ]);
+
+        return redirect()->route('studio.models')->with('success',
+            $status === 'ready'
+                ? '照片数字人已生成，可直接出片讲稿。建议到「我的数字人」把它设为默认出镜。'
+                : '照片已处理，但质检未通过（' . ($qc['level'] ?? '') . '），暂不可用于出片。');
+    }
+
     /** 预览（内联播放）。 */
     public function preview(ModelAsset $modelAsset)
     {
         $this->authorizeTenant($modelAsset);
         $containerPath = $this->hostStorageToContainer($modelAsset->preview_path ?? '');
-        if (! $containerPath || ! file_exists($containerPath)) {
-            abort(404);
+        if ($containerPath && file_exists($containerPath)) {
+            return Response::file($containerPath);
         }
-        return Response::file($containerPath);
+        // 兜底：预览文件不在项目 storage（如照片数字人的 face2face 路径，容器读不到）→ 经 8500 代理回传
+        $hostPath = str_replace('\\', '/', $modelAsset->file_path ?: $modelAsset->preview_path ?: '');
+        if ($hostPath) {
+            try {
+                $resp = app(PipelineClient::class)->get('/asset-file?path=' . urlencode($hostPath), 60);
+                if ($resp->successful()) {
+                    return response($resp->body(), 200)
+                        ->header('Content-Type', 'video/mp4')
+                        ->header('Accept-Ranges', 'none');
+                }
+            } catch (\Throwable $e) {
+                // 落到 404
+            }
+        }
+        abort(404);
     }
 
     public function destroy(ModelAsset $modelAsset)
@@ -171,8 +293,11 @@ class ModelAssetController extends Controller
     public function reupload(Request $request, ModelAsset $modelAsset)
     {
         $this->authorizeTenant($modelAsset);
+        // 上限 96MB（同 store()，受中转链路带宽约束；Cloudflare 已于 2026-10-05 撤出）
         $request->validate([
-            'file' => ['required', 'file', 'mimes:mp4,mov,webm', 'max:204800'],
+            'file' => ['required', 'file', 'mimes:mp4,mov,webm', 'max:98304'],
+        ], [
+            'file.max' => '模特视频超过 96MB 上限（大文件经中转上传较慢），请先压缩后再上传。',
         ]);
         // 超管(tenant_id=null)回退 pro/enterprise 租户作为操作上下文，避免 tenant_id 为 null 传给出片管线
         $tenant = $this->studioTenant($request);

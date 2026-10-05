@@ -20,8 +20,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // 站点经云端 nginx(SSL 终止) → frp 隧道 → 本容器；仅信任该链路。
-        // 容器无公网直连，故以 '*' 信任上游 X-Forwarded-*，使 Laravel 正确识别 https 并生成 https 资源链接。
+        // 上游链路（按当前部署形态，2026-10-05 起）：
+        //   访客 → 国内服务器 124.223.14.171 的 nginx（SSL 终止，配置见
+        //      /etc/nginx/sites-available/zmgen.conf）→ frp 隧道(7000) → 本机 frpc
+        //      → 本机 nginx:8080 → 本容器。
+        //   云 nginx 已注入 X-Forwarded-Proto/For，Laravel 据此识别 https。
+        //   （旧 Cloudflare Tunnel 形态已于 2026-10-05 整体撤除，不再经过境外节点。）
+        // 容器无公网直连，两种形态下都只能以 '*' 信任上游 X-Forwarded-*，
+        // 使 Laravel 正确识别 https 并生成 https 资源链接。
+        // ⚠️ 切勿改成具体 IP 列表：会导致生成 http 链接与重定向循环。
         $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions) {

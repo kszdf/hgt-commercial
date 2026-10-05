@@ -723,30 +723,18 @@ function mapDisplayModeToRewriteMode(displayMode) {
 }
 
 async function callRewrite({mode, text, focus, target_duration, preserve, role_mode, role_note, keep_manual_roles, signal}) {
-    const resp = await fetch('/studio/rewrite/generate', {
-        method: 'POST',
-        signal,
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-        },
-        body: JSON.stringify({
-            mode: mapDisplayModeToRewriteMode(mode),
-            text: text,
-            focus: focus || undefined,
-            target_duration: target_duration || undefined,
-            preserve: preserve || undefined,
-            role_mode: role_mode || undefined,
-            role_note: role_note || undefined,
-            keep_manual_roles: keep_manual_roles ? true : undefined,
-            industry: window.__topicIndustry || undefined,
-        })
-    });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.error || '提交失败');
-    if (!data.ok) throw new Error(data.error || '生成失败');
-    return data;
+    // 长任务走 HGTCap（提交→job_id→轮询），避开长连接超时；返回体与同步版一致
+    return await HGTCap.run('/studio/rewrite/generate', {
+        mode: mapDisplayModeToRewriteMode(mode),
+        text: text,
+        focus: focus || undefined,
+        target_duration: target_duration || undefined,
+        preserve: preserve || undefined,
+        role_mode: role_mode || undefined,
+        role_note: role_note || undefined,
+        keep_manual_roles: keep_manual_roles ? true : undefined,
+        industry: window.__topicIndustry || undefined,
+    }, { signal: signal });
 }
 
 async function runSingleRewrite() {

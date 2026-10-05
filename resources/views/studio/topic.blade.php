@@ -297,25 +297,15 @@ document.getElementById('topicForm').addEventListener('submit', async function (
             return v || null;
         };
 
-        const resp = await fetch('/studio/topic/generate', {
-            method: 'POST',
-            signal,
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-            },
-            body: JSON.stringify({
-                industry: valOrNull('industry'),
-                keywords: valOrNull('keywords'),
-                count: topicCount,
-                hotness: valOrNull('hotness'),
-                hook: valOrNull('hook'),
-                form: valOrNull('form'),
-            })
-        });
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.error || '提交失败（HTTP ' + resp.status + '）');
+        // 长任务走 HGTCap（提交→job_id→轮询），避开长连接超时
+        const data = await HGTCap.run('/studio/topic/generate', {
+            industry: valOrNull('industry'),
+            keywords: valOrNull('keywords'),
+            count: topicCount,
+            hotness: valOrNull('hotness'),
+            hook: valOrNull('hook'),
+            form: valOrNull('form'),
+        }, { signal: signal });
         if (!data.ok) throw new Error(data.error || '生成失败');
 
         // 成功
@@ -680,18 +670,9 @@ async function fetchHotspots() {
     zwSetLoading(btn, {loading: true, text: '抓取热点中…'});
     const signal = HGTAbort.begin('中止：抓取热点中…');
     try {
-        const resp = await fetch('/studio/topic/hotspots', {
-            method: 'POST',
-            signal,
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-            },
-            body: JSON.stringify({ days: days, subfields: subs })
-        });
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.error || ('请求失败（HTTP ' + resp.status + '）'));
+        // 全网热点检索（tavily 多查询 + deepseek 过滤，实测常 >100s）走 HGTCap 异步，绕开 CF 524
+        const data = await HGTCap.run('/studio/topic/hotspots',
+            { days: days, subfields: subs }, { signal: signal });
         if (!data.ok) throw new Error(data.error || '获取失败');
         const topics = data.topics || [];
         if (!topics.length && data.filtered) {

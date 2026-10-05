@@ -67,6 +67,7 @@ import sys
 import threading
 import time
 import traceback
+import types
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 from urllib.parse import urlparse, parse_qs, quote
@@ -110,10 +111,33 @@ for _p in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY"
     os.environ.pop(_p, None)
 
 # OAuth2 授权码模式（抖音/小红书）回调基地址。
-# 抖音开放平台要求回调地址为「已备案域名（https）」，不接受 IP+端口形式；
-# zmgen.cn 已由云 nginx 把 /oauth/* 转发到本服务（实测 200），故默认用它。
-# 可用 env OAUTH_REDIRECT_BASE 覆盖。
-OAUTH_REDIRECT_BASE = os.environ.get("OAUTH_REDIRECT_BASE", "https://zmgen.cn")
+# 抖音开放平台要求回调地址为「已备案域名（https）」，不接受 IP+端口形式。
+#
+# 部署形态两选一（改 config/oauth_base.txt 或设环境变量 OAUTH_REDIRECT_BASE 均可）：
+#   A. 本机 + Cloudflare Tunnel（内部用）：https://app.<你的域名>
+#      注意：CF Access 必须给 /oauth/* 配 Bypass 策略，否则第三方浏览器回调被拦，授权直接失败。
+#   B. 腾讯云 + 云 nginx（旧形态）：https://zmgen.cn
+#
+# 解析优先级：环境变量 OAUTH_REDIRECT_BASE > config/oauth_base.txt > 默认值（旧形态）
+# 用文件而非硬编码，是为了本机/云端两种形态切换时不改代码、只改一个文本文件。
+def _resolve_oauth_base() -> str:
+    env_val = (os.environ.get("OAUTH_REDIRECT_BASE") or "").strip()
+    if env_val:
+        return env_val.rstrip("/")
+    cfg = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config", "oauth_base.txt")
+    try:
+        with open(cfg, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    return line.rstrip("/")
+    except OSError:
+        pass
+    return "https://zmgen.cn"
+
+
+OAUTH_REDIRECT_BASE = _resolve_oauth_base()
+
 _OAUTH_STATES = {}  # state -> {"platform": str, "exp": float} 防 CSRF 重放
 _OAUTH_STATE_TTL = 600  # state 有效期 10 分钟
 
@@ -2479,6 +2503,29 @@ _chat_done = {}        # sid -> 最近一次完成的完整 result（供 /chat/s
 _chat_running_lock = threading.Lock()
 
 
+# ===== 通用异步作业（解 Cloudflare 524：源站响应超时 125 秒）=====
+# 背景：走 CF Tunnel 后，任何单次 HTTP 请求源站响应 >125s 都会被 CF 掐断返回 524。
+#   项目里 /rewrite /dissect /topic /article/write /hotspot 等 AI 端点实测 120~280s，
+#   同步返回必然 524。这里把它们统一改成「提交 → 拿 job_id → 轮询」。
+# 设计：不重写任何业务逻辑——submit 时把请求交给后台线程去调原来的同步 handler，
+#       handler 的 self._send(...) 被临时重定向到内存，轮询时再吐出来。
+#       好处：业务代码零改动、行为与同步调用逐字一致（含错误分支）。
+_async_jobs = {}          # job_id -> {"status": "pending|done", "result": {...}, "ts": float}
+_async_lock = threading.Lock()
+_ASYNC_TTL = 1800         # 完成结果保留 30 分钟，供前端轮询取走
+_ASYNC_MAX = 200          # 内存中最多保留的作业数（超出先清最旧的已完成作业）
+
+# /async/submit 允许代理的上游端点白名单（只放长任务，短任务没必要绕一圈）
+_ASYNC_ALLOWED = {
+    "/topic", "/rewrite", "/dissect", "/xhs_build_note", "/xhs_generate", "/xhs_regen_cover",
+    "/hotspot", "/article", "/article/write", "/article/seo-check", "/article/keywords",
+    "/analyze_script", "/follow_hot", "/strategist", "/advisor", "/qc", "/qc-video",
+    "/clone_voice", "/publish-pack", "/footage-edit", "/transcribe", "/suggest-title",
+    "/polish", "/file_extract", "/deai", "/moment", "/photo-model",
+}
+
+
+
 # ===== 任务状态持久化 + 自愈（P0：崩了不丢状态、重启可恢复、卡死可回收）=====
 def _job_meta_path(job_id):
     return os.path.join(JOBS_DIR, job_id, "job.json")
@@ -3367,6 +3414,22 @@ def _post_process(job_id, payload, out_path, job_dir, edit_style):
         _chart_path = _render_chart_card(_chart, payload, job_dir)
         if _chart_path:
             _set_job(job_id, chart_card=_chart_path)
+
+    # —— 音频母带（2026-10-03 商用观感改版）：全形式统一响度到 -14 LUFS（短视频平台基准），
+    #    真峰值 ≤ -1.5 dBTP 防破音，重采样 44100Hz（此前各引擎 22050/44100 混杂，听感发闷不一致）。
+    #    仅重编码音频流，视频流 copy，代价可忽略。失败不阻断，退回原片。 ——
+    _src_a = out_path
+    _master = os.path.join(job_dir, "out.master.mp4")
+    _mcmd = [FFMPEG, "-y", "-i", _src_a,
+             "-af", "loudnorm=I=-14:TP=-1.5:LRA=11,aresample=44100",
+             "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
+             _master]
+    mrc, _, merr = run_with_timeout(_mcmd, GPT_SOVITS, HARD_TIMEOUT,
+                                    log_path=os.path.join(job_dir, "master.log"))
+    if mrc == 0 and os.path.exists(_master):
+        out_path = _master
+    else:
+        _set_job(job_id, warning="响度母带未生效，已退回原声（不影响出片）：" + ((merr or "")[:200]))
     return out_path
 
 
@@ -3920,8 +3983,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if p.path.startswith("/chat/status/"):
             _sid = p.path[len("/chat/status/"):].strip("/")
             return self._handle_chat_status(_sid)
+        # 通用异步作业轮询（解 CF 524）：GET /async/status/<job_id>
+        if p.path.startswith("/async/status/"):
+            _jid = p.path[len("/async/status/"):].strip("/")
+            return self._handle_async_status(_jid)
         if p.path == "/health":
             return self._send(200, {"status": "ok"})
+        # 代理回传宿主素材文件（容器读不到的 face2face 路径，如照片数字人的预览）
+        if p.path == "/asset-file":
+            q = parse_qs(p.query or "")
+            return self._handle_asset_file((q.get("path") or [""])[0])
         if p.path == "/metrics":
             with lock:
                 running = sum(1 for j in jobs.values()
@@ -4145,6 +4216,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         if p.path == "/generate":
             return self._handle_generate(data)
+        # 通用异步作业提交（解 CF 524）：POST /async/submit {path, payload}
+        if p.path == "/async/submit":
+            return self._handle_async_submit(data)
         if p.path == "/topic":
             return self._handle_topic(data)
         if p.path == "/rewrite":
@@ -4252,6 +4326,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_clone(data)
         if p.path == "/metrics/fetch":
             return self._send(200, {"ok": True, "results": fetch_batch((data or {}).get("items") or [])})
+        if p.path == "/photo-model":
+            return self._handle_photo_model(data)
         return self._send(404, {"error": "not found"})
 
     # ---- 出片中止：标记 job 为已取消 ----
@@ -5310,6 +5386,190 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     pass
 
     # ---- 出片（异步 job）----
+    # ---- 通用异步作业：解 Cloudflare 524（源站响应 >125s 被掐断）----
+    def _async_line(self, path, data):
+        """把 /async/submit 请求同步跑一遍原 handler，返回 (code, payload) 而不写 socket。
+
+        复用 POST 分派逻辑：这里只处理白名单内的端点，逐条调原来的 _handle_* 方法。
+        """
+        if path == "/topic":
+            return self._capture(self._handle_topic, data)
+        if path == "/rewrite":
+            return self._capture(self._handle_rewrite, data)
+        if path == "/dissect":
+            return self._capture(self._handle_dissect, data)
+        if path == "/xhs_build_note":
+            return self._capture(self._handle_xhs_build_note, data)
+        if path == "/xhs_generate":
+            return self._capture(self._handle_xhs_generate, data)
+        if path == "/xhs_regen_cover":
+            return self._capture(self._handle_xhs_regen_cover, data)
+        if path == "/hotspot":
+            return self._capture(self._handle_hotspot, data)
+        if path in ("/article", "/article/write"):
+            return self._capture(self._handle_article_write, data)
+        if path == "/article/seo-check":
+            return self._capture(self._handle_article_seo_check, data)
+        if path == "/article/keywords":
+            return self._capture(self._handle_article_keywords, data)
+        if path == "/analyze_script":
+            return self._capture(self._handle_analyze_script, data)
+        if path == "/follow_hot":
+            return self._capture(self._handle_follow_hot, data)
+        if path == "/strategist":
+            return self._capture(self._handle_strategist, data)
+        if path == "/qc":
+            return self._capture(self._handle_qc, data)
+        if path == "/qc-video":
+            return self._capture(self._handle_qc_video, data)
+        if path == "/clone_voice":
+            return self._capture(self._handle_clone_voice, data)
+        if path == "/publish-pack":
+            return self._capture(self._handle_publish_pack, data)
+        if path == "/footage-edit":
+            return self._capture(self._handle_footage_edit, data)
+        if path == "/transcribe":
+            return self._capture(self._handle_transcribe, data)
+        if path == "/suggest-title":
+            return self._capture(self._handle_suggest_title, data)
+        if path == "/polish":
+            return self._capture(self._handle_polish, data)
+        if path == "/file_extract":
+            return self._capture(self._handle_file_extract, data)
+        if path == "/photo-model":
+            return self._capture(self._handle_photo_model, data)
+        if path == "/advisor":
+            return self._capture(lambda d: self._send(200, advisor_answer(
+                (d.get("topic") or "").strip(),
+                (d.get("industry") or "").strip(),
+                (d.get("urgency") or "").strip())), data)
+        return None, {"error": "async 不支持该端点: " + path}
+
+    def _capture(self, fn, data):
+        """在「只捕获、不写 socket」的模式下跑 fn(data)，返回 (code, payload)。
+
+        ⚠️ 线程安全要点（曾经踩过的坑，务必保留此实现）：
+        异步作业的后台线程与主线程共用一个 Handler 实例（HTTPServer 会为每个连接
+        复用/新建实例，但 self 上的属性会互相看到）。早期版本直接
+        `self._send = lambda ...` 临时改写实例属性，一旦后台线程在改写期间，
+        主线程正好要用 `self._send(202, ...)` 回包，就会打到那个 lambda 上
+        → 真实响应永远发不出去 → 客户端收到「Empty reply from server」（curl 52）。
+
+        正确做法：不动 self 的任何属性，而是造一个「影子对象」——只把 self 的
+        业务方法绑到它上面，并让它的 _send 写进本地 box。这样每个线程各用各的
+        影子对象，互不干扰，self._send 始终是原生的写 socket 版本。
+        """
+        box = {"code": 200, "body": None}
+
+        # 影子对象：继承不到 self 的属性，故用 __getattr__ 兜底转发（读多写少，安全）
+        outer = self
+
+        class _Shadow:
+            def __getattr__(_s, name):
+                return getattr(outer, name)
+
+            def _send(_s, code, obj=None, body=None, ctype="application/json; charset=utf-8"):
+                # 只捕获 JSON 分支；body 分支（文件流）在异步场景用不到，但保留兼容
+                if obj is not None:
+                    raw = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+                elif body is not None:
+                    raw = body if isinstance(body, (bytes, bytearray)) else str(body).encode("utf-8")
+                else:
+                    raw = b"{}"
+                box["code"] = code
+                box["body"] = raw
+                box["done"] = True
+
+        shadow = _Shadow()
+        try:
+            # 把 fn 绑到影子对象上执行：fn 内部的 self._send 自然指向影子版的 _send
+            fn_shadow = types.MethodType(fn.__func__, shadow) if hasattr(fn, "__func__") else fn
+            fn_shadow(data)
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            box["code"] = 500
+            box["body"] = json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False).encode("utf-8")
+
+        if box["body"] is None:
+            box["code"] = 500
+            box["body"] = json.dumps({"ok": False, "error": "handler 未返回结果"}, ensure_ascii=False).encode("utf-8")
+        try:
+            payload = json.loads(box["body"].decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            payload = {"ok": False, "error": "结果解析失败"}
+        return box["code"], payload
+
+    def _handle_async_submit(self, data):
+        """POST /async/submit  {"path": "/rewrite", "payload": {...}}
+        → 立刻返回 {"ok":true,"job_id":"...","status":"pending"}，后台线程执行。
+
+        用于绕开 Cloudflare 免费版「源站响应 125 秒」硬限制（超时返回 524）。
+        """
+        if not isinstance(data, dict):
+            return self._send(400, {"ok": False, "error": "invalid request body"})
+        path = (data.get("path") or "").strip()
+        payload = data.get("payload")
+        if not path:
+            return self._send(400, {"ok": False, "error": "path required"})
+        if path not in _ASYNC_ALLOWED:
+            return self._send(400, {"ok": False, "error": "该端点不支持异步提交: " + path})
+        if not isinstance(payload, dict):
+            payload = {}
+
+        job_id = uuid.uuid4().hex
+        with _async_lock:
+            # 内存保护：作业太多时先清掉最旧的已完成作业，避免长跑进程内存只增不减
+            if len(_async_jobs) >= _ASYNC_MAX:
+                done_ids = [k for k, v in _async_jobs.items() if v.get("status") == "done"]
+                done_ids.sort(key=lambda k: _async_jobs[k].get("ts") or 0)
+                for k in done_ids[: max(1, len(done_ids) // 2)]:
+                    _async_jobs.pop(k, None)
+            _async_jobs[job_id] = {"status": "pending", "result": None,
+                                   "code": 200, "ts": time.time(), "path": path}
+
+        def _run():
+            try:
+                code, result = self._async_line(path, payload)
+            except Exception as e:  # noqa: BLE001
+                traceback.print_exc()
+                code, result = 500, {"ok": False, "error": str(e)}
+            with _async_lock:
+                j = _async_jobs.get(job_id)
+                if j is not None:
+                    j["status"] = "done"
+                    j["code"] = code
+                    j["result"] = result
+                    j["ts"] = time.time()
+
+        threading.Thread(target=_run, daemon=True).start()
+        return self._send(202, {"ok": True, "job_id": job_id, "status": "pending",
+                                "path": path})
+
+    def _handle_async_status(self, job_id):
+        """GET /async/status/<job_id> → {status: pending|done|not_found, result}。
+
+        取走即清（前端拿到 done 后停止轮询），且设 TTL 兜底防内存泄漏。
+        """
+        if not job_id:
+            return self._send(400, {"ok": False, "error": "job_id required"})
+        now = time.time()
+        with _async_lock:
+            # TTL 清理：过期且已完成的作业直接丢
+            for k in [k for k, v in _async_jobs.items()
+                      if v.get("status") == "done" and now - (v.get("ts") or 0) > _ASYNC_TTL]:
+                _async_jobs.pop(k, None)
+            j = _async_jobs.get(job_id)
+            if j is None:
+                return self._send(200, {"ok": True, "status": "not_found", "job_id": job_id})
+            if j.get("status") != "done":
+                return self._send(200, {"ok": True, "status": "pending", "job_id": job_id,
+                                        "elapsed": round(now - (j.get("ts") or now), 1)})
+            result = j.get("result")
+            code = j.get("code", 200)
+            _async_jobs.pop(job_id, None)   # 取走即清
+        return self._send(200, {"ok": True, "status": "done", "job_id": job_id,
+                                "code": code, "result": result})
+
     def _handle_generate(self, data):
         global active_total, active_by_tenant
         dialogue = data.get("dialogue")
@@ -5458,13 +5718,47 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     # ---- 爆款结构拆解（纯文案分析）----
     def _handle_dissect(self, data):
+        """POST /dissect：爆款拆解。
+
+        支持两种入参（Laravel 侧的「拆解页」走完整链，其它调用方仍可只传 text）：
+          - {"text": "..."}                        → 只做结构拆解（旧行为，逐字兼容）
+          - {"video_b64"/"video_url", "title", "language", "platform", "industry"}
+                                                    → 完整链：转写 → 结构拆解 → 潜力评估
+        完整链三段串行最坏 330s，故 Laravel 侧固定走 /async/submit 异步调用。
+        """
         try:
             if not isinstance(data, dict):
                 return self._send(400, {"ok": False, "error": "invalid request body"})
             text = (data.get("text") or "").strip()
+            platform = data.get("platform")
+            industry = data.get("industry")
+            language = data.get("language") or "zh"
+
+            # ① 无文本但有视频 → 先转写（拆解页「上传/链接」入口）
+            if not text and (data.get("video_b64") or data.get("video_url")):
+                asr = ai_transcribe(data, language)
+                if not asr.get("ok"):
+                    return self._send(200, {"ok": False,
+                                            "error": "视频转写失败：" + str(asr.get("error", ""))})
+                text = (asr.get("text") or "").strip()
+                if not text:
+                    return self._send(200, {"ok": False, "error": "视频未识别出文字"})
+
             if not text:
                 return self._send(400, {"ok": False, "error": "text required"})
-            result = ai_dissect(text, data.get("platform"), data.get("industry"))
+
+            # ② 结构拆解
+            result = ai_dissect(text, platform, industry)
+
+            # ③ 潜力评估（唤醒沉睡的 /strategist）：失败不阻断，与 Laravel 旧行为一致
+            try:
+                strategist = ai_strategist(data.get("title") or "", text, industry, platform)
+            except Exception:  # noqa: BLE001
+                strategist = None
+
+            if isinstance(result, dict):
+                result.setdefault("text", text)
+                result["strategist"] = strategist
             return self._send(200, result)
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
@@ -5773,6 +6067,73 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._send(200, ai_qc_asset(path, data.get("rules")))
         except Exception as e:  # noqa: BLE001
             return self._send(200, {"ok": False, "error": str(e)})
+
+    # ---- 代理回传宿主素材文件（容器读不到的路径，如照片数字人的 face2face 预览）----
+    def _handle_asset_file(self, path):
+        path = (path or "").strip()
+        if not path or not os.path.exists(path):
+            return self._send(404, {"error": "file not found"})
+        try:
+            with open(path, "rb") as f:
+                body = f.read()
+        except Exception as e:  # noqa: BLE001
+            return self._send(500, {"error": str(e)})
+        return self._send(200, body=body, ctype="video/mp4")
+
+    # ---- 单图口播：一张照片 -> 微动视频（供数字人出镜）----
+    def _handle_photo_model(self, data):
+        """POST /photo-model
+        入参 JSON: {"photo_path": 宿主照片路径, "out_path": 输出 mp4 路径(可选),
+                    "name": 标识(可选), "duration": 秒(默认6), "still": bool(可选)}
+        返回: {"ok": true, "video_path": 宿主绝对路径, "duration", "width", "height", "size"}
+        说明：HEYGEM 只吃 video_url，故先把照片转成一段稳定的竖屏微动视频，
+              再把它当 --model 喂给数字人链路（HEYGEM 会重绘嘴部）。
+        """
+        photo = (data.get("photo_path") or "").strip()
+        if not photo or not os.path.exists(photo):
+            return self._send(400, {"error": "photo_path required / not exist"})
+        name = str(data.get("name") or "").strip() or ("photo_%s" % uuid.uuid4().hex[:10])
+        out_path = (data.get("out_path") or "").strip()
+        if not out_path:
+            out_dir = os.path.join(FAC2FACE, "photo_models")
+            os.makedirs(out_dir, exist_ok=True)
+            out_path = os.path.join(out_dir, name + ".mp4")
+        script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "photo_to_video.py")
+        cmd = [PY310, script, "--photo", photo, "--out", out_path,
+               "--duration", str(float(data.get("duration") or 6.0))]
+        if data.get("still"):
+            cmd.append("--still")
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True,
+                               encoding="utf-8", errors="ignore", timeout=300)
+        except Exception as e:  # noqa: BLE001
+            return self._send(200, {"ok": False, "error": str(e)})
+        if r.returncode != 0 or not os.path.exists(out_path):
+            return self._send(200, {"ok": False,
+                                    "error": (r.stderr or r.stdout or "photo_to_video failed")[-500:]})
+        try:
+            info = json.loads((r.stdout or "").strip().splitlines()[-1])
+        except Exception:  # noqa: BLE001
+            info = {}
+        size = os.path.getsize(out_path)
+
+        # 预览副本：拷到项目 storage（容器 <-> /var/www 可见），供 Laravel 内联预览。
+        # 必要性：face2face 在容器挂载点之外，容器 file_exists($hostPath) 恒为 False。
+        preview_path = ""
+        try:
+            pv_dir = os.path.join(PROJECT_STORAGE, "models", "photos")
+            os.makedirs(pv_dir, exist_ok=True)
+            preview_path = os.path.join(pv_dir, name + ".mp4")
+            shutil.copy(out_path, preview_path)
+        except Exception:  # noqa: BLE001
+            preview_path = ""
+
+        return self._send(200, {"ok": True,
+                                "video_path": out_path.replace("\\", "/"),
+                                "preview_path": preview_path.replace("\\", "/"),
+                                "duration": info.get("duration", data.get("duration") or 6.0),
+                                "width": info.get("width", 1080), "height": info.get("height", 1920),
+                                "size": size, "mode": info.get("mode", "motion")})
 
     # ---- 用户上传模特素材处理（转码+静音化+双写+QC）----
     def _handle_process_asset(self, data):

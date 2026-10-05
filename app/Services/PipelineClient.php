@@ -47,6 +47,26 @@ class PipelineClient
         return $this->post('/cancel', ['job_id' => $jobId], $timeout);
     }
 
+    /**
+     * 通用异步作业提交：POST 8500 /async/submit {path, payload} → 立即返回 job_id。
+     *
+     * 为什么需要它：走 Cloudflare Tunnel 后，CF 免费版「源站响应超时」硬限制 125 秒，
+     * 超时返回 524。而 /rewrite /dissect /topic /article/write /hotspot 等 AI 端点
+     * 实测 120~280 秒，同步返回必然被 CF 掐断。改成「提交→拿 job_id→轮询」即可绕开。
+     *
+     * @param  string  $path  8500 上的真实端点，如 '/rewrite'（必须在其异步白名单内）
+     */
+    public function submitAsync(string $path, array $payload = [], int $timeout = 20): Response
+    {
+        return $this->post('/async/submit', ['path' => $path, 'payload' => $payload], $timeout);
+    }
+
+    /** 通用异步作业轮询：GET 8500 /async/status/{job_id}。 */
+    public function statusAsync(string $jobId, int $timeout = 15): Response
+    {
+        return $this->get('/async/status/' . urlencode($jobId), $timeout);
+    }
+
     /** 显式发送 JSON raw body（8500 /publish 严格要求 JSON body）。 */
     public function postJson(string $endpoint, array $payload, int $timeout = 180): Response
     {

@@ -22,6 +22,14 @@
                         </div>
 
                         <div class="mb-3 flex flex-wrap gap-2 text-xs">
+                            @php $v = $job->qcVerdict(); @endphp
+                            <span class="rounded px-2 py-0.5
+                                @if($v['verdict']['level']=='ok') bg-emerald-100 text-emerald-700
+                                @elseif($v['verdict']['level']=='warn') bg-amber-100 text-amber-700
+                                @elseif($v['verdict']['level']=='block') bg-red-100 text-red-700
+                                @else bg-slate-100 text-slate-500 @endif">
+                                发布门禁：{{ $v['verdict']['label'] }}
+                            </span>
                             <span class="rounded px-2 py-0.5
                                 @if($job->publish_status=='draft') bg-slate-100 text-slate-600
                                 @elseif($job->publish_status=='reviewing') bg-blue-100 text-blue-700
@@ -34,19 +42,14 @@
                                 @elseif($job->qc_status=='warned') bg-amber-100 text-amber-700
                                 @elseif($job->qc_status=='blocked') bg-red-100 text-red-700
                                 @else bg-slate-100 text-slate-500 @endif">
-                                质检：{{ $job->qc_status == 'passed' ? '通过' : ($job->qc_status == 'warned' ? '告警' : ($job->qc_status == 'blocked' ? '阻断' : '未检')) }}
+                                技术质检：{{ $job->qc_status == 'passed' ? '通过' : ($job->qc_status == 'warned' ? '告警' : ($job->qc_status == 'blocked' ? '阻断' : '未检')) }}
                             </span>
-                            @php
-                                $aiBlocked = $job->qc_status === 'blocked';
-                                $aiPending = !in_array($job->qc_status, ['passed','warned','blocked'], true);
-                                $aiWarn = $job->qc_status === 'warned';
-                            @endphp
                             <span class="rounded px-2 py-0.5
-                                @if($aiBlocked) bg-red-100 text-red-700
-                                @elseif($aiPending) bg-slate-100 text-slate-500
-                                @elseif($aiWarn) bg-amber-100 text-amber-700
-                                @else bg-emerald-100 text-emerald-700 @endif">
-                                AI合规：{{ $aiBlocked ? '风险' : ($aiPending ? '待复核' : ($aiWarn ? '合规·告警' : '合规')) }}
+                                @if($job->text_qc_status=='passed') bg-emerald-100 text-emerald-700
+                                @elseif($job->text_qc_status=='warned') bg-amber-100 text-amber-700
+                                @elseif($job->text_qc_status=='blocked') bg-red-100 text-red-700
+                                @else bg-slate-100 text-slate-500 @endif">
+                                文本合规：{{ $job->textQcLabel() }}
                             </span>
                         </div>
 
@@ -70,10 +73,14 @@
                         @endif
 
                         <div class="mt-auto flex items-end gap-2 pt-2">
-                            <form id="approve-{{ $job->id }}" method="POST" action="{{ route('studio.review.approve', $job) }}">
-                                @csrf
-                                <button type="button" onclick="hgtConfirm({title:'审核通过', message:'确认通过该视频并放入可外发队列？', danger:false, okText:'确认通过', onConfirm:function(){ document.getElementById('approve-{{ $job->id }}').submit(); }})" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">通过</button>
-                            </form>
+                            @if($job->canReview())
+                                <form id="approve-{{ $job->id }}" method="POST" action="{{ route('studio.review.approve', $job) }}">
+                                    @csrf
+                                    <button type="button" onclick="hgtConfirm({title:'审核通过', message:'确认通过该视频并放入可外发队列？', danger:false, okText:'确认通过', onConfirm:function(){ document.getElementById('approve-{{ $job->id }}').submit(); }})" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">通过</button>
+                                </form>
+                            @else
+                                <button type="button" disabled class="cursor-not-allowed rounded-lg bg-slate-300 px-4 py-2 text-sm font-medium text-slate-500">{{ ($job->qc_status || $job->text_qc_status) ? '通过（门禁未过）' : '先运行质检' }}</button>
+                            @endif
                             <form method="POST" action="{{ route('studio.review.reject', $job) }}" class="flex flex-1 items-end gap-2">
                                 @csrf
                                 <input name="reason" required maxlength="500" placeholder="驳回理由（必填）"

@@ -9,7 +9,8 @@
         <p class="mt-1 text-xs leading-relaxed text-slate-500">
             上传你手机/相机拍的真人口播原片（竖屏 9:16 最佳），系统自动：
             <strong>去气口、去长停顿、去重复句</strong> → 拼接 → <strong>烧录字幕</strong> → 抽帧<strong>封面</strong>，
-            输出可直接发布的成熟短视频。支持 mp4/mov 等，≤500MB，建议单条 ≤10 分钟。
+            输出可直接发布的成熟短视频。支持 mp4/mov 等，<strong>≤96MB</strong>（大文件经中转上传较慢，
+            96MB 约需 4~5 分钟，请耐心等待不要刷新），建议单条 ≤10 分钟。
         </p>
 
         <form method="POST" action="{{ route('studio.footage.edit') }}" enctype="multipart/form-data" class="mt-4 space-y-3" id="footageForm">
@@ -192,6 +193,37 @@ function copyPack() {
     const subtitle = document.getElementById('packSubtitle').textContent;
     navigator.clipboard?.writeText('标题：' + title + '\n副标题：' + subtitle).then(() => hgtToast('info', '已复制标题/副标题'));
 }
+
+// 上传前本地大小校验：超 96MB 直接拦下并给出明确提示，
+// 避免白等几分钟才被后端拒绝（服务器出网带宽约 3Mbps，96MB 约需 5 分钟）。
+(function () {
+    const form = document.getElementById('footageForm');
+    if (!form) return;
+    const input = form.querySelector('input[name="file"]');
+    const btn = document.getElementById('footageBtn');
+    if (!input) return;
+    const MAX = 96 * 1024 * 1024;
+    input.addEventListener('change', function () {
+        const f = this.files && this.files[0];
+        if (!f) return;
+        if (f.size > MAX) {
+            hgtToast('error', '文件 ' + (f.size / 1024 / 1024).toFixed(1) + 'MB，超过 96MB 上限，请先压缩或裁剪后再传');
+            this.value = '';
+            if (btn) btn.disabled = false;
+        }
+    });
+    form.addEventListener('submit', function (e) {
+        const f = input.files && input.files[0];
+        if (f && f.size > MAX) {
+            e.preventDefault();
+            hgtToast('error', '文件超过 96MB 上限，请先压缩或裁剪后再传');
+            return;
+        }
+        if (btn) { btn.disabled = true; }
+        const hint = document.getElementById('footageHint');
+        if (hint) hint.classList.remove('hidden');
+    });
+})();
 </script>
 </x-workspace-layout>
 </x-app-layout>
