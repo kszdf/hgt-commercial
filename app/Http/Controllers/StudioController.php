@@ -310,18 +310,35 @@ class StudioController extends Controller
     }
 
     /**
-     * 菜单壳数据源：代理 8500 /capabilities，返回可见能力清单（已含落地页 page 字段）。
+     * 菜单壳数据源：优先代理 8500 /capabilities，返回可见能力清单（已含落地页 page 字段）。
+     * 8500 未重启 / 不可达时，退回仓库内快照 capabilities.json，保证菜单壳始终可用。
      * 前端据此按 cat 自动生成分区菜单；缓存 60s 减轻 8500 压力。
      */
     public function capabilities()
     {
         try {
             $data = \Cache::remember('studio_capabilities', 60, function () {
-                $resp = app(PipelineClient::class)->get('/capabilities', 10);
-                if (! $resp->successful()) {
-                    throw new \RuntimeException('HTTP ' . $resp->status());
+                // 1) 优先 8500 实时端点（改 server.py 后需重启 8500 才生效）
+                try {
+                    $resp = app(PipelineClient::class)->get('/capabilities', 10);
+                    if ($resp->successful()) {
+                        $json = $resp->json();
+                        if (! empty($json)) {
+                            return $json;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // 8500 未重启 / 不可达：忽略，走兜底快照
                 }
-                return $resp->json() ?: [];
+                // 2) 兜底：仓库内快照（由 capabilities.py 生成，随代码提交）
+                $snapshot = base_path('python-pipeline/capabilities.json');
+                if (is_file($snapshot)) {
+                    $dec = json_decode((string) file_get_contents($snapshot), true);
+                    if (is_array($dec) && ! empty($dec)) {
+                        return $dec;
+                    }
+                }
+                throw new \RuntimeException('能力清单不可用且本地快照缺失');
             });
         } catch (\Throwable $e) {
             return response()->json([
