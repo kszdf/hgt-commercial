@@ -225,6 +225,7 @@ Route::middleware('auth')->group(function () {
 
     // 人工审核（出片完成 → 审核队列 → 通过/驳回）
     Route::get('/studio/review', [ReviewController::class, 'index'])->name('studio.review');
+    Route::get('/studio/review/count', [ReviewController::class, 'count'])->name('studio.review.count');
     Route::post('/studio/review/{videoJob}/approve', [ReviewController::class, 'approve'])->name('studio.review.approve');
     Route::post('/studio/review/{videoJob}/reject', [ReviewController::class, 'reject'])->name('studio.review.reject');
 

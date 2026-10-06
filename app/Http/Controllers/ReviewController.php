@@ -29,6 +29,17 @@ class ReviewController extends Controller
         return view('studio.review', compact('jobs'));
     }
 
+    /** 待审数量（菜单壳小红点用）：与 index 同一租户 + 同一状态口径，保证角标数字 = 审核页队列数。 */
+    public function count(Request $request)
+    {
+        $tenant = $this->studioTenant($request);
+        $count = VideoJob::where('tenant_id', $tenant->id)
+            ->whereIn('publish_status', ['draft', 'reviewing', 'rejected'])
+            ->count();
+
+        return response()->json(['count' => (int) $count]);
+    }
+
     /** 通过审核 → approved（机器质检或文本合规阻断的视频不允许通过）。 */
     public function approve(VideoJob $videoJob)
     {

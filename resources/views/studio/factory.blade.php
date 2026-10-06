@@ -30,7 +30,7 @@
         <a href="/studio/publish"    class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">发布助手</a>
         <a href="/studio/schedule"   class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">发布排期</a>
         <a href="/studio/metrics"    class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">数据效果</a>
-        <a href="/studio/review"     class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">人工审核</a>
+        <a id="mgmt-review" href="/studio/review" class="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600"><span>人工审核</span><span id="mgmt-review-badge" class="hidden"></span></a>
         <a href="/studio/help"       class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">帮助中心</a>
       </div>
     </div>
@@ -67,6 +67,31 @@
     };
 
     var root = document.getElementById('capRoot');
+
+    // 待审数量（菜单壳小红点）：与审核页队列同一口径，加载时向服务端实时取。
+    var pendingReviewCount = 0;
+
+    function reviewBadgeHtml(n) {
+      return '<span style="display:inline-flex;min-width:20px;align-items:center;justify-content:center;border-radius:9999px;background:#ef4444;padding:2px 6px;font-size:12px;font-weight:700;line-height:1;color:#fff;">' + n + '</span>';
+    }
+    function applyMgmtBadge(n) {
+      var slot = document.getElementById('mgmt-review-badge');
+      if (! slot || ! n) return;
+      slot.className = slot.className.replace(/\s*hidden\b/, '').trim();
+      slot.innerHTML = reviewBadgeHtml(n);
+    }
+    function applyCardBadge(n) {
+      if (! n) return;
+      var card = root.querySelector('a[href="/studio/review"]');
+      if (! card) return;
+      var titleRow = card.querySelector('div');
+      if (! titleRow || titleRow.querySelector('.review-badge')) return;
+      var sp = document.createElement('span');
+      sp.className = 'review-badge';
+      sp.setAttribute('style', 'display:inline-flex;min-width:20px;align-items:center;justify-content:center;border-radius:9999px;background:#ef4444;padding:2px 6px;font-size:12px;font-weight:700;line-height:1;color:#fff;margin-left:8px;');
+      sp.textContent = n;
+      titleRow.appendChild(sp);
+    }
 
     function esc(s) {
       return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
@@ -120,6 +145,7 @@
         html += '</div></section>';
       });
       root.innerHTML = html;
+      applyCardBadge(pendingReviewCount);
     }
 
     fetch('/studio/capabilities', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
@@ -134,6 +160,16 @@
         root.innerHTML = '<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-600">'
           + '创作能力加载失败：' + esc(e.message) + '。请确认出片服务（8500）已运行，或稍后刷新重试。</div>';
       });
+
+    // 待审数量小红点：实时向服务端取，注入「人工审核」管理链接 + 审核能力卡片
+    fetch('/studio/review/count', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        pendingReviewCount = (j && typeof j.count === 'number') ? j.count : 0;
+        applyMgmtBadge(pendingReviewCount);
+        applyCardBadge(pendingReviewCount);
+      })
+      .catch(function () { /* 角标取数失败不影响主功能 */ });
   })();
   </script>
 </x-workspace-layout>
