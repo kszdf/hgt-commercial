@@ -98,6 +98,8 @@ from publishers._token_cache import set_oauth_token, get_oauth_token  # noqa: E4
 import matrix_publish  # noqa: E402
 from metrics_adapter import fetch_batch  # noqa: E402
 from footage_edit import edit_footage  # noqa: E402  （真人素材自动精剪：去气口/停顿/重复+字幕+封面）
+# 插件登记处：/capabilities 端点与菜单壳的数据源（能力清单 + 隐藏集合）
+from capabilities import CAPABILITIES, HIDDEN_CAPS  # noqa: E402
 import requests  # noqa: E402
 import secrets  # noqa: E402
 
