@@ -10,6 +10,10 @@
     $sidebarWidth = 'w-14';
 
     $t = auth()->user()->tenant;
+    // 嵌入模式：在「智能创作工厂」iframe 内运行时隐藏平台自身侧栏/顶栏，避免双层导航
+    $embed = request()->query('embed') === '1';
+    // 工厂页自身：用自带的深色左菜单替代平台全局侧栏
+    $isFactory = request()->is('studio/factory*');
     // 超管(tenant_id=null)使用默认主题，不依赖租户配置
     $isAdmin = is_null($t);
     if ($isAdmin) {
@@ -57,8 +61,9 @@
 </script>
 
 @php $isChat = request()->is('studio/chat*'); @endphp
-<div class="flex {{ $isChat ? 'h-screen overflow-hidden' : 'min-h-screen' }}">
+<div class="flex {{ ($isChat || $embed) ? 'h-screen overflow-hidden' : 'min-h-screen' }}">
     <!-- ===== 左侧功能菜单栏 ===== -->
+    @unless($embed || $isFactory)
     <aside id="workspaceSidebar" class="ws-sidebar group flex {{ $sidebarWidth }} shrink-0 flex-col border-r border-[var(--surface-card-border)] bg-[var(--sidebar-bg)] transition-all duration-200 md:{{ $sidebarWidth }}">
         <!-- 品牌 LOGO 标识 -->
         <div class="flex h-16 items-center gap-2.5 border-b border-slate-200/60 px-4">
@@ -182,11 +187,13 @@
             <span class="inline-block h-2 w-2 rounded-full bg-emerald-500" title="在线 · v2026.09"></span>
         </div>
     </aside>
+    @endunless
 
     <!-- ===== 右侧主内容区 ===== -->
     <main class="flex min-w-0 flex-1 flex-col overflow-hidden bg-[var(--surface-page)]">
         <!-- 顶栏 -->
         <!-- 顶栏：粘性常驻，对话滚动时也不滚走（带底阴影以区分） -->
+        @unless($embed)
         <header class="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-[var(--surface-card-border)] bg-[var(--topbar-bg)]/95 px-6 backdrop-blur-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
             <div class="flex items-center gap-3">
                 <!-- 移动端菜单按钮 -->
@@ -247,6 +254,7 @@
                 </details>
             </div>
         </header>
+        @endunless
 
         @if($breadcrumbs)
         <div class="border-b border-[var(--surface-card-border)] bg-[var(--topbar-bg)] px-6 py-3">
@@ -264,8 +272,11 @@
         @endif
 
         <!-- 内容区（可滚动，统一限宽居中；对话工作台等全屏页除外） -->
-        <div class="flex-1 min-h-0 {{ request()->is('studio/chat*') ? 'overflow-hidden' : 'overflow-y-auto' }}">
-            @if(request()->is('studio/chat*'))
+        <div class="flex-1 min-h-0 {{ $isFactory ? 'overflow-hidden' : ($isChat ? 'overflow-hidden' : 'overflow-y-auto') }}" style="{{ $isFactory ? 'display:flex;' : '' }}">
+            @if($isFactory)
+                {{-- 工厂页：自带深色左菜单 + 右侧 iframe 内容区，需撑满高度 --}}
+                {{ $slot }}
+            @elseif($isChat)
                 {{-- chat 全宽三栏：锁死高度为 视口-顶栏，只允许对话区内部滚动 --}}
                 <div class="ws-chat-full" style="height: calc(100vh - 4rem); min-height: 420px;">{{ $slot }}</div>
             @else
