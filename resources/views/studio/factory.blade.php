@@ -1,40 +1,75 @@
 <x-app-layout>
 <x-workspace-layout title="智能创作工厂">
-  <div class="mx-auto max-w-[1200px] px-4 py-6 md:px-8 md:py-8">
+  <style>
+    .fc-item { display:flex; align-items:center; gap:10px; width:100%; box-sizing:border-box;
+      padding:9px 12px; border-radius:10px; font-size:14px; line-height:1.3; color:#cbd5e1;
+      text-decoration:none; cursor:pointer; transition:background .15s,color .15s; }
+    .fc-item:hover { background:#1e293b; color:#fff; }
+    .fc-item.fc-active { background:#4f46e5; color:#fff; font-weight:600; }
+    .fc-cat { padding:14px 12px 6px; font-size:11px; letter-spacing:.12em; color:#64748b; }
+    .fc-card { display:block; background:#fff; border:1px solid #e2e8f0; border-radius:14px;
+      padding:16px; text-decoration:none; transition:border-color .15s, box-shadow .15s, transform .15s; }
+    .fc-card:hover { border-color:#a5b4fc; box-shadow:0 8px 20px rgba(79,70,229,.10); transform:translateY(-2px); }
+    @media (max-width:900px) {
+      .fc-shell { flex-direction:column !important; }
+      .fc-menu { width:100% !important; flex:none !important; position:static !important; max-height:none !important; }
+    }
+  </style>
 
-    {{-- 顶部：标题 + 模式切换（菜单模式 / 对话模式） --}}
-    <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-      <div>
-        <h2 class="text-2xl font-bold text-slate-800">智能创作工厂</h2>
-        <p class="mt-1 text-sm text-slate-500">选题 → 写稿 → 出片 → 质检 → 发布，点一下就能干。每个功能都是即插即用的「插件」。</p>
-      </div>
-      <div class="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-        <span class="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white">☰ 菜单模式</span>
-        <a href="/studio/chat" class="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-brand-600">💬 对话模式</a>
-      </div>
-    </div>
+  <div class="fc-shell" style="display:flex; gap:18px; align-items:flex-start; max-width:1280px; margin:0 auto; padding:20px 16px 32px;">
 
-    {{-- 插件能力菜单：由 /studio/capabilities 自动生成（按 cat 分区） --}}
-    <div id="capRoot" class="space-y-8">
-      <div class="py-10 text-center text-sm text-slate-400">正在加载创作能力…</div>
-    </div>
-
-    {{-- 管理后台（非创作类工具，静态分区，便于自管理） --}}
-    <div class="mt-10 border-t border-slate-200 pt-6">
-      <h3 class="mb-3 text-sm font-semibold tracking-wide text-slate-400">管理后台</h3>
-      <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        <a href="/studio/accounts"   class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">发布账号</a>
-        <a href="/studio/voices"     class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">声音库</a>
-        <a href="/studio/covers"     class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">封面库</a>
-        <a href="/studio/models"     class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">数字人模特</a>
-        <a href="/studio/queue"      class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">任务队列</a>
-        <a href="/studio/publish"    class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">发布助手</a>
-        <a href="/studio/schedule"   class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">发布排期</a>
-        <a href="/studio/metrics"    class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">数据效果</a>
-        <a id="mgmt-review" href="/studio/review" class="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600"><span>人工审核</span><span id="mgmt-review-badge" class="hidden"></span></a>
-        <a href="/studio/help"       class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 hover:text-brand-600">帮助中心</a>
+    {{-- ═══ 左侧：深色竖排菜单（能力自动从插件生成） ═══ --}}
+    <aside class="fc-menu" style="flex:0 0 232px; width:232px; background:#0f172a; border-radius:16px; padding:14px 10px 12px; position:sticky; top:16px; max-height:calc(100vh - 40px); overflow-y:auto;">
+      <div style="display:flex; align-items:center; gap:8px; padding:4px 12px 12px; border-bottom:1px solid #1e293b;">
+        <span style="font-size:18px;">🏭</span>
+        <span style="font-size:15px; font-weight:700; color:#fff;">智能创作工厂</span>
       </div>
-    </div>
+
+      <nav id="fcNav" style="margin-top:6px;">
+        <a class="fc-item fc-active" data-panel="overview" href="javascript:void(0)">
+          <span style="font-size:16px;">🏠</span><span>总览</span>
+        </a>
+        {{-- 能力菜单：JS 按 cat 分区自动生成 --}}
+      </nav>
+
+      <div style="border-top:1px solid #1e293b; margin-top:10px; padding-top:4px;">
+        <div class="fc-cat">资 产 与 管 理</div>
+        <nav id="fcMgmt">
+          <a class="fc-item" href="/studio/accounts"><span style="font-size:16px;">👤</span><span>发布账号</span></a>
+          <a class="fc-item" href="/studio/voices"><span style="font-size:16px;">🔊</span><span>声音库</span></a>
+          <a class="fc-item" href="/studio/covers"><span style="font-size:16px;">🖼️</span><span>封面库</span></a>
+          <a class="fc-item" href="/studio/models"><span style="font-size:16px;">🧑‍💼</span><span>数字人模特</span></a>
+          <a class="fc-item" href="/studio/queue"><span style="font-size:16px;">📋</span><span>任务队列</span></a>
+          <a class="fc-item" href="/studio/publish"><span style="font-size:16px;">🚀</span><span>发布助手</span></a>
+          <a class="fc-item" href="/studio/schedule"><span style="font-size:16px;">📅</span><span>发布排期</span></a>
+          <a class="fc-item" href="/studio/metrics"><span style="font-size:16px;">📈</span><span>数据效果</span></a>
+          <a class="fc-item" id="fc-review-item" href="/studio/review"><span style="font-size:16px;">✅</span><span>人工审核</span><span id="fc-review-badge" style="margin-left:auto;"></span></a>
+          <a class="fc-item" href="/studio/help"><span style="font-size:16px;">❓</span><span>帮助中心</span></a>
+        </nav>
+        <div style="border-top:1px solid #1e293b; margin-top:8px; padding-top:6px;">
+          <a class="fc-item" href="/studio/chat"><span style="font-size:16px;">💬</span><span>对话模式</span></a>
+        </div>
+      </div>
+    </aside>
+
+    {{-- ═══ 右侧：内容界面 ═══ --}}
+    <main style="flex:1; min-width:0;">
+
+      {{-- 总览面板（默认） --}}
+      <section id="fc-panel-overview">
+        <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed); border-radius:18px; padding:26px 28px; color:#fff;">
+          <h2 style="margin:0; font-size:22px; font-weight:800;">今天想创作点什么？</h2>
+          <p style="margin:8px 0 0; font-size:14px; color:rgba(255,255,255,.85);">选题 → 写稿 → 出片 → 质检 → 发布，从左侧菜单点一下就能干。每个功能都是即插即用的「插件」。</p>
+          <div id="fcStats" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:16px;"></div>
+        </div>
+
+        <h3 style="margin:26px 0 12px; font-size:16px; font-weight:700; color:#334155;">全部能力</h3>
+        <div id="fcAllCards" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px;">
+          <div style="padding:32px; text-align:center; font-size:14px; color:#94a3b8;">正在加载创作能力…</div>
+        </div>
+      </section>
+
+    </main>
   </div>
 
   <script>
@@ -67,110 +102,115 @@
       'clone_voice': '录一段声音，以后配音都用你的音色'
     };
 
-    var root = document.getElementById('capRoot');
-
-    // 待审数量（菜单壳小红点）：与审核页队列同一口径，加载时向服务端实时取。
+    var nav = document.getElementById('fcNav');
+    var allCards = document.getElementById('fcAllCards');
+    var statsBox = document.getElementById('fcStats');
     var pendingReviewCount = 0;
-
-    function reviewBadgeHtml(n) {
-      return '<span style="display:inline-flex;min-width:20px;align-items:center;justify-content:center;border-radius:9999px;background:#ef4444;padding:2px 6px;font-size:12px;font-weight:700;line-height:1;color:#fff;">' + n + '</span>';
-    }
-    function applyMgmtBadge(n) {
-      var slot = document.getElementById('mgmt-review-badge');
-      if (! slot || ! n) return;
-      slot.className = slot.className.replace(/\s*hidden\b/, '').trim();
-      slot.innerHTML = reviewBadgeHtml(n);
-    }
-    function applyCardBadge(n) {
-      if (! n) return;
-      var card = root.querySelector('a[href="/studio/review"]');
-      if (! card) return;
-      var titleRow = card.querySelector('div');
-      if (! titleRow || titleRow.querySelector('.review-badge')) return;
-      var sp = document.createElement('span');
-      sp.className = 'review-badge';
-      sp.setAttribute('style', 'display:inline-flex;min-width:20px;align-items:center;justify-content:center;border-radius:9999px;background:#ef4444;padding:2px 6px;font-size:12px;font-weight:700;line-height:1;color:#fff;margin-left:8px;');
-      sp.textContent = n;
-      titleRow.appendChild(sp);
-    }
+    var capCount = 0, catCount = 0;
 
     function esc(s) {
       return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
         return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];
       });
     }
-
-    function cardHtml(id, c) {
-      var name = CAP_LABELS[id] || c.name || id;
-      var desc = CAP_DESC[id] || c.desc || '';
-      var icon = c.icon || '▶️';
-      var page = c.page || c.link || '';
-      var params = (c.params || []).filter(function (p) { return p.required; })
-        .map(function (p) { return p.label; });
-      var hint = params.length
-        ? '<div class="mt-2 text-xs text-slate-400">需填写：' + esc(params.join('、')) + '</div>'
-        : '';
-      if (! page) {
-        return '<div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 opacity-70">'
-          + '<div class="flex items-center gap-2 text-slate-500"><span class="text-xl">' + esc(icon) + '</span>'
-          + '<span class="font-medium">' + esc(name) + '</span></div>'
-          + '<p class="mt-1.5 text-sm text-slate-400">' + esc(desc) + '</p>'
-          + '<div class="mt-2 text-xs text-slate-300">即将上线</div></div>';
-      }
-      return '<a href="' + esc(page) + '" class="group block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md">'
-        + '<div class="flex items-center gap-2 text-slate-700"><span class="text-2xl">' + esc(icon) + '</span>'
-        + '<span class="font-semibold">' + esc(name) + '</span></div>'
-        + '<p class="mt-1.5 text-sm text-slate-500">' + esc(desc) + '</p>'
-        + hint
-        + '<div class="mt-3 text-sm font-medium text-brand-600 opacity-0 transition group-hover:opacity-100">进入 →</div>'
-        + '</a>';
+    function badgeHtml(n) {
+      return '<span style="display:inline-flex;min-width:18px;align-items:center;justify-content:center;border-radius:9999px;background:#ef4444;padding:1px 6px;font-size:11px;font-weight:700;line-height:1.5;color:#fff;">' + n + '</span>';
     }
 
-    function render(caps) {
-      // 按 capabilities.py 中 cat 出现的顺序分组
-      var order = [];
-      var groups = {};
+    // —— 左侧菜单：能力项按 cat 分区自动生成（顺序取自 capabilities.py）——
+    function renderMenu(caps) {
+      var order = [], groups = {};
       Object.keys(caps).forEach(function (id) {
-        var c = caps[id];
-        var cat = c.cat || '其他';
+        var cat = caps[id].cat || '其他';
         if (! groups[cat]) { groups[cat] = []; order.push(cat); }
-        groups[cat].push([id, c]);
+        groups[cat].push([id, caps[id]]);
       });
+      catCount = order.length;
       var html = '';
       order.forEach(function (cat) {
-        var label = CAT_LABELS[cat] || cat;
-        html += '<section><h3 class="mb-3 flex items-center gap-2 text-base font-semibold text-slate-700">'
-          + '<span class="inline-block h-4 w-1 rounded bg-brand-500"></span>' + esc(label) + '</h3>';
-        html += '<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">';
-        groups[cat].forEach(function (pair) { html += cardHtml(pair[0], pair[1]); });
-        html += '</div></section>';
+        html += '<div class="fc-cat">' + esc((CAT_LABELS[cat] || cat).toUpperCase()) + '</div>';
+        groups[cat].forEach(function (pair) {
+          var id = pair[0], c = pair[1];
+          var page = c.page || c.link || '';
+          var label = CAP_LABELS[id] || c.name || id;
+          var badge = (id === 'review' && pendingReviewCount) ? badgeHtml(pendingReviewCount) : '';
+          if (page) {
+            html += '<a class="fc-item" href="' + esc(page) + '"><span style="font-size:16px;">' + esc(c.icon || '▶️') + '</span><span style="flex:1;">' + esc(label) + '</span>' + badge + '</a>';
+          } else {
+            html += '<span class="fc-item" style="opacity:.45;cursor:default;"><span style="font-size:16px;">' + esc(c.icon || '▶️') + '</span><span style="flex:1;">' + esc(label) + '</span><span style="font-size:11px;color:#64748b;">即将上线</span></span>';
+          }
+        });
       });
-      root.innerHTML = html;
-      applyCardBadge(pendingReviewCount);
+      nav.insertAdjacentHTML('beforeend', html);
+    }
+
+    // —— 右侧总览：统计条 + 全部能力卡片（点击直达工具页）——
+    function renderStats() {
+      var chips = [
+        ['⚡', capCount + ' 个能力在线'],
+        ['🗂️', catCount + ' 个功能分区'],
+        ['✅', '待审 ' + pendingReviewCount + ' 条']
+      ];
+      statsBox.innerHTML = chips.map(function (ch) {
+        return '<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);border-radius:9999px;padding:6px 14px;font-size:13px;color:#fff;">' + ch[0] + ' ' + esc(ch[1]) + '</span>';
+      }).join('');
+    }
+
+    function renderAllCards(caps) {
+      var html = '';
+      Object.keys(caps).forEach(function (id) {
+        var c = caps[id];
+        var page = c.page || c.link || '';
+        var label = CAP_LABELS[id] || c.name || id;
+        var desc = CAP_DESC[id] || c.desc || '';
+        var badge = (id === 'review' && pendingReviewCount) ? badgeHtml(pendingReviewCount) : '';
+        if (page) {
+          html += '<a class="fc-card" href="' + esc(page) + '">'
+            + '<div style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:#334155;"><span style="font-size:20px;">' + esc(c.icon || '▶️') + '</span><span>' + esc(label) + '</span>' + badge + '</div>'
+            + '<p style="margin:8px 0 0;font-size:13px;line-height:1.5;color:#64748b;">' + esc(desc) + '</p>'
+            + '</a>';
+        } else {
+          html += '<div class="fc-card" style="opacity:.55;"><div style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:#334155;"><span style="font-size:20px;">' + esc(c.icon || '▶️') + '</span><span>' + esc(label) + '</span></div>'
+            + '<p style="margin:8px 0 0;font-size:13px;color:#94a3b8;">' + esc(desc) + '</p><p style="margin:6px 0 0;font-size:12px;color:#cbd5e1;">即将上线</p></div>';
+        }
+      });
+      allCards.innerHTML = html;
     }
 
     fetch('/studio/capabilities', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(function (r) { return r.json(); })
       .then(function (j) {
-        if (! j || j.ok === false || ! j.caps) {
-          throw new Error((j && j.error) || '能力清单为空');
-        }
-        render(j.caps);
+        if (! j || j.ok === false || ! j.caps) throw new Error((j && j.error) || '能力清单为空');
+        var caps = j.caps;
+        capCount = Object.keys(caps).length;
+        renderMenu(caps);
+        renderStats();
+        renderAllCards(caps);
       })
       .catch(function (e) {
-        root.innerHTML = '<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-600">'
-          + '创作能力加载失败：' + esc(e.message) + '。请确认出片服务（8500）已运行，或稍后刷新重试。</div>';
+        allCards.innerHTML = '<div style="border:1px solid #fecaca;background:#fef2f2;border-radius:14px;padding:20px;text-align:center;font-size:14px;color:#dc2626;">创作能力加载失败：' + esc(e.message) + '。请确认出片服务（8500）已运行，或稍后刷新重试。</div>';
       });
 
-    // 待审数量小红点：实时向服务端取，注入「人工审核」管理链接 + 审核能力卡片
+    // 待审数量小红点：与审核页队列同一口径，实时向服务端取
     fetch('/studio/review/count', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(function (r) { return r.json(); })
       .then(function (j) {
         pendingReviewCount = (j && typeof j.count === 'number') ? j.count : 0;
-        applyMgmtBadge(pendingReviewCount);
-        applyCardBadge(pendingReviewCount);
+        if (pendingReviewCount) {
+          var slot = document.getElementById('fc-review-badge');
+          if (slot) slot.innerHTML = badgeHtml(pendingReviewCount);
+          renderStats();
+        }
       })
       .catch(function () { /* 角标取数失败不影响主功能 */ });
+
+    // 总览菜单项高亮切换（能力/管理项点击后整页跳转，无需处理）
+    nav.addEventListener('click', function (e) {
+      var item = e.target.closest('.fc-item');
+      if (! item) return;
+      nav.querySelectorAll('.fc-item').forEach(function (el) { el.classList.remove('fc-active'); });
+      item.classList.add('fc-active');
+    });
   })();
   </script>
 </x-workspace-layout>
