@@ -79,6 +79,12 @@
                 <span class="ws-label font-semibold {{ $v2Mode ? 'sr-only' : '' }}">对话工作台</span>
             </a>
 
+            <!-- 商用端菜单壳：按插件自动生成的「智能创作工厂」首页（菜单来自 /studio/capabilities） -->
+            <a href="/studio/factory" title="智能创作工厂" class="{{ request()->is('studio/factory*') ? 'ws-nav-active' : 'ws-nav-item' }} ws-nav-brand">
+                <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6z"/></svg>
+                <span class="ws-label font-semibold {{ $v2Mode ? 'sr-only' : '' }}">智能创作工厂</span>
+            </a>
+
             {{-- 2026-10-03：文章库（公众号文章）已下线，短视频平台不再提供 --}}
 
             <!-- 2026-09-18：智库/客户档案/1v1预约/AI客服 4个未开发能力图标已摘除（张老师拍板暂不开发），

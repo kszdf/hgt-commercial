@@ -276,6 +276,15 @@ class StudioController extends Controller
         }
         $spec = $map[$cap];
 
+        // 纯导航能力：直接返回跳转地址，由前端跳转到对应页面（如人工审核 review）
+        if (($spec['type'] ?? '') === 'link') {
+            return response()->json([
+                'ok'   => true,
+                'cap'  => $cap,
+                'data' => ['link' => $spec['url'] ?? ''],
+            ]);
+        }
+
         try {
             if ($spec['type'] === 'internal') {
                 $payload = $this->dispatchInternal($spec, $vals, $request);
@@ -298,6 +307,37 @@ class StudioController extends Controller
             'cap'  => $cap,
             'data' => $payload,
         ]);
+    }
+
+    /**
+     * 菜单壳数据源：代理 8500 /capabilities，返回可见能力清单（已含落地页 page 字段）。
+     * 前端据此按 cat 自动生成分区菜单；缓存 60s 减轻 8500 压力。
+     */
+    public function capabilities()
+    {
+        try {
+            $data = \Cache::remember('studio_capabilities', 60, function () {
+                $resp = app(PipelineClient::class)->get('/capabilities', 10);
+                if (! $resp->successful()) {
+                    throw new \RuntimeException('HTTP ' . $resp->status());
+                }
+                return $resp->json() ?: [];
+            });
+        } catch (\Throwable $e) {
+            return response()->json([
+                'ok'    => false,
+                'error' => '能力清单获取失败：' . $e->getMessage(),
+            ], 502);
+        }
+        return response()->json(['ok' => true, 'caps' => $data]);
+    }
+
+    /**
+     * 商用端菜单壳：按插件自动生成的「智能创作工厂」首页（菜单来自 /studio/capabilities）。
+     */
+    public function factory()
+    {
+        return view('studio.factory');
     }
 
     /** 能力 → 执行方式映射表（权威定义在 python-pipeline/capabilities.py）。 */
@@ -337,6 +377,8 @@ class StudioController extends Controller
             'consult_1v1'    => ['type' => 'pipeline', 'path' => '/booking',          'timeout' => 30],
             'auto_reception' => ['type' => 'pipeline', 'path' => '/reception-config', 'timeout' => 30],
             'matrix_publish' => ['type' => 'pipeline', 'path' => '/matrix-config',    'timeout' => 30],
+            // 纯导航能力：点开即跳转，不触发任何流水线（capabilities.py 里 review 带 link 字段）
+            'review'        => ['type' => 'link', 'url' => '/studio/review'],
         ];
     }
 

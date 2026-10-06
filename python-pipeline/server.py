@@ -3948,6 +3948,25 @@ _CHAT_ORCH = ChatOrchestrator(ai_topic, ai_rewrite, deepseek_chat, get_text_conf
                               planning_cfg_fn=get_planning_config, crm_upsert_fn=crm_upsert)
 _CHAT_ORCH._plan_model = (os.environ.get("PLANNING_MODEL") or "").strip()  # 空=默认 flash（推荐留空）；勿设 deepseek-v4-pro（已停用）
 
+# ---- 能力 → 落地页映射（菜单壳"点哪个进哪页"的唯一来源）----
+# 与 capabilities.py / routes/web.php 保持一致；新增能力时在此登记其前端页面即可，
+# 前端菜单壳会从 /capabilities 自动读取并渲染，无需改前端。
+CAP_PAGE_MAP = {
+    "topic":        "/studio/topic",
+    "strategist":   "/studio/topic",       # 获客评估在选题页触发
+    "hotspot":      "/studio/topic",       # 热点选题在选题页触发
+    "dissect":      "/studio/dissect",
+    "rewrite":      "/studio/rewrite",
+    "video_render": "/studio/scroll",
+    "qc":           "/studio/qc",
+    "qc_video":     "/studio/qc",
+    "publish_pack": "/studio/publish",
+    "xhs":          "/studio/xhs",
+    "review":       "/studio/review",
+    "footage_edit": "/studio/footage",
+    "clone_voice":  "/studio/voices",
+}
+
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def _send(self, code, obj=None, body=None, ctype="application/json; charset=utf-8"):
@@ -3989,6 +4008,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_async_status(_jid)
         if p.path == "/health":
             return self._send(200, {"status": "ok"})
+        # 菜单壳数据源：返回可见能力清单（已剔除隐藏项，含纯导航 link 类如 review）。
+        # 前端以此自动生成分区菜单，新增能力只需在 capabilities.py 登记 + 此处配 page。
+        if p.path == "/capabilities":
+            out = {}
+            for cid, c in CAPABILITIES.items():
+                if cid in HIDDEN_CAPS:
+                    continue
+                c = dict(c)
+                c["id"] = cid
+                # 落地页：优先用专用映射，其次退回能力自带的 link（纯导航类）
+                c["page"] = CAP_PAGE_MAP.get(cid, c.get("link") or "")
+                out[cid] = c
+            return self._send(200, out)
         # 代理回传宿主素材文件（容器读不到的 face2face 路径，如照片数字人的预览）
         if p.path == "/asset-file":
             q = parse_qs(p.query or "")

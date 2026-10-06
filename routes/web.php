@@ -123,6 +123,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/studio/chat/session/update', [StudioController::class, 'chatSessionUpdate'])->name('studio.chat.session.update');
     Route::post('/studio/chat/session/delete', [StudioController::class, 'chatSessionDelete'])->name('studio.chat.session.delete');
 
+    // 商用端菜单壳（插件自动生成）：能力清单数据源 + 创作工厂首页
+    Route::get('/studio/capabilities', [StudioController::class, 'capabilities'])->name('studio.capabilities');
+    Route::get('/studio/factory', [StudioController::class, 'factory'])->name('studio.factory');
+
     // 爆款拆解（输入→提取文案→结构拆解→潜力评估→去二创→数字人出片）
     Route::get('/studio/dissect', [StudioController::class, 'dissect'])->name('studio.dissect');
     Route::post('/studio/dissect/analyze', [StudioController::class, 'dissectAnalyze']);

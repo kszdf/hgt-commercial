@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="qhXlBjv7BmU2VaKpFqYR0H">
+<head data-page-node-id="uDcxJFNCSgQJm2cBDrwtum">
+<meta charset="UTF-8" data-page-node-id="D8PTWtbH8aQ4VxYrABoDII">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="TEzo6CtX4uB4JkGaGz8pym">
+<title>商用端菜单壳草图 · 慧根堂短视频工厂</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background:#eef1f5; color:#1f2d3d; padding:18px; }
+  .app { max-width:1120px; margin:0 auto; }
+  .topbar { background:#fff; border-radius:12px; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .brand { display:flex; align-items:center; gap:10px; }
+  .logo { width:34px; height:34px; border-radius:8px; background:#1A5B9C; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; }
+  .brand h1 { font-size:17px; }
+  .brand small { color:#7a8794; font-size:12px; display:block; font-weight:400; }
+  .toggle { display:flex; background:#eef1f5; border-radius:20px; padding:3px; }
+  .toggle span { padding:6px 14px; border-radius:18px; font-size:13px; color:#5a6675; }
+  .toggle .on { background:#1A5B9C; color:#fff; font-weight:600; }
+  .layout { display:flex; gap:16px; margin-top:16px; align-items:flex-start; }
+  .sidebar { width:188px; flex:none; background:#fff; border-radius:12px; padding:12px; box-shadow:0 1px 3px rgba(0,0,0,.06); position:sticky; top:18px; }
+  .sidebar h3 { font-size:12px; color:#9aa5b1; margin:6px 8px 8px; letter-spacing:1px; }
+  .navitem { display:flex; align-items:center; gap:9px; padding:9px 10px; border-radius:8px; font-size:14px; color:#3a4654; cursor:pointer; }
+  .navitem.active { background:#eaf2fb; color:#1A5B9C; font-weight:600; }
+  .navitem .ic { font-size:16px; }
+  .main { flex:1; min-width:0; }
+  .cat { margin-bottom:18px; }
+  .cat-h { display:flex; align-items:center; gap:8px; font-size:15px; font-weight:700; margin-bottom:10px; }
+  .cat-h .bar { width:4px; height:16px; border-radius:2px; background:#1A5B9C; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .card { background:#fff; border:1px solid #e6eaef; border-radius:10px; padding:13px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  .card .top { display:flex; align-items:center; gap:8px; }
+  .card .ic { font-size:20px; }
+  .card .nm { font-size:14px; font-weight:700; }
+  .card .ds { font-size:12px; color:#6b7682; margin:7px 0 9px; line-height:1.5; min-height:34px; }
+  .card .out { font-size:11px; color:#1A5B9C; background:#eaf2fb; border-radius:6px; padding:4px 7px; display:inline-block; }
+  .card .path { font-size:11px; color:#8a95a1; margin-top:8px; border-top:1px dashed #eef1f5; padding-top:7px; font-family:Consolas,monospace; }
+  .card .path b { color:#2E7D52; }
+  .card.warn { border-color:#f0c9a0; }
+  .card.warn .path b { color:#c8761a; }
+  .plug { background:#f7f9fb; border:1px dashed #d4dae1; }
+  .plug .nm { color:#9aa5b1; }
+  .plug .ds { color:#aab3bd; }
+  .tbl { background:#fff; border-radius:12px; padding:16px 18px; margin-top:20px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .tbl h3 { font-size:14px; margin-bottom:12px; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th,td { text-align:left; padding:8px 10px; border-bottom:1px solid #eef1f5; }
+  th { color:#7a8794; font-weight:600; background:#f7f9fb; }
+  code { background:#eef1f5; padding:1px 5px; border-radius:4px; font-family:Consolas,monospace; font-size:11.5px; }
+  .ok { color:#2E7D52; font-weight:600; }
+  .no { color:#c8761a; font-weight:600; }
+  .note { background:#fff8ef; border-left:3px solid #c8761a; padding:10px 14px; border-radius:0 8px 8px 0; font-size:12.5px; color:#7a5a32; margin-top:16px; line-height:1.6; }
+</style>
+</head>
+<body data-page-node-id="ttHP9ga3nOsruXMDzWUtvj">
+<div class="app" data-page-node-id="UBKw82Z0Jl7QdO87jXje5i">
+  <div class="topbar" data-page-node-id="QuL0FW7BRp3GiIhSFQxlMp">
+    <div class="brand" data-page-node-id="k6Qkgw6ZekNBtRYna8X1fp">
+      <div class="logo" data-page-node-id="s1cPdHr7FVQjCRCGu37Mtq">慧</div>
+      <div data-page-node-id="XIu7G7XtxwjTKRw2gBOTrD"><h1 data-page-node-id="B5Z0ZLyUskWQSz0t9fo0vn">慧根堂短视频工厂</h1><small data-page-node-id="Na3DtBOYG5WKJwqAZ76Q9D">商用版 · 客户工作台</small></div>
+    </div>
+    <div class="toggle" data-page-node-id="AGsiE7Sr7Pvyp7YBxEN52e"><span class="on" data-page-node-id="GltJHkd4ECE4u1ycBjn9Zs">☰ 菜单模式</span><span data-page-node-id="6DELmQBdDp0ZiPF7ZIfTDH">💬 对话模式</span></div>
+  </div>
+
+  <div class="layout" data-page-node-id="kAbPzYFtdNzQdiOiXlnhAP">
+    <div class="sidebar" data-page-node-id="hmqI01xNee9PvgUfbuNdbL">
+      <h3 data-page-node-id="rTA8m7HrYwBkmoHu5F3ya5">功能分区</h3>
+      <div class="navitem active" data-page-node-id="neuYKnu93GPX8P0lTn41In"><span class="ic" data-page-node-id="ROABl0H6R0pg50BfxAAkxu">🎯</span>选题</div>
+      <div class="navitem" data-page-node-id="8lAUNTXPqDQiARarLOFaHL"><span class="ic" data-page-node-id="jE1lZgvVkO7YRrme7J0P0x">✍️</span>写稿</div>
+      <div class="navitem" data-page-node-id="lMeYc65mIOFTmykAisHsx9"><span class="ic" data-page-node-id="327q3VGKXs3UR16GZ114qB">🎬</span>出片</div>
+      <div class="navitem" data-page-node-id="uSHeKSRs5ioGcLc76n4QZN"><span class="ic" data-page-node-id="P9SpsmZbncYaTex6dBLUNh">✅</span>质检</div>
+      <div class="navitem" data-page-node-id="Af427Clk44P9FUeDclM6qH"><span class="ic" data-page-node-id="OiUC02WT5D3NfvkEMcVZ5l">📦</span>发布</div>
+      <div class="navitem" data-page-node-id="MUMyt26d11lqlpFGUP3CAs"><span class="ic" data-page-node-id="FNoE9iRJIH0DIwCD4ByXaX">🔎</span>审核</div>
+      <div class="navitem" data-page-node-id="cbDUW4WdZqTj0eUB37epKB"><span class="ic" data-page-node-id="wUQF7B2WFRTljTGgwpmsE7">🎞️</span>素材</div>
+    </div>
+
+    <div class="main" data-page-node-id="zT5aVUs7K3Skq8jBfT3uBB">
+      <!-- 选题 -->
+      <div class="cat" data-page-node-id="OmX07apZp38XTdcANVLgUq"><div class="cat-h" data-page-node-id="pUm22YZcEwthqInBp6gVxF"><span class="bar" data-page-node-id="Ukt1S4HSsTM23w2hwj0jMu"></span>🎯 选题</div>
+        <div class="grid" data-page-node-id="QKqYWLO4E8uxTVNAZJ9OFJ">
+          <div class="card" data-page-node-id="K9zOXCweARrQfyyT0sgcEG"><div class="top" data-page-node-id="OdBkU3qfAMqpHjWYtlJsz2"><span class="ic" data-page-node-id="rNZ83KDfGJtNl426HIbftV">🎯</span><span class="nm" data-page-node-id="2Fbmk8ju4xxRTl6GHFqwjD">智能选题</span></div>
+            <div class="ds" data-page-node-id="KzvsOoVpQpvcdsMcgLEDWE">按行业和关键词，一次给一批可拍的选题</div>
+            <span class="out" data-page-node-id="AXb23rPtQqLURjhXBxClNx">产出：带切入点的选题列表</span>
+            <div class="path" data-page-node-id="WRUilPiqlwbzMsebxqWcNB">→ 能力 <b data-page-node-id="PfiBCC1FhupjWnSMcLj83q">topic</b> · <b data-page-node-id="J5To2R79PzdZmNJXKwNgCR">/topic</b>（异步）</div></div>
+          <div class="card" data-page-node-id="G0J27rqTkS85xJCOt6ylWr"><div class="top" data-page-node-id="xhCpq2RxNz0uAUvoxx31Gm"><span class="ic" data-page-node-id="GAatUChpbr2YuZ9HsCgF6r">📊</span><span class="nm" data-page-node-id="3vPisGb7in2EhqStQVbW92">获客军师</span></div>
+            <div class="ds" data-page-node-id="bqGj46KOpYv3CJHVGPCZrT">给选题打分：能不能带来付费客户</div>
+            <span class="out" data-page-node-id="9fewt1O1xjTWgodfJ37rD7">产出：获客潜力评分+钩子建议</span>
+            <div class="path" data-page-node-id="69IlcuTS5yAQb1wX8oDFwR">→ 能力 <b data-page-node-id="pDpBa33a3PUUgfHrK1z5Uy">strategist</b> · <b data-page-node-id="2Wree7OSYHHx4ALmDPGRF3">/strategist</b>（异步）</div></div>
+          <div class="card" data-page-node-id="YCqtABFgbs8oXQeVcqn09v"><div class="top" data-page-node-id="WMFZC6piAEF8P6Q9wesUBh"><span class="ic" data-page-node-id="f10zhLlZTNpt518APi5Vmy">🔥</span><span class="nm" data-page-node-id="DOQuBG3OGRablh3mBMUKpH">热点选题</span></div>
+            <div class="ds" data-page-node-id="AA6pNlf2jATLR94p9cxl3d">抓当下财税/行业热点，变成立即可拍的角度</div>
+            <span class="out" data-page-node-id="hMvNOshoHOp8B0PE21Bgw2">产出：近期热点+可写角度</span>
+            <div class="path" data-page-node-id="aZ4iMTSs13qZfW2Z2SKWnn">→ 能力 <b data-page-node-id="EmJpA6gBRBfX5oBaNQd70h">hotspot</b> · <b data-page-node-id="cHwM3EWKEgB5ByZAKn6GJ2">/hotspot</b>（异步）</div></div>
+          <div class="card" data-page-node-id="So3cauzfDosk58NtyjPq1A"><div class="top" data-page-node-id="pQX4RoEJdYPjdqLT17nTjA"><span class="ic" data-page-node-id="DYFIm3IBw11fhhkrcfuzr6">🔍</span><span class="nm" data-page-node-id="2J7z1hZXQTRayes5da1UzB">爆款拆解</span></div>
+            <div class="ds" data-page-node-id="PBKKdIfuE4yYvni3S5uu0p">丢一条爆款文案进来，拆出它为什么火</div>
+            <span class="out" data-page-node-id="5DRT1quTjGGFsoRRAIjOqk">产出：结构拆解+可复用套路</span>
+            <div class="path" data-page-node-id="8oxpfqG2sBRpM3BBrEKMZU">→ 能力 <b data-page-node-id="6eH6d52qa8e2Qqm9RM96tO">dissect</b> · <b data-page-node-id="Njgg0clzopOnrvroVYg817">/dissect</b>（异步）</div></div>
+        </div>
+      </div>
+
+      <!-- 写稿 -->
+      <div class="cat" data-page-node-id="QvpUuzxpFJTxQUKB2TKBWD"><div class="cat-h" data-page-node-id="xSCBKreLrDuLtSXvcpWzz7"><span class="bar" data-page-node-id="MK2pU3FIUROwjHOQEgI3wR"></span>✍️ 写稿</div>
+        <div class="grid" data-page-node-id="9rHctMQCOwraRFcZsvH2RE">
+          <div class="card" data-page-node-id="0bNmguFb3IzgbkqfAsVukX"><div class="top" data-page-node-id="hfDhbHMxCgHTG15Vn4dr1L"><span class="ic" data-page-node-id="zzA5yAHFfwBLh6REtGX0hl">✍️</span><span class="nm" data-page-node-id="hZ75P1xvOncMTwAiaJS3Gx">二创改写</span></div>
+            <div class="ds" data-page-node-id="jfqiGgtsgSr0Z2WWAsg0wU">把别人的爆款改成你的口径，自动过违禁词</div>
+            <span class="out" data-page-node-id="8Ox7Yt5ov9kLWHSehcBEu7">产出：改写后口播稿（已过违禁词）</span>
+            <div class="path" data-page-node-id="F36rO4AzjTzk28tWFhKfRC">→ 能力 <b data-page-node-id="8tA2Qyma9m7Ug6DQA19F11">rewrite</b> · <b data-page-node-id="qwZPN91egwTZz9qlBTEMBw">/rewrite</b>（异步）</div></div>
+        </div>
+      </div>
+
+      <!-- 出片 -->
+      <div class="cat" data-page-node-id="m8RKcZtRiiQd9MiCRUG3Wq"><div class="cat-h" data-page-node-id="ExOjmAFtpQuq8F3Q48kQpL"><span class="bar" data-page-node-id="Upo7BBaon6CSkhInsZus6E"></span>🎬 出片</div>
+        <div class="grid" data-page-node-id="tShZK6m9DjVPwrFqft4jVX">
+          <div class="card" data-page-node-id="QavBSxk8BIxezM5HfEJd9M"><div class="top" data-page-node-id="ngBMKMG2Ufh7hAEJwJYHos"><span class="ic" data-page-node-id="iIRcTIAyACIss9Bn9BqPnR">🎬</span><span class="nm" data-page-node-id="7Td89eaNrvfmcBy8D1HVU6">数字人出片</span></div>
+            <div class="ds" data-page-node-id="50XHGPtnZNp3QhSb7nyPcw">用你的数字人形象，把稿子生成口播视频</div>
+            <span class="out" data-page-node-id="9MOggEnZyukt6cv798I5nd">产出：成片视频（含字幕/配音）</span>
+            <div class="path" data-page-node-id="eiwJMHXmlAX9JrmKV6YgIB">→ 能力 <b data-page-node-id="88eUnBBGP684ptKHGQCr0g">video_render</b> · 内部 <b data-page-node-id="PcDUMdrCnDLojslJmtzNiT">VideoController</b>（Laravel）</div></div>
+        </div>
+      </div>
+
+      <!-- 质检 -->
+      <div class="cat" data-page-node-id="9mGvCHpH8qmktAQDA0M992"><div class="cat-h" data-page-node-id="cMnEtkZURv8C6YW8heJCoI"><span class="bar" data-page-node-id="XAxNZ4JnZbZ1gFilojs3ij"></span>✅ 质检</div>
+        <div class="grid" data-page-node-id="bxlqvPAGccch5ZcWvMSH1W">
+          <div class="card" data-page-node-id="Hdko1VYQihQLONAAu4x7gu"><div class="top" data-page-node-id="3uVcVYvLMe3cNTClP4SE6E"><span class="ic" data-page-node-id="Ou4ACXvuvWBV2DCeVxvW45">✅</span><span class="nm" data-page-node-id="3WDnzmGBtVGEmEBlaaHMEV">文本质检</span></div>
+            <div class="ds" data-page-node-id="S7oIlGWri0X2ModzPTkfFT">检查口播稿的违禁词与合规风险</div>
+            <span class="out" data-page-node-id="VF2WMAzA5SqMYm73FH8EA8">产出：风险点清单+建议</span>
+            <div class="path" data-page-node-id="EvbYJMb2X7GsupohSxO8Oz">→ 能力 <b data-page-node-id="goRC1e0LlOVeyCOU7kpXCL">qc</b> · <b data-page-node-id="1jIGEh8xUzfVMOA59gEciH">/qc</b>（异步）</div></div>
+          <div class="card" data-page-node-id="aojSdhtUJxVeSVyP6ExGPA"><div class="top" data-page-node-id="q2SISJSCzzqIrjK2RuVtjT"><span class="ic" data-page-node-id="uq2ng4F69pubAQU6qpImNn">🎞️</span><span class="nm" data-page-node-id="yDlugethgvTchEsjkE4agy">视频质检</span></div>
+            <div class="ds" data-page-node-id="Jd9JbhDAC2Bg6RZw1ySYpF">查成片的画幅/时长/音频/技术合规</div>
+            <span class="out" data-page-node-id="1sdLMWy9h1dThuT80IHhJa">产出：技术质检结论（可发/告警）</span>
+            <div class="path" data-page-node-id="emgGvzcUDcMrTxGnFyG1Q4">→ 能力 <b data-page-node-id="CHkE9ED537idOsbHvsSmm1">qc_video</b> · 内部 <b data-page-node-id="o2x4vgjCPt8rLaQXzlZHNd">StudioController::qcVideo</b></div></div>
+        </div>
+      </div>
+
+      <!-- 发布 -->
+      <div class="cat" data-page-node-id="9hwbHueXsv2vHbh8SA92yo"><div class="cat-h" data-page-node-id="bHisRPsYTCNXyCiyjqJFlr"><span class="bar" data-page-node-id="wVAXn8OGFK1dzwtgHJKDHV"></span>📦 发布</div>
+        <div class="grid" data-page-node-id="dc7JnXG9SpSAna1sGVMkd2">
+          <div class="card" data-page-node-id="EkhBxpZ2YLYCsEFukYkuA2"><div class="top" data-page-node-id="aqERbNPCsXynRAK2luLYA0"><span class="ic" data-page-node-id="YPcqKewNkwIiwTWnDmcLdb">📦</span><span class="nm" data-page-node-id="apIMRpHLXcaiYqzx5QfyHl">发布包装</span></div>
+            <div class="ds" data-page-node-id="95ldPhFFlb2xhXvotRXwPF">生成封面/标题/标签，打包多平台发布物料</div>
+            <span class="out" data-page-node-id="2agiwPIyBiGy2qcBxWHLyS">产出：发布物料包</span>
+            <div class="path" data-page-node-id="x5lKmv0xOPETRBUQhluuJ3">→ 能力 <b data-page-node-id="EkUbgbNokslMvxKQptItCZ">publish_pack</b> · 内部 <b data-page-node-id="QdUfj2ISmgjat0vG3SwiBe">PublishPackController</b></div></div>
+          <div class="card" data-page-node-id="lgIul3Keq0fotCtjqKC3t2"><div class="top" data-page-node-id="zuFalOL7RTALKrofLyqIAC"><span class="ic" data-page-node-id="EviLHo9ij5ALLEOAGhhAlb">📕</span><span class="nm" data-page-node-id="MhfW2NFpWhtLNZzN6xs3qS">小红书笔记</span></div>
+            <div class="ds" data-page-node-id="eYpAEZPukxwu7r87VxpgGO">把稿子转成小红书风格图文笔记</div>
+            <span class="out" data-page-node-id="A7Dp1O3pFV6cpx7FjYxurK">产出：图文笔记草稿</span>
+            <div class="path" data-page-node-id="uVbVAq7XoF7Jh1rj4xRerk">→ 能力 <b data-page-node-id="cb05KzfS3BE9GKTQjhW1JG">xhs</b> · <b data-page-node-id="mgqIZGjC7Oj1pNEn7cE4s7">/xhs_build_note</b></div></div>
+        </div>
+      </div>
+
+      <!-- 审核 -->
+      <div class="cat" data-page-node-id="ynDMsgVfNgQsOyhGRyetw3"><div class="cat-h" data-page-node-id="1aF75ljXnE0OQcAZ5OYu2Y"><span class="bar" data-page-node-id="yjyVFlc9Zcizb31Tk8ZmaW"></span>🔎 审核</div>
+        <div class="grid" data-page-node-id="TojRYDABGzWm5PVFTJqfAd">
+          <div class="card warn" data-page-node-id="pB59vGAaFBltXi0uejkFyy"><div class="top" data-page-node-id="e7aawN7qb71YV3JJvI0lZ2"><span class="ic" data-page-node-id="LomqtUYI5ggGg1O4rKPVhG">🔎</span><span class="nm" data-page-node-id="psUdpxkUjfDzDaka3dKEPd">成片审核</span></div>
+            <div class="ds" data-page-node-id="Sa1GZE8MEUIaEDdBQFRwv9">人工/专家对成片做最终把关（已登记）</div>
+            <span class="out" data-page-node-id="GSprJ7NKRSlZgqhnhnO6NP">产出：审核意见</span>
+            <div class="path" data-page-node-id="iKs5kgZn8YXhB2VK9uRSBi">→ 能力 <b data-page-node-id="GhjER3KTuStXgL3hZTs3ra">review</b> · <b data-page-node-id="TcBkcyEMBUknIpZSsdPeDF">⚠ 8500已登记，Laravel未接线</b></div></div>
+        </div>
+      </div>
+
+      <!-- 素材 -->
+      <div class="cat" data-page-node-id="530iRVxoCwZcXTakf34Uv5"><div class="cat-h" data-page-node-id="mysNzBoBN09bwOUVlEPvz5"><span class="bar" data-page-node-id="WEMR9uvhBKABVFlI3hM0rW"></span>🎞️ 素材</div>
+        <div class="grid" data-page-node-id="HOy7lcbzw9I0kLu5eBafLy">
+          <div class="card" data-page-node-id="fQVLmNhKhuRLGDRRklUHiB"><div class="top" data-page-node-id="UAaFq1z67dbc9q3QGGaGh7"><span class="ic" data-page-node-id="mCZa6CORUZzahOGqjhLRc2">🎞️</span><span class="nm" data-page-node-id="M0GlTsZmjwhlIt0xKztbLa">素材剪辑</span></div>
+            <div class="ds" data-page-node-id="ZvoE8Px9FsyTKHhDIJCtZy">对原始视频做裁剪/拼接/基础处理</div>
+            <span class="out" data-page-node-id="9IGfcfE7a7p0jdSqk7tJvE">产出：处理后的素材</span>
+            <div class="path" data-page-node-id="bAijj40uIQxS8Ta9GlG3Fr">→ 能力 <b data-page-node-id="nVoIQRxXyTTClPIMgsZgBN">footage_edit</b> · <b data-page-node-id="icp7AdHxxwbXaWyxPtHPVr">/footage-edit</b></div></div>
+          <div class="card" data-page-node-id="Q1Xo0R38JiDIigYR4aB76U"><div class="top" data-page-node-id="DYWxne1PaC96RokbmwVo95"><span class="ic" data-page-node-id="fTPGAeOlazGKUunexFaYjO">🎙️</span><span class="nm" data-page-node-id="dGeq9x3ehqidHBXVc0SSMH">音色克隆</span></div>
+            <div class="ds" data-page-node-id="pXJSPtSo1JsBBXArp0wQsJ">录入人声，克隆出专属配音音色</div>
+            <span class="out" data-page-node-id="PG1Ai091ADAgia3hi7w5d8">产出：可用音色</span>
+            <div class="path" data-page-node-id="GySsy3SY632RfymZbKwDB2">→ 能力 <b data-page-node-id="mnvAKFYf6A3s0AYL0Aj3PL">clone_voice</b> · <b data-page-node-id="MXVeN3GucYG2n5Th921vzR">/clone_voice</b></div></div>
+        </div>
+      </div>
+
+      <!-- 可插拔模块 -->
+      <div class="cat" data-page-node-id="IX05ADRCpjKiFF7AOVs9YX"><div class="cat-h" data-page-node-id="8HiUXcnNI7SqrULaXFBVU0"><span class="bar" style="background:#7B4FB5" data-page-node-id="p8pq4ZlHuZMEa9MubSd3Cf"></span>🧩 可插拔模块（按套餐开放 · 当前隐藏）</div>
+        <div class="grid" data-page-node-id="ouoWUtvUMeskKDzeCkqJkP">
+          <div class="card plug" data-page-node-id="eJtE6622tdgWSrYvVTB6Vx"><div class="top" data-page-node-id="Ntp8Oq1UHabe07m1Wd84Tz"><span class="ic" data-page-node-id="bxRS0m7A0i5x5HgfuJLztn">👥</span><span class="nm" data-page-node-id="WoOzn5TAyVHdJDFovHpJGz">CRM 留资</span></div>
+            <div class="ds" data-page-node-id="4uVHFfBUDB0TzPGaV6tuyD">客户线索自动入库（P2 增值）</div>
+            <div class="path" data-page-node-id="oS3hPVa9kYlPw6j2hpxI7L">→ <b data-page-node-id="W7kVV8rBXNzlDFmCAYlNbT">crm_record</b> · HIDDEN_CAPS 隐藏</div></div>
+          <div class="card plug" data-page-node-id="FetNxx1e6lMc8yDHBCVoJ0"><div class="top" data-page-node-id="lUKve1SNh6Oqqi6dj2QvUl"><span class="ic" data-page-node-id="dOEbZ7FCRTqzWhJoCKdM0d">📅</span><span class="nm" data-page-node-id="DSk9m17H6RXA5XeT64uukr">1v1 咨询预约</span></div>
+            <div class="ds" data-page-node-id="gCBRAXz9wdsUnvGMNqLs1l">留资客户一键预约（P2 增值）</div>
+            <div class="path" data-page-node-id="GJZQiZk69JfW6dYMDWs5z1">→ <b data-page-node-id="o6IPXEhdCEmJziXnTDERAo">consult_1v1</b> · HIDDEN_CAPS 隐藏</div></div>
+          <div class="card plug" data-page-node-id="MXpBuZv6HMLUniqyxx7i11"><div class="top" data-page-node-id="5NQsFe8BI8VZT0cQJPQKJt"><span class="ic" data-page-node-id="UXXNUfT6Z3UNP0npNMRGcI">🤖</span><span class="nm" data-page-node-id="5IFLq1vTSoRzliri0J2pAS">自动接待</span></div>
+            <div class="ds" data-page-node-id="zFtsMKrF5fCVCojeS0LgjN">私信/评论自动应答（P3 增值）</div>
+            <div class="path" data-page-node-id="rFT1bGkOxTepcNAqgn8ioH">→ <b data-page-node-id="im7S1iw03UtERObgKFJle1">auto_reception</b> · HIDDEN_CAPS 隐藏</div></div>
+          <div class="card plug" data-page-node-id="PF3RXxRLDgJhecqB440Pwl"><div class="top" data-page-node-id="bIPudX5QqbNpVY6XBm97Gk"><span class="ic" data-page-node-id="Zf6hQqqEGIbk4NK9PBlFNB">📡</span><span class="nm" data-page-node-id="Ky3Jkt14F3c22jGddAf3lu">矩阵分发</span></div>
+            <div class="ds" data-page-node-id="ZQHUI7jNlHSO66u2aGVPrm">多账号一键分发（P3 增值）</div>
+            <div class="path" data-page-node-id="Sk3bOMEsd0GiSgPG8qgoxW">→ <b data-page-node-id="EBpei6ADZtY3nzhAo8yccX">matrix_publish</b> · HIDDEN_CAPS 隐藏</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tbl" data-page-node-id="ppglh04yVYCoZfx9cMqYil">
+    <h3 data-page-node-id="CRSDLQLF5ILNDmHJlnMqZU">📋 按钮 → 能力 → 后端 映射总表（即 capabilityMap + CAPABILITIES）</h3>
+    <table data-page-node-id="1x1Gy9M4ep5sGAD6oNaa3U">
+      <tr data-page-node-id="60OgFy7yNnbhdFl0TC9U7Q"><th data-page-node-id="FmDjN1XTo8T2qYf0WgB8e2">菜单按钮</th><th data-page-node-id="9b6MTHI8lKVIYlu8HVGlCi">能力ID</th><th data-page-node-id="2HyucanW2DbPm6z2bNoO15">后端路径</th><th data-page-node-id="zx92XheEhYNGftEYBLAESh">类型</th><th data-page-node-id="cD66HuDEAbahvWpgTMvRlM">Laravel 接线</th></tr>
+      <tr data-page-node-id="gD3t19rq9MywY7U8RHtAXT"><td data-page-node-id="Y7TtSu7gLB0i2vwEnGHhgw">智能选题</td><td data-page-node-id="ZI0xBve4BM4DHtTM5LIGyP"><code data-page-node-id="M7tpOrmxal1BAfECnL0gtu">topic</code></td><td data-page-node-id="uPaCCErDCuFK5joZxL1Vgw"><code data-page-node-id="pDREdeFXjTu4WnaLZXtCcU">/topic</code></td><td data-page-node-id="rZ942pAQH25UOXzNxyChYL">8500异步</td><td class="ok" data-page-node-id="vjT2Cm11OZb8UJW3Bi0TRH">已接</td></tr>
+      <tr data-page-node-id="RRghNtUBw5LN3HfJGfyTv1"><td data-page-node-id="SKt9jBWlZONAc9EnSh0gjA">获客军师</td><td data-page-node-id="KeJ5l5naitcTdrCo6Kx9X9"><code data-page-node-id="AmA4ybowdnnwTEAzBsfUKF">strategist</code></td><td data-page-node-id="61mgnEfd2Lf7KmsDJRUTkR"><code data-page-node-id="5UfDBPaP8GPtpO5wrbXdYT">/strategist</code></td><td data-page-node-id="BtdMNJ0Uv0WI0KWgf8aiyp">8500异步</td><td class="ok" data-page-node-id="zPfxAclvCxlN5EmSIzNljN">已接</td></tr>
+      <tr data-page-node-id="SXKKUpBupuYztupYOZuGX2"><td data-page-node-id="uSzNW9Us1Oou0IpBKluN7l">热点选题</td><td data-page-node-id="ev3FMkoLMnk97DGjy6KJph"><code data-page-node-id="J8VzywudExszbsXLYdWPEt">hotspot</code></td><td data-page-node-id="4yniqkfa3fIf7OVFb31HOD"><code data-page-node-id="rdxOdF3N5ppEqxBxk9Wdln">/hotspot</code></td><td data-page-node-id="Uo9kZWoR0lxBwkLveZTydP">8500异步</td><td class="ok" data-page-node-id="DguvHBXsAQbpNtH6dEvShY">已接</td></tr>
+      <tr data-page-node-id="0oDHMBNuCTltEUDDHq9E7T"><td data-page-node-id="bWCjB1dWTOGqsT6MVujucF">爆款拆解</td><td data-page-node-id="039envMOHj8WEDYG7qFZzA"><code data-page-node-id="MUL5EQCW2kEposoFRXMsmu">dissect</code></td><td data-page-node-id="eYG2UmFSQE8ZF95azPYMQ2"><code data-page-node-id="nEVEHpNJyG24woCTkCCeRS">/dissect</code></td><td data-page-node-id="Fo5a8DOfPA1YTgurKW2bkb">8500异步</td><td class="ok" data-page-node-id="gpkkSLpFjlu1iOyEFmeRa2">已接</td></tr>
+      <tr data-page-node-id="N4UfttlwiQ2pAIFJcme6CH"><td data-page-node-id="VJsT5mqyyH4tVgceeX52U6">二创改写</td><td data-page-node-id="YsxeJ3dpATYV1k146Pu1qK"><code data-page-node-id="wfPxLenXE7ZA0SJl6y5CYL">rewrite</code></td><td data-page-node-id="GDYYyFD69yisQ1U9EIYiID"><code data-page-node-id="shSxhHCujGcPxRykklkYC9">/rewrite</code></td><td data-page-node-id="e9xh0J80UxTaKWfIpaN9T9">8500异步</td><td class="ok" data-page-node-id="jnvVSOhFDTwkxS2lHr0aWB">已接</td></tr>
+      <tr data-page-node-id="WXDgRPuikjOZLRsAEltbFc"><td data-page-node-id="jMaxOc7LjYYrrYDqCBQRX6">数字人出片</td><td data-page-node-id="9K3FxkcQJ2gB3yU0CnmDFu"><code data-page-node-id="Z3xJZzpkWNys4gvxihOBYm">video_render</code></td><td data-page-node-id="EGr5J53HU8ONKchSPREG6r">内部 VideoController</td><td data-page-node-id="nvFeGnVdJpgEZXXvjZJwvc">Laravel</td><td class="ok" data-page-node-id="MGVzj6kCaPmEGpcGeaoRDP">已接</td></tr>
+      <tr data-page-node-id="C7BvDjZCehX5B5OAx0pHUE"><td data-page-node-id="aJju5sZQ5MTD4qsMfBXCIM">文本质检</td><td data-page-node-id="44fnOq0fY79vX2xxMeuSpN"><code data-page-node-id="GHbk2hqJ4SFBVIfHputsDX">qc</code></td><td data-page-node-id="JBVPnH5Lb4pAowltAjnxis"><code data-page-node-id="ZFz39SottnZZpiVWHWGcOC">/qc</code></td><td data-page-node-id="lgPrRvJi4E7e1K0kzC8dJR">8500异步</td><td class="ok" data-page-node-id="JHFa4xmeHKzAaddw34CCI8">已接</td></tr>
+      <tr data-page-node-id="HbpBI5uKKrrQV05NiF250v"><td data-page-node-id="xuxrFmtrlYXI9EZFfMaehI">视频质检</td><td data-page-node-id="JzdE5N67BJI6UL2nTRsqpf"><code data-page-node-id="oLrYi2L7GFLMi6oT11rDvC">qc_video</code></td><td data-page-node-id="dS1pgJO5CiC7UvMBg94hjd">内部 StudioController::qcVideo</td><td data-page-node-id="mob3eUqWGOezp8waCXcJCg">Laravel</td><td class="ok" data-page-node-id="kgiaW8p2VUAQzrW5MPSQcq">已接</td></tr>
+      <tr data-page-node-id="XOUkI2Eou6EvkQHhHwgn2I"><td data-page-node-id="n9F2KfQxzoiCuwCmsQ9bBd">发布包装</td><td data-page-node-id="6iSbDHSAcdUqhX5OGgmmkG"><code data-page-node-id="FAi1svWmkzVEoV8hvD7siw">publish_pack</code></td><td data-page-node-id="YEjodBfMJxnWzam0p3sckC">内部 PublishPackController</td><td data-page-node-id="gtE7wxHA2GyAx2nbtge0mB">Laravel</td><td class="ok" data-page-node-id="aDRc3cTPRuHLVIvXooHi8W">已接</td></tr>
+      <tr data-page-node-id="Lx002FxI7V4IMqcputAYMh"><td data-page-node-id="rD6Z4vAn6U5bKvLDzKMCPu">小红书笔记</td><td data-page-node-id="HMnZBByLuKB0X8fJ9iEoFE"><code data-page-node-id="lPNJrD5Kb6IDkAEekPcLBo">xhs</code></td><td data-page-node-id="df5Gb6avrnl5LtBDbbDi5J"><code data-page-node-id="kALnUoEBkiTD4fY6BBZGzI">/xhs_build_note</code></td><td data-page-node-id="bQk0UhZeYbc4eNJu7B4Fth">8500</td><td class="ok" data-page-node-id="AYfFds2oY745nMz6cIH1sK">已接</td></tr>
+      <tr data-page-node-id="F2BUvQoDlmMTH4O5vrBNYE"><td data-page-node-id="UEjIOJlYoeSUPU5w6PFUQV">成片审核</td><td data-page-node-id="4YYRkEv20Hx6CrB9DFuWH4"><code data-page-node-id="RFEkb6XBehLk1AmRRclP2c">review</code></td><td data-page-node-id="UHXRMPden9aV9Z9ayoVTgU">—</td><td data-page-node-id="61OcY6oBRU6ZhMFX9E6Ol7">8500已登记</td><td class="no" data-page-node-id="950U3yRCmg416NwPv89i3e">未接线</td></tr>
+      <tr data-page-node-id="DrlWhmTg4hqrEJ4Gx3eJLQ"><td data-page-node-id="DlLvMXGrfzSGMZDrE3gqRp">素材剪辑</td><td data-page-node-id="ikFINLJHeakhjwLlRwGGly"><code data-page-node-id="71trHcrv3PoNCxXeTZC17Q">footage_edit</code></td><td data-page-node-id="1K7EUDFYQiqGJ4mFk23xZo"><code data-page-node-id="naUfjJ0oyxGEtfjn6eCGFq">/footage-edit</code></td><td data-page-node-id="y87BWHSjdFHElFr77rI5vr">8500</td><td class="ok" data-page-node-id="AVX3ez4l4GnZgDTzJYcM0F">已接</td></tr>
+      <tr data-page-node-id="H0YSAf8K2YKfQHCsbzZNFu"><td data-page-node-id="p4RPDWHs3CZoiaGrYlak1X">音色克隆</td><td data-page-node-id="XjSbhfC3zLJJcugBFKGwXq"><code data-page-node-id="KZBtEVDsuqxUgv4VRtTpg3">clone_voice</code></td><td data-page-node-id="aKn0bI6o4JJDIH8dOwIlxP"><code data-page-node-id="ZLqwUXqoNWQcEKvdfHJyQh">/clone_voice</code></td><td data-page-node-id="JCV02UTEQBEZnJhEX3ztiO">8500</td><td class="ok" data-page-node-id="HPgnUG3aTY0P4rcxQVXbRN">已接</td></tr>
+    </table>
+  </div>
+
+  <div class="note" data-page-node-id="TvF9vxODFcIYxm7mbDoa0l">
+    ⚠️ <b data-page-node-id="gOAsXIFECAPugzudxGE8oD">一个真实发现</b>：<code data-page-node-id="dqskOEAEBfcncXhGM4y3Bv">review</code>（成片审核）已经在 8500 的 <code data-page-node-id="Q4DQpHNDrBmmGCOSIqy96R">CAPABILITIES</code> 里登记了，但 Laravel 的 <code data-page-node-id="vtI7QWRBIRTNMcnS3RcMba">capabilityMap()</code> 里没有它 —— 也就是说它"被定义却接不进来"。这恰恰说明"一切皆插件"的纪律还没彻底贯通：<b data-page-node-id="f5TpjBcqHcqfkyk4eGDbWa">加功能时两边登记要同步</b>。补一行映射即可让审核按钮立刻可用，这正是插件思想的日常价值。
+  </div>
+</div>
+</body>
+</html>
