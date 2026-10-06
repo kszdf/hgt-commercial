@@ -299,7 +299,8 @@
                 <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm focus-within:border-indigo-300">
                     <textarea id="userInput" rows="3" placeholder="说出你想做什么——AI 帮你拆角度 → 出稿 → 改稿 → 配音 → 出片，一句话驱动整条生产线。"
                         class="block w-full resize-none rounded-lg border-0 bg-transparent px-1.5 py-1 text-sm leading-relaxed text-slate-700 outline-none placeholder:text-slate-400"
-                        style="min-height:84px;max-height:220px"></textarea>
+                        style="min-height:84px;max-height:220px">                    </textarea>
+                    <div id="attachZone" class="hidden flex flex-col gap-1.5"></div>
                     <div class="mt-1 flex items-center justify-between gap-2">
                         <div class="flex items-center gap-2">
                             <button id="fileBtn" type="button" title="上传本地文件：txt/md/docx 自动提取文字，图片自动识别图中文字（≤10MB）"
@@ -1607,7 +1608,7 @@
 
     async function doSend() {
         const msg = input.value.trim();
-        if (!msg) return;
+        if (!msg && pendingAttachments.length === 0) return;
         if (busy) {
             appendMsg('ai', '<span class="text-amber-600">⏳ 上一条消息还在处理，请稍候，完成后会自动出现。</span>', { noTools: true });
             return;
@@ -1628,11 +1629,14 @@
         const ctl = new AbortController();
         const _tt = setTimeout(() => ctl.abort(), 330000);
         try {
+            const payload = { session_id: sid, message: msg || '（请结合我上传的附件回答）' };
+            if (pendingAttachments.length) payload.attachments = pendingAttachments.slice();
             const data = await api('/studio/chat/send', {
-                method: 'POST', body: JSON.stringify({ session_id: sid, message: msg }),
+                method: 'POST', body: JSON.stringify(payload),
                 signal: ctl.signal,
             });
             clearInterval(_tm); clearTimeout(_tt);
+            if (pendingAttachments.length) { pendingAttachments = []; renderAttachments(); }
             if (data.error) throw new Error(data.error);
             // 异步长任务（B 版）：8500 已返回 async，后台线程在跑，前端轮询 /chat/status
             if (data.stage === 'async') {
@@ -2233,6 +2237,30 @@
 
     sendBtn.onclick = doSend;
 
+    // ---------- 📎 附件式上传：解析出的文字不再塞进输入框，而是作为"附件"挂上，发送时随消息带上 ----------
+    let pendingAttachments = [];   // 每项：{name, kind, text, chars}
+    function renderAttachments() {
+        const zone = document.getElementById('attachZone');
+        if (!zone) return;
+        zone.innerHTML = '';
+        pendingAttachments.forEach(function (a, i) {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;font-size:12px;color:#475569;';
+            const ico = document.createElement('span'); ico.textContent = '📎';
+            const label = document.createElement('span');
+            label.style.cssText = 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+            label.textContent = a.name + ' · 已解析 ' + (a.chars || 0) + ' 字 · ' + (a.kind === 'image' ? '图片' : '文档');
+            const del = document.createElement('button');
+            del.type = 'button'; del.textContent = '✕';
+            del.style.cssText = 'margin-left:4px;color:#94a3b8;font-size:12px;line-height:1;background:none;border:none;cursor:pointer;';
+            del.title = '移除附件';
+            del.onclick = function () { pendingAttachments.splice(i, 1); renderAttachments(); };
+            row.appendChild(ico); row.appendChild(label); row.appendChild(del);
+            zone.appendChild(row);
+        });
+        zone.classList.toggle('hidden', pendingAttachments.length === 0);
+    }
+
     // ---------- 📎 上传本地文件：txt/md/docx 提取文字，图片 OCR 识别图中文字 ----------
     const fileBtn = document.getElementById('fileBtn');
     const fileInput = document.getElementById('fileInput');
@@ -2268,13 +2296,15 @@
                     setUpStatus((d && d.error) || ('解析失败（HTTP ' + resp.status + '）'), true);
                     return;
                 }
-                const kindTxt = d.kind === 'image' ? '图片识别' : (d.kind || '文档');
-                const head = '【素材 · ' + d.name + '（' + kindTxt + (d.chars ? '，' + d.chars + '字' : '') + (d.truncated ? '，超长已截断' : '') + '）】';
-                const prev = input.value.trim();
-                input.value = head + '\n' + d.text + (prev ? '\n\n' + prev : '');
-                autoGrow(input);
-                input.focus();
-                setUpStatus('已提取 ' + d.chars + ' 字到输入框——补一句你想怎么用它，再点发送', true);
+                const kindTxt = d.kind === 'image' ? '图片' : (d.kind || '文档');
+                pendingAttachments.push({
+                    name: d.name,
+                    kind: d.kind || 'file',
+                    text: d.text,
+                    chars: d.chars || 0,
+                });
+                renderAttachments();
+                setUpStatus('已解析 ' + d.chars + ' 字为附件——可直接打字提问，或只发图让我看', true);
                 setTimeout(() => setUpStatus('', false), 8000);
             } catch (e) {
                 setUpStatus(e && e.message === 'timeout' ? '解析超时，请换个文件或稍后再试' : '上传失败，请检查网络后重试', true);

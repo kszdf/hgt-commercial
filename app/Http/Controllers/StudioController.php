@@ -111,11 +111,29 @@ class StudioController extends Controller
             'session_id' => ['nullable', 'string', 'max:64'],
             'message'    => ['nullable', 'string', 'max:600'],
             'action'     => ['sometimes', 'array'],
+            'attachments' => ['nullable', 'array'],
+            'attachments.*.name' => ['nullable', 'string', 'max:255'],
+            'attachments.*.kind' => ['nullable', 'string', 'max:32'],
+            'attachments.*.text' => ['nullable', 'string'],
         ]);
-        if (empty($data['message']) && empty($data['action'])) {
-            return response()->json(['error' => 'message or action required'], 422);
+        if (empty($data['message']) && empty($data['action']) && empty($data['attachments'])) {
+            return response()->json(['error' => 'message, action or attachments required'], 422);
         }
         $data['tenant'] = $tenant->slug;   // 租户隔离：会话归属到本租户
+
+        // 附件作为「上下文素材」拼进 message：8500 无需改动即可理解图意 / 文档内容
+        if (! empty($data['attachments']) && is_array($data['attachments'])) {
+            $blocks = [];
+            foreach ($data['attachments'] as $a) {
+                $name = $a['name'] ?? '文件';
+                $kind = $a['kind'] ?? '素材';
+                $txt  = $a['text'] ?? '';
+                $blocks[] = "[用户附件 · {$name}（{$kind}）]\n{$txt}";
+            }
+            $sep = "\n\n——以上为附件内容，请结合附件回答用户问题——\n\n";
+            $data['message'] = implode("\n\n", $blocks) . $sep . ($data['message'] ?? '');
+        }
+        unset($data['attachments']);   // 8500 /chat 不消费此字段，转交前摘掉
         // 长任务出稿（"全写"5 篇）实测 200~280s，超过同步超时会让前端误判 502。
         // 这里给到 300s 兜底；真正根治是异步 job + 进度轮询（能力调度已在演进）。
         $timeout = ($request->input('message') !== null
