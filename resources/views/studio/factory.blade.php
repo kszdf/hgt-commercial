@@ -1,3 +1,4 @@
+<x-app-layout>
 <x-workspace-layout title="智能创作工厂">
   <div class="mx-auto max-w-[1200px] px-4 py-6 md:px-8 md:py-8">
 
@@ -173,3 +174,4 @@
   })();
   </script>
 </x-workspace-layout>
+</x-app-layout>
