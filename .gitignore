@@ -70,6 +70,8 @@ python-pipeline/server_8500.log
 python-pipeline/_out_avatar.mp4
 python-pipeline/__pycache__/
 python-pipeline/.credentials.json
+# 端到端探针跑出来的日志（每次带时间戳，仅本机留档，不入库）
+python-pipeline/e2e_*.log
 
 # ===== frpc 二进制与日志（frp 仍在用：本机 frpc → 国内服务器 frps → zmgen.cn）=====
 bin/frpc.exe

@@ -196,21 +196,23 @@ def test_param_change():
 # 能力卡片：小红书 / 公众号文章
 # ============================================================
 def test_cap_cards():
-    for label, msg, want in [("小红书", "帮我做小红书", "xhs"), ("公众号", "帮我写篇公众号文章", "article")]:
+    for label, msg, want in [("小红书", "帮我做小红书", "xhs")]:
         o = new_orch()
         sid = "cap_" + want
         r = run(o, sid, msg)
         ok = cap_id(r) == want
         record("能力卡片[%s]" % label, ok, "cap=%s" % cap_id(r))
 
-    # 关键修复验证：只说能力名、没给主题 → 应进入 action_ask 追问主题，不能硬凑"微信"当主题
+    # ★2026-10-03：article（公众号文章）已下线（平台聚焦短视频，见 capabilities.py:126），
+    #   不再弹 article 能力卡，改为自然作答。断言改为"不弹卡 + 不硬凑'微信'当主题 + 不报错"。
     o = new_orch()
-    sid = "cap_article_blank"
+    sid = "cap_article_offline"
     r = run(o, sid, "请给我写一篇微信公众号文章")
     vals = (r or {}).get("vals") or {}
-    ok = (stage(r) == "action_ask" and cap_id(r) == "article" and
-          not vals.get("topic"))
-    record("公众号能力空白请求→追问主题", ok, "stage=%s cap=%s topic=%s" % (stage(r), cap_id(r), vals.get("topic")))
+    ok = (cap_id(r) is None and stage(r) in ("answer", "ask")
+          and not vals.get("topic") and not r.get("__exception__"))
+    record("公众号已下线→不弹卡/不硬凑主题", ok,
+           "stage=%s cap=%s topic=%s" % (stage(r), cap_id(r), vals.get("topic")))
 
 # ============================================================
 # 规划
@@ -283,11 +285,12 @@ def test_status_inquiry():
     r2 = run(o2, sid2, "视频出了没")
     ok2 = stage(r2) == "answer" and cap_id(r2) is None
     record("状态问句[视频]→答进度非指令", ok2, "stage=%s cap=%s" % (stage(r2), cap_id(r2)))
-    # 3) 真写稿指令仍正常进写稿（不被误判为状态问）
+    # 3) 真指令仍能正常进能力（不被误判为状态问）。
+    #    公众号已下线（见 capabilities.py:126），改用同等"做一篇 XX，给受众看"句式的小红书守住这条意图。
     o3 = new_orch(); sid3 = "st3"
-    r3 = run(o3, sid3, "帮我写一篇公转私的公众号文章，给中小老板看")
-    ok3 = cap_id(r3) is not None or stage(r3) in ("propose", "write", "action_ready")
-    record("写稿指令→正常进写稿(未被当状态问)", ok3, "stage=%s cap=%s" % (stage(r3), cap_id(r3)))
+    r3 = run(o3, sid3, "帮我做一篇小红书图文，给中小老板看")
+    ok3 = cap_id(r3) == "xhs"
+    record("真指令→正常进能力(未被当状态问)", ok3, "stage=%s cap=%s" % (stage(r3), cap_id(r3)))
 
 def test_repeat_nonstatus():
     """非状态类重复提问：check_repeat 必须复用上次真实答案，绝不 blank/答非所问/误开能力。"""

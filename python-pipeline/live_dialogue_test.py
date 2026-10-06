@@ -10,7 +10,7 @@ def _post(path, payload):
     req = urllib.request.Request(BASE + path, data=data,
                                  headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with urllib.request.urlopen(req, timeout=90) as r:
             return json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         return {"_http_error": e.code, "body": e.read().decode("utf-8", "ignore")}
@@ -21,7 +21,7 @@ def _get(path):
     # /chat/status/<sid> 是 GET 路由，必须用 GET 轮询（POST 会 404）
     req = urllib.request.Request(BASE + path, headers={"Content-Type": "application/json"}, method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with urllib.request.urlopen(req, timeout=90) as r:
             return json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         return {"_http_error": e.code, "body": e.read().decode("utf-8", "ignore")}
@@ -57,6 +57,10 @@ def show(label, r):
     if opts: extra += f" 选项={opts}"
     if nres: extra += f" 结果数={nres}"
     print(f"  [{label}] stage={stage}{extra}")
+    if r.get("_http_error"):
+        print(f"         ⚠ HTTP错误={r['_http_error']} body={str(r.get('body',''))[:160]}")
+    if r.get("_url_error"):
+        print(f"         ⚠ 连接错误={r['_url_error']}")
     if msg:
         print(f"         ↳ {msg[:120]}")
     return r
