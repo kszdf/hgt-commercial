@@ -146,6 +146,12 @@ _OAUTH_STATE_TTL = 600  # state 有效期 10 分钟
 PY310 = r"D:/heygem/py310/Scripts/python.exe"
 FFMPEG = r"D:/ffmpeg/ffmpeg-8.1.2-full_build/bin/ffmpeg.exe"
 FFPROBE = r"D:/ffmpeg/ffmpeg-8.1.2-full_build/bin/ffprobe.exe"
+# 视频深度拆解引擎（本地现成模块，2026-10-09 接线进 /video-dissect）：
+# ffprobe 规格 + 场景变化抽帧 + 九宫格 + faster-whisper 转写（带时间戳）。缺失时端点优雅报错，不拖垮其它能力。
+try:
+    import video_dissect as _vd
+except Exception:  # noqa: BLE001
+    _vd = None
 # HEYGEM 数据根（宿主 d:/heygem_data/face2face 挂容器 /code/data）；用户自传模特存 uploads/ 下
 FAC2FACE = r"d:/heygem_data/face2face"
 # 项目 storage（宿主项目目录，bind mount 进 Laravel 容器，用于预览/管理）
@@ -766,6 +772,139 @@ def ai_dissect(text, platform=None, industry=None):
                 "hook_type": "待分析", "pain_points": [], "case_evidence": [],
                 "emotion_rhythm": [], "structure": [],
                 "reusable_parts": [], "must_replace": [], "rewrite_suggestions": []}
+
+
+def ai_video_dissect(source, language="zh", inline_frames=6):
+    """对标视频「深度拆解」：技术规格 + 场景抽帧 + 九宫格 + 本地转写（带时间戳）。
+
+    复用现成模块 video_dissect（ffprobe 规格 / 场景变化抽帧 / 九宫格 / faster-whisper 转写）。
+    source: dict，含 video_b64 / video_url / file_path 之一（与 /transcribe 同契约）。
+    返回 {ok, mode, spec, scene_changes, frame_count, frames:[{name,b64}],
+          contact_sheet_b64, segments:[{start,end,text}], transcript, transcript_error, elapsed_sec}
+
+    图片以 base64 内联回传（九宫格 1 张 + 最多 inline_frames 张关键帧），前端可直接渲染，
+    省去新增鉴权静态路由与跨容器路径转换；整份报告控制在数百 KB 内。
+    """
+    if _vd is None:
+        return {"ok": False, "error": "视频拆解引擎不可用（video_dissect 模块缺失）"}
+    import base64 as _b64
+    tmp_dir = os.path.join(JOBS_DIR, "dissect_src")
+    os.makedirs(tmp_dir, exist_ok=True)
+    video_path = None
+    work_dir = None
+    try:
+        # ① 落盘视频（与 ai_transcribe 同契约）
+        if source.get("video_b64"):
+            video_path = os.path.join(tmp_dir, "in_%s.mp4" % uuid.uuid4().hex)
+            with open(video_path, "wb") as f:
+                f.write(_b64.b64decode(source["video_b64"]))
+        elif source.get("video_url"):
+            video_path = os.path.join(tmp_dir, "in_%s.mp4" % uuid.uuid4().hex)
+            resp = requests.get(source["video_url"], timeout=60)
+            resp.raise_for_status()
+            with open(video_path, "wb") as f:
+                f.write(resp.content)
+        elif source.get("file_path"):
+            video_path = source["file_path"]
+        else:
+            return {"ok": False, "error": "video_b64 / video_url / file_path 至少一项"}
+        if not os.path.exists(video_path):
+            return {"ok": False, "error": "视频文件不存在"}
+
+        t0 = time.time()
+        work_dir = os.path.join(tmp_dir, "out_%s" % uuid.uuid4().hex)
+        frames_dir = os.path.join(work_dir, "frames")
+        os.makedirs(work_dir, exist_ok=True)
+
+        # ② 技术规格
+        spec = _vd.probe(video_path)
+        # ③ 场景变化点抽帧（固定机位自动均匀补齐）+ 九宫格概览
+        files, scene_n = _vd.extract_frames(video_path, frames_dir)
+        sheet_path = os.path.join(work_dir, "contact_sheet.jpg")
+        sheet_ok = _vd.contact_sheet(video_path, sheet_path, spec.get("duration_sec"))
+        # ④ 转写：优先 whisper（带时间戳，供分幕）；失败降级 FunASR（纯文本、无时间戳）
+        segs, err = _vd.transcribe(video_path, work_dir)
+        if not segs:
+            try:
+                asr = ai_transcribe({"file_path": video_path}, language)
+                if asr.get("ok") and asr.get("text"):
+                    segs = [{"start": 0, "end": round(float(asr.get("duration_sec") or 0), 2),
+                             "text": (asr.get("text") or "").strip()}]
+                    err = "whisper 转写不可用，已降级为整段文本（无时间戳）"
+            except Exception:  # noqa: BLE001
+                pass
+
+        # ⑤ 图片内联（九宫格 + 前 N 张关键帧，控制体积）
+        def _inline(path):
+            try:
+                if path and os.path.exists(path):
+                    with open(path, "rb") as f:
+                        return _b64.b64encode(f.read()).decode("ascii")
+            except Exception:  # noqa: BLE001
+                pass
+            return None
+
+        sheet_b64 = _inline(sheet_path) if sheet_ok else None
+        frames = []
+        for fn in [x for x in files if x][:max(0, int(inline_frames))]:
+            b = _inline(os.path.join(frames_dir, fn))
+            if b:
+                frames.append({"name": fn, "b64": b})
+
+        transcript = "".join((s.get("text") or "") for s in segs)
+
+        # ⑥ 结构拆解 + 潜力评估（有逐字稿才有意义；任一步失败都不阻断媒体报告）
+        dissect = None
+        strategist = None
+        if transcript:
+            try:
+                dissect = ai_dissect(transcript, source.get("platform"), source.get("industry"))
+            except Exception:  # noqa: BLE001
+                dissect = None
+            try:
+                strategist = ai_strategist(source.get("title") or "", transcript,
+                                           source.get("industry"), source.get("platform"))
+            except Exception:  # noqa: BLE001
+                strategist = None
+
+        out = {
+            "ok": True,
+            "mode": "media" if (sheet_b64 or frames) else "audio_only",
+            "text": transcript,
+            "spec": spec,
+            "scene_changes": scene_n,
+            "frame_count": len(files),
+            "frames": frames,
+            "contact_sheet_b64": sheet_b64,
+            "segments": segs,
+            "transcript": transcript,
+            "transcript_error": err,
+            "elapsed_sec": round(time.time() - t0, 1),
+            "strategist": strategist,
+            "dissect": dissect if isinstance(dissect, dict) else {},
+        }
+        # 结构拆解字段同时扁平化一份，与 /dissect 返回契约保持一致（前端可直接复用渲染）
+        if isinstance(dissect, dict):
+            for k in ("hook_type", "pain_points", "case_evidence", "emotion_rhythm",
+                      "structure", "reusable_parts", "must_replace", "rewrite_suggestions"):
+                if k in dissect:
+                    out.setdefault(k, dissect[k])
+        return out
+    except Exception as e:  # noqa: BLE001
+        traceback.print_exc()
+        return {"ok": False, "error": str(e)}
+    finally:
+        # 清理：自落的临时源视频 + 工作目录（外部传入的 file_path 不动）
+        try:
+            if video_path and video_path.startswith(tmp_dir) and os.path.exists(video_path):
+                os.remove(video_path)
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            if work_dir and os.path.isdir(work_dir):
+                shutil.rmtree(work_dir, ignore_errors=True)
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def ai_follow_hot(text, platform=None, industry=None):
@@ -4044,6 +4183,8 @@ CAP_PAGE_MAP = {
     "qc":           "/studio/qc",
     "qc_video":     "/studio/qc",
     "publish_pack": "/studio/publish",
+    "publish":      "/studio/publish",
+    "accounts":     "/studio/accounts",
     "xhs":          "/studio/xhs",
     "review":       "/studio/review",
     "footage_edit": "/studio/footage",
@@ -4421,6 +4562,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._handle_transcribe(data)
         if p.path == "/dissect":
             return self._handle_dissect(data)
+        if p.path == "/video-dissect":
+            return self._handle_video_dissect(data)
         if p.path == "/footage-edit":
             return self._handle_footage_edit(data)
         if p.path == "/publish-pack":
@@ -5545,6 +5688,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._capture(self._handle_footage_edit, data)
         if path == "/transcribe":
             return self._capture(self._handle_transcribe, data)
+        if path == "/video-dissect":
+            return self._capture(self._handle_video_dissect, data)
         if path == "/suggest-title":
             return self._capture(self._handle_suggest_title, data)
         if path == "/polish":
@@ -5874,6 +6019,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if isinstance(result, dict):
                 result.setdefault("text", text)
                 result["strategist"] = strategist
+            return self._send(200, result)
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            return self._send(200, {"ok": False, "error": str(e)})
+
+    def _handle_video_dissect(self, data):
+        """POST /video-dissect：对标视频「深度拆解」（规格 + 画面九宫格 + 分幕 + 逐字稿）。
+
+        输入 {"video_b64"|"video_url"|"file_path", "language"}；输出见 ai_video_dissect。
+        内部含抽帧 + whisper 转写，耗时可达数分钟 → Laravel 侧固定走 /async/submit 异步调用。
+        """
+        try:
+            if not isinstance(data, dict):
+                return self._send(400, {"ok": False, "error": "invalid request body"})
+            if not (data.get("video_b64") or data.get("video_url") or data.get("file_path")):
+                return self._send(400, {"ok": False, "error": "video_b64 / video_url / file_path required"})
+            result = ai_video_dissect(data, data.get("language") or "zh")
             return self._send(200, result)
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()

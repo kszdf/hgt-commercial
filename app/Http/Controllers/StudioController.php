@@ -1004,6 +1004,7 @@ class StudioController extends Controller
             'text'       => ['nullable', 'string', 'max:20000'],
             'video_b64'  => ['nullable', 'string'],
             'video_url'  => ['nullable', 'string', 'url'],
+            'deep'       => ['sometimes', 'nullable', 'boolean'],
             'language'   => ['sometimes', 'nullable', 'string', 'max:10'],
             'platform'   => ['sometimes', 'nullable', 'string', 'max:20'],
             'industry'   => ['sometimes', 'nullable', 'string', 'max:40'],
@@ -1031,6 +1032,29 @@ class StudioController extends Controller
             $data['text'] = (string) ($tr->json()['text'] ?? '');
             if ($data['text'] === '') {
                 return response()->json(['error' => '未获取到可拆解文案'], 422);
+            }
+        }
+
+        // 视频「深度拆解」（可选）：技术规格 + 画面九宫格 + 分幕时间轴 + 逐字稿 + 结构拆解。
+        // 走 8500 /video-dissect（抽帧 + whisper 转写，耗时更长）。
+        // 若 8500 尚未加载该端点（未重启），自动降级为下面的普通拆解，体验不退化。
+        if (! empty($data['deep']) && ! empty($data['video_b64'])) {
+            try {
+                $deepJob = $this->submitAsyncJob('/video-dissect', array_filter([
+                    'video_b64' => $data['video_b64'],
+                    'language'  => $data['language'] ?? null,
+                    'title'     => $data['title'] ?? null,
+                    'platform'  => $data['platform'] ?? null,
+                    'industry'  => $data['industry'] ?? null,
+                ]));
+                return response()->json([
+                    'ok'   => true,
+                    'cap'  => 'dissect',
+                    'data' => ['async' => true, 'job_id' => $deepJob],
+                ]);
+            } catch (\RuntimeException $e) {
+                \Illuminate\Support\Facades\Log::info('video-dissect 暂不可用，降级普通拆解：' . $e->getMessage());
+                // 落到下方普通 /dissect 路径
             }
         }
 

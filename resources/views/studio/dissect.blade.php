@@ -46,6 +46,16 @@
                             <option value="en">英文</option>
                         </select>
                     </div>
+
+                    <!-- 深度拆解开关（仅视频有效）：多产出规格/九宫格/分幕/逐字稿 -->
+                    <div id="deepWrap" class="mt-3 flex items-start gap-2 rounded-lg bg-brand-50/60 px-3 py-2.5">
+                        <input type="checkbox" id="deepDissect" checked
+                            class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-400">
+                        <label for="deepDissect" class="text-xs leading-relaxed text-slate-600">
+                            <b class="text-slate-700">深度拆解（推荐）</b>：额外产出「技术规格 + 画面九宫格 + 分幕时间轴 + 逐字稿」，方便复刻其呈现形式；耗时略长。
+                            <span class="text-slate-400">不勾选则仅做文案结构拆解。</span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- 粘贴链接 -->
@@ -153,6 +163,17 @@ document.querySelectorAll('#inputTabs .dissect-tab').forEach(btn => {
     });
 });
 
+// 深度拆解仅对视频有效：选到图片/文档时隐藏该开关
+const _vf = document.getElementById('videoFile');
+if (_vf) {
+    _vf.addEventListener('change', function () {
+        const f = this.files[0];
+        const isVideo = f && (/^video\//.test(f.type) || /\.(mp4|mov|m4v|avi|mkv|webm)$/i.test(f.name));
+        const w = document.getElementById('deepWrap');
+        if (w) { w.style.display = (f && !isVideo) ? 'none' : 'flex'; }
+    });
+}
+
 // ---------- 主流程 ----------
 async function startDissect() {
     const btn = document.getElementById('analyzeBtn');
@@ -183,6 +204,9 @@ async function startDissect() {
             try {
                 payload.video_b64 = await fileToBase64(f);
                 payload.language = document.getElementById('language').value;
+                // 深度拆解开关（仅视频有效）：额外产出规格 / 九宫格 / 分幕 / 逐字稿
+                const deepEl = document.getElementById('deepDissect');
+                if (deepEl && deepEl.checked) { payload.deep = 1; }
             } catch (e) { return fail('视频读取失败：' + e.message); }
         } else {
             // 图片 / 文档：先经文件解析（file_extract）取出文字，再按「粘贴文案」走拆解
@@ -264,6 +288,11 @@ function renderResult(data) {
     const s = data.strategist || {};
     let html = '';
 
+    // 深度拆解：媒体报告（技术规格 + 画面九宫格 + 分幕时间轴 + 逐字稿）
+    if (data.spec || data.contact_sheet_b64 || (Array.isArray(data.segments) && data.segments.length)) {
+        html += renderMediaReport(data);
+    }
+
     // 潜力评分角标
     if (s && s.potential_score != null) {
         const score = s.potential_score;
@@ -317,6 +346,62 @@ function renderResult(data) {
         + '</div>';
 
     area.innerHTML = html;
+}
+
+// ---------- 深度拆解：媒体报告块 ----------
+function renderMediaReport(data) {
+    const sp = data.spec || {};
+    let html = '<section class="luxury-glass p-4"><h3 class="mb-3 text-sm font-semibold text-slate-800">🎞️ 视频深度拆解</h3>';
+
+    // 画面九宫格概览
+    if (data.contact_sheet_b64) {
+        html += '<p class="mb-1.5 text-xs font-medium text-slate-400">画面九宫格概览（一眼看清整体形态与节奏）</p>'
+            + '<img src="data:image/jpeg;base64,' + data.contact_sheet_b64 + '" alt="九宫格" '
+            + 'class="mb-3 w-full rounded-lg border border-slate-200">';
+    }
+
+    // 关键帧
+    if (Array.isArray(data.frames) && data.frames.length) {
+        const total = data.frame_count || data.frames.length;
+        html += '<p class="mb-1.5 text-xs font-medium text-slate-400">关键帧（共 ' + total + ' 张，展示 ' + data.frames.length + ' 张）</p>'
+            + '<div class="mb-3 flex gap-2 overflow-x-auto pb-1">'
+            + data.frames.map(f => '<img src="data:image/jpeg;base64,' + f.b64 + '" class="h-24 shrink-0 rounded border border-slate-200">').join('')
+            + '</div>';
+    }
+
+    // 技术规格
+    const rows = [];
+    if (sp.duration_sec != null) rows.push(['时长', sp.duration_sec + ' 秒']);
+    if (sp.width && sp.height) rows.push(['分辨率', sp.width + '×' + sp.height + '（' + (sp.aspect || '') + '）']);
+    if (sp.fps) rows.push(['帧率', sp.fps]);
+    if (sp.bitrate_kbps != null) rows.push(['码率', sp.bitrate_kbps + ' kbps']);
+    if (sp.size_mb != null) rows.push(['体积', sp.size_mb + ' MB']);
+    if (sp.video_codec) rows.push(['视频编码', sp.video_codec]);
+    if (sp.audio_codec) rows.push(['音频编码', sp.audio_codec + ' ｜ ' + (sp.audio_sample_rate || '') + 'Hz ｜ ' + (sp.audio_channels || '') + '声道']);
+    if (sp.voice_hint) rows.push(['配音推测', sp.voice_hint]);
+    if (data.scene_changes != null) rows.push(['场景切换点', data.scene_changes + ' 个' + (data.scene_changes === 0 ? '（固定机位/单场景）' : '（多幕剪辑）')]);
+    if (rows.length) {
+        html += '<div class="mb-3 grid grid-cols-2 gap-x-4 gap-y-1.5 rounded-lg bg-slate-50 p-3">'
+            + rows.map(r => '<div class="text-xs"><span class="text-slate-400">' + r[0] + '：</span><span class="text-slate-700">' + esc(r[1]) + '</span></div>').join('')
+            + '</div>';
+    }
+
+    // 分幕时间轴（逐句，来自本地转写）
+    if (Array.isArray(data.segments) && data.segments.length) {
+        html += '<p class="mb-1.5 text-xs font-medium text-slate-400">分幕时间轴（逐句）</p>'
+            + '<div class="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2">'
+            + data.segments.map(s => '<div class="flex gap-2 text-xs">'
+                + '<span class="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-medium text-slate-500">' + (s.start != null ? s.start : 0) + 's</span>'
+                + '<span class="text-slate-700">' + esc(s.text || '') + '</span></div>').join('')
+            + '</div>';
+    }
+
+    if (data.transcript_error) {
+        html += '<p class="mt-2 text-xs text-amber-600">⚠️ ' + esc(data.transcript_error) + '</p>';
+    }
+
+    html += '</section>';
+    return html;
 }
 
 function card(title, body) {
