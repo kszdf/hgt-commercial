@@ -627,8 +627,8 @@ function setMode(m) {
         checkDialogueFormat(ta.value, warning);
     } else if (m === 'manga') {
         // AI 漫剧: 输入财税内容/事件, AI 自动生成剧情分镜与旁白
-        label.innerHTML = '财税内容（<span class="text-slate-400">输入要讲的财税问题 / 事件 / 案例，AI 自动生成剧情分镜与旁白；法条政策类自动改走口播</span>）';
-        hint.innerHTML = '<span class="text-emerald-600">AI 漫剧：内容 → 分镜 → 生图 → 配音 全自动</span>';
+        label.innerHTML = '财税内容（<span class="text-slate-400">输入要讲的财税问题 / 事件 / 案例，AI 自动生成剧情分镜与旁白；纯法条政策类会被拦下，需手动改走口播形式</span>）';
+        hint.innerHTML = '<span class="text-emerald-600">AI 漫剧：内容 → 分镜 → 生图 → 配音 全自动</span> <span class="text-amber-600">剧情 / 案例类最适合</span>';
         hint.className = 'text-[11px] font-normal text-emerald-600';
         warning.classList.add('hidden');
     } else if (m === 'whiteboard') {

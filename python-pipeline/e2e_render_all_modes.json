@@ -1,0 +1,50 @@
+[
+  {
+    "mode": "manga_story",
+    "job_id": "15cae97c54f841ecb72091fc0fbee300",
+    "status": "done",
+    "ok": true,
+    "sec": 761.2,
+    "probe": {
+      "exists": true,
+      "size_kb": 7443.6,
+      "duration": 51.4,
+      "video": true,
+      "audio": true
+    },
+    "error": null,
+    "log": ""
+  },
+  {
+    "mode": "dual_talk",
+    "job_id": "c80a79526228475fbea82dd9c30c6002",
+    "status": "done",
+    "ok": true,
+    "sec": 450.5,
+    "probe": {
+      "exists": true,
+      "size_kb": 2859.6,
+      "duration": 26.8,
+      "video": true,
+      "audio": true
+    },
+    "error": null,
+    "log": ""
+  },
+  {
+    "mode": "long_card",
+    "job_id": "03c4e9b8b4fa4ff4a6fd5434fb33ebaf",
+    "status": "done",
+    "ok": true,
+    "sec": 150.2,
+    "probe": {
+      "exists": true,
+      "size_kb": 1883.6,
+      "duration": 57.7,
+      "video": true,
+      "audio": true
+    },
+    "error": null,
+    "log": ""
+  }
+]

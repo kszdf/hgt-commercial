@@ -54,7 +54,13 @@ def asr_segments(path, language="zh"):
     lang = None if language in ("auto", "") else language
     segs, _ = model.transcribe(path, language=lang, beam_size=5, vad_filter=True,
                                vad_parameters=dict(min_silence_duration_ms=500))
-    return [{"start": float(s.start), "end": float(s.end), "text": s.text.strip()}
+    # 财税术语纠正（与深度拆解共用 asr_terms.TERM_FIX，避免两处漂移）
+    try:
+        from asr_terms import apply_term_fix
+    except Exception:  # noqa: BLE001
+        def apply_term_fix(t):
+            return t
+    return [{"start": float(s.start), "end": float(s.end), "text": apply_term_fix(s.text.strip())}
             for s in segs if s.text.strip()]
 
 

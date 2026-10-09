@@ -699,6 +699,12 @@ def ai_transcribe(source, language="zh"):
         except Exception:  # noqa: BLE001
             pass
         text = (only_asr(wav_path, language) or "").strip()
+        # 财税术语纠正（与深度拆解/素材精剪共用 asr_terms.TERM_FIX）
+        try:
+            from asr_terms import apply_term_fix
+            text = apply_term_fix(text)
+        except Exception:  # noqa: BLE001
+            pass
         return {"ok": True, "text": text, "duration_sec": duration_sec, "mode": "fun-asr-nano", "chars": len(text)}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e)}

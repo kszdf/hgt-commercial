@@ -30,15 +30,9 @@ FFPROBE = r"D:/ffmpeg/ffmpeg-8.1.2-full_build/bin/ffprobe.exe"
 WHISPER_MODEL = (r"D:\heygem_data\cache\modelscope\models"
                  r"\AI-ModelScope--faster-whisper-small\snapshots\master")
 
-# 财税高频误听纠正（whisper small 对行业词较弱，先兜底再交 LLM 润色）
-TERM_FIX = {
-    "同分红": "视同分红", "支纳金": "滞纳金", "进向税": "进项税",
-    "销向税": "销项税", "虚开法票": "虚开发票", "补购税": "补个税",
-    "私户收款": "私户收款", "公转思": "公转私", "视同销受": "视同销售",
-    # 2026-10-09 实测补充（whisper small 高频误听）
-    "至那金": "滞纳金", "滞那金": "滞纳金", "公司分明": "公私分明",
-    "货款达到": "货款打到", "公账私账": "公账私账",
-}
+# 财税高频误听纠正：全平台共用表已抽到 asr_terms.py（深度拆解/素材精剪/扒稿共用），
+# 新增误听只改 asr_terms.py 一处。此处保留导入，供本模块内部使用。
+from asr_terms import TERM_FIX, apply_term_fix  # noqa: F401
 
 
 def run(cmd):
@@ -144,9 +138,7 @@ def transcribe(video, out_dir):
 
     rows, lines = [], []
     for s in segments:
-        text = (s.text or "").strip()
-        for bad, good in TERM_FIX.items():
-            text = text.replace(bad, good)
+        text = apply_term_fix((s.text or "").strip())
         rows.append({"start": round(s.start, 2), "end": round(s.end, 2), "text": text})
         lines.append(f"{s.start:6.2f}-{s.end:6.2f}  {text}")
 
