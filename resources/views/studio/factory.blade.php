@@ -11,6 +11,9 @@
       padding:10px 12px; border-radius:10px; font-size:14px; font-weight:600; color:#fff;
       background:#1e293b; cursor:pointer; transition:background .15s; margin-top:6px; }
     .fc-cat2:hover { background:#334155; }
+    /* 流水线步骤序号：圆徽章，强化"这是第几步" */
+    .fc-step { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; flex:none;
+      border-radius:9999px; background:#4f46e5; color:#fff; font-size:11px; font-weight:700; }
     .fc-cat2 .chev { margin-left:auto; font-size:11px; color:#94a3b8; transition:transform .15s; }
     .fc-cat2.open .chev { transform:rotate(90deg); }
     /* 二级功能：缩进、提亮到 #e2e8f0，对比拉满 */
@@ -75,12 +78,12 @@
       {{-- 总览面板（默认） --}}
       <section id="fc-panel-overview" style="flex:1; min-height:0; overflow-y:auto; padding:22px 24px;">
         <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed); border-radius:18px; padding:26px 28px; color:#fff;">
-          <h2 style="margin:0; font-size:22px; font-weight:800;">今天想创作点什么？</h2>
-          <p style="margin:8px 0 0; font-size:14px; color:rgba(255,255,255,.85);">左侧点开一个模块，就能干对应的事。每个功能都是即插即用的「插件」，菜单会自动跟着能力增减。</p>
+          <h2 style="margin:0; font-size:22px; font-weight:800;">从选题到成片，一条流水线走到底</h2>
+          <p style="margin:8px 0 0; font-size:14px; color:rgba(255,255,255,.85);">左侧 7 步就是一条完整创作流水线：找选题 → 拆爆款 → 写文稿 → 出成片 → 过质检 → 发分发。点开任一步就能开工，每一步做完都会提示下一步。</p>
           <div id="fcStats" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:16px;"></div>
         </div>
 
-        <h3 style="margin:26px 0 12px; font-size:16px; font-weight:700; color:#334155;">全部能力</h3>
+        <h3 style="margin:26px 0 12px; font-size:16px; font-weight:700; color:#334155;">全部能力（按流水线排列）</h3>
         <div id="fcAllCards" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px;">
           <div style="padding:32px; text-align:center; font-size:14px; color:#94a3b8;">正在加载创作能力…</div>
         </div>
@@ -96,14 +99,35 @@
 
   <script>
   (function () {
-    // —— 商业文案映射（仅展示层，不改后端能力 id / 不碰 LLM 提示词）——
-    var CAT_LABELS = {
-      '选题': '选题策划', '写稿': '智能写稿', '出片': '视频生成',
-      '质检': '合规质检', '发布': '发布运营', '审核': '人工审核', '素材': '素材中心'
-    };
-    var CAT_ICONS = {
-      '选题': '🎯', '写稿': '✍️', '出片': '🎬', '质检': '🔍', '发布': '🚀', '审核': '✅', '素材': '🎨'
-    };
+    // —— 展示层组织：把能力排成「7 步创作流水线」——
+    // 仅前端分组，不改后端能力 id / 不碰 LLM 提示词；新增能力若未登记，会自动落到末尾「其他能力」。
+    var WORKFLOW = [
+      { key:'find',    step:'1', name:'找选题', icon:'🎯', caps:['hotspot','topic','strategist'] },
+      { key:'dissect', step:'2', name:'拆爆款', icon:'🔍', caps:['dissect'] },
+      { key:'write',   step:'3', name:'写文稿', icon:'✍️', caps:['rewrite'] },
+      { key:'render',  step:'4', name:'出成片', icon:'🎬', caps:['video_render'] },
+      { key:'qc',      step:'5', name:'过质检', icon:'🛡️', caps:['qc','qc_video','review'] },
+      { key:'publish', step:'6', name:'发分发', icon:'🚀', caps:['publish_pack','xhs'] },
+      { key:'asset',   step:'7', name:'资产中心', icon:'🎨', caps:['footage_edit','clone_voice'] },
+    ];
+
+    // 把接口返回的能力清单，按流水线顺序切成若干块（含兜底块）
+    function buildBlocks(caps) {
+      var used = {}, blocks = [];
+      WORKFLOW.forEach(function (w) {
+        var members = w.caps.filter(function (id) { return caps[id]; });
+        if (! members.length) return;
+        members.forEach(function (id) { used[id] = 1; });
+        blocks.push({ key: w.key, step: w.step, name: w.name, icon: w.icon,
+          items: members.map(function (id) { return [id, caps[id]]; }) });
+      });
+      var leftovers = Object.keys(caps).filter(function (id) { return ! used[id]; });
+      if (leftovers.length) {
+        blocks.push({ key: 'other', step: '', name: '其他能力', icon: '📦',
+          items: leftovers.map(function (id) { return [id, caps[id]]; }) });
+      }
+      return blocks;
+    }
     var CAP_LABELS = {
       'topic': '爆款选题挖掘', 'strategist': '获客潜力评估', 'hotspot': '实时热点追踪',
       'dissect': '爆款结构拆解', 'rewrite': '口播稿二创', 'video_render': '一键成片',
@@ -210,25 +234,19 @@
       loadTool(item.getAttribute('data-page'), item);
     });
 
-    // —— 左侧菜单：能力项按 cat 生成一级模块（折叠式）——
+    // —— 左侧菜单：按「7 步流水线」生成一级模块（折叠式），每步带序号 ——
     function renderMenu(caps) {
-      var order = [], groups = {};
-      Object.keys(caps).forEach(function (id) {
-        var cat = caps[id].cat || '其他';
-        if (! groups[cat]) { groups[cat] = []; order.push(cat); }
-        groups[cat].push([id, caps[id]]);
-      });
-      catCount = order.length;
+      var blocks = buildBlocks(caps);
+      catCount = blocks.length;
       var html = '';
-      order.forEach(function (cat, idx) {
-        var label = CAT_LABELS[cat] || cat;
-        var icon = CAT_ICONS[cat] || '📁';
-        html += '<div class="fc-cat2' + (idx === 0 ? ' open' : '') + '" data-cat="' + esc(cat) + '">'
-              + '<span style="font-size:15px;">' + icon + '</span>'
-              + '<span style="flex:1;">' + esc(label) + '</span>'
+      blocks.forEach(function (b, idx) {
+        html += '<div class="fc-cat2' + (idx === 0 ? ' open' : '') + '" data-cat="' + esc(b.key) + '">'
+              + (b.step ? '<span class="fc-step">' + esc(b.step) + '</span>' : '')
+              + '<span style="font-size:15px;">' + esc(b.icon) + '</span>'
+              + '<span style="flex:1;">' + esc(b.name) + '</span>'
               + '<span class="chev">▸</span></div>';
-        html += '<div class="fc-children" data-children="' + esc(cat) + '"' + (idx === 0 ? '' : ' style="display:none;"') + '>';
-        groups[cat].forEach(function (pair) {
+        html += '<div class="fc-children" data-children="' + esc(b.key) + '"' + (idx === 0 ? '' : ' style="display:none;"') + '>';
+        b.items.forEach(function (pair) {
           var id = pair[0], c = pair[1];
           var page = c.page || c.link || '';
           var label2 = CAP_LABELS[id] || c.name || id;
@@ -258,22 +276,28 @@
     }
 
     function renderAllCards(caps) {
+      var blocks = buildBlocks(caps);
       var html = '';
-      Object.keys(caps).forEach(function (id) {
-        var c = caps[id];
-        var page = c.page || c.link || '';
-        var label = CAP_LABELS[id] || c.name || id;
-        var desc = CAP_DESC[id] || c.desc || '';
-        var badge = (id === 'review' && pendingReviewCount) ? badgeHtml(pendingReviewCount) : '';
-        if (page) {
-          html += '<a class="fc-card" href="javascript:void(0)" data-page="' + esc(page) + '">'
-            + '<div style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:#334155;"><span style="font-size:20px;">' + esc(c.icon || '▶️') + '</span><span>' + esc(label) + '</span>' + badge + '</div>'
-            + '<p style="margin:8px 0 0;font-size:13px;line-height:1.5;color:#64748b;">' + esc(desc) + '</p>'
-            + '</a>';
-        } else {
-          html += '<div class="fc-card" style="opacity:.55;"><div style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:#334155;"><span style="font-size:20px;">' + esc(c.icon || '▶️') + '</span><span>' + esc(label) + '</span></div>'
-            + '<p style="margin:8px 0 0;font-size:13px;color:#94a3b8;">' + esc(desc) + '</p><p style="margin:6px 0 0;font-size:12px;color:#cbd5e1;">即将上线</p></div>';
-        }
+      blocks.forEach(function (b) {
+        html += '<div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;margin:8px 0 2px;font-size:14px;font-weight:600;color:#334155;">'
+              + (b.step ? '<span class="fc-step">' + esc(b.step) + '</span>' : '')
+              + '<span style="font-size:17px;">' + esc(b.icon) + '</span><span>' + esc(b.name) + '</span></div>';
+        b.items.forEach(function (pair) {
+          var id = pair[0], c = pair[1];
+          var page = c.page || c.link || '';
+          var label = CAP_LABELS[id] || c.name || id;
+          var desc = CAP_DESC[id] || c.desc || '';
+          var badge = (id === 'review' && pendingReviewCount) ? badgeHtml(pendingReviewCount) : '';
+          if (page) {
+            html += '<a class="fc-card" href="javascript:void(0)" data-page="' + esc(page) + '">'
+              + '<div style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:#334155;"><span style="font-size:20px;">' + esc(c.icon || '▶️') + '</span><span>' + esc(label) + '</span>' + badge + '</div>'
+              + '<p style="margin:8px 0 0;font-size:13px;line-height:1.5;color:#64748b;">' + esc(desc) + '</p>'
+              + '</a>';
+          } else {
+            html += '<div class="fc-card" style="opacity:.55;"><div style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:#334155;"><span style="font-size:20px;">' + esc(c.icon || '▶️') + '</span><span>' + esc(label) + '</span></div>'
+              + '<p style="margin:8px 0 0;font-size:13px;color:#94a3b8;">' + esc(desc) + '</p><p style="margin:6px 0 0;font-size:12px;color:#cbd5e1;">即将上线</p></div>';
+          }
+        });
       });
       allCards.innerHTML = html;
     }

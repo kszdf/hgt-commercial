@@ -21,7 +21,7 @@
                 <!-- 输入方式 Tab -->
                 <div class="mb-4 flex gap-2" id="inputTabs">
                     <button type="button" data-mode="paste" class="dissect-tab dissect-tab-active">粘贴文案</button>
-                    <button type="button" data-mode="upload" class="dissect-tab">上传视频</button>
+                    <button type="button" data-mode="upload" class="dissect-tab">上传视频/图文</button>
                     <button type="button" data-mode="link" class="dissect-tab">粘贴链接</button>
                 </div>
 
@@ -32,12 +32,12 @@
                         class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100"></textarea>
                 </div>
 
-                <!-- 上传视频 -->
+                <!-- 上传视频 / 图片 / 文档 -->
                 <div id="panel-upload" class="hidden">
-                    <label class="mb-1 block text-sm font-medium text-slate-700">上传爆款视频文件</label>
-                    <input type="file" id="videoFile" accept="video/*"
+                    <label class="mb-1 block text-sm font-medium text-slate-700">上传爆款视频 / 图片 / 文档</label>
+                    <input type="file" id="videoFile" accept="video/*,.png,.jpg,.jpeg,.webp,.bmp,.txt,.md,.docx"
                         class="block w-full text-sm text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100" />
-                    <p class="mt-1 text-xs text-slate-400">系统自动转写音轨为文字再拆解。建议上传 1 分钟内的短视频，避免超时。</p>
+                    <p class="mt-1 text-xs text-slate-400">视频：自动转写音轨为文字再拆解（建议 1 分钟内）。图片 / 文档（≤10MB，png/jpg/webp/bmp/txt/md/docx）：直接读取其中的文字稿再拆解。</p>
                     <div class="mt-3">
                         <label class="mb-1 block text-sm font-medium text-slate-700">语言</label>
                         <select id="language" class="w-full rounded-lg studio-card studio-card-sm text-sm text-slate-700 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100">
@@ -174,14 +174,34 @@ async function startDissect() {
         if (!payload.text) { return fail('请先粘贴爆款逐字稿'); }
     } else if (mode === 'upload') {
         const f = document.getElementById('videoFile').files[0];
-        if (!f) { return fail('请先选择视频文件'); }
-        // 60MB 原始文件经 base64 膨胀约 33% → 线上约 80MB，仍在后端 post_max_size 96M 之内。
-        // 上限不能再放宽，否则 base64 后会顶破 96M 接收上限。
-        if (f.size > 60 * 1024 * 1024) { return fail('视频过大：上限 60MB（base64 编码后需在 96MB 接收上限内），请先压缩或裁剪'); }
-        try {
-            payload.video_b64 = await fileToBase64(f);
-            payload.language = document.getElementById('language').value;
-        } catch (e) { return fail('视频读取失败：' + e.message); }
+        if (!f) { return fail('请先选择视频或图片/文档'); }
+        const isVideo = /^video\//.test(f.type) || /\.(mp4|mov|m4v|avi|mkv|webm)$/i.test(f.name);
+        if (isVideo) {
+            // 60MB 原始文件经 base64 膨胀约 33% → 线上约 80MB，仍在后端 post_max_size 96M 之内。
+            // 上限不能再放宽，否则 base64 后会顶破 96M 接收上限。
+            if (f.size > 60 * 1024 * 1024) { return fail('视频过大：上限 60MB（base64 编码后需在 96MB 接收上限内），请先压缩或裁剪'); }
+            try {
+                payload.video_b64 = await fileToBase64(f);
+                payload.language = document.getElementById('language').value;
+            } catch (e) { return fail('视频读取失败：' + e.message); }
+        } else {
+            // 图片 / 文档：先经文件解析（file_extract）取出文字，再按「粘贴文案」走拆解
+            if (f.size > 10 * 1024 * 1024) { return fail('文件过大：图片/文档上限 10MB'); }
+            let extracted = '';
+            try {
+                const fd = new FormData();
+                fd.append('file', f);
+                const resp = await fetch('/studio/chat/upload', {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' },
+                    body: fd,
+                });
+                const j = await resp.json();
+                extracted = (j && (j.text || (j.data && j.data.text))) || '';
+                if (!extracted) { return fail('未能从该文件提取到文字' + ((j && j.error) ? '：' + j.error : '，请改用粘贴文案')); }
+            } catch (e) { return fail('文件解析失败：' + e.message); }
+            payload = { input_mode: 'paste', platform: payload.platform, industry: payload.industry, title: payload.title, text: extracted };
+        }
     } else {
         const url = document.getElementById('videoUrl').value.trim();
         if (!url) { return fail('请先粘贴视频链接（二期开放）'); }

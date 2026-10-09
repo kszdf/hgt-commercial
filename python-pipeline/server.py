@@ -1538,14 +1538,92 @@ def ai_rewrite(text, mode, focus=None, target_duration=None, preserve=None,
     }
 
 
-def ai_qc(text, platform=None):
-    """智能质检：违禁词扫描 + 时长预估 + 风险等级。返回 dict。"""
+# ---- 质检·LLM 增强（爆款概率预测 + 受众反应模拟）----
+# 2026-10-09 新增：原 ai_qc 只有规则扫描（违禁词/时长/风险等级）；现叠加一路 LLM 判断：
+#   ① 爆款概率预测（多维度打分 + 依据）；② 目标受众反应模拟（心理反应 + 评论区留言 + 划走风险）。
+# 设计原则：软失败——LLM 不可用时规则结果照常返回，绝不因它拖垮质检主流程。
+QC_REVIEW_PROMPT = (
+    "你是短视频内容策略顾问，服务对象是面向中小企业老板的财税/商业内容创作者。\n"
+    "请对下面这条口播稿做「发布前预测」：只做概率性判断并说明依据，"
+    "严禁承诺必爆、严禁承诺任何收益或涨粉数字。\n\n"
+    "输出严格 JSON（不要代码块标记、不要任何解释文字），结构如下：\n"
+    "{\n"
+    '  "virality": {\n'
+    '    "score": 0,\n'
+    '    "level": "",\n'
+    '    "dimensions": [\n'
+    '      {"name": "开头钩子", "score": 0, "note": ""},\n'
+    '      {"name": "选题共鸣", "score": 0, "note": ""},\n'
+    '      {"name": "信息价值", "score": 0, "note": ""},\n'
+    '      {"name": "情绪节奏", "score": 0, "note": ""},\n'
+    '      {"name": "结尾引导", "score": 0, "note": ""}\n'
+    "    ],\n"
+    '    "reason": ""\n'
+    "  },\n"
+    '  "audience": {\n'
+    '    "segment": "",\n'
+    '    "reactions": ["", "", ""],\n'
+    '    "likely_comments": ["", "", ""],\n'
+    '    "dropout_risk": ""\n'
+    "  }\n"
+    "}\n\n"
+    "字段说明：score=爆款潜力总分 0-100；level 取 高/中/低；dimensions 每项给 0-100 与一句依据；\n"
+    "reason 三句以内说清为何给这个分；segment=最可能打中的人群；\n"
+    "reactions=模拟真实观看时的 3 条第一人称心理反应；likely_comments=最可能出现的 3 条评论；\n"
+    "dropout_risk=最可能在哪一点划走、为什么。\n\n"
+    "打分要克制、有依据：钩子平铺直叙不给高分；税率/金额不具体就扣信息价值分；\n"
+    "受众反应与评论要贴合目标人群（企业老板/财务会计）的真实口吻，不要客套话。\n"
+)
+
+
+def _qc_llm_review(text, platform=None, audience=None):
+    """质检的 LLM 增强：爆款概率预测 + 受众反应模拟。任何失败都返回 {} 或其错误标记（软失败）。"""
+    text = (text or "").strip()
+    if not text:
+        return {}
+    try:
+        cfg = get_text_config()
+        if not cfg.get("key"):
+            return {}
+        prompt = QC_REVIEW_PROMPT
+        if platform:
+            prompt += f"\n发布平台：{platform}。\n"
+        if audience:
+            prompt += f"目标受众：{audience}。\n"
+        prompt += f"\n【待评估口播稿】\n{text}\n\n请按上述 JSON 结构输出。"
+        raw = deepseek_chat(prompt, cfg["model"], cfg["key"], cfg.get("base_url"), timeout=90)
+        if isinstance(raw, dict):
+            raw = raw.get("content") or json.dumps(raw, ensure_ascii=False)
+        content = (raw or "").strip()
+        if content.startswith("```"):
+            content = content.strip("`")
+            if content[:4].lower() == "json":
+                content = content[4:]
+            content = content.strip()
+        obj = json.loads(content)
+        out = {}
+        v = obj.get("virality")
+        if isinstance(v, dict):
+            out["virality"] = v
+        a = obj.get("audience")
+        if isinstance(a, dict):
+            out["audience"] = a
+        return out
+    except Exception as e:  # noqa: BLE001 —— 预测失败不拖垮质检主流程
+        return {"virality_error": str(e)[:160]}
+
+
+def ai_qc(text, platform=None, audience=None):
+    """智能质检：违禁词扫描 + 时长预估 + 风险等级 + （LLM）爆款概率/受众反应。
+
+    规则部分（违禁词/风险等级）永远可用；LLM 部分为增强项，失败不影响规则结果。
+    """
     hits = forbidden_words.scan(text, platform)
     chars = len(text)
     est_sec = max(1, round(chars / 2.4))  # 中文约 2.4 字/秒 ≈ 145 字/分钟（含停顿）
     high = [h for h in hits if h.get("level") == "high"]
     risk = "high" if high else ("medium" if hits else "low")
-    return {
+    result = {
         "ok": True,
         "hits": hits,
         "chars": chars,
@@ -1553,6 +1631,9 @@ def ai_qc(text, platform=None):
         "risk_level": risk,
         "suggestions": [h.get("suggest", "") for h in hits if h.get("suggest")],
     }
+    # LLM 增强：爆款概率预测 + 受众反应模拟（软失败，取不到就只返回规则结果）
+    result.update(_qc_llm_review(text, platform, audience))
+    return result
 
 
 # ==================== 公众号长文（内置搜一搜 SEO 优化） ====================
@@ -6035,7 +6116,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if not text:
             return self._send(400, {"error": "text required"})
         try:
-            return self._send(200, ai_qc(text, data.get("platform")))
+            return self._send(200, ai_qc(text, data.get("platform"), data.get("audience")))
         except Exception as e:  # noqa: BLE001
             return self._send(200, {"ok": False, "error": str(e)})
 

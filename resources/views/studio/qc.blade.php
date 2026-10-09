@@ -259,6 +259,51 @@ document.getElementById('qcForm').addEventListener('submit', async function (e) 
             html += '<div class="rounded-lg bg-green-50 p-2.5 text-xs text-green-700">未发现违禁词风险（仍建议人工通读）</div>';
         }
         html += '</div>';
+
+        // —— 新增：爆款潜力预测 + 受众反应模拟（LLM 增强，可能为空；绝不承诺爆款）——
+        const v = data.virality || null;
+        const au = data.audience || null;
+        if (v) {
+            const vColor = (v.level === '高') ? 'bg-green-100 text-green-700' : (v.level === '中' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600');
+            html += '<div class="mt-3 rounded-xl border border-indigo-200 bg-indigo-50 p-3 space-y-2">';
+            html += '<div class="flex flex-wrap items-center gap-2 text-xs"><span class="font-semibold text-indigo-700">爆款潜力预测</span>';
+            html += '<span class="rounded-full ' + vColor + ' px-2.5 py-1 font-medium">' + escapeHtml(v.level || '-') + '</span>';
+            html += '<span class="rounded-full bg-white px-2.5 py-1 text-indigo-600">' + (v.score != null ? v.score : '-') + ' / 100</span>';
+            html += '<span class="text-indigo-400">预测，非承诺</span></div>';
+            if (Array.isArray(v.dimensions) && v.dimensions.length) {
+                html += '<div class="grid grid-cols-1 gap-1.5 sm:grid-cols-2">';
+                v.dimensions.forEach(d => {
+                    html += '<div class="rounded-lg bg-white p-2 text-xs"><div class="flex items-center justify-between"><span class="text-slate-600">' + escapeHtml(d.name || '') + '</span><span class="font-medium text-indigo-600">' + (d.score != null ? d.score : '-') + '</span></div>';
+                    html += '<div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100"><div style="width:' + Math.max(0, Math.min(100, Number(d.score) || 0)) + '%;height:100%;background:#6366f1;"></div></div>';
+                    if (d.note) html += '<div class="mt-1 text-slate-400">' + escapeHtml(d.note) + '</div>';
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+            if (v.reason) html += '<div class="text-xs text-indigo-700/80">' + escapeHtml(v.reason) + '</div>';
+            html += '</div>';
+        }
+        if (au) {
+            html += '<div class="mt-3 rounded-xl border border-slate-200 bg-white p-3 space-y-2">';
+            html += '<div class="text-xs font-semibold text-slate-700">受众反应模拟<span class="ml-1 font-normal text-slate-400">（AI 推演，仅供参考）</span></div>';
+            if (au.segment) html += '<div class="text-xs text-slate-500">目标人群：' + escapeHtml(au.segment) + '</div>';
+            if (Array.isArray(au.reactions) && au.reactions.length) {
+                html += '<div class="space-y-1">';
+                au.reactions.forEach(r => { html += '<div class="rounded-lg bg-slate-50 p-2 text-xs text-slate-600">· ' + escapeHtml(r) + '</div>'; });
+                html += '</div>';
+            }
+            if (Array.isArray(au.likely_comments) && au.likely_comments.length) {
+                html += '<div class="text-xs text-slate-500">可能出现的评论：</div><div class="flex flex-wrap gap-1.5">';
+                au.likely_comments.forEach(c => { html += '<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">' + escapeHtml(c) + '</span>'; });
+                html += '</div>';
+            }
+            if (au.dropout_risk) html += '<div class="rounded-lg bg-amber-50 p-2 text-xs text-amber-700">划走风险：' + escapeHtml(au.dropout_risk) + '</div>';
+            html += '</div>';
+        }
+        if (data.virality_error) {
+            html += '<div class="mt-3 rounded-lg bg-slate-50 p-2 text-xs text-slate-400">爆款预测暂不可用：' + escapeHtml(String(data.virality_error).slice(0, 80)) + '</div>';
+        }
+
         result.innerHTML = html;
 
         // 更新发布门禁（合规一关）

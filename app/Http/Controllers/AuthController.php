@@ -31,7 +31,7 @@ class AuthController extends Controller
 
         if (Auth::attempt([$field => $login, 'password' => $request->password], $request->boolean('remember'))) {
             $request->session()->regenerate();
-            return redirect()->intended('/studio/chat');
+            return redirect()->intended('/studio/factory');
         }
 
         return back()->withErrors([
@@ -119,7 +119,8 @@ class AuthController extends Controller
             report($e);
         }
 
-        return redirect('/studio/chat');
+        // 新注册租户直接进「菜单式工厂」，第一眼看到的是产品界面而非聊天框
+        return redirect('/studio/factory');
     }
 
     public function logout(Request $request)

@@ -25,7 +25,9 @@ use App\Http\Controllers\QueueController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return auth()->check() ? redirect('/studio/chat') : redirect('/login');
+    // 2026-10-09：商用化门面改为「菜单式工厂」，不再是对话式聊天框。
+    // 对话模式保留为工厂菜单内的入口（/studio/chat），随时可切。
+    return auth()->check() ? redirect('/studio/factory') : redirect('/login');
 });
 
 // 公开法律页（无需登录）
@@ -54,8 +56,9 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', function () {
-        // 旧首页已由"对话工作台"取代：保活 URL，302 到对话主界面（dashboard.blade.php 保留作兜底）
-        return redirect('/studio/chat');
+        // 旧首页已被「智能创作工厂」菜单取代：保活 URL，302 到菜单式工厂主界面
+        // （2026-10-09 起平台默认门面 = 菜单式工厂；对话模式保留为菜单内入口）
+        return redirect('/studio/factory');
     })->name('dashboard');
     Route::post('/logout', [AuthController::class, 'logout']);
 
