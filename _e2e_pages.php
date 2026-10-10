@@ -13,6 +13,7 @@ if (!$u) {
 
 $targets = [
     ['/studio/factory',  \App\Http\Controllers\StudioController::class, 'factory'],
+    ['/studio/rewrite',  \App\Http\Controllers\StudioController::class, 'rewrite'],
     ['/studio/scroll',   \App\Http\Controllers\VideoController::class, 'showScroll'],
     ['/studio/videos',   \App\Http\Controllers\VideoController::class, 'library'],
     ['/studio/queue',    \App\Http\Controllers\QueueController::class, 'index'],

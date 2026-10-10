@@ -298,9 +298,12 @@ function showSourceBanner(type, count, sourceUrl) {
     if (type === 'topic') {
         title.textContent = '基于单条选题二创';
         desc.innerHTML = '已从「智能选题」带入 1 条选题，可直接改写';
-    } else if (type === 'hotspot') {
-        title.textContent = '来自全网财税热点';
-        let d = '已从「全网财税热点」带入 1 条热点选题与创作角度，可直接改写';
+    } else if (type === 'hotspot' || type === 'daily-hot') {
+        const isDaily = type === 'daily-hot';
+        title.textContent = isDaily ? '来自每日热点' : '来自全网财税热点';
+        let d = isDaily
+            ? '已从「每日热点」带入选题、创作角度与爆款方案，可直接改写'
+            : '已从「全网财税热点」带入 1 条热点选题与创作角度，可直接改写';
         if (sourceUrl) d += ' · <a href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noopener" class="text-brand-600 underline">查看原文 ↗</a>';
         desc.innerHTML = d;
     } else if (type === 'dissect') {
@@ -414,8 +417,9 @@ function getFormLabel(form) {
         return;
     }
 
-    // 1c. 热点选题跳转（从「全网财税热点」卡片"去二创"过来）
-    if (fromTopic === 'hotspot') {
+    // 1c. 热点选题跳转（从「全网财税热点」卡片"去二创"，或「每日热点」卡片"用此选题"过来）
+    // 2026-10-10 修复：daily-hot 此前没有对应分支，跳转后什么都没填、必须手动粘贴原稿
+    if (fromTopic === 'hotspot' || fromTopic === 'daily-hot') {
         const title = sessionStorage.getItem('hgt_topic_title') || '';
         const summary = sessionStorage.getItem('hgt_topic_summary') || '';
         const angle = sessionStorage.getItem('hgt_topic_angle') || '';
@@ -424,7 +428,7 @@ function getFormLabel(form) {
         const sourceUrl = sessionStorage.getItem('hgt_topic_source_url') || '';
         if (title || angle) {
             setTextFromTopic(title, hook, mapTopicFormToMode(form), angle || summary);
-            showSourceBanner('hotspot', 1, sourceUrl);
+            showSourceBanner(fromTopic, 1, sourceUrl);
             sessionStorage.removeItem('hgt_topic_title');
             sessionStorage.removeItem('hgt_topic_summary');
             sessionStorage.removeItem('hgt_topic_angle');
