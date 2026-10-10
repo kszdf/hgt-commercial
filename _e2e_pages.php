@@ -27,6 +27,14 @@ $targets = [
     ['/studio/review',   \App\Http\Controllers\ReviewController::class, 'index'],
     ['/studio/publish',  \App\Http\Controllers\PublishController::class, 'index'],
     ['/studio/accounts', \App\Http\Controllers\AccountController::class, 'index'],
+    ['/studio/metrics',  \App\Http\Controllers\MetricsController::class, 'index'],
+    ['/studio/schedule', \App\Http\Controllers\ScheduleController::class, 'index'],
+    ['/studio/reception',\App\Http\Controllers\ReceptionController::class, 'index'],
+    ['/studio/crm',      \App\Http\Controllers\CrmController::class, 'index'],
+    ['/studio/booking',  \App\Http\Controllers\BookingController::class, 'index'],
+    ['/studio/xhs',      \App\Http\Controllers\XhsController::class, 'index'],
+    ['/studio/help',     null, 'studio.help'],
+    ['/studio/chat',     \App\Http\Controllers\StudioController::class, 'chat'],
 ];
 
 $pass = 0;
@@ -39,8 +47,12 @@ foreach ($targets as [$url, $cls, $method]) {
         $req->setUserResolver(function () use ($u) { return $u; });
         app()->instance('request', $req);
         app('auth')->guard('web')->setUser($u);
-        $ctrl = app($cls);
-        $resp = app()->call([$ctrl, $method]);
+        if ($cls === null) {
+            $resp = view($method);
+        } else {
+            $ctrl = app($cls);
+            $resp = app()->call([$ctrl, $method]);
+        }
         $code = $resp instanceof \Illuminate\Http\Response ? $resp->getStatusCode() : 'view';
         $html = (string) ($resp instanceof \Illuminate\Http\Response ? $resp->getContent() : $resp->render());
         $ok = ($code === 200 || $code === 'view') && strlen($html) > 200;

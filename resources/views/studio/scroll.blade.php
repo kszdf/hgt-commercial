@@ -462,13 +462,10 @@ function setBtnLoading(isLoading, text) {
     if (params.get('from') === 'rewrite' || src === 'topic' || src === 'original') {
         cleaned = sessionStorage.getItem('hgt_rewrite_cleaned') || '';
     }
-    if (!cleaned && src === 'matrix') {
-        cleaned = sessionStorage.getItem('hgt_matrix_cleaned') || '';
-    }
     if (!cleaned && src === 'dissect') {
         cleaned = sessionStorage.getItem('hgt_dissect_text') || '';
     }
-    const mode = params.get('mode') || sessionStorage.getItem('hgt_rewrite_mode') || sessionStorage.getItem('hgt_matrix_mode') || '';
+    const mode = params.get('mode') || sessionStorage.getItem('hgt_rewrite_mode') || '';
 
     if (cleaned) {
         const ta = document.getElementById('dialogue');
