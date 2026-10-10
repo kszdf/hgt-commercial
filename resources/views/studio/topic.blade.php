@@ -835,7 +835,7 @@ document.getElementById('hsBatchRewrite')?.addEventListener('click', function ()
             .then(function (resp) { return resp.json().catch(function () { return {}; }); })
             .then(function (data) {
                 if (data && data.running) {
-                    box.innerHTML = '<div class="rounded-lg border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-700">⏳ 正在抓取热榜并生成爆款方案，请稍候…</div>';
+                    box.innerHTML = '<div class="rounded-lg border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-700">⏳ 正在抓取热榜并生成爆款方案，全程约 1 分钟，请稍候…</div>';
                     timer = setTimeout(poll, 3000);
                 } else {
                     setBusy(false);
